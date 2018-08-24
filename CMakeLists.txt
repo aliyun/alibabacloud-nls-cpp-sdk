@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 2.6)
+
+if(APPLE)
+    message("This operation platform is APPLE")
+    set(CMAKE_MACOSX_RPATH 1)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_ ")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_ -DHAVE_USLEEP ")
+elseif(UNIX)
+    message("This operation platform is UNIX")
+    set(CMAKE_MACOSX_RPATH 0)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -D_UNIX_COMPILE_ -D_GNU_")
+    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+endif()
+set(HEADER_DIR ${CMAKE_SOURCE_DIR})
+
+add_subdirectory(nlsCppSdk)
+
+if(UNIX)
+    add_subdirectory(demo)
+endif()

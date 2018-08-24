@@ -1,0 +1,419 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="x64|Win32">
+      <Configuration>x64</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="x64|x64">
+      <Configuration>x64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{814B8B07-63ED-4EDE-A3D6-D65F65216C45}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>nlsCppSdk</RootNamespace>
+    <ProjectName>nlsCppSdk</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120_xp</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='x64|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='x64|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='x64|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='x64|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(PlatformTarget)\$(Configuration\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(PlatformTarget)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='x64|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)$(PlatformTarget)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='x64|x64'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(PlatformTarget)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)$(PlatformTarget)\$(Configuration)\</OutDir>
+    <IntDir>$(PlatformTarget)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;LOG_ON;_JNA_COMPILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;pthreadVCE2.lib;pthreadVSE2.lib;ole32.lib;ole32.lib</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;_JNA_COMPILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <BrowseInformation>true</BrowseInformation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;;ole32.lib</AdditionalDependencies>
+    </Link>
+    <Bscmake>
+      <PreserveSbr>true</PreserveSbr>
+    </Bscmake>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='x64|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINDOWS_COMPILE_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)\include\;%(AdditionalIncludeDirectories);$(SolutionDir)\nlscppsdk\thirdparty</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)lib\$(PlatformTarget)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>json_cpp.lib;opus.lib;celt.lib;silk_common.lib;silk_fixed.lib;silk_float.lib;Hashlib.lib;realTimeUtility.lib;%(AdditionalDependencies);ole32.lib</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='x64|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINDOWS_COMPILE_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)\include\;%(AdditionalIncludeDirectories);$(SolutionDir)\nlscppsdk\thirdparty</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)lib\$(PlatformTarget)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>json_cpp.lib;opus.lib;celt.lib;silk_common.lib;silk_fixed.lib;silk_float.lib;Hashlib.lib;realTimeUtility.lib;%(AdditionalDependencies);ole32.lib</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries>
+      </IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;;ole32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="framework\feature\iNlsRequestParam.cpp" />
+    <ClCompile Include="framework\feature\nlsRequestParamInfo.cpp" />
+    <ClCompile Include="framework\feature\nlsSessionBase.cpp" />
+    <ClCompile Include="framework\feature\sr\speechRecognizerListener.cpp" />
+    <ClCompile Include="framework\feature\sr\speechRecognizerParam.cpp" />
+    <ClCompile Include="framework\feature\sr\speechRecognizerRequest.cpp" />
+    <ClCompile Include="framework\feature\sr\speechRecognizerSession.cpp" />
+    <ClCompile Include="framework\feature\st\speechTranscriberListener.cpp" />
+    <ClCompile Include="framework\feature\st\speechTranscriberParam.cpp" />
+    <ClCompile Include="framework\feature\st\speechTranscriberRequest.cpp" />
+    <ClCompile Include="framework\feature\st\speechTranscriberSession.cpp" />
+    <ClCompile Include="framework\feature\sy\speechSynthesizerListener.cpp" />
+    <ClCompile Include="framework\feature\sy\speechSynthesizerParam.cpp" />
+    <ClCompile Include="framework\feature\sy\speechSynthesizerRequest.cpp" />
+    <ClCompile Include="framework\feature\sy\speechSynthesizerSession.cpp" />
+    <ClCompile Include="framework\iWebSocketFrameResultConverter.cpp" />
+    <ClCompile Include="framework\nlsClient.cpp" />
+    <ClCompile Include="framework\nlsEvent.cpp" />
+    <ClCompile Include="thirdparty\jsoncpp\json_reader.cpp" />
+    <ClCompile Include="thirdparty\jsoncpp\json_value.cpp" />
+    <ClCompile Include="thirdparty\jsoncpp\json_writer.cpp" />
+    <ClCompile Include="thirdparty\openssl\applink.c" />
+    <ClCompile Include="transport\engine\asyncBase.cpp" />
+    <ClCompile Include="transport\engine\thread.cpp" />
+    <ClCompile Include="transport\engine\webSocketAgent.cpp" />
+    <ClCompile Include="transport\socket.cpp" />
+    <ClCompile Include="transport\webSocketTcp.cpp" />
+    <ClCompile Include="util\dataStruct.cpp" />
+    <ClCompile Include="util\ensureUtility.cpp" />
+    <ClCompile Include="util\exception.cpp" />
+    <ClCompile Include="util\log.cpp" />
+    <ClCompile Include="util\wstr2str.cpp" />
+    <ClCompile Include="util\ztCodec.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="framework\feature\iNlsRequestParam.h" />
+    <ClInclude Include="framework\feature\nlsRequestParamInfo.h" />
+    <ClInclude Include="framework\feature\nlsSessionBase.h" />
+    <ClInclude Include="framework\feature\sr\speechRecognizerListener.h" />
+    <ClInclude Include="framework\feature\sr\speechRecognizerParam.h" />
+    <ClInclude Include="framework\feature\sr\speechRecognizerRequest.h" />
+    <ClInclude Include="framework\feature\sr\speechRecognizerSession.h" />
+    <ClInclude Include="framework\feature\st\speechTranscriberListener.h" />
+    <ClInclude Include="framework\feature\st\speechTranscriberParam.h" />
+    <ClInclude Include="framework\feature\st\speechTranscriberRequest.h" />
+    <ClInclude Include="framework\feature\st\speechTranscriberSession.h" />
+    <ClInclude Include="framework\feature\sy\speechSynthesizerListener.h" />
+    <ClInclude Include="framework\feature\sy\speechSynthesizerParam.h" />
+    <ClInclude Include="framework\feature\sy\speechSynthesizerRequest.h" />
+    <ClInclude Include="framework\feature\sy\speechSynthesizerSession.h" />
+    <ClInclude Include="framework\iWebSocketFrameResultConverter.h" />
+    <ClInclude Include="framework\nlsClient.h" />
+    <ClInclude Include="framework\nlsEvent.h" />
+    <ClInclude Include="framework\webSocketFrameHandleBase.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\assertions.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\autolink.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\config.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\features.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\forwards.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\json.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\reader.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\value.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\version.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json\writer.h" />
+    <ClInclude Include="thirdparty\jsoncpp\json_tool.h" />
+    <ClInclude Include="thirdparty\libopus\opus.h" />
+    <ClInclude Include="thirdparty\libopus\opus_custom.h" />
+    <ClInclude Include="thirdparty\libopus\opus_defines.h" />
+    <ClInclude Include="thirdparty\libopus\opus_multistream.h" />
+    <ClInclude Include="thirdparty\libopus\opus_types.h" />
+    <ClInclude Include="thirdparty\openssl\aes.h" />
+    <ClInclude Include="thirdparty\openssl\asn1.h" />
+    <ClInclude Include="thirdparty\openssl\asn1t.h" />
+    <ClInclude Include="thirdparty\openssl\asn1_mac.h" />
+    <ClInclude Include="thirdparty\openssl\bio.h" />
+    <ClInclude Include="thirdparty\openssl\blowfish.h" />
+    <ClInclude Include="thirdparty\openssl\bn.h" />
+    <ClInclude Include="thirdparty\openssl\buffer.h" />
+    <ClInclude Include="thirdparty\openssl\camellia.h" />
+    <ClInclude Include="thirdparty\openssl\cast.h" />
+    <ClInclude Include="thirdparty\openssl\cmac.h" />
+    <ClInclude Include="thirdparty\openssl\cms.h" />
+    <ClInclude Include="thirdparty\openssl\comp.h" />
+    <ClInclude Include="thirdparty\openssl\conf.h" />
+    <ClInclude Include="thirdparty\openssl\conf_api.h" />
+    <ClInclude Include="thirdparty\openssl\crypto.h" />
+    <ClInclude Include="thirdparty\openssl\des.h" />
+    <ClInclude Include="thirdparty\openssl\des_old.h" />
+    <ClInclude Include="thirdparty\openssl\dh.h" />
+    <ClInclude Include="thirdparty\openssl\dsa.h" />
+    <ClInclude Include="thirdparty\openssl\dso.h" />
+    <ClInclude Include="thirdparty\openssl\dtls1.h" />
+    <ClInclude Include="thirdparty\openssl\ebcdic.h" />
+    <ClInclude Include="thirdparty\openssl\ec.h" />
+    <ClInclude Include="thirdparty\openssl\ecdh.h" />
+    <ClInclude Include="thirdparty\openssl\ecdsa.h" />
+    <ClInclude Include="thirdparty\openssl\engine.h" />
+    <ClInclude Include="thirdparty\openssl\err.h" />
+    <ClInclude Include="thirdparty\openssl\evp.h" />
+    <ClInclude Include="thirdparty\openssl\e_os2.h" />
+    <ClInclude Include="thirdparty\openssl\hmac.h" />
+    <ClInclude Include="thirdparty\openssl\idea.h" />
+    <ClInclude Include="thirdparty\openssl\krb5_asn.h" />
+    <ClInclude Include="thirdparty\openssl\kssl.h" />
+    <ClInclude Include="thirdparty\openssl\lhash.h" />
+    <ClInclude Include="thirdparty\openssl\md2.h" />
+    <ClInclude Include="thirdparty\openssl\md4.h" />
+    <ClInclude Include="thirdparty\openssl\md5.h" />
+    <ClInclude Include="thirdparty\openssl\mdc2.h" />
+    <ClInclude Include="thirdparty\openssl\modes.h" />
+    <ClInclude Include="thirdparty\openssl\objects.h" />
+    <ClInclude Include="thirdparty\openssl\obj_mac.h" />
+    <ClInclude Include="thirdparty\openssl\ocsp.h" />
+    <ClInclude Include="thirdparty\openssl\opensslconf.h" />
+    <ClInclude Include="thirdparty\openssl\opensslv.h" />
+    <ClInclude Include="thirdparty\openssl\ossl_typ.h" />
+    <ClInclude Include="thirdparty\openssl\pem.h" />
+    <ClInclude Include="thirdparty\openssl\pem2.h" />
+    <ClInclude Include="thirdparty\openssl\pkcs12.h" />
+    <ClInclude Include="thirdparty\openssl\pkcs7.h" />
+    <ClInclude Include="thirdparty\openssl\pqueue.h" />
+    <ClInclude Include="thirdparty\openssl\pq_compat.h" />
+    <ClInclude Include="thirdparty\openssl\rand.h" />
+    <ClInclude Include="thirdparty\openssl\rc2.h" />
+    <ClInclude Include="thirdparty\openssl\rc4.h" />
+    <ClInclude Include="thirdparty\openssl\ripemd.h" />
+    <ClInclude Include="thirdparty\openssl\rsa.h" />
+    <ClInclude Include="thirdparty\openssl\safestack.h" />
+    <ClInclude Include="thirdparty\openssl\seed.h" />
+    <ClInclude Include="thirdparty\openssl\sha.h" />
+    <ClInclude Include="thirdparty\openssl\srp.h" />
+    <ClInclude Include="thirdparty\openssl\srtp.h" />
+    <ClInclude Include="thirdparty\openssl\ssl.h" />
+    <ClInclude Include="thirdparty\openssl\ssl2.h" />
+    <ClInclude Include="thirdparty\openssl\ssl23.h" />
+    <ClInclude Include="thirdparty\openssl\ssl3.h" />
+    <ClInclude Include="thirdparty\openssl\stack.h" />
+    <ClInclude Include="thirdparty\openssl\store.h" />
+    <ClInclude Include="thirdparty\openssl\symhacks.h" />
+    <ClInclude Include="thirdparty\openssl\tls1.h" />
+    <ClInclude Include="thirdparty\openssl\tmdiff.h" />
+    <ClInclude Include="thirdparty\openssl\ts.h" />
+    <ClInclude Include="thirdparty\openssl\txt_db.h" />
+    <ClInclude Include="thirdparty\openssl\ui.h" />
+    <ClInclude Include="thirdparty\openssl\ui_compat.h" />
+    <ClInclude Include="thirdparty\openssl\whrlpool.h" />
+    <ClInclude Include="thirdparty\openssl\x509.h" />
+    <ClInclude Include="thirdparty\openssl\x509v3.h" />
+    <ClInclude Include="thirdparty\openssl\x509_vfy.h" />
+    <ClInclude Include="thirdparty\pthread\pthread.h" />
+    <ClInclude Include="thirdparty\pthread\sched.h" />
+    <ClInclude Include="thirdparty\pthread\semaphore.h" />
+    <ClInclude Include="transport\engine\asyncBase.h" />
+    <ClInclude Include="transport\engine\thread.h" />
+    <ClInclude Include="transport\engine\webSocketAgent.h" />
+    <ClInclude Include="transport\socket.h" />
+    <ClInclude Include="transport\webSocketTcp.h" />
+    <ClInclude Include="util\dataStruct.h" />
+    <ClInclude Include="util\ensureUtility.h" />
+    <ClInclude Include="util\errorHandlingUtility.h" />
+    <ClInclude Include="util\exception.h" />
+    <ClInclude Include="util\log.h" />
+    <ClInclude Include="util\smartHandle.h" />
+    <ClInclude Include="util\targetOs.h" />
+    <ClInclude Include="util\wstr2str.h" />
+    <ClInclude Include="util\ztCodec.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="thirdparty\jsoncpp\json_valueiterator.inl" />
+    <None Include="thirdparty\jsoncpp\LICENSE" />
+    <None Include="thirdparty\jsoncpp\version.h.in" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
