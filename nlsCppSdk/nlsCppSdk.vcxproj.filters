@@ -76,9 +76,6 @@
     <ClCompile Include="framework\feature\sr\speechRecognizerRequest.cpp">
       <Filter>framework\feature\sr</Filter>
     </ClCompile>
-    <ClCompile Include="framework\feature\sr\speechRecognizerSession.cpp">
-      <Filter>framework\feature\sr</Filter>
-    </ClCompile>
     <ClCompile Include="framework\feature\st\speechTranscriberListener.cpp">
       <Filter>framework\feature\st</Filter>
     </ClCompile>
@@ -86,9 +83,6 @@
       <Filter>framework\feature\st</Filter>
     </ClCompile>
     <ClCompile Include="framework\feature\st\speechTranscriberRequest.cpp">
-      <Filter>framework\feature\st</Filter>
-    </ClCompile>
-    <ClCompile Include="framework\feature\st\speechTranscriberSession.cpp">
       <Filter>framework\feature\st</Filter>
     </ClCompile>
     <ClCompile Include="framework\feature\sy\speechSynthesizerListener.cpp">
@@ -99,18 +93,6 @@
     </ClCompile>
     <ClCompile Include="framework\feature\sy\speechSynthesizerRequest.cpp">
       <Filter>framework\feature\sy</Filter>
-    </ClCompile>
-    <ClCompile Include="framework\feature\sy\speechSynthesizerSession.cpp">
-      <Filter>framework\feature\sy</Filter>
-    </ClCompile>
-    <ClCompile Include="thirdparty\jsoncpp\json_reader.cpp">
-      <Filter>thirdparty\jsoncpp</Filter>
-    </ClCompile>
-    <ClCompile Include="thirdparty\jsoncpp\json_value.cpp">
-      <Filter>thirdparty\jsoncpp</Filter>
-    </ClCompile>
-    <ClCompile Include="thirdparty\jsoncpp\json_writer.cpp">
-      <Filter>thirdparty\jsoncpp</Filter>
     </ClCompile>
     <ClCompile Include="thirdparty\openssl\applink.c">
       <Filter>thirdparty\openssl</Filter>
@@ -145,8 +127,17 @@
     <ClCompile Include="util\wstr2str.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="util\ztCodec.cpp">
-      <Filter>util</Filter>
+    <ClCompile Include="framework\feature\sr\speechRecognizerSyncRequest.cpp">
+      <Filter>framework\feature\sr</Filter>
+    </ClCompile>
+    <ClCompile Include="framework\feature\st\speechTranscriberSyncRequest.cpp">
+      <Filter>framework\feature\st</Filter>
+    </ClCompile>
+    <ClCompile Include="framework\feature\iNlsRequest.cpp">
+      <Filter>framework\feature</Filter>
+    </ClCompile>
+    <ClCompile Include="framework\feature\iNlsRequestListener.cpp">
+      <Filter>framework\feature</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -180,9 +171,6 @@
     <ClInclude Include="framework\feature\sr\speechRecognizerRequest.h">
       <Filter>framework\feature\sr</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\sr\speechRecognizerSession.h">
-      <Filter>framework\feature\sr</Filter>
-    </ClInclude>
     <ClInclude Include="framework\feature\st\speechTranscriberListener.h">
       <Filter>framework\feature\st</Filter>
     </ClInclude>
@@ -190,9 +178,6 @@
       <Filter>framework\feature\st</Filter>
     </ClInclude>
     <ClInclude Include="framework\feature\st\speechTranscriberRequest.h">
-      <Filter>framework\feature\st</Filter>
-    </ClInclude>
-    <ClInclude Include="framework\feature\st\speechTranscriberSession.h">
       <Filter>framework\feature\st</Filter>
     </ClInclude>
     <ClInclude Include="framework\feature\sy\speechSynthesizerListener.h">
@@ -203,12 +188,6 @@
     </ClInclude>
     <ClInclude Include="framework\feature\sy\speechSynthesizerRequest.h">
       <Filter>framework\feature\sy</Filter>
-    </ClInclude>
-    <ClInclude Include="framework\feature\sy\speechSynthesizerSession.h">
-      <Filter>framework\feature\sy</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json_tool.h">
-      <Filter>thirdparty\jsoncpp</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\jsoncpp\json\assertions.h">
       <Filter>thirdparty\jsoncpp\json</Filter>
@@ -540,19 +519,19 @@
     <ClInclude Include="util\wstr2str.h">
       <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="util\ztCodec.h">
-      <Filter>util</Filter>
+    <ClInclude Include="framework\feature\sr\speechRecognizerSyncRequest.h">
+      <Filter>framework\feature\sr</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="thirdparty\jsoncpp\json_valueiterator.inl">
-      <Filter>thirdparty\jsoncpp</Filter>
-    </None>
-    <None Include="thirdparty\jsoncpp\LICENSE">
-      <Filter>thirdparty\jsoncpp</Filter>
-    </None>
-    <None Include="thirdparty\jsoncpp\version.h.in">
-      <Filter>thirdparty\jsoncpp</Filter>
-    </None>
+    <ClInclude Include="framework\feature\st\speechTranscriberSyncRequest.h">
+      <Filter>framework\feature\st</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\iNlsRequest.h">
+      <Filter>framework\feature</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\iNlsRequestListener.h">
+      <Filter>framework\feature</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\Config.h" />
+    <ClInclude Include="framework\nlsGlobal.h" />
   </ItemGroup>
 </Project>

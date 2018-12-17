@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include "speechRecognizerRequest.h"
 #include "speechRecognizerListener.h"
-#include "util/log.h"
+#include "log.h"
+#include "speechRecognizerRequest.h"
+
+namespace AlibabaNls {
 
 using namespace util;
 
@@ -32,7 +34,9 @@ void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
     NlsEvent::EventType type = str.getMsgType();
 
     if (NULL == _callback) {
-		LOG_ERROR("the callback is NULL");
+        pthread_mutex_lock(&_queueMutex);
+        _eventQueue.push(str);
+        pthread_mutex_unlock(&_queueMutex);
         return ;
     }
 
@@ -67,3 +71,4 @@ void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
     return ;
 }
 
+}

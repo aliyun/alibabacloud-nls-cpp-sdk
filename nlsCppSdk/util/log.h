@@ -20,21 +20,27 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <ctime>
 #include <fstream>
 #include <iostream>
-#include <ctime>
+
+#if defined(_WIN32)
 #include "pthread.h"
+#else
+#include <pthread.h>
+#endif
+
 #ifdef _ANDRIOD_
 #include <android/log.h>
 #define LOG_TAG "AliSpeechLib"
 #endif
 
+namespace AlibabaNls {
 namespace util {
 
 #ifdef _WIN32
     #define _ssnprintf _snprintf
 #else
-//    #include <unistd.h>
     #define _ssnprintf snprintf
 #endif
 
@@ -47,11 +53,17 @@ class Log {
 public:
     static void setLogEnable(bool enable);
 
+	static void saveLog(const char* res, int resLength);
+
     static std::string UTF8ToGBK(const std::string &strUTF8);
     static std::string GBKToUTF8(const std::string &strGBK);
 
     static FILE *_output;
     static int _logLevel;
+	static const char* _logFileName;
+	static long long _logFileSize;
+	static long long _logCurrentSize;
+	static int _bakFileCounts;
     static pthread_mutex_t mtxOutput;
 
 #if defined(__ANDROID__) || defined(__linux__)
@@ -78,7 +90,7 @@ public:
                                      _ssnprintf(log_str, 1024, __VA_ARGS__); \
                                      time_t tt = time(NULL); \
                                      struct tm* ptm = localtime(&tt); \
-                                     _ssnprintf(res, 11264, "%4d-%02d-%02d %02d:%02d:%02d AliSpeech_C++SDK(%s)[%lu]: %s:%d %s",\
+                                     int resLength = _ssnprintf(res, 11264, "%4d-%02d-%02d %02d:%02d:%02d AliSpeech_C++SDK(%s)[%lu]: %s:%d %s",\
                                                             (int)ptm->tm_year + 1900, \
                                                             (int)ptm->tm_mon + 1, \
                                                             (int)ptm->tm_mday, \
@@ -91,7 +103,7 @@ public:
                                                             __LINE__, \
                                                             log_str); \
                                      pthread_mutex_lock(&Log::mtxOutput); \
-                                     fprintf(Log::_output, "%s\n", res); \
+                                     Log::saveLog(res, resLength); \
                                      pthread_mutex_unlock(&Log::mtxOutput); \
                                      }
 
@@ -102,6 +114,7 @@ public:
     #define LOG_ERROR(...) if (Log::_logLevel >= 1) { LOG_PRINT_COMMON("ERROR",__VA_ARGS__) }
     #define LOG_EXCEPTION(...) LOG_PRINT_COMMON("!!!!EXCEPTION",__VA_ARGS__)
 #endif
+}
 }
 
 #endif //NLS_SDK_LOG_H

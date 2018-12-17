@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-#include "speechSynthesizerRequest.h"
 #include "speechSynthesizerListener.h"
-#include "util/log.h"
+#include "log.h"
+#include "speechSynthesizerRequest.h"
+
+
+namespace AlibabaNls {
 
 using namespace util;
 
@@ -65,4 +68,6 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
     }
 
     return ;
+}
+
 }

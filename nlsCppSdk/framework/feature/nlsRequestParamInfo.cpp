@@ -16,3 +16,6 @@
 
 #include "nlsRequestParamInfo.h"
 
+namespace AlibabaNls {
+
+}

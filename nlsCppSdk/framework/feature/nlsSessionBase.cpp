@@ -14,19 +14,25 @@
  * limitations under the License.
  */
 
-#include "iNlsRequestParam.h"
 #include "nlsSessionBase.h"
-#include "util/exception.h"
-#include <string.h>
-#include <sstream>
 
 #if defined(__ANDROID__) || defined(__linux__)
 #include <stdlib.h>
 #include <errno.h>
+#elif defined(__APPLE__)
+#include <sys/time.h>
 #endif
+
+#include <string.h>
+#include <sstream>
+#include "exception.h"
+#include "iNlsRequestParam.h"
 
 using std::string;
 using std::vector;
+
+namespace AlibabaNls {
+
 using namespace util;
 using namespace transport;
 
@@ -49,15 +55,14 @@ int gettimeofday(struct timeval *tp, void *tzp){
 
 	clock = mktime(&tm);
 
-	tp->tv_sec = clock;
+	tp->tv_sec = (long)clock;
 	tp->tv_usec = wtm.wMilliseconds * 1000;
 
 	return 0;
 }
 #endif
 
-NlsSessionBase::NlsSessionBase(INlsRequestParam* param) : _wsa(WebSocketTcp::connectTo(WebSocketAddress::urlConvert2WebSocketAddress(param->_url), param->_timeout, param->_token)),
-                                                          _nlsRequestParam(param) {
+NlsSessionBase::NlsSessionBase(INlsRequestParam* param) : _wsa(WebSocketTcp::connectTo(WebSocketAddress::urlConvert2WebSocketAddress(param->_url), param->_timeout, param->_token)) {
 	_status = RequestInitial;
     _handler = NULL;
 
@@ -68,18 +73,16 @@ NlsSessionBase::NlsSessionBase(INlsRequestParam* param) : _wsa(WebSocketTcp::con
 
     pthread_mutex_init(&_mtxStatus, NULL);
 
+    _nlsRequestParam = param;
+
 	switch (param->_mode) {
 	case SR:
     case ST:
-	case WWV:
 	case SY:
-    case TGA:
-    case VPR:
-    case VPM:
-		_converter = new IWebSocketFrameResultConverter(param->_outputFormat);
+		_converter = new IWebSocketFrameResultConverter(param->_outputFormat, param->_task_id);
 		break;
 	default:
-		throw ExceptionWithString("not support mode", 10000020);
+		throw ExceptionWithString("MODE: unsupport mode.", 10000006);
 		_converter = NULL;
 		break;
 	}
@@ -101,13 +104,15 @@ NlsSessionBase::~NlsSessionBase() {
 
 int NlsSessionBase::start() {
 
-    bool started = false;
-
+    bool timeOutFalg = false;
     pthread_mutex_lock(&_mtxStatus);
 
     if (_status != RequestInitial) {
         pthread_mutex_unlock(&_mtxStatus);
-        LOG_WARN("Invoke failed. Please check the order of execution.");
+
+        string errorInfo = "Start invoke failed. Please check the order of execution or whether the data sent is valid.";
+        _handler->handlerFrame(errorInfo, 10000011, NlsEvent::TaskFailed, _nlsRequestParam->_task_id);
+
         return -1;
     }
 
@@ -115,10 +120,18 @@ int NlsSessionBase::start() {
 
     pthread_mutex_unlock(&_mtxStatus);
 
-    string req = _nlsRequestParam->getStartCommand();
+    string req;
+    if (_nlsRequestParam->_requestType == SpeechExecuteDialog) {
+        req = _nlsRequestParam->getExecuteDialog();
+    } else {
+        req = _nlsRequestParam->getStartCommand();
+    }
+
     int len = _wsa.sendText(req);
     if (len <= 0) {
-        LOG_ERROR("StartCommand Send failed.");
+        string errorInfo = "StartCommand Send failed.";
+        _handler->handlerFrame(errorInfo, 10000012, NlsEvent::TaskFailed, _nlsRequestParam->_task_id);
+
         return -1;
     }
     LOG_INFO("StartCommand sent to server.");
@@ -126,32 +139,46 @@ int NlsSessionBase::start() {
     _wsa.setDataHandler(this);
     _wsa.start();
 
-    struct timeval now;
-    struct timespec outtime;
-    gettimeofday(&now, NULL);
-    outtime.tv_sec = now.tv_sec + 15;
-    outtime.tv_nsec = now.tv_usec * 1000;
+    if (_nlsRequestParam->_requestType == SpeechNormal) {
+        struct timeval now;
+        struct timespec outtime;
+        gettimeofday(&now, NULL);
+        outtime.tv_sec = now.tv_sec + 15;
+        outtime.tv_nsec = now.tv_usec * 1000;
 
-    pthread_mutex_lock(&_mtxNls);
-    LOG_DEBUG("Begin Wait Signal.");
-    if (ETIMEDOUT == pthread_cond_timedwait(&_cvNls, &_mtxNls, &outtime)) {
-		LOG_ERROR("timeout of 15 seconds waiting for request started.");
-        setStatus(RequestStopped);
-        _wsa.cancle();
-    }
-	LOG_DEBUG("End Wait Signal.");
-    pthread_mutex_unlock(&_mtxNls);
+        string errorInfo;
+        pthread_mutex_lock(&_mtxNls);
+        LOG_DEBUG("Begin Wait Signal.");
+        if (ETIMEDOUT == pthread_cond_timedwait(&_cvNls, &_mtxNls, &outtime)) {
+            errorInfo = "timeout of 15 seconds waiting for request started.";
+            LOG_ERROR(errorInfo.c_str());
+            setStatus(RequestStopped);
+            _wsa.cancle();
 
-    if (!compareStatus(RequestStarted)) {
-        LOG_ERROR("start is failed.");
-        return -1;
+            timeOutFalg = true;
+        }
+        LOG_DEBUG("End Wait Signal.");
+        pthread_mutex_unlock(&_mtxNls);
+
+        if (timeOutFalg) {
+            errorInfo = "Cann't recv started event." + errorInfo;
+            _handler->handlerFrame(errorInfo, 10000014, NlsEvent::TaskFailed, _nlsRequestParam->_task_id);
+            return -1;
+        } else {
+            if (!compareStatus(RequestStarted)) {
+                LOG_ERROR("Start failed.");
+                return -1;
+            }
+        }
+    } else {
+        setStatus(RequestStarted);
     }
 
     return 0;
 }
 
 int NlsSessionBase::stop() {
-
+    int ret = 0;
     bool stopping = false;
     RequestStatus currentStatus;
 
@@ -166,30 +193,40 @@ int NlsSessionBase::stop() {
     pthread_mutex_unlock(&_mtxStatus);
 
     if (stopping) {
-        string req = _nlsRequestParam->getStopCommand();
+        if (_nlsRequestParam->_requestType == SpeechNormal) {
+            string req = _nlsRequestParam->getStopCommand();
 
-        if (!req.empty()) {
-            _wsa.setSocketTimeOut(STOP_RECV_TIMEOUT);
-			int len = _wsa.sendText(req);
-			if (len <= 0) {
-				LOG_ERROR("StopCommand Send failed.");
-			} else {
-                LOG_DEBUG("StopCommand sent to server.");
+            if (!req.empty()) {
+                _wsa.setSocketTimeOut(STOP_RECV_TIMEOUT);
+                int len = _wsa.sendText(req);
+                if (len <= 0) {
+					ret = -1;
+                    LOG_ERROR("StopCommand Send failed.");
+                } else {
+					ret = 0;
+                    LOG_DEBUG("StopCommand sent to server.");
+                }
             }
         }
 
         waitExit();
 
-        return 0;
+        //如果send失败, recv接收超时退出, 接收线程handlerFrame会上报回调TaskFailed, 不必重复上报
+
+        return ret;
     } else {
-        if (currentStatus == RequestStartFailed) {
-            LOG_DEBUG("Invoke failed. start() is failed.");
-        } else if (currentStatus == RequestStopped) {
-            LOG_DEBUG("Invoke failed. The request is stopped.");
+        if (currentStatus == RequestStopped) {
+            LOG_DEBUG("Stop invoke failed. The request is stopped.");
+
+            return 0;
         } else {
-            LOG_DEBUG("Invoke failed:%d. Please check the order of execution.", _status);
+            string errorInfo;
+            errorInfo = "Stop invoke failed. Please check the order of execution or whether the data sent is valid.";
+            LOG_ERROR("Stop invoke failed. Please check the order of execution or whether the data sent is valid.");
+
+            _handler->handlerFrame(errorInfo, 10000011, NlsEvent::TaskFailed, _nlsRequestParam->_task_id);
+            return -1;
         }
-        return -1;
     }
 }
 
@@ -198,11 +235,7 @@ void NlsSessionBase::waitExit() {
     if (compareStatus(RequestStopping)) {
         pthread_mutex_lock(&_mtxClose);
 
-        LOG_DEBUG("begin pthread_mutex_lock.");
-
         pthread_cond_wait(&_cv, &_mtxClose);
-
-        LOG_DEBUG("end pthread_mutex_lock.");
 
         pthread_mutex_unlock(&_mtxClose);
     } else {
@@ -218,31 +251,35 @@ int NlsSessionBase::shutdown() {
 
     pthread_mutex_lock(&_mtxStatus);
     if (_status == RequestStarted) {
-
-        LOG_DEBUG("It's shutdown:%d.", _status);
-
         _status = RequestStopped;
         canceling = true;
     } else {
         currentStatus = _status;
     }
+
+    LOG_DEBUG("It's shutdown:%d.", _status);
+
     pthread_mutex_unlock(&_mtxStatus);
 
     if (canceling) {
         _wsa.cancle();
+
+        return 0;
     } else {
-        if (currentStatus == RequestStartFailed) {
-            LOG_DEBUG("Invoke failed. start() is failed.");
-        } else if (currentStatus == RequestStopped) {
-            LOG_DEBUG("Invoke failed. The request is stopped.");
+
+        if (currentStatus == RequestStopped) {
+            LOG_DEBUG("Stop invoke failed. The request is stopped.");
+
+            return 0;
         } else {
-            LOG_DEBUG("Invoke failed:%d. Please check the order of execution.", _status);
+            string errorInfo;
+            errorInfo = "Shutdown invoke failed. Please check the order of execution.";
+            LOG_ERROR("Shutdown invoke failed. Please check the order of execution or whether the data sent is valid.");
+
+            _handler->handlerFrame(errorInfo, 10000011, NlsEvent::TaskFailed, _nlsRequestParam->_task_id);
+            return -1;
         }
-
-        return -1;
     }
-
-	return 0;
 }
 
 void NlsSessionBase::byteArray2Short(uint8_t *data, int len, int16_t *result, bool isBigEndian) {
@@ -272,18 +309,20 @@ void NlsSessionBase::handlerFrame(WebsocketFrame frame) {
 
     LOG_INFO("Begin HandlerFrame status: %d", _status);
 
+	string taskId = _nlsRequestParam->_task_id;
+
 	if (frame.type == WsheaderType::CLOSE) {
 		string msg(frame.data.begin(), frame.data.end());
 		if (frame.closecode == -1) {
-			nlsevent = new NlsEvent(msg, frame.closecode, NlsEvent::TaskFailed);
+			nlsevent = new NlsEvent(msg, frame.closecode, NlsEvent::TaskFailed, taskId);
 		} else {
-            nlsevent = new NlsEvent(msg, frame.closecode, NlsEvent::Close);
+            nlsevent = new NlsEvent(msg, frame.closecode, NlsEvent::Close, taskId);
         }
 	} else {
 		try {
 			nlsevent = _converter->convertResult(frame);
 		} catch (ExceptionWithString& e) {
-			nlsevent = new NlsEvent(e.what(), e.getErrorcode(), NlsEvent::TaskFailed);
+			nlsevent = new NlsEvent(e.what(), e.getErrorcode(), NlsEvent::TaskFailed, taskId);
 		}
 	}
 
@@ -311,26 +350,31 @@ void NlsSessionBase::handlerFrame(WebsocketFrame frame) {
     }
 	pthread_mutex_unlock(&_mtxStatus);
 
-	if (nlsevent->getMsgType() == NlsEvent::Close ||
-        nlsevent->getMsgType() == NlsEvent::TaskFailed ||
-        nlsevent->getMsgType() == NlsEvent::RecognitionCompleted ||
-        nlsevent->getMsgType() == NlsEvent::TranscriptionCompleted ||
-        nlsevent->getMsgType() == NlsEvent::SynthesisCompleted) {
+    bool closeFlag = true;
+    switch(nlsevent->getMsgType()) {
+        case NlsEvent::Close:
+            this->close();
+            break;
+        case NlsEvent::RecognitionCompleted:
+        case NlsEvent::TaskFailed:
+        case NlsEvent::TranscriptionCompleted:
+        case NlsEvent::SynthesisCompleted:
+        case NlsEvent::DialogResultGenerated:
+            if (closeFlag) {
+                this->close();
 
-        this->close();
-
-        if (nlsevent->getMsgType() != NlsEvent::Close) {
-            string closeMsg = "{\"channeclClosed\": \"nls request finished.\"}";
-            NlsEvent* closeEvent = NULL;
-            closeEvent = new NlsEvent(closeMsg, frame.closecode, NlsEvent::Close);
-            if (this->_handler != NULL) {
-                this->_handler->handlerFrame(*closeEvent);
+                string closeMsg = "{\"channeclClosed\": \"nls request finished.\"}";
+                NlsEvent *closeEvent = NULL;
+                closeEvent = new NlsEvent(closeMsg, frame.closecode, NlsEvent::Close, taskId);
+                if (this->_handler != NULL) {
+                    this->_handler->handlerFrame(*closeEvent);
+                }
+                delete closeEvent;
+                closeEvent = NULL;
             }
-
-            delete closeEvent;
-            closeEvent = NULL;
-        }
-	}
+        default:
+            break;
+    }
 
     if (sendStartSignal) {
         pthread_mutex_lock(&_mtxNls);
@@ -341,7 +385,7 @@ void NlsSessionBase::handlerFrame(WebsocketFrame frame) {
     delete nlsevent;
     nlsevent = NULL;
 
-    LOG_INFO("End HandlerFrame statis: %d.", _status);
+    LOG_INFO("End HandlerFrame status: %d.", _status);
 }
 
 int NlsSessionBase::close() {
@@ -368,24 +412,7 @@ int NlsSessionBase::close() {
     return 0;
 }
 
-int NlsSessionBase::sendOpusVoice(const unsigned char* buffer, size_t bufferSize) {
-	int16_t wave[::WAVE_FRAM_SIZE];
-	uint8_t spx[640] = { 0 };
-
-    if (compareStatus(RequestStarted)) {
-        byteArray2Short((uint8_t *) buffer, WAVE_FRAM_SIZE * 2, wave, false);
-
-        int nSize = codec.bufferFrame(wave, 0, WAVE_FRAM_SIZE, spx);
-
-        return sendPcmVoice(spx, nSize);
-    } else {
-        LOG_WARN("Invoke failed:%d. Please check the order of execution.", _status);
-
-        return -1;
-    }
-}
-
-int NlsSessionBase::sendPcmVoice(const unsigned char* buffer, size_t num) {
+int NlsSessionBase::sendPcmVoice(const unsigned char* buffer, int num) {
 
     if (compareStatus(RequestStarted)) {
         return _wsa.sendBinary(buffer, num);
@@ -399,11 +426,6 @@ int NlsSessionBase::sendPcmVoice(const unsigned char* buffer, size_t num) {
 
 void NlsSessionBase::setHandler(HandleBaseOneParamWithReturnVoid<NlsEvent>* ptr) {
 	this->_handler = ptr;
-}
-
-int NlsSessionBase::stopWakeWordVerification() {
-
-	return 0;
 }
 
 bool NlsSessionBase::compareStatus(RequestStatus status) {
@@ -431,4 +453,6 @@ void NlsSessionBase::setStatus(RequestStatus status) {
     pthread_mutex_lock(&_mtxStatus);
     _status = status;
     pthread_mutex_unlock(&_mtxStatus);
+}
+
 }

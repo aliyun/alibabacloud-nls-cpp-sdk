@@ -94,13 +94,13 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINDOWS_COMPILE_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlsCppSdk\thirdparty\curl;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlsCppSdk\thirdparty\nlsCommonSdk</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread;$(SolutionDir)$(PlatformTarget)\$(Configuration)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;pthreadVCE2.lib;pthreadVSE2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcurld.lib;nlsCommonSdk.lib;jsoncpp-0.y.z.lib;nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;pthreadVCE2.lib;pthreadVSE2.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -110,13 +110,13 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINDOWS_COMPILE_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlsCppSdk\thirdparty\curl;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlsCppSdk\thirdparty\nlsCommonSdk</AdditionalIncludeDirectories>
       <BrowseInformation>true</BrowseInformation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcurld.lib;nlsCommonSdk.lib;jsoncpp-0.y.z.lib;nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread;$(SolutionDir)$(PlatformTarget)\$(Configuration)\</AdditionalLibraryDirectories>
     </Link>
     <Bscmake>
@@ -132,7 +132,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINDOWS_COMPILE_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlsCppSdk\thirdparty\curl;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlsCppSdk\thirdparty\nlsCommonSdk</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -140,7 +140,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcurl.lib;nlsCommonSdk.lib;jsoncpp-0.y.z.lib;nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread;$(SolutionDir)$(PlatformTarget)\$(Configuration)\</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
@@ -156,14 +156,14 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINDOWS_COMPILE_;ASR_API_OUT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlsCppSdk\thirdparty\curl;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlsCppSdk\thirdparty\nlsCommonSdk</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcurl.lib;nlsCommonSdk.lib;jsoncpp-0.y.z.lib;nlsCppSdk.lib;ssleay32.lib;libeay32.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread;$(SolutionDir)$(PlatformTarget)\$(Configuration)\</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -171,12 +171,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\nlscppsdk\realTimeSdk.vcxproj">
-      <Project>{814b8b07-63ed-4ede-a3d6-d65f65216c45}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="sdkDemo.cpp" />
+    <ClCompile Include="PublicCloud\sdkDemo.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

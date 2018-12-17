@@ -16,35 +16,41 @@
 
 #include "nlsEvent.h"
 #include <sstream>
-#include "util/log.h"
+#include "log.h"
+#include "exception.h"
+#include "json/json.h"
 
 using std::string;
 using std::vector;
 using std::istringstream;
 using std::ostringstream;
+
+namespace AlibabaNls {
+
 using namespace util;
 
-NlsEvent::NlsEvent(NlsEvent& ne) {
-	this->_errorcode = ne.getStausCode();
+NlsEvent::NlsEvent(const NlsEvent& ne) {
+	this->_statusCode = ne._statusCode;
+	this->_taskId = ne._taskId;
 
-	if (ne.getMsgType() == TaskFailed)
-	{
-		this->_msg = ne.getErrorMessage();
-	}
-	else if (ne.getMsgType() == Binary)
-	{
-		this->_msg = "";
-		this->_binaryData = ne.getBinaryData();
-	}
-	else {
-		this->_msg = ne.getResponse();
-	}
-	this->_msgtype = ne.getMsgType();
+	this->_result = ne._result;
+
+	this->_sentenceIndex = ne._sentenceIndex;
+	this->_sentenceTime = ne._sentenceTime;
+
+	this->_msg = ne._msg;
+	this->_msgtype = ne._msgtype;
+	this->_binaryData = ne._binaryData;
+	this->_sentenceBeginTime = ne._sentenceBeginTime;
+	this->_sentenceConfidence = ne._sentenceConfidence;
 }
 
-NlsEvent::NlsEvent(string msg, int code, EventType type) :_msg(msg),
-                                                          _errorcode(code),
-                                                          _msgtype(type) {
+NlsEvent::NlsEvent(string msg, int code, EventType type, string taskId)
+	: _statusCode(code), _msg(msg), _msgtype(type), _taskId(taskId) {
+
+}
+
+NlsEvent::NlsEvent(string msg) : _msg(msg) {
 
 }
 
@@ -52,11 +58,129 @@ NlsEvent::~NlsEvent() {
 
 }
 
-int NlsEvent::getStausCode() {
-	return _errorcode;
+int NlsEvent::parseJsonMsg() {
+	if (_msg.empty()) {
+		return -1;
+	}
+
+	Json::Reader reader;
+	Json::Value head, payload, root;
+
+	if (!reader.parse(_msg, root)) {
+		LOG_ERROR("_msg:%s", _msg.c_str());
+		return -1;
+	}
+
+	// parse head
+	if (!root["header"].isNull()) {
+		head = root["header"];
+
+		// name
+		if (head["name"].isNull()) {
+			return -1;
+		}
+
+		string name = head["name"].asCString();
+		if (parseMsgType(name) == -1) {
+			return -1;
+		}
+
+		// status
+		if (!head["status"].isNull()) {
+			_statusCode = head["status"].asInt();
+		} else {
+			return -1;
+		}
+
+		// task_id
+		if (!head["task_id"].isNull()) {
+			_taskId = head["task_id"].asCString();
+		}
+	} else {
+		return -1;
+	}
+
+	// parse payload
+	if (!root["payload"].isNull()) {
+		payload = root["payload"];
+
+		// result
+		if (!payload["result"].isNull()) {
+			_result = payload["result"].asCString();
+		}
+
+		// index
+		if (!payload["index"].isNull()) {
+			_sentenceIndex = payload["index"].asInt();
+		}
+
+		// time
+		if (!payload["time"].isNull()) {
+			_sentenceTime = payload["time"].asInt();
+		}
+
+		// begin_time
+		if (!payload["begin_time"].isNull()) {
+			_sentenceBeginTime = payload["begin_time"].asInt();
+		}
+
+		// confidence
+		if (!payload["confidence"].isNull()) {
+			_sentenceConfidence = payload["confidence"].asDouble();
+		}
+
+        // display_text
+        if (!payload["display_text"].isNull()) {
+            _displayText = payload["display_text"].asCString();
+        }
+
+        // spoken_text
+        if (!payload["spoken_text"].isNull()) {
+            _spokenText = payload["spoken_text"].asCString();
+        }
+	}
+
+	return 0;
 }
 
-const char* NlsEvent::getResponse() {
+int NlsEvent::parseMsgType(std::string name) {
+	if (name == "TaskFailed") {
+		_msgtype = NlsEvent::TaskFailed;
+	} else if (name == "RecognitionStarted") {
+		_msgtype = NlsEvent::RecognitionStarted;
+	} else if (name == "RecognitionCompleted") {
+		_msgtype = NlsEvent::RecognitionCompleted;
+	} else if (name == "RecognitionResultChanged") {
+		_msgtype = NlsEvent::RecognitionResultChanged;
+	} else if (name == "TranscriptionStarted") {
+		_msgtype = NlsEvent::TranscriptionStarted;
+	} else if (name == "SentenceBegin") {
+		_msgtype = NlsEvent::SentenceBegin;
+	} else if (name == "TranscriptionResultChanged") {
+		_msgtype = NlsEvent::TranscriptionResultChanged;
+	} else if (name == "SentenceEnd") {
+		_msgtype = NlsEvent::SentenceEnd;
+	} else if (name == "TranscriptionCompleted") {
+		_msgtype = NlsEvent::TranscriptionCompleted;
+	} else if (name == "SynthesisStarted") {
+		_msgtype = NlsEvent::SynthesisStarted;
+	} else if (name == "SynthesisCompleted") {
+		_msgtype = NlsEvent::SynthesisCompleted;
+	} else if (name == "DialogResultGenerated") {
+        _msgtype = NlsEvent::DialogResultGenerated;
+    } else {
+		LOG_ERROR("EVENT: type is invalid. [%s].", _msg.c_str());
+		return -1;
+	}
+
+	return 0;
+}
+
+int NlsEvent::getStausCode() {
+	return _statusCode;
+}
+
+const char* NlsEvent::getAllResponse() {
 	if (this->getMsgType() == Binary) {
 		LOG_WARN("this is Binary data.");
 	}
@@ -75,9 +199,64 @@ NlsEvent::EventType NlsEvent::getMsgType() {
 	return _msgtype;
 }
 
-NlsEvent::NlsEvent(vector<unsigned char> data, int code, EventType type) : _binaryData(data),
-                                                                           _errorcode(code),
-                                                                           _msgtype(type) {
+const char* NlsEvent::getTaskId() {
+	return _taskId.c_str();
+}
+
+const char* NlsEvent::getDisplayText() {
+    return _displayText.c_str();
+}
+
+const char* NlsEvent::getSpokenText() {
+    return _spokenText.c_str();
+}
+
+const char* NlsEvent::getResult() {
+	if (_msgtype != RecognitionResultChanged &&
+		_msgtype != RecognitionCompleted &&
+		_msgtype != TranscriptionResultChanged &&
+		_msgtype != SentenceEnd) {
+		return string("").c_str();
+	}
+
+	return _result.c_str();
+}
+
+int NlsEvent::getSentenceIndex() {
+	if (_msgtype != SentenceBegin &&
+		_msgtype != SentenceEnd &&
+		_msgtype != TranscriptionResultChanged) {
+		return -1;
+	}
+
+	return _sentenceIndex;
+}
+
+int NlsEvent::getSentenceTime() {
+	if (_msgtype != SentenceBegin &&
+		_msgtype != SentenceEnd &&
+		_msgtype != TranscriptionCompleted) {
+		return -1;
+	}
+	return _sentenceTime;
+}
+
+int NlsEvent::getSentenceBeginTime() {
+	if (_msgtype != SentenceEnd ) {
+		return -1;
+	}
+	return _sentenceBeginTime;
+}
+
+double NlsEvent::getSentenceConfidence() {
+	if (_msgtype != SentenceEnd ) {
+		return -1;
+	}
+	return _sentenceConfidence;
+}
+
+NlsEvent::NlsEvent(vector<unsigned char> data, int code, EventType type, string taskId)
+	: _statusCode(code), _msgtype(type), _taskId(taskId), _binaryData(data) {
 	this->_msg = "";
 }
 
@@ -88,4 +267,6 @@ vector<unsigned char> NlsEvent::getBinaryData() {
 		LOG_WARN("this hasn't Binary data.");
 		return _binaryData;
 	}
+}
+
 }

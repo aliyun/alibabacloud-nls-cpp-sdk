@@ -17,22 +17,20 @@
 #ifndef NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H
 #define NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H
 
+#include "nlsGlobal.h"
+#include "iNlsRequest.h"
+
 #if defined(_WIN32)
-#ifndef  ASR_API
-#define ASR_API _declspec(dllexport)
-#endif
-#else
-#define ASR_API
+	#pragma warning( push )
+	#pragma warning ( disable : 4251 )
 #endif
 
-#include <map>
-#include "nlsEvent.h"
+namespace AlibabaNls {
 
 class SpeechSynthesizerParam;
-class SpeechSynthesizerSession;
-class SpeechSynthesizerListener;
 
-class ASR_API SpeechSynthesizerCallback {
+class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerCallback {
+
 public:
 
 /**
@@ -101,18 +99,17 @@ public:
     NlsCallbackMethod _onChannelClosed;
     NlsCallbackMethod _onBinaryDataReceived;
     std::map < NlsEvent::EventType, void*> _paramap;
-
 };
 
-class ASR_API SpeechSynthesizerRequest {
+class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
+
 public:
 
 /**
     * @brief 构造函数
     * @param cb	事件回调接口
-    * @param configPath 配置文件
     */
-    SpeechSynthesizerRequest(SpeechSynthesizerCallback* cb, const char* configPath);
+    SpeechSynthesizerRequest(SpeechSynthesizerCallback* cb);
 
 /**
     * @brief 析构函数
@@ -161,7 +158,7 @@ public:
 
 /**
     * @brief 待合成音频文本内容text设置
-    * @note 必选参数
+    * @note 必选参数，需要传入UTF-8编码的文本内容
     * @param value	待合成文本字符串
     * @return 成功则返回0，否则返回-1
     */
@@ -210,6 +207,22 @@ public:
     int setMethod(int value);
 
 /**
+    * @brief 参数设置
+    * @note  暂不对外开放
+    * @param value 参数
+    * @return 成功则返回0，否则返回-1
+    */
+    int setPayloadParam(const char* value);
+
+/**
+	* @brief 设置Socket接收超时时间
+	* @note
+	* @param value 超时时间
+	* @return 成功则返回0，否则返回-1
+	*/
+	int setTimeout(int value);
+
+/**
 	* @brief 设置输出文本的编码格式
 	* @note
 	* @param value 编码格式 UTF-8 or GBK
@@ -219,11 +232,10 @@ public:
 
 /**
     * @brief 设置用户自定义参数
-    * @param key 字段
     * @param value 参数
     * @return 成功则返回0，否则返回-1
     */
-    int setContextParam(const char* key, const char* value);
+    int setContextParam(const char* value);
 
 /**
     * @brief 启动SpeechSynthesizerRequest
@@ -247,9 +259,13 @@ public:
     int cancel();
 
 private:
-    SpeechSynthesizerListener* _listener;
-    SpeechSynthesizerParam* _requestParam;
-    SpeechSynthesizerSession* _session;
+    SpeechSynthesizerParam* _synthesizerParam;
 };
+
+}
+
+#if defined (_WIN32)
+	#pragma warning( pop )
+#endif
 
 #endif //NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H

@@ -17,7 +17,8 @@
 #ifndef NLS_SDK_REQUEST_PARAM_INFO_H
 #define NLS_SDK_REQUEST_PARAM_INFO_H
 
-#include <string>
+
+namespace AlibabaNls {
 
 /************************common default value************************/
 #define D_DEFAULT_VALUE_ENCODE_UTF8 "UTF-8"
@@ -28,12 +29,12 @@
 #define D_DEFAULT_VALUE_BOOL_FALSE "false"
 
 /************************common param************************/
-#define D_URL "url"
 #define D_HEADER "header"
+#define D_PAYLOAD "payload"
+#define D_CONTEXT "context"
 #define D_FORMAT "format"
 #define D_SAMPLE_RATE "sample_rate"
 #define D_APP_KEY "appkey"
-#define D_TOKEN "token"
 #define D_MESSAGE_ID "message_id"
 #define D_TASK_ID "task_id"
 #define D_NAMESPACE "namespace"
@@ -41,9 +42,17 @@
 
 /************************speech recognizer************************/
 
+#define D_SR_VOICE_DETECTION "enable_voice_detection"
+#define D_SR_MAX_START_SILENCE "max_start_silence"
+#define D_SR_MAX_END_SILENCE "max_end_silence"
+
 #define D_SR_INTERMEDIATE_RESULT "enable_intermediate_result"
 #define D_SR_PUNCTUATION_PREDICTION "enable_punctuation_prediction"
 #define D_SR_TEXT_NORMALIZATION "enable_inverse_text_normalization"
+
+/************************speech transcriber************************/
+#define D_SR_SENTENCE_DETECTION "enable_semantic_sentence_detection"
+#define D_SR_MAX_SENTENCE_SILENCE "max_sentence_silence"
 
 /************************speech synthesizer************************/
 #define D_SY_VOICE "voice"
@@ -60,5 +69,7 @@
 #define D_SDK_VERSION "version"
 #define D_SDK_LANGUAGE "language"
 #define D_CUSTOM_PARAM "customParam"
+
+}
 
 #endif

@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include <map>
-#include <cstdlib>
-#include <utility>
-#include "nlsRequestParamInfo.h"
 #include "speechRecognizerParam.h"
-#include "util/log.h"
+#include <string>
+#include "log.h"
+#include "nlsRequestParamInfo.h"
+
+using std::string;
+
+namespace AlibabaNls {
 
 using namespace util;
-using namespace Json;
-using std::string;
-using std::map;
 
 #define D_CMD_START_RECOGNITION "StartRecognition"
 #define D_CMD_STOP_RECOGNITION "StopRecognition"
@@ -32,16 +31,7 @@ using std::map;
 
 SpeechRecognizerParam::SpeechRecognizerParam() : INlsRequestParam(SR) {
 
-#if defined(_WIN32)
-    _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
-#else
-    _outputFormat = D_DEFAULT_VALUE_ENCODE_UTF8;
-#endif
-
 	_header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
-
-	_payload[D_FORMAT] = D_DEFAULT_VALUE_AUDIO_ENCODE;
-	_payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
 
 }
 
@@ -49,97 +39,40 @@ SpeechRecognizerParam::~SpeechRecognizerParam() {
 
 }
 
-int SpeechRecognizerParam::setIntermediateResult(const char* value) {
-    if (strcmp(value, D_DEFAULT_VALUE_BOOL_TRUE) == 0) {
-		_payload[D_SR_INTERMEDIATE_RESULT] = true;
-    } else if (strcmp(value, D_DEFAULT_VALUE_BOOL_FALSE) == 0) {
-		_payload[D_SR_INTERMEDIATE_RESULT] = false;
-    } else {
-		LOG_ERROR("the parameter is error.");
-        return -1;
-    }
-
-    return 0;
-}
-
-int SpeechRecognizerParam::setPunctuationPrediction(const char* value) {
-    if (strcmp(value, D_DEFAULT_VALUE_BOOL_TRUE) == 0) {
-		_payload[D_SR_PUNCTUATION_PREDICTION] = true;
-    } else if (strcmp(value, D_DEFAULT_VALUE_BOOL_FALSE) == 0) {
-		_payload[D_SR_PUNCTUATION_PREDICTION] = false;
-    } else {
-		LOG_ERROR("the parameter is error.");
-        return -1;
-    }
-
-    return 0;
-}
-
-int SpeechRecognizerParam::setTextNormalization(const char* value) {
-    if (strcmp(value, D_DEFAULT_VALUE_BOOL_TRUE) == 0) {
-		_payload[D_SR_TEXT_NORMALIZATION] = true;
-    } else if (strcmp(value, D_DEFAULT_VALUE_BOOL_FALSE) == 0) {
-		_payload[D_SR_TEXT_NORMALIZATION] = false;
-    } else {
-        return -1;
-    }
-
-    return 0;
-}
-
-int SpeechRecognizerParam::setContextParam(const char* key, const char* value) {
-
-    return INlsRequestParam::setContextParam(key, value);
-}
-
 const string SpeechRecognizerParam::getStartCommand() {
-    Json::Value root;
-    Json::FastWriter writer;
 
     _header[D_NAME] = D_CMD_START_RECOGNITION;
-    _header[D_TASK_ID] = this->_task_id;
-    _header[D_MESSAGE_ID] = random_uuid().c_str();
 
-	if (!_customParam.empty()) {
-		_context[D_CUSTOM_PARAM] = _customParam;
-	}
+    LOG_DEBUG("SpeechRecognizerParam Start.");
 
-    root["context"] = _context;
-    root["header"] = _header;
-    root["payload"] = _payload;
-
-	string startCommand = writer.write(root);
-	LOG_INFO("StartCommand: %s", startCommand.c_str());
-	return startCommand;
+    return INlsRequestParam::getStartCommand();
 }
 
 const string SpeechRecognizerParam::getStopCommand() {
-    Json::Value root;
-    Json::FastWriter writer;
 
     _header[D_NAME] = D_CMD_STOP_RECOGNITION;
-    _header[D_TASK_ID] = this->_task_id;
-    _header[D_MESSAGE_ID] = random_uuid().c_str();
 
-    root[D_HEADER] = _header;
+    LOG_DEBUG("SpeechRecognizerParam Stop.");
 
-	string stopCommand = writer.write(root);
-	LOG_INFO("StopCommand: %s", stopCommand.c_str());
-	return stopCommand;
+    return INlsRequestParam::getStopCommand();
 }
 
-int SpeechRecognizerParam::speechParam(string key, string value) {
-
-    if (0 == strncasecmp(D_SR_INTERMEDIATE_RESULT, key.c_str(), key.length())) {
-        setIntermediateResult(value.c_str());
-    } else if (0 == strncasecmp(D_SR_PUNCTUATION_PREDICTION, key.c_str(), key.length())) {
-        setPunctuationPrediction(value.c_str());
-    } else if (0 == strncasecmp(D_SR_TEXT_NORMALIZATION, key.c_str(), key.length())) {
-        setTextNormalization(value.c_str());
-    } else {
-        LOG_ERROR("%s is invalid.", key.c_str());
-        return -1;
-    }
+int SpeechRecognizerParam::setEnableVoiceDetection(bool value) {
+    _payload[D_SR_VOICE_DETECTION] = value;
 
     return 0;
+}
+
+int SpeechRecognizerParam::setMaxStartSilence(int value) {
+    _payload[D_SR_MAX_START_SILENCE] = value;
+
+    return 0;
+}
+
+int SpeechRecognizerParam::setMaxEndSilence(int value) {
+    _payload[D_SR_MAX_END_SILENCE] = value;
+
+    return 0;
+}
+
 }

@@ -17,9 +17,15 @@
 #ifndef NLS_SDK_ASYNC_BASE_H
 #define NLS_SDK_ASYNC_BASE_H
 
-#include "util/errorHandlingUtility.h"
-#include "pthread.h"
+#include <string>
 
+#if defined(_WIN32)
+#include "pthread.h"
+#else
+#include <pthread.h>
+#endif
+
+namespace AlibabaNls {
 namespace transport{
 namespace engine{
 
@@ -56,5 +62,5 @@ public:
 }
 
 }
-
+}
 #endif //NLS_SDK_ASYNC_BASE_H

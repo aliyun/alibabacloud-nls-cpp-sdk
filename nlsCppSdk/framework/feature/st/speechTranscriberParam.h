@@ -17,11 +17,10 @@
 #ifndef NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_PARAM_H
 #define NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_PARAM_H
 
-#include <set>
 #include <string>
 #include "iNlsRequestParam.h"
-#include "json/json.h"
-#include "util/dataStruct.h"
+
+namespace AlibabaNls {
 
 class SpeechTranscriberParam : public INlsRequestParam {
 
@@ -29,15 +28,12 @@ public:
     SpeechTranscriberParam();
     ~SpeechTranscriberParam();
 
-    int setIntermediateResult(const char* value);
-    int setPunctuationPrediction(const char* value);
-    int setTextNormalization(const char* value);
-
     virtual const std::string getStartCommand();
     virtual const std::string getStopCommand();
 
-    virtual int speechParam(std::string key, std::string value);
-    virtual int setContextParam(const char* key, const char* value);
+    int setMaxSentenceSilence(int value);
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_PARAM_H

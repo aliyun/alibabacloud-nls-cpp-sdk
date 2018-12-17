@@ -17,13 +17,14 @@
 #ifndef NLS_SDK_ERROR_HANDLING_UTILITY_H
 #define NLS_SDK_ERROR_HANDLING_UTILITY_H
 
-#include "ensureUtility.h"
-#include "log.h"
-
 #if defined(_WIN32)
 #include <windows.h>
 #endif
 
+#include "ensureUtility.h"
+#include "log.h"
+
+namespace AlibabaNls {
 namespace util {
 
 #define WIDEN2(x) L##x
@@ -64,6 +65,7 @@ void MuteAllExceptions(void(T::*action)(), T *ptr, std::string msg = "MuteAllExc
     }
 }
 
+}
 }
 
 #endif //NLS_SDK_ERROR_HANDLING_UTILITY_H

@@ -20,6 +20,7 @@
 using std::wstring;
 using std::string;
 
+namespace AlibabaNls {
 namespace util {
 
 wstring ExceptionWithString::GetMiniDumpFilePath() {
@@ -34,15 +35,16 @@ int ExceptionWithString::getErrorcode() {
     return this->_errcode;
 }
 
-ExceptionWithString::ExceptionWithString(const string &msg, int errorcode) : _errcode(errorcode),
-                                                                             _errormsg(msg) {
+ExceptionWithString::ExceptionWithString(const string &msg, int errorcode) : _errormsg(msg),
+                                                                             _errcode(errorcode) {
 
 }
 
-ExceptionWithString::ExceptionWithString(wstring const &msg, int errorcode, wstring miniDumpFileFullPath) : _errormsg(wstr2str(msg)),
-                                                                                                            _errcode(errorcode),
-                                                                                                            wstr((miniDumpFileFullPath)) {
+ExceptionWithString::ExceptionWithString(wstring const &msg, int errorcode, wstring miniDumpFileFullPath) : wstr((miniDumpFileFullPath)),
+                                                                                                            _errormsg(wstr2str(msg)),
+                                                                                                            _errcode(errorcode) {
 
 }
 
+}
 }

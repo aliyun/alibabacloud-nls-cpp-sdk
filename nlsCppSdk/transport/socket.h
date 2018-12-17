@@ -17,47 +17,55 @@
 #ifndef NLS_SDK_TRANSPORT_SOCKET_H
 #define NLS_SDK_TRANSPORT_SOCKET_H
 
+#include <stdint.h>
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <Windows.h>
 #include <Ws2tcpip.h>
+#include "pthread.h"
+#else
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <pthread.h>
 #endif
 
 #include <string>
-#include <stdint.h>
-#include "pthread.h"
-#include "util/targetOs.h"
-#include "util/smartHandle.h"
+#include "targetOs.h"
+#include "smartHandle.h"
 
-#ifdef __GNUC__
-#include <netinet/in.h>
-#include <sys/select.h>
-#endif
-
+namespace AlibabaNls {
 namespace transport {
+
+#define WEBSOCKET_DEFAULT_SEND_TIMEOUT 3
+#define WEBSOCKET_DEFAULT_RECV_TIMEOUT 12
 
 class InetAddress {
 public:
-    InetAddress();
-    explicit InetAddress(uint16_t port);
-    InetAddress(const std::string &ip, uint16_t port);
-    InetAddress(const struct sockaddr_in &addr);
+    //InetAddress();
+    //explicit InetAddress(uint16_t port);
+    InetAddress(const std::string &ip, int aiFamily, uint16_t port);
+    //InetAddress(const struct sockaddr_in &addr);
 
-    const struct sockaddr_in &getAddr() const;
-    void setAddr(const struct sockaddr_in &addr);
-    void setIpAdress(const std::string &ip);
-    void setPort(uint16_t port);
-    uint16_t getPort();
-    std::string ToString() const;
-    size_t HashCode() const;
+    const struct sockaddr_in &getIpv4Addr() const;
+    const struct sockaddr_in6 &getIpv6Addr() const;
+    const int getAiFamily() const;
+    //void setAddr(const struct sockaddr_in &addr);
+    //void setIpAdress(const std::string &ip);
+    //void setPort(uint16_t port);
+    //uint16_t getPort();
+    //std::string ToString() const;
+    //size_t HashCode() const;
 
-    static bool GetInetAddressByHostname(const std::string hostname, std::string &ip);
+    static bool GetInetAddressByHostname(const std::string hostname, std::string &ip, int &aiFamily, std::string &errorMsg);
 
 private:
     struct sockaddr_in _addr;
-    static const int MAX_HOST_IP_LENGTH = 16;
-    static const int MAX_HOST_PORT_LENGTH = 22;
-    static const int IPV4_ADDRESS_LENGTH = 16;
+    struct sockaddr_in6 _addr6;
+    int _aiFamily;
+    static const int MAX_HOST_IP_LENGTH = INET6_ADDRSTRLEN;
+    //static const int MAX_HOST_PORT_LENGTH = 22;
+    //static const int IPV4_ADDRESS_LENGTH = 16;
 
 public:
 
@@ -76,14 +84,14 @@ private:
 public:
     static void Startup();
     static void Bind(SOCKET sockfd, const InetAddress &addr);
-    static void connectTo(SOCKET sockfd, const InetAddress &addr);
+    static int connectTo(SOCKET sockfd, const InetAddress &addr);
     static void Shutdown(SOCKET sockfd);
     static SOCKET Accept(SOCKET sockfd);
     static void Listen(SOCKET sockfd, int connections);
     static bool SelectRead(SOCKET sockfd, int timeout);
     static bool SelectWrite(SOCKET sockfd, int timeout);
     static bool Select(SOCKET maxsock, fd_set *pWrite, fd_set *pRead, int timeout);
-    static unsigned int GetBindedPort(SOCKET sockfd);
+    //static unsigned int GetBindedPort(SOCKET sockfd);
     static void SetSocketOption(SOCKET sockfd, int level, int optName, int optVal);
     static void SetSocketOption(SOCKET sockfd, int level, int optName, const char *optVal, int optLen);
     static void GetSocketOption(SOCKET sockfd, int level, int optName, char *optVal, socklen_t *optLen);
@@ -107,7 +115,7 @@ public:
     virtual int Send(const unsigned char *buffer, int bufLen);
     virtual int Recv(unsigned char *buffer, int bufLen);
     virtual void Shutdown();
-    virtual void GetPeerAddress(InetAddress *address);
+    //virtual void GetPeerAddress(InetAddress *address);
 
 	int SetSocketRecvTimeOut(int timeOut);
 
@@ -120,5 +128,5 @@ private:
 };
 
 }
-
+}
 #endif

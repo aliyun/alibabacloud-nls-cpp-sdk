@@ -17,10 +17,14 @@
 #include "speechRecognizerSession.h"
 #include "speechRecognizerParam.h"
 
+namespace AlibabaNls {
+
 SpeechRecognizerSession::SpeechRecognizerSession(SpeechRecognizerParam* param) : NlsSessionBase(param) {
 
 }
 
 SpeechRecognizerSession::~SpeechRecognizerSession() {
+
+}
 
 }

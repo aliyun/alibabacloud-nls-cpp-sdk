@@ -17,8 +17,9 @@
 #ifndef NLS_SDK_SPEECH_RECOGNIZER_SESSION_H
 #define NLS_SDK_SPEECH_RECOGNIZER_SESSION_H
 
-#include <string>
 #include "nlsSessionBase.h"
+
+namespace AlibabaNls {
 
 class SpeechRecognizerParam;
 
@@ -27,5 +28,7 @@ public:
     SpeechRecognizerSession(SpeechRecognizerParam* param);
     virtual ~SpeechRecognizerSession();
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_RECOGNIZER_SESSION_H

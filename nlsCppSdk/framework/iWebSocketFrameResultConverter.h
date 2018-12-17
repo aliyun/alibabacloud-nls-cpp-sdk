@@ -17,15 +17,20 @@
 #ifndef NLS_SDK_SESSION_SPEECH_RECOGNIZER_H
 #define NLS_SDK_SESSION_SPEECH_RECOGNIZER_H
 
+#include "dataStruct.h"
 #include "nlsEvent.h"
-#include "util/dataStruct.h"
+
+namespace AlibabaNls {
 
 class IWebSocketFrameResultConverter {
 public:
-	IWebSocketFrameResultConverter(std::string);
+	IWebSocketFrameResultConverter(std::string, std::string taskId);
 	virtual ~IWebSocketFrameResultConverter();
 	virtual NlsEvent* convertResult(util::WebsocketFrame& frame);
 	std::string _outputFormat;
+	std::string _taskId;
 };
+
+}
 
 #endif

@@ -17,10 +17,14 @@
 #include "speechTranscriberSession.h"
 #include "speechTranscriberParam.h"
 
+namespace AlibabaNls {
+
 SpeechTranscriberSession::SpeechTranscriberSession(SpeechTranscriberParam* param) : NlsSessionBase(param) {
 
 }
 
 SpeechTranscriberSession::~SpeechTranscriberSession() {
+
+}
 
 }

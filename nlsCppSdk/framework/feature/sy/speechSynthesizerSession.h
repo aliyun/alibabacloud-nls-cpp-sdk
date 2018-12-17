@@ -17,8 +17,9 @@
 #ifndef NLS_SDK_SPEECH_SYNTHESIZER_SESSION_H
 #define NLS_SDK_SPEECH_SYNTHESIZER_SESSION_H
 
-#include <string>
 #include "nlsSessionBase.h"
+
+namespace AlibabaNls {
 
 class SpeechSynthesizerParam;
 
@@ -27,5 +28,7 @@ public:
     SpeechSynthesizerSession(SpeechSynthesizerParam* param);
     virtual ~SpeechSynthesizerSession();
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_SYNTHESIZER_SESSION_H

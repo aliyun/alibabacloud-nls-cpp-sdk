@@ -14,33 +14,25 @@
  * limitations under the License.
  */
 
-#include <map>
-#include <cstdlib>
-#include <utility>
-#include "nlsRequestParamInfo.h"
 #include "speechSynthesizerParam.h"
-#include "util/log.h"
+#include <cstdlib>
+#include "log.h"
+#include "nlsRequestParamInfo.h"
 
-using namespace util;
 using namespace Json;
 using std::string;
-using std::map;
+
+namespace AlibabaNls {
+
+using namespace util;
 
 #define D_CMD_START_SYNTHESIZER "StartSynthesis"
 #define D_NAMESPACE_SYNTHESIZER "SpeechSynthesizer"
 
 SpeechSynthesizerParam::SpeechSynthesizerParam() : INlsRequestParam(SY) {
 
-#if defined(_WIN32)
-    _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
-#else
-    _outputFormat = D_DEFAULT_VALUE_ENCODE_UTF8;
-#endif
-
 	_header[D_NAMESPACE] = D_NAMESPACE_SYNTHESIZER;
 
-	_payload[D_FORMAT] = D_DEFAULT_VALUE_AUDIO_ENCODE;
-	_payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
 }
 
 SpeechSynthesizerParam::~SpeechSynthesizerParam() {
@@ -89,55 +81,15 @@ int SpeechSynthesizerParam::setMethod(int value) {
 }
 
 const string SpeechSynthesizerParam::getStartCommand() {
-    Json::Value root;
-    Json::FastWriter writer;
 
     _header[D_NAME] = D_CMD_START_SYNTHESIZER;
-    _header[D_TASK_ID] = this->_task_id;
-    _header[D_MESSAGE_ID] = random_uuid().c_str();
-	
-	if (!_customParam.empty()) {
-		_context[D_CUSTOM_PARAM] = _customParam;
-	}
 
-    root["header"] = _header;
-    root["payload"] = _payload;
-    root["context"] = _context;
+    return INlsRequestParam::getStartCommand();
 
-	string startCommand = writer.write(root);
-	LOG_INFO("StartCommand: %s", startCommand.c_str());
-	return startCommand;
 }
 
 const string SpeechSynthesizerParam::getStopCommand() {
     return "";
-//    return "{}";
 }
-
-int SpeechSynthesizerParam::speechParam(string key, string value) {
-
-    if (0 == strncasecmp(D_SY_TEXT, key.c_str(), key.length())) {
-        setText(value.c_str());
-    } else if (0 == strncasecmp(D_SY_VOICE, key.c_str(), key.length())) {
-        setVoice(value.c_str());
-    } else if (0 == strncasecmp(D_SY_VOLUME, key.c_str(), key.length())) {
-        setVolume(atoi(value.c_str()));
-    } else if (0 == strncasecmp(D_SY_SPEECH_RATE, key.c_str(), key.length())) {
-        setSpeechRate(atoi(value.c_str()));
-    } else if (0 == strncasecmp(D_SY_PITCH_RATE, key.c_str(), key.length())) {
-        setPitchRate(atoi(value.c_str()));
-    } else if (0 == strncasecmp(D_SY_METHOD, key.c_str(), key.length())) {
-        setMethod(atoi(value.c_str()));
-    }  else {
-        LOG_ERROR("%s is invalid.", key.c_str());
-        return -1;
-    }
-
-    return 0;
-}
-
-int SpeechSynthesizerParam::setContextParam(const char* key, const char* value) {
-
-    return INlsRequestParam::setContextParam(key, value);
 
 }

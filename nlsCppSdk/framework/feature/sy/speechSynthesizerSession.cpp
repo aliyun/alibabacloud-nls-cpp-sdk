@@ -17,10 +17,14 @@
 #include "speechSynthesizerSession.h"
 #include "speechSynthesizerParam.h"
 
+namespace AlibabaNls {
+
 SpeechSynthesizerSession::SpeechSynthesizerSession(SpeechSynthesizerParam* param) : NlsSessionBase(param) {
 
 }
 
 SpeechSynthesizerSession::~SpeechSynthesizerSession() {
+
+}
 
 }

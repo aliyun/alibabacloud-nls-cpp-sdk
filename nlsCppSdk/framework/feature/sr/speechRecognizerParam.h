@@ -17,11 +17,9 @@
 #ifndef NLS_SDK_SPEECH_RECOGNIZER_REQUEST_PARAM_H
 #define NLS_SDK_SPEECH_RECOGNIZER_REQUEST_PARAM_H
 
-#include <set>
-#include <string>
 #include "iNlsRequestParam.h"
-#include "json/json.h"
-#include "util/dataStruct.h"
+
+namespace AlibabaNls {
 
 class SpeechRecognizerParam : public INlsRequestParam {
 
@@ -29,16 +27,15 @@ public:
     SpeechRecognizerParam();
     ~SpeechRecognizerParam();
 
-    int setIntermediateResult(const char* value);
-    int setPunctuationPrediction(const char* value);
-    int setTextNormalization(const char* value);
+    const std::string getStartCommand();
+    const std::string getStopCommand();
 
-    virtual int setContextParam(const char* key, const char* value);
+    int setEnableVoiceDetection(bool value);
+    int setMaxStartSilence(int value);
+    int setMaxEndSilence(int value);
 
-    virtual const std::string getStartCommand();
-    virtual const std::string getStopCommand();
-
-    virtual int speechParam(std::string key, std::string value);
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_RECOGNIZER_REQUEST_PARAM_H

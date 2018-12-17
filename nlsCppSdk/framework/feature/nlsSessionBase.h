@@ -18,12 +18,18 @@
 #define NLS_SDK_SESSION_BASE_H
 
 #include <string>
-#include "transport/engine/webSocketAgent.h"
-#include "util/dataStruct.h"
-#include "util/ztCodec.h"
-#include "webSocketFrameHandleBase.h"
+
+#if defined(_WIN32)
 #include "pthread.h"
+#else
+#include <pthread.h>
+#endif
+
+#include "engine/webSocketAgent.h"
+#include "webSocketFrameHandleBase.h"
 #include "iWebSocketFrameResultConverter.h"
+
+namespace AlibabaNls {
 
 class NlsEvent;
 class INlsRequestParam;
@@ -51,14 +57,12 @@ public:
 
 	NlsSessionBase(INlsRequestParam* param);
 	virtual ~NlsSessionBase();
-	virtual int sendPcmVoice(const unsigned char* buffer, size_t num);
-	virtual int sendOpusVoice(const unsigned char* buffer, size_t num);
+	virtual int sendPcmVoice(const unsigned char* buffer, int num);
 	virtual void setHandler(HandleBaseOneParamWithReturnVoid<NlsEvent>*);
 	virtual int start();
 	virtual int stop();
 	virtual int close();
     virtual int shutdown();
-	virtual int stopWakeWordVerification();
 
     transport::engine::webSocketAgent _wsa;
     RequestStatus _status;
@@ -69,7 +73,6 @@ public:
 	pthread_cond_t  _cv;
 	pthread_mutex_t  _mtxNls;
 	pthread_cond_t  _cvNls;
-	util::ztCodec2 codec;
 
     static void byteArray2Short(uint8_t *data, int len, int16_t *result, bool isBigEndian);
 	virtual void handlerFrame(util::WebsocketFrame frame);
@@ -77,13 +80,16 @@ public:
 	HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler;
 	IWebSocketFrameResultConverter* _converter;
 
+	bool compareStatus(RequestStatus status);
+
 private:
 
-    bool compareStatus(RequestStatus status);
-    RequestStatus getStatus();
     void setStatus(RequestStatus status);
+	RequestStatus getStatus();
 
     pthread_mutex_t  _mtxStatus;
 };
+
+}
 
 #endif

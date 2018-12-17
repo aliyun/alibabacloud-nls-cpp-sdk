@@ -17,18 +17,25 @@
 #ifndef NLS_SDK_EVENT_H
 #define NLS_SDK_EVENT_H
 
-#ifdef _WIN32
-#ifndef  ASR_API
-#define ASR_API _declspec(dllexport)
-#endif
-#else
-#define ASR_API
-#endif
-
 #include <string>
 #include <vector>
+#include "nlsGlobal.h"
 
-class ASR_API NlsEvent {
+#if defined(_WIN32)
+	#pragma warning( push )
+	#pragma warning ( disable : 4251 )
+#endif
+
+namespace AlibabaNls {
+
+enum AudioDataStatus {
+	AUDIO_FIRST = 0, /**第一块音频数据**/ 
+	AUDIO_MIDDLE, /**中间音频数据**/
+	AUDIO_LAST /**最后一块音频数据**/
+};
+
+class NLS_SDK_CLIENT_EXPORT NlsEvent {
+
 public:
 
 enum EventType {
@@ -44,6 +51,7 @@ enum EventType {
 	SynthesisStarted,
 	SynthesisCompleted,
 	Binary,
+	DialogResultGenerated,
     Close  /*语音功能通道连接关闭*/
 };
 
@@ -51,24 +59,39 @@ enum EventType {
     * @brief NlsEvent构造函数
     * @param event    NlsEvent对象
     */
-NlsEvent(NlsEvent&  event);
+NlsEvent(const NlsEvent&  event);
 
 /**
     * @brief NlsEvent构造函数
     * @param msg    Event消息字符串
     * @param code   Event状态编码
     * @param type    Event类型
+    * @param taskId 任务的task id
     */
-NlsEvent(std::string msg, int code, EventType type);
+NlsEvent(std::string msg, int code, EventType type, std::string taskId);
+
+/**
+    * @brief NlsEvent构造函数
+    * @param msg    Event消息字符串
+    */
+NlsEvent(std::string msg);
+
+/**
+    * @brief 解析消息字符串
+    * @note SDK内部函数
+    * @return 成功返回0，失败返回-1, 抛出异常
+*/
+int parseJsonMsg();
 
 /**
     * @brief NlsEvent构造函数
     * @param data    二进制数据
     * @param code   Event状态编码
     * @param type    Event类型
+    * @param taskId 任务的task id
     * @return
     */
-NlsEvent(std::vector<unsigned char> data, int code, EventType type);
+NlsEvent(std::vector<unsigned char> data, int code, EventType type, std::string taskId);
 
 /**
     * @brief NlsEvent析构函数
@@ -77,7 +100,7 @@ NlsEvent(std::vector<unsigned char> data, int code, EventType type);
 
 /**
     * @brief 获取状态码
-    * @note 正常情况为0或者200，失败时对应失败的错误码。错误码参考SDK文档说明。
+    * @note 正常情况为0或者20000000，失败时对应失败的错误码。错误码参考SDK文档说明。
     * @return int
     */
 int getStausCode();
@@ -87,7 +110,7 @@ int getStausCode();
     * @note json格式
     * @return const char*
     */
-const char* getResponse();
+const char* getAllResponse();
 
 /**
     * @brief 在TaskFailed回调中，获取NlsRequest操作过程中出现失败时的错误信息
@@ -95,6 +118,46 @@ const char* getResponse();
     * @return const char*
     */
 const char* getErrorMessage();
+
+/**
+    * @brief 获取任务的task id
+    * @return const char*
+    */
+const char* getTaskId();
+
+/**
+    * @brief 获取一句话识别或者实时语音识别的识别结果
+    * @return const char*
+    */
+const char* getResult();
+
+/**
+    * @brief 获取实时语音检测的句子编号
+    * @note 只有在实时语音检测功能才能获得识别句子的编号
+    * @result int
+    */
+int getSentenceIndex();
+
+/**
+    * @brief 获取实时语音检测的句子的音频时长，单位是毫秒
+    * @note 只有在实时语音检测功能才能获得识别句子的音频时长
+    * @result int
+    */
+int getSentenceTime();
+
+/**
+    * @brief 对应的SentenceBegin事件的时间，单位是毫秒
+    * @note 在实时语音识别SentenceEnd事件回调中使用
+    * @result int
+    */
+int getSentenceBeginTime();
+
+/**
+    * @brief 结果置信度,取值范围[0.0,1.0]，值越大表示置信度越高
+    * @note 在实时语音识别SentenceEnd事件回调中使用
+    * @result int
+    */
+double getSentenceConfidence();
 
 /**
     * @brief 获取云端返回的二进制数据
@@ -109,15 +172,44 @@ std::vector<unsigned char> getBinaryData();
     */
 EventType getMsgType();
 
+/**
+    * @brief 获取用于显示的文本
+    * @return const char*
+    */
+const char* getDisplayText();
+
+/**
+    * @brief 获取用于朗读的文本
+    * @return const char*
+    */
+const char* getSpokenText();
+
+private:
+int parseMsgType(std::string name);
+
 private:
 
-int _errorcode;
+int _statusCode;
 std::string _msg;
 EventType _msgtype;
+std::string _taskId;
+std::string _result;
+std::string _displayText;
+std::string _spokenText;
+int _sentenceIndex;
+int _sentenceTime;
+int _sentenceBeginTime;
+double _sentenceConfidence;
 std::vector<unsigned char> _binaryData;
 
 };
 
-typedef void(*NlsCallbackMethod)(NlsEvent*, void*);
+typedef void (*NlsCallbackMethod)(NlsEvent*, void*);
+
+}
+
+#if defined (_WIN32)
+	#pragma warning( pop )
+#endif
 
 #endif //NLS_SDK_EVENT_H

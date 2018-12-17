@@ -17,12 +17,13 @@
 #ifndef NLS_SDK_SPEECH_SYNTHESIZER_LISTENER_H
 #define NLS_SDK_SPEECH_SYNTHESIZER_LISTENER_H
 
-#include "nlsEvent.h"
-#include "webSocketFrameHandleBase.h"
+#include "iNlsRequestListener.h"
+
+namespace AlibabaNls {
 
 class SpeechSynthesizerCallback;
 
-class ASR_API SpeechSynthesizerListener : public HandleBaseOneParamWithReturnVoid<NlsEvent> {
+class SpeechSynthesizerListener : public INlsRequestListener {
 public:
 
     SpeechSynthesizerListener(SpeechSynthesizerCallback* cb);
@@ -35,5 +36,7 @@ private:
     SpeechSynthesizerCallback* _callback;
 
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_SYNTHESIZER_LISTENER_H

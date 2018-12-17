@@ -14,194 +14,376 @@
  * limitations under the License.
  */
 
+#if !defined(_WIN32)
+#include <netdb.h>
+#endif
+
+#if !defined( __APPLE__ )
 #include "openssl/err.h"
+#else
+//Security ssl
+#endif
+
 #include "webSocketTcp.h"
+#include <signal.h>
 #include <string>
 #include <algorithm>
-#include "pthread.h"
-#include "util/log.h"
-
-#include <signal.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include "log.h"
 
 using std::string;
 using std::vector;
 using std::min;
-using namespace util;
 
+namespace AlibabaNls {
 namespace transport {
 
+using namespace util;
+
+#define LINE_LENGTH 512
+#define HTTP_END_STRING "\r\n\r\n"
+
 const char* TOKEN = "X-NLS-Token";
+
+#if defined(_MSC_VER)
 pthread_mutex_t WebSocketTcp::_sslMutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 WebSocketTcp::WebSocketTcp(SmartHandle<SOCKET> sockfd, int timeOut, const WebSocketAddress& addr, string token) : Socket(sockfd, timeOut),
                                                                                                                   _useMask(true),
                                                                                                                   _useSSL(false) {
-	_ssl = NULL;
-	_sslCtx = NULL;
 
 	if (strcmp(addr.type, "wss") == 0 && addr.port == 443) {
+#if !defined( __APPLE__ )
+        _ssl = NULL;
+	    _sslCtx = NULL;
+
 		SOCKET fd = sockfd.GetHandle();
-		SSL_load_error_strings();
+
 		const SSL_METHOD * sslMethod = SSLv23_client_method();
 		if (sslMethod == NULL) {
-			throw ExceptionWithString("SSLv23_client_method fail", 10000015);
+			throw ExceptionWithString("SSL: couldn't create a method!", 10000001);
 		}
 
 		_sslCtx = SSL_CTX_new(sslMethod);
 		if (_sslCtx == NULL) {
-			throw ExceptionWithString("SSL_CTX_new fail", 10000016);
+			throw ExceptionWithString("SSL: couldn't create a context!", 10000001);
 		}
 
 		_ssl = SSL_new(_sslCtx);
 		if (_ssl == NULL) {
-			throw ExceptionWithString("SSL_new fail", 10000017);
+			throw ExceptionWithString("SSL: couldn't create a context (handle)!", 10000001);
 		}
 
-		int nRet = SSL_set_fd(_ssl, fd);
+		int nRet = SSL_set_fd(_ssl, (int)fd);
 		if (nRet == 0) {
-			throw ExceptionWithString("SSL_set_fd fail", 10000027);
+			throw ExceptionWithString("SSL: couldn't create a fd!", 10000001);
 		}
 
+#if defined(_MSC_VER)
 		pthread_mutex_lock(&_sslMutex);
+#endif
+
 		nRet = SSL_connect(_ssl);
+
+#if defined(_MSC_VER)
 		pthread_mutex_unlock(&_sslMutex);
+#endif
 
 		if (-1 == nRet) {
-			int code = 0;
+			//int code = 0;
 			int err = 0;
 			int counter = 10;
 			do {
 				sleepTime(50);
 				err = SSL_get_error(_ssl, nRet);
-				code = ERR_get_error();
+				//code = ERR_get_error();
 
+#if defined(_MSC_VER)
 				pthread_mutex_lock(&_sslMutex);
+#endif
+
 				nRet = SSL_connect(_ssl);
+
+#if defined(_MSC_VER)
 				pthread_mutex_unlock(&_sslMutex);
+#endif
 			} while (counter-- && (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE));
 
-            if (err == 2) {
-				throw ExceptionWithString("ssl connect fail", err);
+            if (err != SSL_ERROR_NONE) {
+				char errorBuffer[128] = {0};
+				ERR_error_string(err, errorBuffer);
+				throw ExceptionWithString(errorBuffer, 10000002);
 			}
 		}
-		_useSSL = true;
+#else
+        //Security ssl
+        _iosSslHandle = NULL;
+        _iosSslParam.socketFd = sockfd.GetHandle();
+
+        LOG_DEBUG("connect socketFd: %d",  _iosSslParam.socketFd);
+
+        _iosSslHandle  = new IosSslConnect();
+
+        if (NULL == _iosSslHandle->iosSslHandshake(&_iosSslParam, addr.host) ) {
+            throw ExceptionWithString(_iosSslHandle->getErrorMsg(), 10000001);
+        }
+#endif
+        _useSSL = true;
+    }
+
+/*
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+*/
+
+	if (ConnectToHttp(addr, token) == false) {
+		throw ExceptionWithString("HTTP: connect failed.", 100000013);
 	}
 
-	if (ConnectToHttp(addr,token) == false) {
-		throw ExceptionWithString("ConnectToHttp fail", 10000005);
-	}
+/*
+    struct timeval tv1;
+    gettimeofday(&tv1,NULL);
+    LOG_DEBUG("ConnectToTime: %llu, %llu, %llu.",
+    tv.tv_sec*1000 + tv.tv_usec/1000,
+    tv1.tv_sec*1000 + tv1.tv_usec/1000,
+    (tv1.tv_sec*1000 + tv1.tv_usec/1000) - (tv.tv_sec*1000 + tv.tv_usec/1000));
+*/
 
     _blockSigpipe = false;
-
 }
 
 int WebSocketTcp::ws_read(void *buf, size_t num) {
 	int ret = 0;
-	ret = _useSSL == true? SSL_read(_ssl, buf, num) : Recv((unsigned char*)buf, num);
+
+#if defined( __APPLE__ )
+    ret = _useSSL == true? _iosSslHandle->iosSslRead(_iosSslHandle->getCtxHandle(), buf, num) : Recv((unsigned char*)buf, (int)num);
+#else
+    ret = _useSSL == true? SSL_read(_ssl, buf, (int)num) : Recv((unsigned char*)buf, (int)num);
+#endif
 
 	return ret;
 }
 
 int WebSocketTcp::ws_write(const void *buf, size_t num) {
 	int ret = 0;
-	ret = _useSSL == true ? SSL_write(_ssl, buf, num) : Send((unsigned char*)buf, num);
+
+#if defined( __APPLE__ )
+	ret = _useSSL == true ? _iosSslHandle->iosSslWrite(_iosSslHandle->getCtxHandle(), buf, num) : Send((unsigned char*)buf, (int)num);
+#else
+    ret = _useSSL == true ? SSL_write(_ssl, buf, (int)num) : Send((unsigned char*)buf, (int)num);
+#endif
 
 	return ret;
 }
 
 WebSocketTcp::~WebSocketTcp() {
 	if (_useSSL) {
-		SSL_free(_ssl);
+#if defined( __APPLE__ )
+        delete _iosSslHandle;
+        _iosSslHandle = NULL;
+#else
+        SSL_free(_ssl);
 		SSL_CTX_free(_sslCtx);
+#endif
 	}
 }
 
 WebSocketTcp* WebSocketTcp::connectTo(const WebSocketAddress& addr, int timeOut, string token) {
 	SocketFuncs::Startup();
-	SmartHandle<SOCKET> sockfd(socket(AF_INET, SOCK_STREAM, 0));
 	string ip;
-	bool res = InetAddress::GetInetAddressByHostname(addr.host, ip);
+    int aiFamily;
+    string errorMsg;
+	bool res = InetAddress::GetInetAddressByHostname(addr.host, ip, aiFamily, errorMsg);
 	if (res == false) {
-		throw ExceptionWithString("GetInetAddressByHostname fail", 10000028);
+		throw ExceptionWithString(errorMsg, 10000003);
 	}
 
-	InetAddress ina(ip, addr.port);
-	SocketFuncs::connectTo(sockfd.get(), ina);
+    SmartHandle<SOCKET> sockfd(socket(aiFamily, SOCK_STREAM, 0));
+
+	InetAddress ina(ip, aiFamily, addr.port);
+
+	fd_set fdr, fdw;
+	struct timeval timeout;
+	int ret;
+
+#if defined(_WIN32)
+	unsigned long ul = 1;
+	ret = ioctlsocket(sockfd.get(), FIONBIO, (unsigned long*)&ul);
+	if (ret == SOCKET_ERROR) {
+		throw ExceptionWithString("ioctlsocket FIONBIO failed.", 10000015);
+	}
+#else
+	int flags;
+	flags = fcntl(sockfd.get(), F_GETFL, 0);
+	if (flags < 0) {
+		throw ExceptionWithString("fcntl F_GETFL failed.", 10000015);
+	}
+	flags |= O_NONBLOCK;
+	if (fcntl(sockfd.get(), F_SETFL, flags) < 0) {
+		throw ExceptionWithString("fcntl F_SETFL failed.", 10000015);
+	}
+#endif
+
+	ret = SocketFuncs::connectTo(sockfd.get(), ina);
+  	if (ret != 0) {
+
+#if !defined(_WIN32)
+    if (Socket::getLastErrorCode() == EINPROGRESS) {
+#endif
+		LOG_DEBUG("connect in progress");
+
+		FD_ZERO(&fdr);
+      	FD_ZERO(&fdw);
+      	FD_SET(sockfd.get(), &fdr);
+      	FD_SET(sockfd.get(), &fdw);
+      	timeout.tv_sec = 3;
+      	timeout.tv_usec = 0;
+
+      	ret = select(((int)sockfd.get()) + 1, &fdr, &fdw, NULL, &timeout);
+      	if (ret < 0) {
+        	throw ExceptionWithString("connect failed.", 10000015);
+      	} else if (ret == 0) {
+        	throw ExceptionWithString("connect timeout.", 10000015);
+      	} else if (ret == 2) {
+        	throw ExceptionWithString("connect error.", 10000015);
+      	} else if (ret == 1 && FD_ISSET(sockfd.get(), &fdw)) {
+        	LOG_DEBUG("connect done.");
+      	} else {
+        	LOG_ERROR("connect return value is %d.", ret);
+        	throw ExceptionWithString("select failed.", 10000015);
+      	}
+
+#if !defined(_WIN32)
+    } else {
+		LOG_ERROR("select error %s.", gai_strerror(Socket::getLastErrorCode()));
+		throw ExceptionWithString("select error.", 10000015);
+    }
+#endif
+  }
+
+#if defined(_WIN32)
+	ul = 0;
+	ret = ioctlsocket(sockfd.get(), FIONBIO, (unsigned long*)&ul);
+	if (ret == SOCKET_ERROR) {
+		throw ExceptionWithString("ioctlsocket FIONBIO failed.", 10000015);
+	}
+#else
+	flags = fcntl(sockfd.get(), F_GETFL, 0);
+	if (flags < 0) {
+		throw ExceptionWithString("fcntl get failed", 10000015);
+	}
+	flags &= ~O_NONBLOCK;
+	if (fcntl(sockfd.get(), F_SETFL, flags) < 0) {
+		throw ExceptionWithString("fcntl set failed", 10000015);
+	}
+#endif
+
 	WebSocketTcp* tcpSock = new WebSocketTcp(sockfd, timeOut, addr, token);
 
     return tcpSock;
 }
 
+int WebSocketTcp::getTargetLen(string line, const char* begin, const char* end) {
+	size_t seek = line.find(begin);
+
+	size_t position = line.find(end, seek + strlen(begin));
+	if (position == string::npos) {
+		return -1;
+	}
+//	LOG_DEBUG("Position: %d %d %s", position, strlen(begin), line.c_str()+position);
+
+	string tmpCode(line.substr(seek + strlen(begin), position - strlen(begin)));
+//	LOG_DEBUG("tmpCode: %s", tmpCode.c_str());
+
+	return atoi(tmpCode.c_str());
+}
+
 bool WebSocketTcp::ConnectToHttp(const WebSocketAddress addr, string token) {
-	char line[256] = {0};
-	int status = 0;
-	int i = 0;
+	char line[LINE_LENGTH] = {0};
+	int statusCode = -1;
+	int contentLen = -1;
+	int recvLen = 0;
+	bool retValue = false;
+	char hostBuff[256] = {0};
 
-	snprintf(line, 256, "GET /%s HTTP/1.1\r\n", addr.path);
-	ws_write(line, strlen(line));
 	if (addr.port == 80) {
-		snprintf(line, 256, "Host: %s\r\n", addr.host);
-		ws_write(line, strlen(line));
+		snprintf(hostBuff, 256, "Host: %s\r\n", addr.host);
 	} else {
-		snprintf(line, 256, "Host: %s:%d\r\n", addr.host, addr.port);
-		ws_write(line, strlen(line));
+		snprintf(hostBuff, 256, "Host: %s:%d\r\n", addr.host, addr.port);
 	}
 
-	snprintf(line, 256, "Upgrade: websocket\r\n");
+	snprintf(line, LINE_LENGTH, "GET /%s HTTP/1.1\r\n%s%s%s%s%s%s: %s\r\n%s",
+			 addr.path,
+			 hostBuff,
+			 "Upgrade: websocket\r\n",
+			 "Connection: Upgrade\r\n",
+			 "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n",
+			 "Sec-WebSocket-Version: 13\r\n",
+			 TOKEN,
+			 token.c_str(),
+			 "\r\n");
 	ws_write(line, strlen(line));
-	snprintf(line, 256, "Connection: Upgrade\r\n");
-	ws_write(line, strlen(line));
-	snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n");
-	ws_write(line, strlen(line));
-	snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n");
-	ws_write(line, strlen(line));
-	snprintf(line, 256, "%s: %s\r\n", TOKEN, token.c_str());
-	ws_write(line, strlen(line));
-	snprintf(line, 256, "\r\n");
-	ws_write(line, strlen(line));
-	LOG_DEBUG("send http head to server");
+	LOG_DEBUG("send http head to server:%s", line);
 
-	memset(line, 0, 256);
-	for (i = 0; i < 2 || (i < 255 && line[i - 2] != '\r' && line[i - 1] != '\n'); ++i) {
-		int ret = ws_read(line + i, 1);
+	memset(line, 0, LINE_LENGTH);
+	int ret = 0;
+	for (recvLen = 0; recvLen < (LINE_LENGTH - 1); ) {
+		ret = ws_read(line + recvLen, (LINE_LENGTH - recvLen));
 		if (ret <= 0) {
-            LOG_DEBUG("handshake: read failed, %d.", ret);
-            return false;
+            LOG_ERROR("handshake: read failed, %d.", ret);
+			retValue = false;
+			break;
         }
-	}
+		recvLen += ret;
 
-	line[i] = 0;
-	LOG_DEBUG("http: %s", line);
+		if (recvLen < 2) {
+			continue;
+		}
 
-    if (i == 255) {
-		LOG_ERROR("Got invalid status line connecting to: %s", addr.host);
-		return false;
-	}
+//		LOG_DEBUG("handshake: %s.", line);
 
-	if (sscanf(line, "HTTP/1.1 %d", &status) != 1 || status != 101) {
-		LOG_WARN("Got bad status connecting to %s: %s", addr.host, line);
-		throw ExceptionWithString("Got bad status", status);
-	}
-	LOG_DEBUG("receive http status response from server");
-
-	while (true) {
-		memset(line, 0, 256);
-		for (i = 0; i < 2 || (i < 255 && line[i - 2] != '\r' && line[i - 1] != '\n'); ++i) {
-			int ret = ws_read(line + i, 1);
-			if (ret <= 0) {
-                LOG_DEBUG("handshake: read failed, %d.", ret);
-				return false;
+		string tmpLine = line;
+		if (statusCode == -1) {
+			statusCode = getTargetLen(tmpLine, "HTTP/1.1 ", " ");
+			if (statusCode == -1) {
+				LOG_ERROR("Got bad status connecting to %s: %s", addr.host, line);
+				throw ExceptionWithString("HTTP: Got bad status.", statusCode);
 			}
 		}
 
-		LOG_DEBUG("http: %s", line);
-		if (line[0] == '\r' && line[1] == '\n') {
-			break; 
-		}		
+		if (statusCode == 101) {
+			retValue = true;
+			break;
+		} else {
+			if (contentLen == -1) {
+				contentLen = getTargetLen(line, "Content-Length: ", "\r\n");
+			}
+
+			size_t endLen = strlen(HTTP_END_STRING);
+			size_t position = tmpLine.find(HTTP_END_STRING);
+			if (position != string::npos) {
+				if (contentLen == -1) {
+					char* errorMsg = line;
+					throw ExceptionWithString(errorMsg, statusCode);
+				} else {
+					if (contentLen == (recvLen - (position + endLen))) {
+						char* errorMsg = (line + position + endLen);
+						LOG_ERROR("Position: %d %s", (int)(recvLen - (position + endLen)), errorMsg);
+						throw ExceptionWithString(errorMsg, statusCode);
+					}
+				}
+			}
+		}
 	}
+	line[recvLen] = 0;
+
+	LOG_DEBUG("http: %s", line);
+
 	LOG_DEBUG("receive http head response from server");
 
-	return true;
+	return retValue;
 }
 
 int WebSocketTcp::send(uint8_t* data, int len) {
@@ -229,10 +411,17 @@ int WebSocketTcp::send(uint8_t* data, int len) {
 #endif
 
     if (_useSSL == true) {
+#if defined( __APPLE__ )
+        nRet = _iosSslHandle->iosSslWrite(_iosSslHandle->getCtxHandle(), data, len);
+        if (nRet < 0) {
+            return -1;
+        }
+#else
         nRet = SSL_write(_ssl, data, len);
         if (nRet <= 0) {
             return -1;
         }
+#endif
     } else {
         nRet = Send(data, len);
         if (nRet < 0) {
@@ -253,10 +442,6 @@ int WebSocketTcp::RecvDataBySize(vector<unsigned char>& buffer, int size) {
             ret = -1;
             break;
 		}
-
-//		if (temp <= 0) {
-//			throw ExceptionWithString("WebTcp socket has been closed gracefully!", Socket::getLastErrorCode());
-//		}
 		len += temp;
 	}
 
@@ -286,8 +471,8 @@ int WebSocketTcp::RecvFullWebSocketFrame(vector<unsigned char>& frame,
 	DecodeHeaderBodyWebSocketFrame(frame, ws);
 
 	//recv body
-	vector<unsigned char> body(ws.N, 0);
-    if ( -1 == RecvDataBySize(body, ws.N)) {
+	vector<unsigned char> body((int)ws.N, 0);
+    if ( -1 == RecvDataBySize(body, (int)ws.N)) {
         errorCode = getLastErrorCode();
         return -1;
     }
@@ -368,7 +553,6 @@ int WebSocketTcp::DecodeFrameBodyWebSocketFrame(vector<unsigned char> rxbuf, Wsh
                                  rxbuf.begin() + ws.header_size,
                                  rxbuf.begin() + ws.header_size + (size_t)ws.N);
 	} else if (ws.opcode == WsheaderType::PING) {
-//		throw ExceptionWithString("PING no implementaion",10000004);
 		return -1;
 	} else if (ws.opcode == WsheaderType::CLOSE) {
 		StatusCode code;
@@ -393,8 +577,13 @@ bool WebSocketTcp::InitializeSslContext() {
 
 void WebSocketTcp::CloseSsl() {
     if (_useSSL) {
+#if defined( __APPLE__ )
+        _iosSslHandle->iosSslClose();
+#else
         SSL_shutdown(_ssl);
+#endif
     }
 }
 
+}
 }

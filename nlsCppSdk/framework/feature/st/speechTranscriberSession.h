@@ -17,8 +17,9 @@
 #ifndef NLS_SDK_SPEECH_TRANSCRIBER_SESSION_H
 #define NLS_SDK_SPEECH_TRANSCRIBER_SESSION_H
 
-#include <string>
 #include "nlsSessionBase.h"
+
+namespace AlibabaNls {
 
 class NlsSessionBase;
 class SpeechTranscriberParam;
@@ -28,5 +29,7 @@ public:
     SpeechTranscriberSession(SpeechTranscriberParam* param);
     virtual ~SpeechTranscriberSession();
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_TRANSCRIBER_SESSION_H

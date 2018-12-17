@@ -17,12 +17,17 @@
 #ifndef NLS_SDK_WEBSOCKET_FRAME_HANDLE_BASE_H
 #define NLS_SDK_WEBSOCKET_FRAME_HANDLE_BASE_H
 
+#include "nlsEvent.h"
+
+namespace AlibabaNls {
+
 template<typename T>
 class HandleBaseOneParamWithReturnVoid {
 public:
 	HandleBaseOneParamWithReturnVoid();
 	virtual ~HandleBaseOneParamWithReturnVoid();
 	virtual void handlerFrame(T) = 0;
+	virtual void handlerFrame(std::string errorInfo, int errorCode, NlsEvent::EventType type, std::string taskId);
 };
 
 template<typename T>
@@ -32,6 +37,13 @@ HandleBaseOneParamWithReturnVoid<T>::HandleBaseOneParamWithReturnVoid() {
 
 template<typename T>
 HandleBaseOneParamWithReturnVoid<T>::~HandleBaseOneParamWithReturnVoid() {
+
+}
+
+template<typename T>
+void HandleBaseOneParamWithReturnVoid<T>::handlerFrame(std::string errorInfo, int errorCode, NlsEvent::EventType type, std::string taskId) {
+
+}
 
 }
 

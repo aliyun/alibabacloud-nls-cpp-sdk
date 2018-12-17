@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-#include <string>
-#include "util/log.h"
-#include "speechTranscriberSession.h"
 #include "speechTranscriberRequest.h"
+#include <string>
+#include "log.h"
+#include "nlsRequestParamInfo.h"
+#include "nlsSessionBase.h"
 #include "speechTranscriberParam.h"
 #include "speechTranscriberListener.h"
-#include "nlsRequestParamInfo.h"
 
 using std::string;
+
+namespace AlibabaNls {
+
 using namespace util;
 
 SpeechTranscriberCallback::SpeechTranscriberCallback() {
@@ -122,12 +125,9 @@ void SpeechTranscriberCallback::setOnChannelClosed(NlsCallbackMethod _event, voi
     }
 }
 
-SpeechTranscriberRequest::SpeechTranscriberRequest(SpeechTranscriberCallback* cb,
-                                                 const char* configPath) {
-    _requestParam = new SpeechTranscriberParam();
-    if (NULL != configPath) {
-        _requestParam->generateRequestFromConfig(configPath);
-    }
+SpeechTranscriberRequest::SpeechTranscriberRequest(SpeechTranscriberCallback* cb) {
+    _transcriberParam = new SpeechTranscriberParam();
+    _requestParam = _transcriberParam;
 
     _listener = new SpeechTranscriberListener(cb);
 
@@ -139,8 +139,10 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
 		delete _session;
 		_session = NULL;
 	}
-	
-	delete _requestParam;
+
+    delete _transcriberParam;
+    _transcriberParam = NULL;
+
     _requestParam = NULL;
 
     delete _listener;
@@ -148,190 +150,79 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
 }
 
 int SpeechTranscriberRequest::start() {
-
-    int ret = -1;
-    string errorInfo;
-    int errorCode = 0;
-    int count = 10;
-
-    do {
-        try {
-            if (!_session) {
-                _session = new SpeechTranscriberSession(_requestParam);
-                if (_session == NULL) {
-                    LOG_ERROR("request start failed.")
-                    return -1;
-                }
-                _session->setHandler(_listener);
-            }
-            ret = _session->start();
-            return ret;
-        } catch (ExceptionWithString &e) {
-            errorInfo = e.what();
-            errorCode = e.getErrorcode();
-//			if (NULL != _session) {
-//				delete _session;
-//				_session = NULL;
-//			}
-            LOG_ERROR("%s, begining retry...", e.what());
-            ret = -1;
-        }
-    }while((-1 == ret) && ((count --) >= 0));
-
-    if (-1 == ret) {
-        errorInfo += ", retry finised.";
-        NlsEvent* nlsevent = new NlsEvent(errorInfo, errorCode, NlsEvent::TaskFailed);
-        _listener->handlerFrame(*nlsevent);
-        delete nlsevent;
-    }
-
-    return ret;
+    return INlsRequest::start();
 }
 
 int SpeechTranscriberRequest::stop() {
-	if (!_session) {
-		LOG_ERROR("Stop invoke error. Please check the order of execution.");
-        return -1;
-	}
-
-    return _session->stop();
+    return INlsRequest::stop();
 }
 
 int SpeechTranscriberRequest::cancel() {
-	if (!_session) {
-		LOG_ERROR("Cancel invoke error. Please check the order of execution.");
-        return -1;
-	}
-	
-	return _session->shutdown();
+    return INlsRequest::cancel();
 }
 
-int SpeechTranscriberRequest::sendAudio(char* data, size_t dataSzie, bool encoded ) {
-    int ret = -1;
-    string errorInfo;
-    int errorCode = -1; //TODO getErrorCode
-	string format = _requestParam->_payload[D_FORMAT].asString();
-
-    if (!data) {
-        LOG_ERROR("It's null data.");
-        return -1;
-    }
-
-	if (!_session) {
-		LOG_ERROR("SendAudio invoke error. Please check the order of execution.");
-        return -1;
-	}
-
-    if (format == "pcm" || format == "opu") {
-        if(encoded) {
-            ret = _session->sendOpusVoice((unsigned char *)data, dataSzie);
-        } else {
-            ret = _session->sendPcmVoice((unsigned char *)data, dataSzie);
-        }
-
-        if (-1 == ret) {
-            errorInfo = "Send data failed.";
-        }
-
-    } else {
-        errorInfo = "Format is not supported.";
-        LOG_ERROR("Format is not supported.");
-    }
-
-    if (-1 == ret) {
-        LOG_DEBUG("sendAudio failed, error info : %s", errorInfo.c_str());
-        NlsEvent* nlsevent = new NlsEvent(errorInfo, errorCode, NlsEvent::TaskFailed);
-        _listener->handlerFrame(*nlsevent);
-        delete nlsevent;
-        nlsevent = NULL;
-    }
-
-//    LOG_INFO("Send audio result: %d", ret);
-
-    return ret ;
+int SpeechTranscriberRequest::sendAudio(char* data, int dataSzie, bool encoded ) {
+    return INlsRequest::sendAudio(data, dataSzie, encoded);
 }
 
 int SpeechTranscriberRequest::setToken(const char*token) {
-    if (!token) {
-        LOG_ERROR("It's null token.");
-        return -1;
-    }
-
-    return this->_requestParam->setToken(token);
+    return INlsRequest::setToken(token);
 }
 
 int SpeechTranscriberRequest::setUrl(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null Url.");
-        return -1;
-    }
-
-    return this->_requestParam->setUrl(value);
+    return INlsRequest::setUrl(value);
 }
 
 int SpeechTranscriberRequest::setAppKey(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null AppKey.");
-        return -1;
-    }
-
-    return this->_requestParam->setAppKey(value);
+    return INlsRequest::setAppKey(value);
 }
 
 int SpeechTranscriberRequest::setFormat(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null Format.");
-        return -1;
-    }
-
-    return this->_requestParam->setFormat(value);
+    return INlsRequest::setFormat(value);
 }
 
 int SpeechTranscriberRequest::setSampleRate(int value) {
-    return this->_requestParam->setSampleRate(value);
+    return INlsRequest::setSampleRate(value);
 }
 
-int SpeechTranscriberRequest::setIntermediateResult(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null IntermediateResult.");
-        return -1;
-    }
-
-    return this->_requestParam->setIntermediateResult(value);
+int SpeechTranscriberRequest::setIntermediateResult(bool value) {
+    return _transcriberParam->setIntermediateResult(value);
 }
 
-int SpeechTranscriberRequest::setPunctuationPrediction(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null PunctuationPrediction.");
-        return -1;
-    }
-
-    return this->_requestParam->setPunctuationPrediction(value);
+int SpeechTranscriberRequest::setPunctuationPrediction(bool value) {
+    return _transcriberParam->setPunctuationPrediction(value);
 }
 
-int SpeechTranscriberRequest::setInverseTextNormalization(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null InverseTextNormalization.");
-        return -1;
-    }
+int SpeechTranscriberRequest::setInverseTextNormalization(bool value) {
+    return _transcriberParam->setTextNormalization(value);
+}
 
-    return this->_requestParam->setTextNormalization(value);
+int SpeechTranscriberRequest::setSemanticSentenceDetection(bool value) {
+    return _transcriberParam->setSentenceDetection(value);
+}
+
+int SpeechTranscriberRequest::setMaxSentenceSilence(int value) {
+    return _transcriberParam->setMaxSentenceSilence(value);
+}
+
+int SpeechTranscriberRequest::setTimeout(int value) {
+    return INlsRequest::setTimeout(value);
 }
 
 int SpeechTranscriberRequest::setOutputFormat(const char* value) {
-	if (!value) {
-		LOG_ERROR("It's null OutputFormat.");
-		return -1;
-	}
-
-	return this->_requestParam->setOutputFormat(value);
+    return INlsRequest::setOutputFormat(value);
 }
 
-int SpeechTranscriberRequest::setContextParam(const char *key, const char *value) {
-    if (!value || !key) {
-        LOG_ERROR("Key or Value is null.");
-        return -1;
-    }
+int SpeechTranscriberRequest::setPayloadParam(const char* value) {
+    return INlsRequest::setPayloadParam(value);
+}
 
-    return this->_requestParam->setContextParam(key, value);
+int SpeechTranscriberRequest::setContextParam(const char *value) {
+    return INlsRequest::setContextParam(value);
+}
+
+int SpeechTranscriberRequest::getTranscriberResult(std::queue<NlsEvent>* eventQueue) {
+    return INlsRequest::getRecognizerResult(eventQueue);
+}
+
 }

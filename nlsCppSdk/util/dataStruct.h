@@ -17,13 +17,14 @@
 #ifndef NLS_SDK_DATA_STRUCT_H
 #define NLS_SDK_DATA_STRUCT_H
 
-#include <string>
 #include <stdint.h>
-#include <vector>
 #include <string.h>
 #include <stdio.h>
+#include <string>
+#include <vector>
 #include "exception.h"
 
+namespace AlibabaNls {
 namespace util {
 #if defined(_WIN32)
 #ifndef snprintf
@@ -50,7 +51,7 @@ public:
         WebSocketAddress wsa;
 
 	if (url.empty()) {
-		throw ExceptionWithString("ERROR: The url is empty", 10000019);
+		throw ExceptionWithString("URL: The url is empty.", 10000004);
 	}
 
         if (sscanf(url.c_str(), "%[^:/]://%[^:/]:%d/%s", wsa.type, wsa.host, &wsa.port, wsa.path) == 4) {
@@ -63,7 +64,7 @@ public:
             wsa.port = (strcmp(wsa.type, "wss") == 0 || strcmp(wsa.type, "https") == 0) ? 443 : 80;
             wsa.path[0] = '\0';
         } else {
-            throw ExceptionWithString("ERROR: Could not parse WebSocket url: " + url, 10000018);
+            throw ExceptionWithString("URL: Could not parse WebSocket url: " + url, 10000005);
         }
         return wsa;
     }
@@ -106,11 +107,7 @@ struct WebsocketFrame {
 enum RequestMode {
     SR = 0,
     ST,
-    WWV,
-    SY,
-    TGA,
-    VPR,
-    VPM
+    SY
 };
 
 enum ResponseMode {
@@ -119,8 +116,8 @@ enum ResponseMode {
 };
 
 void int2ByteArray(int32_t *data, int len, uint8_t *result, bool isBigEndian);
-char *base64Encode(const char *input, int length, bool with_new_line);
+//char *base64Encode(const char *input, int length, bool with_new_line);
 
 }
-
+}
 #endif

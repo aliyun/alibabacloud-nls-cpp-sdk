@@ -17,8 +17,9 @@
 #ifndef NLS_SDK_SMARTHANDLE_H
 #define NLS_SDK_SMARTHANDLE_H
 
-#include "errorHandlingUtility.h"
-//#include "util/log.h"
+#if defined(_WIN32)
+#include <winsock2.h>
+#endif
 
 #if defined(__GNUC__)
 #include <sys/socket.h>
@@ -31,10 +32,10 @@
 #define WSAGetLastError() 0
 #endif
 
-#if defined(_WIN32)
-#include <winsock2.h>
-#endif
+#include "errorHandlingUtility.h"
+#include "log.h"
 
+namespace AlibabaNls {
 namespace util {
 
 template <typename HandleT>
@@ -108,6 +109,7 @@ public:
 
 };
 
+}
 }
 
 #endif //NLS_SDK_SMARTHANDLE_H

@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-#include <string.h>
 #include "asyncBase.h"
+#include "log.h"
+#include "errorHandlingUtility.h"
 #include "thread.h"
-#include "util/log.h"
 
-using namespace util;
-
+namespace AlibabaNls {
 namespace transport{
 
 namespace engine{
+
+using namespace util;
 
 bool AsyncBase::canLoopContinue() {
     pthread_mutex_lock(&_operationMutex);
@@ -89,4 +90,5 @@ AsyncBase::AsyncBase(const std::string& name) : _status(Status_Init),
 
 }
 
+}
 }

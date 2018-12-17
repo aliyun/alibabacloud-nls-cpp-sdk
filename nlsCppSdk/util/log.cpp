@@ -15,33 +15,43 @@
  */
 
 #include "log.h"
-#include "exception.h"
 
 #if defined(_WIN32)
 #include <windows.h>
+#endif
+
+#if defined(__APPLE__)
+#include <unistd.h>
 #endif
 
 #if defined(__ANDROID__) || defined(__linux__)
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
 
 #ifndef _ANDRIOD_
 #include <iconv.h>
 #endif
 
-#include <string.h>
-
 #endif
+
+#include <sstream>
+#include "exception.h"
 
 using std::string;
 
+namespace AlibabaNls {
 namespace util {
 
 bool zlog_debug = true;
 pthread_mutex_t Log::mtxOutput = PTHREAD_MUTEX_INITIALIZER;
 FILE *Log::_output = stdout;
 int Log::_logLevel = 1;
+const char* Log::_logFileName = NULL;
+long long Log::_logFileSize = 10 * 1024 * 1024;
+long long Log::_logCurrentSize = 0;
+int Log::_bakFileCounts = 5;
 
 void Log::setLogEnable(bool enable) {
     zlog_debug = enable;
@@ -64,7 +74,7 @@ string Log::UTF8ToGBK(const string &strUTF8) {
 
     int res = Log::code_convert((char *)"UTF-8", (char *)"GBK", inbuf, inputLen, outbuf, outputLen);
     if (res == -1) {
-        throw ExceptionWithString("convert to utf8 error", errno);
+        throw ExceptionWithString("ENCODE: convert to utf8 error.", errno);
     }
 
     string strTemp(outbuf);
@@ -166,6 +176,46 @@ string Log::GBKToUTF8(const string &strGBK) {
 
 }
 
+void Log::saveLog(const char* res, int resLength) {
+	static int num = -1;
+	if (Log::_output == stdout) {
+		fprintf(Log::_output, "%s\n", res);
+		return;
+	}
+
+	if (Log::_logCurrentSize + resLength > Log::_logFileSize) {
+		fclose(Log::_output);
+
+		num++;
+		num = num % Log::_bakFileCounts;
+		std::ostringstream os;
+		os << num;
+
+		std::string bakFileName = Log::_logFileName;
+		size_t index = bakFileName.find_last_of('.');
+		if (index > 0 && index < bakFileName.length()) {
+			bakFileName = bakFileName.substr(0, index) + "_bak" + os.str() + bakFileName.substr(index, bakFileName.length() - index);
+		}
+		else {
+			bakFileName = bakFileName + "_bak" + os.str();
+		}
+		FILE* bakFile = fopen(bakFileName.c_str(), "r");
+		if (NULL != bakFile) {
+			fclose(bakFile);
+			remove(bakFileName.c_str());
+		}
+		rename(Log::_logFileName, bakFileName.c_str());
+
+		FILE* fs = fopen(Log::_logFileName, "w+");
+		if (NULL != fs) {
+			Log::_output = fs;
+			Log::_logCurrentSize = 0;
+		}
+	}
+	Log::_logCurrentSize += resLength;
+	fprintf(Log::_output, "%s\n", res);
+}
+
 #if defined(__ANDROID__) || defined(__linux__)
 
 int Log::code_convert(char *from_charset, char *to_charset, char *inbuf, size_t inlen, char *outbuf, size_t outlen) {
@@ -174,7 +224,6 @@ int Log::code_convert(char *from_charset, char *to_charset, char *inbuf, size_t 
     outbuf = inbuf;
 #else
     iconv_t cd;
-    int rc;
     char **pin = &inbuf;
     char **pout = &outbuf;
 
@@ -184,7 +233,7 @@ int Log::code_convert(char *from_charset, char *to_charset, char *inbuf, size_t 
     }
 
     memset(outbuf, 0, outlen);
-    if (iconv(cd, pin, &inlen, pout, &outlen) == -1) {
+    if (iconv(cd, pin, &inlen, pout, &outlen) == (size_t)-1) {
         return -1;
     }
     iconv_close(cd);
@@ -217,5 +266,4 @@ unsigned long PthreadSelf() {
 }
 
 }
-
-
+}

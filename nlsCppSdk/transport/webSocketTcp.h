@@ -17,19 +17,26 @@
 #ifndef NLS_SDK_WEBSOCKET_TCP_H
 #define NLS_SDK_WEBSOCKET_TCP_H
 
-#include "socket.h"
-#include "thirdparty/openssl/ssl.h"
-#include "util/dataStruct.h"
-#include "util/smartHandle.h"
+#include <cstring>
 #include <vector>
 #include <string>
-#include <cstring>
+#include "socket.h"
+#include "dataStruct.h"
 
+#if !defined( __APPLE__ )
+#include "openssl/ssl.h"
+#else
+#include "iosSsl.h"
+#endif
+
+namespace AlibabaNls {
 namespace transport {
 
 class WebSocketTcp : public Socket {
 
+#if defined(_MSC_VER)
     static pthread_mutex_t _sslMutex;
+#endif
 
 public:
     static WebSocketTcp* connectTo(const util::WebSocketAddress& addr, int timeOut, std::string token);
@@ -40,13 +47,13 @@ public:
     int ws_write(const void *buf, size_t num);
 
     template<class Iterator>
-    int sendData(util::WsheaderType::OpcodeType type, uint64_t message_size, Iterator message_begin, Iterator message_end);
+    int sendData(util::WsheaderType::OpcodeType type, int message_size, Iterator message_begin, Iterator message_end);
 
     template<class Iterator>
-    int sendBinaryData(uint64_t message_size, Iterator message_begin, Iterator message_end);
+    int sendBinaryData(int message_size, Iterator message_begin, Iterator message_end);
 
     template<class Iterator>
-    int sendTextData(uint64_t message_size, Iterator message_begin, Iterator message_end);
+    int sendTextData(int message_size, Iterator message_begin, Iterator message_end);
 
     int RecvDataBySize(std::vector<unsigned char>& buffer, int size);
     int RecvFullWebSocketFrame(std::vector<unsigned char>& frame, util::WsheaderType& ws, util::WebsocketFrame& receivedData, int& errorCode);
@@ -60,33 +67,41 @@ private:
     bool ConnectToHttp(const util::WebSocketAddress addr, std::string token);
     bool InitializeSslContext();
     int send(uint8_t* data, int len);
+    int getTargetLen(std::string line, const char* begin, const char* end);
 
     bool _useMask;
     bool _useSSL;
+
+#if !defined( __APPLE__ )
     SSL * _ssl;
     SSL_CTX * _sslCtx;
+#else
+    sslCustomParam_t _iosSslParam;
+    IosSslConnect* _iosSslHandle;
+#endif
 
     bool _blockSigpipe;
 };
 
 template<class Iterator>
-int WebSocketTcp::sendBinaryData(uint64_t message_size, Iterator message_begin, Iterator message_end) {
+int WebSocketTcp::sendBinaryData(int message_size, Iterator message_begin, Iterator message_end) {
     return sendData(util::WsheaderType::BINARY_FRAME, message_size, message_begin, message_end);
 }
 
 template<class Iterator>
-int WebSocketTcp::sendTextData(uint64_t message_size, Iterator message_begin, Iterator message_end) {
+int WebSocketTcp::sendTextData(int message_size, Iterator message_begin, Iterator message_end) {
     return sendData(util::WsheaderType::TEXT_FRAME, message_size, message_begin, message_end);
 }
 
 template<class Iterator>
 int WebSocketTcp::sendData(util::WsheaderType::OpcodeType type,
-                           uint64_t message_size,
+                           int message_size,
                            Iterator message_begin,
                            Iterator message_end) {
 
     const uint8_t masking_key[4] = { 0x12, 0x34, 0x56, 0x78 };
     const int headlen = 2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0) + (_useMask ? 4 : 0);
+//    uint8_t header[headlen];
 
     uint8_t* header = new uint8_t[headlen];
     memset(header, 0, sizeof(uint8_t)*headlen);
@@ -112,14 +127,14 @@ int WebSocketTcp::sendData(util::WsheaderType::OpcodeType type,
         }
     } else { // TODO: run coverage testing here
         header[1] = 127 | (_useMask ? 0x80 : 0);
-        header[2] = (message_size >> 56) & 0xff;
-        header[3] = (message_size >> 48) & 0xff;
-        header[4] = (message_size >> 40) & 0xff;
-        header[5] = (message_size >> 32) & 0xff;
-        header[6] = (message_size >> 24) & 0xff;
-        header[7] = (message_size >> 16) & 0xff;
-        header[8] = (message_size >> 8) & 0xff;
-        header[9] = (message_size >> 0) & 0xff;
+        header[2] = ((uint64_t)message_size >> 56) & 0xff;
+        header[3] = ((uint64_t)message_size >> 48) & 0xff;
+        header[4] = ((uint64_t)message_size >> 40) & 0xff;
+        header[5] = ((uint64_t)message_size >> 32) & 0xff;
+		header[6] = ((uint64_t)message_size >> 24) & 0xff;
+		header[7] = ((uint64_t)message_size >> 16) & 0xff;
+		header[8] = ((uint64_t)message_size >> 8) & 0xff;
+		header[9] = ((uint64_t)message_size >> 0) & 0xff;
         if (_useMask) {
             header[10] = masking_key[0];
             header[11] = masking_key[1];
@@ -140,11 +155,11 @@ int WebSocketTcp::sendData(util::WsheaderType::OpcodeType type,
         }
     }
 
-    int ret = send(txbuf, headlen + message_size);
-    delete txbuf;
+    int ret = send(txbuf, (int)(headlen + message_size));
+    delete[] txbuf;
     txbuf = NULL;
 
-    delete header;
+    delete[] header;
     header = NULL;
     
     if (ret<= 0) {
@@ -154,6 +169,7 @@ int WebSocketTcp::sendData(util::WsheaderType::OpcodeType type,
     return ret - headlen;
 }
 
+}
 }
 
 #endif //NLS_SDK_WEBSOCKET_TCP_H

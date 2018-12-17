@@ -19,9 +19,10 @@
 
 #include <string>
 #include <map>
-#include "exception.h"
 #include "wstr2str.h"
+#include "exception.h"
 
+namespace AlibabaNls {
 namespace util {
 
 typedef std::map<std::wstring, std::wstring> TContextVarMap;
@@ -56,9 +57,11 @@ private:
     int errcode;
 };
 
+#ifdef _WIN32
 #pragma warning(push)
 #pragma warning(disable: 4355)
 #pragma warning(pop)
+#endif
 
 struct ThrowWithoutDumpBehavior {
     void operator()(std::string msg, int errocde);
@@ -68,6 +71,7 @@ inline Ensure_Guard<ThrowWithoutDumpBehavior> MakeEnsureThrowWithoutDump(std::ws
     return Ensure_Guard<ThrowWithoutDumpBehavior>(expr);
 }
 
+}
 }
 
 #endif //NLS_SDK_ENSURE_UTILITY_H

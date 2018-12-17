@@ -17,13 +17,12 @@
 #ifndef NLS_SDK_WEBSOCKET_AGENT_H
 #define NLS_SDK_WEBSOCKET_AGENT_H
 
-#include <vector>
 #include <string>
-#include "asyncBase.h"
-#include "util/dataStruct.h"
-#include "webSocketTcp.h"
 #include "webSocketFrameHandleBase.h"
+#include "asyncBase.h"
+#include "webSocketTcp.h"
 
+namespace AlibabaNls {
 namespace transport{
 	namespace engine {
 
@@ -54,6 +53,7 @@ namespace transport{
 			transport::WebSocketTcp *_socket;
 		};
 	}
+}
 }
 
 #endif //NLS_SDK_WEBSOCKET_AGENT_H

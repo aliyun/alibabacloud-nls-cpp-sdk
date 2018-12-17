@@ -15,11 +15,11 @@
  */
 
 #include "wstr2str.h"
-#include <stdlib.h>
 
 using std::string;
 using std::wstring;
 
+namespace AlibabaNls {
 namespace util {
 
 string wstr2str(const wstring &wstr) {
@@ -30,7 +30,7 @@ string wstr2str(const wstring &wstr) {
 
     string str(len, '\0');
 
-    for (int i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) {
         str[i] = (char) wstr[i];
     }
     return str;
@@ -43,10 +43,11 @@ wstring str2wstr(const string &str) {
         return L"";
     }
 
-    for (int i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) {
         wstr[i] = (wchar_t) str[i];
     }
     return wstr;
 }
 
+}
 }

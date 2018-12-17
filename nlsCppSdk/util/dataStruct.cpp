@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
+#include "dataStruct.h"
 #include <cstring>
+
+#if !defined(__APPLE__)
 #include "openssl/bio.h"
 #include "openssl/ssl.h"
-#include "dataStruct.h"
+#endif
 
+namespace AlibabaNls {
 namespace util {
 
 void int2ByteArray(int32_t *data, int len, uint8_t *result, bool isBigEndian) {
@@ -44,29 +48,30 @@ void int2ByteArray(int32_t *data, int len, uint8_t *result, bool isBigEndian) {
     }
 }
 
-char *base64Encode(const char *input, int length, bool with_new_line) {
-    BIO *bmem = NULL;
-    BIO *b64 = NULL;
-    BUF_MEM *bptr = NULL;
+//char *base64Encode(const char *input, int length, bool with_new_line) {
+//    BIO *bmem = NULL;
+//    BIO *b64 = NULL;
+//    BUF_MEM *bptr = NULL;
+//
+//    b64 = BIO_new(BIO_f_base64());
+//    if (!with_new_line) {
+//        BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+//    }
+//
+//    bmem = BIO_new(BIO_s_mem());
+//    b64 = BIO_push(b64, bmem);
+//    BIO_write(b64, input, length);
+//    BIO_flush(b64);
+//    BIO_get_mem_ptr(b64, &bptr);
+//
+//    char *buff = (char *) malloc(bptr->length + 1);
+//    memcpy(buff, bptr->data, bptr->length);
+//    buff[bptr->length] = 0;
+//
+//    BIO_free_all(b64);
+//
+//    return buff;
+//}
 
-    b64 = BIO_new(BIO_f_base64());
-    if (!with_new_line) {
-        BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-    }
-
-    bmem = BIO_new(BIO_s_mem());
-    b64 = BIO_push(b64, bmem);
-    BIO_write(b64, input, length);
-    BIO_flush(b64);
-    BIO_get_mem_ptr(b64, &bptr);
-
-    char *buff = (char *) malloc(bptr->length + 1);
-    memcpy(buff, bptr->data, bptr->length);
-    buff[bptr->length] = 0;
-
-    BIO_free_all(b64);
-
-    return buff;
 }
-
 }

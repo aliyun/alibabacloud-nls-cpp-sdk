@@ -18,13 +18,20 @@
 #define NLS_SDK_REQUEST_PARAM_H
 
 #include <string>
-#include <map>
-#include "util/dataStruct.h"
+#include "dataStruct.h"
 #include "json/json.h"
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
 #endif
+
+namespace AlibabaNls {
+
+enum NlsRequestType {
+    SpeechNormal = 0, /**拥有正常start, sendAudio, stop调用流程的语音功能**/
+    SpeechExecuteDialog,
+    SpeechSynthesizer
+};
 
 std::string random_uuid();
 
@@ -33,24 +40,31 @@ public:
 	INlsRequestParam(util::RequestMode mode);
 	virtual ~INlsRequestParam() = 0;
 
-    virtual const std::string getStartCommand()=0;
-	virtual const std::string getMidStopCommand();
-	virtual const std::string getStopCommand() = 0;
+    virtual const std::string getStartCommand();
+    virtual const std::string getStopCommand();
+    virtual const std::string getExecuteDialog();
 
-    virtual int setContextParam(const char* key, const char* value);
+    virtual int setPayloadParam(const char* key, Json::Value value);
+	virtual int setContextParam(const char* key, Json::Value value);
 	virtual int setToken(const char* token);
 	virtual int setUrl(const char* url);
     virtual int setAppKey(const char* appKey);
     virtual int setFormat(const char* format);
     virtual int setSampleRate(int sampleRate);
+	virtual int setTimeout(int timeout);
 	virtual int setOutputFormat(const char* outputFormat);
 
-    virtual int generateRequestFromConfig(const char* config);
-    virtual int speechParam(std::string key, std::string value) = 0;
+    virtual int setIntermediateResult(bool value);
+    virtual int setPunctuationPrediction(bool value);
+    virtual int setTextNormalization(bool value);
+    virtual int setSentenceDetection(bool value);
 
-	virtual Json::Value getSdkInfo();
+    virtual Json::Value getSdkInfo();
+
+    virtual void setNlsRequestType(NlsRequestType requestType);
 
     int _timeout;
+    NlsRequestType _requestType;
 
 	std::string _url;
 	std::string _outputFormat;
@@ -58,14 +72,14 @@ public:
 
 	util::RequestMode _mode;
 
-#pragma region Header
 	std::string _task_id;
-#pragma endregion
 
 	Json::Value _header;
 	Json::Value _payload;
 	Json::Value _context;
 	Json::Value _customParam;
 };
+
+}
 
 #endif

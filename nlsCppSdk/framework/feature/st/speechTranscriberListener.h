@@ -17,12 +17,18 @@
 #ifndef NLS_SDK_SPEECH_TRANSCRIBER_LISTENER_H
 #define NLS_SDK_SPEECH_TRANSCRIBER_LISTENER_H
 
-#include "nlsEvent.h"
-#include "webSocketFrameHandleBase.h"
+#if defined(_WIN32)
+#pragma warning( push )
+#pragma warning ( disable : 4251 )
+#endif
+
+#include "iNlsRequestListener.h"
+
+namespace AlibabaNls {
 
 class SpeechTranscriberCallback;
 
-class ASR_API SpeechTranscriberListener : public HandleBaseOneParamWithReturnVoid<NlsEvent> {
+class SpeechTranscriberListener : public INlsRequestListener {
 public:
 
 SpeechTranscriberListener(SpeechTranscriberCallback* cb);
@@ -35,5 +41,11 @@ private:
 SpeechTranscriberCallback* _callback;
 
 };
+
+}
+
+#if defined(_WIN32)
+#pragma warning( pop )
+#endif
 
 #endif //NLS_SDK_SPEECH_TRANSCRIBER_LISTENER_H

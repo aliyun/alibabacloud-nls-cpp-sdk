@@ -17,9 +17,11 @@
 #ifndef NLS_SDK_THREAD_H
 #define NLS_SDK_THREAD_H
 
+namespace AlibabaNls {
 namespace transport{
 namespace engine {
     void SetThreadName(const char *szThreadName);
+}
 }
 }
 

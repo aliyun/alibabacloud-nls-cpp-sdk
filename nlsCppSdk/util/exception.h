@@ -18,17 +18,9 @@
 #define NLS_SDK_EXCEPTION_H
 
 #include <string>
-#include <stdexcept>
 
+namespace AlibabaNls {
 namespace util {
-
-#if defined(_WIN32)
-#ifndef  ASR_API
-#define ASR_API _declspec(dllexport)
-#endif
-#else
-#define ASR_API
-#endif
 
 class ExceptionWithString {
 public:
@@ -44,6 +36,7 @@ private:
     std::string _errormsg;
     int _errcode;
 };
+}
 }
 
 #endif //NLS_SDK_EXCEPTION_H

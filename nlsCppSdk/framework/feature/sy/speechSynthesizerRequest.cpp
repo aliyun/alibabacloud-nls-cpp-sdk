@@ -15,13 +15,16 @@
  */
 
 #include <string>
-#include "util/log.h"
-#include "speechSynthesizerSession.h"
+#include "log.h"
+#include "nlsSessionBase.h"
 #include "speechSynthesizerRequest.h"
 #include "speechSynthesizerParam.h"
 #include "speechSynthesizerListener.h"
 
 using std::string;
+
+namespace AlibabaNls {
+
 using namespace util;
 
 SpeechSynthesizerCallback::SpeechSynthesizerCallback() {
@@ -29,6 +32,7 @@ SpeechSynthesizerCallback::SpeechSynthesizerCallback() {
     this->_onSynthesisStarted = NULL;
     this->_onSynthesisCompleted = NULL;
     this->_onChannelClosed = NULL;
+    this->_onBinaryDataReceived = NULL;
 }
 
 SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
@@ -36,6 +40,7 @@ SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
     this->_onSynthesisStarted = NULL;
     this->_onSynthesisCompleted = NULL;
     this->_onChannelClosed = NULL;
+    this->_onBinaryDataReceived = NULL;
 }
 
 void SpeechSynthesizerCallback::setOnTaskFailed(NlsCallbackMethod _event, void* para) {
@@ -93,12 +98,10 @@ void SpeechSynthesizerCallback::setOnBinaryDataReceived(NlsCallbackMethod _event
     }
 }
 
-SpeechSynthesizerRequest::SpeechSynthesizerRequest(SpeechSynthesizerCallback* cb,
-                                                 const char* configPath) {
-    _requestParam = new SpeechSynthesizerParam();
-    if (NULL != configPath) {
-        _requestParam->generateRequestFromConfig(configPath);
-    }
+SpeechSynthesizerRequest::SpeechSynthesizerRequest(SpeechSynthesizerCallback* cb) {
+    _synthesizerParam = new SpeechSynthesizerParam();
+
+    _requestParam = _synthesizerParam;
 
     _listener = new SpeechSynthesizerListener(cb);
 
@@ -111,7 +114,9 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
         _session = NULL;
     }
 
-    delete _requestParam;
+    delete _synthesizerParam;
+    _synthesizerParam = NULL;
+
     _requestParam = NULL;
 
     delete _listener;
@@ -119,152 +124,76 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
 }
 
 int SpeechSynthesizerRequest::start() {
-
-    int ret = -1;
-    string errorInfo;
-    int errorCode = 0;
-    int count = 10;
-
-    do {
-        try {
-            if (!_session) {
-                _session = new SpeechSynthesizerSession(_requestParam);
-                if (_session == NULL) {
-                    LOG_ERROR("request start failed.");
-                    return -1;
-                }
-                _session->setHandler(_listener);
-            }
-            ret = _session->start();
-            return ret;
-        } catch (ExceptionWithString &e) {
-            errorInfo = e.what();
-            errorCode = e.getErrorcode();
-//			if (NULL != _session) {
-//				delete _session;
-//				_session = NULL;
-//			}
-            LOG_ERROR("%s, begining retry...", e.what());
-            ret = -1;
-        }
-    } while((-1 == ret) && ((count --) >= 0));
-
-    if (-1 == ret) {
-        errorInfo += ", retry finised.";
-        NlsEvent* nlsevent = new NlsEvent(errorInfo, errorCode, NlsEvent::TaskFailed);
-        _listener->handlerFrame(*nlsevent);
-        delete nlsevent;
-    }
-
-    return ret;
+    _synthesizerParam->setNlsRequestType(SpeechSynthesizer);
+    return INlsRequest::start();
 }
 
 int SpeechSynthesizerRequest::stop() {
-    if (!_session) {
-        LOG_ERROR("Stop invoke failed. Please check the order of execution.");
-        return -1;
-    }
-
-    return _session->stop();
+    return INlsRequest::stop();
 }
 
 int SpeechSynthesizerRequest::cancel() {
-    if (!_session) {
-        LOG_ERROR("Cancel invoke failed. Please check the order of execution.");
-        return -1;
-    }
-
-    return _session->shutdown();
+    return INlsRequest::cancel();
 }
 
-int SpeechSynthesizerRequest::setContextParam(const char *key, const char *value) {
-    if (!value || !key) {
-        LOG_ERROR("Key or Value is null.");
-        return -1;
-    }
+int SpeechSynthesizerRequest::setPayloadParam(const char* value) {
+    return INlsRequest::setPayloadParam(value);
+}
 
-    return this->_requestParam->setContextParam(key, value);
+int SpeechSynthesizerRequest::setContextParam(const char *value) {
+    return INlsRequest::setContextParam(value);
 }
 
 int SpeechSynthesizerRequest::setUrl(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null Url.");
-        return -1;
-    }
-
-    return this->_requestParam->setUrl(value);
+    return INlsRequest::setUrl(value);
 }
 
 int SpeechSynthesizerRequest::setAppKey(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null AppKey.");
-        return -1;
-    }
-
-    return this->_requestParam->setAppKey(value);
+    return INlsRequest::setAppKey(value);
 }
 
 int SpeechSynthesizerRequest::setToken(const char*token) {
-    if (!token) {
-        LOG_ERROR("It's null token.");
-        return -1;
-    }
-
-    return this->_requestParam->setToken(token);
+    return INlsRequest::setToken(token);
 }
 
 int SpeechSynthesizerRequest::setFormat(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null Format.");
-        return -1;
-    }
-
-    return this->_requestParam->setFormat(value);
+    return INlsRequest::setFormat(value);
 }
 
 int SpeechSynthesizerRequest::setSampleRate(int value) {
-    return this->_requestParam->setSampleRate(value);
+    return INlsRequest::setSampleRate(value);
 }
 
 int SpeechSynthesizerRequest::setText(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null text.");
-        return -1;
-    }
-
-    return this->_requestParam->setText(value);
+    return _synthesizerParam->setText(value);
 }
 
 int SpeechSynthesizerRequest::setMethod(int value) {
-    return this->_requestParam->setMethod(value);
+    return _synthesizerParam->setMethod(value);
 }
 
 int SpeechSynthesizerRequest::setPitchRate(int value) {
-    return this->_requestParam->setPitchRate(value);
+    return _synthesizerParam->setPitchRate(value);
 }
 
 int SpeechSynthesizerRequest::setSpeechRate(int value) {
-    return this->_requestParam->setSpeechRate(value);
+    return _synthesizerParam->setSpeechRate(value);
 }
 
 int SpeechSynthesizerRequest::setVolume(int value) {
-    return this->_requestParam->setVolume(value);
+    return _synthesizerParam->setVolume(value);
 }
 
 int SpeechSynthesizerRequest::setVoice(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null voice.");
-        return -1;
-    }
+    return _synthesizerParam->setVoice(value);
+}
 
-    return this->_requestParam->setVoice(value);
+int SpeechSynthesizerRequest::setTimeout(int value) {
+    return INlsRequest::setTimeout(value);
 }
 
 int SpeechSynthesizerRequest::setOutputFormat(const char* value) {
-	if (!value) {
-		LOG_ERROR("It's null OutputFormat.");
-		return -1;
-	}
+    return INlsRequest::setOutputFormat(value);
+}
 
-	return this->_requestParam->setOutputFormat(value);
 }

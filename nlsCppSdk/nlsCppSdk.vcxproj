@@ -96,7 +96,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)$(PlatformTarget)\$(Configuration)\</OutDir>
-    <IntDir>$(PlatformTarget)\$(Configuration\</IntDir>
+    <IntDir>$(PlatformTarget)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -125,16 +125,16 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;LOG_ON;_JNA_COMPILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;LOG_ON;_JNA_COMPILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\util;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlscppsdk\thirdparty\openssl;$(SolutionDir)nlscppsdk\thirdparty\pthread</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;pthreadVCE2.lib;pthreadVSE2.lib;ole32.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>jsoncpp-0.y.z.lib;libeay32.lib;ssleay32.lib;pthreadVC2.lib;pthreadVCE2.lib;pthreadVSE2.lib;ole32.lib;ole32.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -142,9 +142,9 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;_JNA_COMPILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;WIN32;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;_JNA_COMPILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\util;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlscppsdk\thirdparty\openssl;$(SolutionDir)nlscppsdk\thirdparty\pthread</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <BrowseInformation>true</BrowseInformation>
     </ClCompile>
@@ -152,7 +152,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>jsoncpp-0.y.z.lib;libeay32.lib;ssleay32.lib;pthreadVC2.lib;ole32.lib</AdditionalDependencies>
     </Link>
     <Bscmake>
       <PreserveSbr>true</PreserveSbr>
@@ -199,9 +199,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;WIN32;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\util;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlscppsdk\thirdparty\openssl;$(SolutionDir)nlscppsdk\thirdparty\pthread</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -209,7 +209,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>jsoncpp-0.y.z.lib;libeay32.lib;ssleay32.lib;pthreadVC2.lib;ole32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
@@ -222,9 +222,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;WIN32;CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;WIN32;CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;LOG_ON;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\jsoncpp;$(SolutionDir)nlscppsdk\thirdparty\pthread;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)nlscppsdk;$(SolutionDir)nlscppsdk\util;$(SolutionDir)nlscppsdk\transport;$(SolutionDir)nlscppsdk\framework;$(SolutionDir)nlscppsdk\framework\feature;$(SolutionDir)nlscppsdk\framework\feature\sr;$(SolutionDir)nlscppsdk\framework\feature\st;$(SolutionDir)nlscppsdk\framework\feature\sy;$(SolutionDir)nlscppsdk\thirdparty;$(SolutionDir)nlscppsdk\thirdparty\json;$(SolutionDir)nlscppsdk\thirdparty\openssl;$(SolutionDir)nlscppsdk\thirdparty\pthread</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -232,7 +232,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>libeay32.lib;ssleay32.lib;opus.lib;pthreadVC2.lib;;ole32.lib</AdditionalDependencies>
+      <AdditionalDependencies>jsoncpp-0.y.z.lib;libeay32.lib;ssleay32.lib;pthreadVC2.lib;;ole32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\$(Configuration);$(SolutionDir)lib\windows\$(VisualStudioVersion)\$(PlatformTarget)\pthread</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -241,27 +241,25 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="framework\feature\iNlsRequest.cpp" />
+    <ClCompile Include="framework\feature\iNlsRequestListener.cpp" />
     <ClCompile Include="framework\feature\iNlsRequestParam.cpp" />
     <ClCompile Include="framework\feature\nlsRequestParamInfo.cpp" />
     <ClCompile Include="framework\feature\nlsSessionBase.cpp" />
     <ClCompile Include="framework\feature\sr\speechRecognizerListener.cpp" />
     <ClCompile Include="framework\feature\sr\speechRecognizerParam.cpp" />
     <ClCompile Include="framework\feature\sr\speechRecognizerRequest.cpp" />
-    <ClCompile Include="framework\feature\sr\speechRecognizerSession.cpp" />
+    <ClCompile Include="framework\feature\sr\speechRecognizerSyncRequest.cpp" />
     <ClCompile Include="framework\feature\st\speechTranscriberListener.cpp" />
     <ClCompile Include="framework\feature\st\speechTranscriberParam.cpp" />
     <ClCompile Include="framework\feature\st\speechTranscriberRequest.cpp" />
-    <ClCompile Include="framework\feature\st\speechTranscriberSession.cpp" />
+    <ClCompile Include="framework\feature\st\speechTranscriberSyncRequest.cpp" />
     <ClCompile Include="framework\feature\sy\speechSynthesizerListener.cpp" />
     <ClCompile Include="framework\feature\sy\speechSynthesizerParam.cpp" />
     <ClCompile Include="framework\feature\sy\speechSynthesizerRequest.cpp" />
-    <ClCompile Include="framework\feature\sy\speechSynthesizerSession.cpp" />
     <ClCompile Include="framework\iWebSocketFrameResultConverter.cpp" />
     <ClCompile Include="framework\nlsClient.cpp" />
     <ClCompile Include="framework\nlsEvent.cpp" />
-    <ClCompile Include="thirdparty\jsoncpp\json_reader.cpp" />
-    <ClCompile Include="thirdparty\jsoncpp\json_value.cpp" />
-    <ClCompile Include="thirdparty\jsoncpp\json_writer.cpp" />
     <ClCompile Include="thirdparty\openssl\applink.c" />
     <ClCompile Include="transport\engine\asyncBase.cpp" />
     <ClCompile Include="transport\engine\thread.cpp" />
@@ -273,27 +271,29 @@
     <ClCompile Include="util\exception.cpp" />
     <ClCompile Include="util\log.cpp" />
     <ClCompile Include="util\wstr2str.cpp" />
-    <ClCompile Include="util\ztCodec.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="framework\Config.h" />
+    <ClInclude Include="framework\feature\iNlsRequest.h" />
+    <ClInclude Include="framework\feature\iNlsRequestListener.h" />
     <ClInclude Include="framework\feature\iNlsRequestParam.h" />
     <ClInclude Include="framework\feature\nlsRequestParamInfo.h" />
     <ClInclude Include="framework\feature\nlsSessionBase.h" />
     <ClInclude Include="framework\feature\sr\speechRecognizerListener.h" />
     <ClInclude Include="framework\feature\sr\speechRecognizerParam.h" />
     <ClInclude Include="framework\feature\sr\speechRecognizerRequest.h" />
-    <ClInclude Include="framework\feature\sr\speechRecognizerSession.h" />
+    <ClInclude Include="framework\feature\sr\speechRecognizerSyncRequest.h" />
     <ClInclude Include="framework\feature\st\speechTranscriberListener.h" />
     <ClInclude Include="framework\feature\st\speechTranscriberParam.h" />
     <ClInclude Include="framework\feature\st\speechTranscriberRequest.h" />
-    <ClInclude Include="framework\feature\st\speechTranscriberSession.h" />
+    <ClInclude Include="framework\feature\st\speechTranscriberSyncRequest.h" />
     <ClInclude Include="framework\feature\sy\speechSynthesizerListener.h" />
     <ClInclude Include="framework\feature\sy\speechSynthesizerParam.h" />
     <ClInclude Include="framework\feature\sy\speechSynthesizerRequest.h" />
-    <ClInclude Include="framework\feature\sy\speechSynthesizerSession.h" />
     <ClInclude Include="framework\iWebSocketFrameResultConverter.h" />
     <ClInclude Include="framework\nlsClient.h" />
     <ClInclude Include="framework\nlsEvent.h" />
+    <ClInclude Include="framework\nlsGlobal.h" />
     <ClInclude Include="framework\webSocketFrameHandleBase.h" />
     <ClInclude Include="thirdparty\jsoncpp\json\assertions.h" />
     <ClInclude Include="thirdparty\jsoncpp\json\autolink.h" />
@@ -305,7 +305,6 @@
     <ClInclude Include="thirdparty\jsoncpp\json\value.h" />
     <ClInclude Include="thirdparty\jsoncpp\json\version.h" />
     <ClInclude Include="thirdparty\jsoncpp\json\writer.h" />
-    <ClInclude Include="thirdparty\jsoncpp\json_tool.h" />
     <ClInclude Include="thirdparty\libopus\opus.h" />
     <ClInclude Include="thirdparty\libopus\opus_custom.h" />
     <ClInclude Include="thirdparty\libopus\opus_defines.h" />
@@ -406,12 +405,6 @@
     <ClInclude Include="util\smartHandle.h" />
     <ClInclude Include="util\targetOs.h" />
     <ClInclude Include="util\wstr2str.h" />
-    <ClInclude Include="util\ztCodec.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="thirdparty\jsoncpp\json_valueiterator.inl" />
-    <None Include="thirdparty\jsoncpp\LICENSE" />
-    <None Include="thirdparty\jsoncpp\version.h.in" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

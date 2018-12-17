@@ -17,12 +17,18 @@
 #ifndef NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H
 #define NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H
 
-#include "nlsEvent.h"
-#include "webSocketFrameHandleBase.h"
+#if defined(_WIN32)
+#pragma warning( push )
+#pragma warning ( disable : 4251 )
+#endif
+
+#include "iNlsRequestListener.h"
+
+namespace AlibabaNls {
 
 class SpeechRecognizerCallback;
 
-class ASR_API SpeechRecognizerListener : public HandleBaseOneParamWithReturnVoid<NlsEvent> {
+class SpeechRecognizerListener : public INlsRequestListener {
 public:
 
 SpeechRecognizerListener(SpeechRecognizerCallback* cb);
@@ -35,5 +41,11 @@ private:
 SpeechRecognizerCallback* _callback;
 
 };
+
+}
+
+#if defined(_WIN32)
+#pragma warning( pop )
+#endif
 
 #endif //NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H

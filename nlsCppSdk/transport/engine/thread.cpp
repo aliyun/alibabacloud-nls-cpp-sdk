@@ -16,13 +16,16 @@
 
 #include "thread.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
+namespace AlibabaNls {
 namespace transport{
 
 namespace engine {
 
 #ifdef _WIN32
-//#include "util/targetOs.h"
-#include <Windows.h>
 typedef struct tagTHREADNAME_INFO{
     DWORD dwType;
     LPCSTR szName;
@@ -50,4 +53,4 @@ void SetThreadName(const char *szThreadName) {
 }
 
 }
-
+}

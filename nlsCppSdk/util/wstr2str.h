@@ -19,9 +19,11 @@
 
 #include <string>
 
+namespace AlibabaNls {
 namespace util {
     std::string wstr2str(const std::wstring &wstr);
     std::wstring str2wstr(const std::string &str);
+}
 }
 
 #endif //NLS_SDK_WSTR2STR_H

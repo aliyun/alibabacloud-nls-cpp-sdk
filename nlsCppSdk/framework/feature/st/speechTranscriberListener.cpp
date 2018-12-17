@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include "speechTranscriberRequest.h"
 #include "speechTranscriberListener.h"
-#include "util/log.h"
+#include "log.h"
+#include "speechTranscriberRequest.h"
+
+namespace AlibabaNls {
 
 using namespace util;
 
@@ -32,7 +34,10 @@ void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
     NlsEvent::EventType type = str.getMsgType();
 
     if (NULL == _callback) {
-		LOG_ERROR("the callback is NULL");
+		//LOG_ERROR("the callback is NULL");
+        pthread_mutex_lock(&_queueMutex);
+		_eventQueue.push(str);
+        pthread_mutex_unlock(&_queueMutex);
         return ;
     }
 
@@ -77,3 +82,4 @@ void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
     return ;
 }
 
+}

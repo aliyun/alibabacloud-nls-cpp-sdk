@@ -17,22 +17,20 @@
 #ifndef NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_H
 #define NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_H
 
+#include "nlsGlobal.h"
+#include "iNlsRequest.h"
+
 #if defined(_WIN32)
-#ifndef  ASR_API
-#define ASR_API _declspec(dllexport)
-#endif
-#else
-#define ASR_API
+	#pragma warning( push )
+	#pragma warning ( disable : 4251 )
 #endif
 
-#include <map>
-#include "nlsEvent.h"
+namespace AlibabaNls {
 
 class SpeechTranscriberParam;
-class SpeechTranscriberSession;
-class SpeechTranscriberListener;
 
-class ASR_API SpeechTranscriberCallback {
+class NLS_SDK_CLIENT_EXPORT SpeechTranscriberCallback {
+
 public:
 
 /**
@@ -126,15 +124,15 @@ std::map < NlsEvent::EventType, void*> _paramap;
 
 };
 
-class ASR_API SpeechTranscriberRequest {
+class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
+
 public:
 
 /**
     * @brief 构造函数
     * @param cb	事件回调接口
-    * @param configPath 配置文件
     */
-SpeechTranscriberRequest(SpeechTranscriberCallback* cb, const char* configPath);
+SpeechTranscriberRequest(SpeechTranscriberCallback* cb);
 
 /**
     * @brief 析构函数
@@ -183,26 +181,50 @@ int setSampleRate(int value);
 /**
     * @brief 设置是否返回中间识别结果
     * @note 可选参数. 默认false
-    * @param value "true" "false" bool字符串
+    * @param value true 或 false
     * @return 成功则返回0，否则返回-1
     */
-int setIntermediateResult(const char* value);
+int setIntermediateResult(bool value);
 
 /**
     * @brief 设置是否在后处理中添加标点
     * @note 可选参数. 默认false
-    * @param value "true" "false" bool字符串
+    * @param value true 或 false
     * @return 成功则返回0，否则返回-1
     */
-int setPunctuationPrediction(const char* value);
+int setPunctuationPrediction(bool value);
 
 /**
-    * @brief 设置是否在后处理中执行ITN
+    * @brief 设置是否在后处理中执行数字转换
     * @note 可选参数. 默认false
-    * @param value "true" "false" bool字符串
+    * @param value true 或 false
     * @return 成功则返回0，否则返回-1
     */
-int setInverseTextNormalization(const char* value);
+int setInverseTextNormalization(bool value);
+
+/**
+    * @brief 设置是否使用语义断句
+    * @note 可选参数. 默认false
+    * @param value true 或 false
+    * @return 成功则返回0，否则返回-1
+    */
+int setSemanticSentenceDetection(bool value);
+
+/**
+    * @brief 设置vad阀值
+    * @note 可选参数. 静音时长超过该阈值会被认为断句, 合法参数范围200～2000(ms), 默认值800ms.
+    * @param value vad阀值
+    * @return 成功则返回0，否则返回-1
+    */
+int setMaxSentenceSilence(int value);
+
+/**
+    * @brief 设置Socket接收超时时间
+    * @note
+    * @param value 超时时间
+    * @return 成功则返回0，否则返回-1
+    */
+int setTimeout(int value);
 
 /**
 * @brief 设置输出文本的编码格式
@@ -213,12 +235,19 @@ int setInverseTextNormalization(const char* value);
 int setOutputFormat(const char* value);
 
 /**
-    * @brief 设置用户自定义参数
-    * @param key 字段
+    * @brief 参数设置
+    * @note  暂不对外开放
     * @param value 参数
     * @return 成功则返回0，否则返回-1
     */
-int setContextParam(const char* key, const char* value);
+int setPayloadParam(const char* value);
+
+/**
+    * @brief 设置用户自定义参数
+    * @param value 参数
+    * @return 成功则返回0，否则返回-1
+    */
+int setContextParam(const char* value);
 
 /**
     * @brief 启动实时音频流识别
@@ -242,18 +271,27 @@ int cancel();
 
 /**
     * @brief 发送语音数据
-    * @note request对象format参数为pcm时, 使用false即可. format为opu, 使用压缩数据时, 需设置为true.
+    * @note request对象format参数为为opu, encoded需设置为true. 其它格式默认为false.
     * @param data	语音数据
-    * @param dataSize	语音数据长度
+    * @param dataSize	语音数据长度(建议每次100ms左右数据)
     * @param encoded	是否启用压缩, 默认为false不启用数据压缩.
     * @return 成功则返回实际发送长度，失败返回-1
     */
-int sendAudio(char* data, size_t dataSize, bool encoded = false);
+int sendAudio(char* data, int dataSize, bool encoded = false);
+
+/**
+    * @brief SDK内部使用
+    */
+int getTranscriberResult(std::queue<NlsEvent>* eventQueue);
 
 private:
-SpeechTranscriberListener* _listener;
-SpeechTranscriberParam* _requestParam;
-SpeechTranscriberSession* _session;
+SpeechTranscriberParam* _transcriberParam;
 };
+
+}
+
+#if defined (_WIN32)
+	#pragma warning( pop )
+#endif
 
 #endif //NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_H

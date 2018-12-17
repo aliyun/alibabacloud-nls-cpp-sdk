@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-#include <string>
-#include "util/log.h"
-#include "speechRecognizerSession.h"
 #include "speechRecognizerRequest.h"
+#include <string>
+#include "log.h"
+#include "nlsSessionBase.h"
 #include "speechRecognizerParam.h"
 #include "speechRecognizerListener.h"
 #include "nlsRequestParamInfo.h"
 
 using std::string;
+
+namespace AlibabaNls {
+
 using namespace util;
 
 SpeechRecognizerCallback::SpeechRecognizerCallback() {
@@ -93,12 +96,9 @@ void SpeechRecognizerCallback::setOnChannelClosed(NlsCallbackMethod _event, void
     }
 }
 
-SpeechRecognizerRequest::SpeechRecognizerRequest(SpeechRecognizerCallback* cb,
-                                                 const char* configPath) {
-    _requestParam = new SpeechRecognizerParam();
-    if (NULL != configPath) {
-        _requestParam->generateRequestFromConfig(configPath);
-    }
+SpeechRecognizerRequest::SpeechRecognizerRequest(SpeechRecognizerCallback* cb) {
+    _recognizerParam = new SpeechRecognizerParam();
+    _requestParam = _recognizerParam;
 
     _listener = new SpeechRecognizerListener(cb);
 
@@ -110,8 +110,10 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
 		delete _session;
 		_session = NULL;
 	}
-	
-	delete _requestParam;
+
+	delete _recognizerParam;
+    _recognizerParam = NULL;
+
     _requestParam = NULL;
 
     delete _listener;
@@ -119,189 +121,83 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
 }
 
 int SpeechRecognizerRequest::start() {
-
-    int ret = -1;
-    string errorInfo;
-    int errorCode = 0;
-    int count = 10;
-
-    do {
-        try {
-            if (!_session) {
-                _session = new SpeechRecognizerSession(_requestParam);
-                if (_session == NULL) {
-                    return -1;
-                }
-                _session->setHandler(_listener);
-            }
-            ret = _session->start();
-            return ret;
-        } catch (ExceptionWithString &e) {
-            errorInfo = e.what();
-            errorCode = e.getErrorcode();
-//			if (NULL != _session) {
-//				delete _session;
-//				_session = NULL;
-//			}
-            LOG_ERROR("%s, begining retry...", e.what());
-            ret = -1;
-        }
-    } while((-1 == ret) && ((count --) >= 0));
-
-    if (-1 == ret) {
-        errorInfo += ", retry finised.";
-        NlsEvent* nlsevent = new NlsEvent(errorInfo, errorCode, NlsEvent::TaskFailed);
-        _listener->handlerFrame(*nlsevent);
-        delete nlsevent;
-    }
-
-    return ret;
+    return INlsRequest::start();
 }
 
 int SpeechRecognizerRequest::stop() {
-	if (!_session) {
-		LOG_ERROR("Stop invoke error. Please check the order of execution.");
-        return -1;
-	}
-
-    return _session->stop();
+    return INlsRequest::stop();
 }
 
 int SpeechRecognizerRequest::cancel() {
-	if (!_session) {
-		LOG_ERROR("Cancel invoke error. Please check the order of execution.");
-        return -1;
-	}
-	
-	return _session->shutdown();
+    return INlsRequest::cancel();
 }
 
-int SpeechRecognizerRequest::sendAudio(char* data, size_t dataSzie, bool encoded ) {
-    int ret = -1;
-    string errorInfo;
-    int errorCode = -1; //TODO getErrorCode
-	string format = _requestParam->_payload[D_FORMAT].asString();
-
-    if (!data) {
-        LOG_ERROR("It's null data.");
-        return -1;
-    }
-
-	if (!_session) {
-		LOG_ERROR("SendAudio invoke error. Please check the order of execution.");
-        return -1;
-	}
-
-    if (format == "pcm" || format == "opus" || format == "opu") {
-        if(encoded) {
-            ret = _session->sendOpusVoice((unsigned char *)data, dataSzie);
-        } else {
-            ret = _session->sendPcmVoice((unsigned char *)data, dataSzie);
-        }
-
-        if (-1 == ret) {
-            errorInfo = "Send data failed.";
-        }
-
-    } else {
-        errorInfo = "Format is not supported.";
-        LOG_ERROR("Format is not supported.");
-    }
-
-    if (-1 == ret) {
-		LOG_DEBUG("sendAudio failed, error info : %s", errorInfo.c_str());
-        NlsEvent* nlsevent = new NlsEvent(errorInfo, errorCode, NlsEvent::TaskFailed);
-        _listener->handlerFrame(*nlsevent);
-        delete nlsevent;
-        nlsevent = NULL;
-    }
-
-//	LOG_INFO("Send audio result: %d", ret);
-
-    return ret ;
+int SpeechRecognizerRequest::sendAudio(char* data, int dataSzie, bool encoded) {
+    return INlsRequest::sendAudio(data, dataSzie, encoded);
 }
 
-int SpeechRecognizerRequest::setContextParam(const char *key, const char *value) {
-    if (!value || !key) {
-        LOG_ERROR("Key or Value is null.");
-        return -1;
-    }
+int SpeechRecognizerRequest::getRecognizerResult(std::queue<NlsEvent>* eventQueue) {
+	return INlsRequest::getRecognizerResult(eventQueue);
+}
 
-    return this->_requestParam->setContextParam(key, value);
+int SpeechRecognizerRequest::setPayloadParam(const char* value) {
+    return INlsRequest::setPayloadParam(value);
+}
+
+int SpeechRecognizerRequest::setContextParam(const char *value) {
+    return INlsRequest::setContextParam(value);
 }
 
 int SpeechRecognizerRequest::setToken(const char*token) {
-    if (!token) {
-        LOG_ERROR("It's null token.");
-        return -1;
-    }
-
-    return this->_requestParam->setToken(token);
+    return INlsRequest::setToken(token);
 }
 
 int SpeechRecognizerRequest::setUrl(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null Url.");
-        return -1;
-    }
-
-    return this->_requestParam->setUrl(value);
+    return INlsRequest::setUrl(value);
 }
 
 int SpeechRecognizerRequest::setAppKey(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null AppKey.");
-        return -1;
-    }
-
-    return this->_requestParam->setAppKey(value);
+    return INlsRequest::setAppKey(value);
 }
 
 int SpeechRecognizerRequest::setFormat(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null Format.");
-        return -1;
-    }
-
-    return this->_requestParam->setFormat(value);
+    return INlsRequest::setFormat(value);
 }
 
 int SpeechRecognizerRequest::setSampleRate(int value) {
-    return this->_requestParam->setSampleRate(value);
+    return INlsRequest::setSampleRate(value);
 }
 
-int SpeechRecognizerRequest::setIntermediateResult(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null IntermediateResult.");
-        return -1;
-    }
-
-    return this->_requestParam->setIntermediateResult(value);
+int SpeechRecognizerRequest::setIntermediateResult(bool value) {
+    return _recognizerParam->setIntermediateResult(value);
 }
 
-int SpeechRecognizerRequest::setPunctuationPrediction(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null PunctuationPrediction.");
-        return -1;
-    }
-
-    return this->_requestParam->setPunctuationPrediction(value);
+int SpeechRecognizerRequest::setPunctuationPrediction(bool value) {
+    return _recognizerParam->setPunctuationPrediction(value);
 }
 
-int SpeechRecognizerRequest::setInverseTextNormalization(const char* value) {
-    if (!value) {
-        LOG_ERROR("It's null InverseTextNormalization.");
-        return -1;
-    }
+int SpeechRecognizerRequest::setInverseTextNormalization(bool value) {
+    return _recognizerParam->setTextNormalization(value);
+}
 
-    return this->_requestParam->setTextNormalization(value);
+int SpeechRecognizerRequest::setEnableVoiceDetection(bool value) {
+    return _recognizerParam->setEnableVoiceDetection(value);
+}
+
+int SpeechRecognizerRequest::setMaxStartSilence(int value) {
+    return _recognizerParam->setMaxStartSilence(value);
+}
+
+int SpeechRecognizerRequest::setMaxEndSilence(int value) {
+    return _recognizerParam->setMaxEndSilence(value);
+}
+
+int SpeechRecognizerRequest::setTimeout(int value) {
+    return INlsRequest::setTimeout(value);
 }
 
 int SpeechRecognizerRequest::setOutputFormat(const char* value) {
-	if (!value) {
-		LOG_ERROR("It's null OutputFormat.");
-		return -1;
-	}
+    return INlsRequest::setOutputFormat(value);
+}
 
-	return this->_requestParam->setOutputFormat(value);
 }

@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-#include <sstream>
 #include "webSocketAgent.h"
-#include "util/log.h"
+#include <vector>
+#include <sstream>
+#include "log.h"
 
 using std::string;
 using std::vector;
 using std::ostringstream;
-using namespace util;
 
+namespace AlibabaNls {
 namespace transport{
 	namespace engine {
+
+        using namespace util;
 
 		webSocketAgent::webSocketAgent(WebSocketTcp *socket) : AsyncBase("webSocketAgent"),
 															   _socket(socket) {
@@ -165,7 +168,8 @@ namespace transport{
         }
 
 		int webSocketAgent::sendText(string req) {
-			return _socket->sendTextData(req.size(), req.begin(), req.end());
+			return _socket->sendTextData((int)req.size(), req.begin(), req.end());
         }
 	}
+}
 }

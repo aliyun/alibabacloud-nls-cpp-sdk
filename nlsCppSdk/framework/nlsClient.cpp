@@ -15,14 +15,17 @@
  */
 
 #include "nlsClient.h"
-#include "openssl/crypto.h"
-#include "openssl/ssl.h"
-#include "util/log.h"
+#include "log.h"
 #include "sr/speechRecognizerRequest.h"
+#include "sr/speechRecognizerSyncRequest.h"
 #include "st/speechTranscriberRequest.h"
+#include "st/speechTranscriberSyncRequest.h"
 #include "sy/speechSynthesizerRequest.h"
 
-using namespace util;
+#if !defined( __APPLE__ )
+
+#include "openssl/crypto.h"
+#include "openssl/ssl.h"
 
 namespace SSL_ALI {
 
@@ -90,7 +93,15 @@ int thread_cleanup(void) {
 }
 }
 
-NlsClient* NlsClient::_instance = NULL;
+#endif
+
+namespace AlibabaNls {
+
+#define LOG_MB_SIZE 1024 * 1024
+
+using namespace util;
+
+NlsClient* NlsClient::_instance = NULL;//new NlsClient();
 pthread_mutex_t NlsClient::_mtx = PTHREAD_MUTEX_INITIALIZER;
 bool NlsClient::_isInitializeSSL = false;
 
@@ -100,9 +111,12 @@ NlsClient* NlsClient::getInstance(bool sslInitial) {
 
     if(sslInitial) {
         if(!_isInitializeSSL) {
+#if !defined( __APPLE__ )
 			LOG_DEBUG("initialized ssl");
             SSL_ALI::thread_setup();
             SSLeay_add_ssl_algorithms();
+            SSL_load_error_strings();
+#endif
             _isInitializeSSL = sslInitial;
         }
     }
@@ -134,9 +148,11 @@ NlsClient::NlsClient() {
 
 NlsClient::~NlsClient() {
 	if (_isInitializeSSL) {
+#if !defined( __APPLE__ )
         LOG_DEBUG("delete NlsClient release ssl.");
 
 		SSL_ALI::thread_cleanup();
+#endif
         _isInitializeSSL = false;
 	}
 
@@ -146,18 +162,19 @@ NlsClient::~NlsClient() {
 	}
 }
 
-int NlsClient::setLogConfig(const char* logOutputFile, int logLevel) {
+int NlsClient::setLogConfig(const char* logOutputFile, LogLevel logLevel, unsigned int logFileSize) {
 	if (logOutputFile != NULL) {
 		FILE* fs = fopen(logOutputFile, "w+");
 		if (fs != NULL) {
 			Log::_output = fs;
+			Log::_logFileName = logOutputFile;
+			if (logFileSize > 0) {
+				Log::_logFileSize = logFileSize * LOG_MB_SIZE;
+			}
 		} else {
 			LOG_ERROR("open the log output file failed.");
             return -1;
         }
-	} else {
-        LOG_WARN("logOutputFile is NULL, it will output to stdout");
-        return -1;
     }
 
 	if (logLevel >= LogError && logLevel <= LogDebug) {
@@ -169,57 +186,94 @@ int NlsClient::setLogConfig(const char* logOutputFile, int logLevel) {
 	return 0;
 }
 
-SpeechRecognizerRequest* NlsClient::createRecognizerRequest(SpeechRecognizerCallback* onResultReceivedEvent,
-															const char* config) {
+SpeechRecognizerRequest* NlsClient::createRecognizerRequest(SpeechRecognizerCallback* onResultReceivedEvent) {
 	if (NULL == onResultReceivedEvent) {
 		LOG_ERROR("the callback is NULL");
 		return NULL;
 	}
-	
-	return new SpeechRecognizerRequest(onResultReceivedEvent, config);
+
+	return new SpeechRecognizerRequest(onResultReceivedEvent);
 }
 
 void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
     if (request) {
+        if (request->isStarted()) {
+            request->stop();
+        }
         delete request;
         request = NULL;
         LOG_DEBUG("released the SpeechRecognizerRequest");
     }
 }
 
-SpeechTranscriberRequest* NlsClient::createTranscriberRequest(SpeechTranscriberCallback* onResultReceivedEvent,
-                                                              const char* config) {
+SpeechRecognizerSyncRequest* NlsClient::createRecognizerSyncRequest() {
+	return new SpeechRecognizerSyncRequest();
+}
+
+void NlsClient::releaseRecognizerSyncRequest(SpeechRecognizerSyncRequest* request) {
+	if (request) {
+		if (request->isStarted()) {
+			request->sendSyncAudio(NULL, 0, AUDIO_LAST);
+		}
+		delete request;
+		request = NULL;
+		LOG_DEBUG("released the SpeechRecognizerSyncRequest");
+	}
+}
+
+SpeechTranscriberRequest* NlsClient::createTranscriberRequest(SpeechTranscriberCallback* onResultReceivedEvent) {
 	if (NULL == onResultReceivedEvent) {
 		LOG_ERROR("the callback is NULL");
 		return NULL;
 	}
-	
-	return new SpeechTranscriberRequest(onResultReceivedEvent, config);
+
+	return new SpeechTranscriberRequest(onResultReceivedEvent);
 }
 
 void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
     if (request) {
+        if (request->isStarted()) {
+            request->stop();
+        }
         delete request;
         request = NULL;
         LOG_DEBUG("released the SpeechTranscriberRequest");
     }
 }
 
-SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(SpeechSynthesizerCallback* onResultReceivedEvent,
-															  const char* config){
+SpeechTranscriberSyncRequest* NlsClient::createTranscriberSyncRequest() {
+	return new SpeechTranscriberSyncRequest();
+}
+
+void NlsClient::releaseTranscriberSyncRequest(SpeechTranscriberSyncRequest* request) {
+	if (request) {
+		if (request->isStarted()) {
+			request->sendSyncAudio(NULL, 0, AUDIO_LAST);
+		}
+		delete request;
+		request = NULL;
+		LOG_DEBUG("released the SpeechTranscriberSyncRequest");
+	}
+}
+
+SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(SpeechSynthesizerCallback* onResultReceivedEvent){
 	if (NULL == onResultReceivedEvent) {
 		LOG_ERROR("the callback is NULL");
 		return NULL;
 	}
 
-	return new SpeechSynthesizerRequest(onResultReceivedEvent, config);
-
+	return new SpeechSynthesizerRequest(onResultReceivedEvent);
 }
 
 void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
     if (request) {
+        if (request->isStarted()) {
+            request->stop();
+        }
         delete request;
         request = NULL;
         LOG_DEBUG("released the SpeechSynthesizerRequest");
     }
+}
+
 }

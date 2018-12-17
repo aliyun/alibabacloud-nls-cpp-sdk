@@ -17,11 +17,10 @@
 #ifndef NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_PARAM_H
 #define NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_PARAM_H
 
-#include <set>
 #include <string>
 #include "iNlsRequestParam.h"
-#include "json/json.h"
-#include "util/dataStruct.h"
+
+namespace AlibabaNls {
 
 class SpeechSynthesizerParam : public INlsRequestParam {
 
@@ -36,12 +35,11 @@ public:
     int setPitchRate(int value);
     int setMethod(int value);
 
-    virtual int setContextParam(const char* key, const char* value);
-
     virtual const std::string getStartCommand();
     virtual const std::string getStopCommand();
 
-    virtual int speechParam(std::string key, std::string value);
 };
+
+}
 
 #endif //NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_PARAM_H

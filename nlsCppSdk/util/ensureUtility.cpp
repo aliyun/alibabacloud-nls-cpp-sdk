@@ -15,20 +15,18 @@
  */
 
 #include "ensureUtility.h"
-//#include "targetOs.h"
-//#include "wstr2str.h"
-//#include <algorithm>
-//#include <cassert>
-//#include <stdexcept>
 #include <sstream>
 
 using std::wstring;
 using std::wstringstream;
 
+namespace AlibabaNls {
 namespace util {
 
+#ifdef _WIN32
 #pragma comment(lib, "Shlwapi.lib")
 #pragma comment(lib, "dbghelp.lib")
+#endif
 
 wstring FormatMessage(wstring const &expr,
                       TContextVarMap const &contextVars,
@@ -51,4 +49,5 @@ void ThrowWithoutDumpBehavior::operator()(std::string msg, int errocde) {
     throw ExceptionWithString(msg, errocde);
 }
 
+}
 }
