@@ -1,0 +1,13 @@
+# Target labels
+ openssl
+# Source files and their labels
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/openssl
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/openssl.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/openssl-complete.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-install.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-mkdir.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-download.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-update.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-patch.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-configure.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/openssl-prefix/src/openssl-stamp/openssl-build.rule

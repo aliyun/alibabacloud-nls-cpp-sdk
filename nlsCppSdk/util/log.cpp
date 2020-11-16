@@ -14,256 +14,317 @@
  * limitations under the License.
  */
 
+#include <stdarg.h>
+#include <iostream>
+#include <ctime>
+
+#if defined(__ANDRIOD__)
+#include <android/log.h>
+#elif defined(_WIN32) || defined(__linux__)
+#include "log4cpp/Category.hh"
+#include "log4cpp/Appender.hh"
+#include "log4cpp/FileAppender.hh"
+#include "log4cpp/Priority.hh"
+#include "log4cpp/PatternLayout.hh"
+#include "log4cpp/RollingFileAppender.hh"
+#endif
+
+#if defined(__ANDRIOD__)
+#include <android/log.h>
+#endif
+
 #include "log.h"
-
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-
-#if defined(__APPLE__)
-#include <unistd.h>
-#endif
-
-#if defined(__ANDROID__) || defined(__linux__)
-#include <stdlib.h>
-#include <errno.h>
-#include <unistd.h>
-#include <string.h>
-
-#ifndef _ANDRIOD_
-#include <iconv.h>
-#endif
-
-#endif
-
-#include <sstream>
-#include "exception.h"
-
-using std::string;
+#include "utility.h"
 
 namespace AlibabaNls {
-namespace util {
 
-bool zlog_debug = true;
-pthread_mutex_t Log::mtxOutput = PTHREAD_MUTEX_INITIALIZER;
-FILE *Log::_output = stdout;
-int Log::_logLevel = 1;
-const char* Log::_logFileName = NULL;
-long long Log::_logFileSize = 10 * 1024 * 1024;
-long long Log::_logCurrentSize = 0;
-int Log::_bakFileCounts = 5;
+namespace utility {
 
-void Log::setLogEnable(bool enable) {
-    zlog_debug = enable;
-}
+using std::string;
+using std::cout;
+using std::endl;
 
-string Log::UTF8ToGBK(const string &strUTF8) {
+#define LOG_BUFFER_SIZE 2048
+#define LOG_FILES_NUMBER 5
+#define LOG_FILE_BASE_SIZE 1024*1024
+#define LOG_TAG "AliSpeechLib"
 
-#if defined(__ANDROID__) || defined(__linux__)
+#define LOG_FORMAT_STRING(a, l, f, b)  char tmpBuffer[LOG_BUFFER_SIZE] = {0}; \
+                                va_list arg; \
+                                va_start(arg, f); \
+                                vsnprintf(tmpBuffer, LOG_BUFFER_SIZE, f, arg); \
+                                va_end(arg); \
+                                _ssnprintf(b, LOG_BUFFER_SIZE, "[ID:%lu][%s:%d]%s", pthreadSelfId(), a, l, tmpBuffer);
 
-    const char *msg = strUTF8.c_str();
-    size_t inputLen = strUTF8.length();
-    size_t outputLen = inputLen * 20;
+#define LOG_PRINT_COMMON(level, message) { \
+                                            time_t tt = time(NULL); \
+                                            struct tm* ptm = localtime(&tt); \
+                                            fprintf(stdout, "%4d-%02d-%02d %02d:%02d:%02d %s(%s): %s\n",\
+                                            (int)ptm->tm_year + 1900, \
+                                            (int)ptm->tm_mon + 1, \
+                                            (int)ptm->tm_mday, \
+                                            (int)ptm->tm_hour, \
+                                            (int)ptm->tm_min, \
+                                            (int)ptm->tm_sec, \
+                                            LOG_TAG, \
+                                            level, \
+                                            message); \
+                                        }
 
-    char *outbuf = new char[outputLen + 1];
-    memset(outbuf, 0x0, outputLen + 1);
+//#define CHECK_LOG_OUTPUT(isFlag) if(!isFlag) {return;}
 
-    char *inbuf = new char[inputLen + 1];
-    memset(inbuf, 0x0, inputLen + 1);
-    strncpy(inbuf, msg, inputLen);
-
-    int res = Log::code_convert((char *)"UTF-8", (char *)"GBK", inbuf, inputLen, outbuf, outputLen);
-    if (res == -1) {
-        throw ExceptionWithString("ENCODE: convert to utf8 error.", errno);
-    }
-
-    string strTemp(outbuf);
-
-    delete [] outbuf;
-    outbuf = NULL;
-    delete [] inbuf;
-    inbuf = NULL;
-
-    return strTemp;
-
-#elif defined (_WIN32)
-
-    int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
-    unsigned short * wszGBK = new unsigned short[len + 1];
-    memset(wszGBK, 0, len * 2 + 2);
-
-    MultiByteToWideChar(CP_UTF8, 0, (char*)strUTF8.c_str(), -1, (wchar_t*)wszGBK, len);
-
-    len = WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, NULL, 0, NULL, NULL);
-
-    char *szGBK = new char[len + 1];
-    memset(szGBK, 0, len + 1);
-    WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, szGBK, len, NULL, NULL);
-
-    string strTemp(szGBK);
-    delete [] szGBK;
-    delete [] wszGBK;
-
-    return strTemp;
-
+#if defined(_WIN32)
+HANDLE NlsLog::_mtxLog = CreateMutex(NULL, FALSE, NULL);
 #else
-
-    return strUTF8;
-
+pthread_mutex_t NlsLog::_mtxLog = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
+NlsLog* NlsLog::_logInstance = new NlsLog();
+
+void NlsLog::destroyLogInstance() {
+    delete _logInstance;
+    _logInstance = NULL;
 }
 
-string Log::GBKToUTF8(const string &strGBK) {
+NlsLog::NlsLog() {
+    _logLevel = 1;
+    _isStdout = true;
+    _isConfig = false;
+}
 
-#if defined(__ANDROID__) || defined(__linux__)
+NlsLog::~NlsLog() {
+    _isStdout = true;
+    _isConfig = false;
 
-    string strOutUTF8 = "";
-
-    size_t outputLen = strGBK.length() * 20;
-    char *outbuf = new char[outputLen + 1];
-    memset(outbuf, 0x0, outputLen + 1);
-
-    size_t inputLen = strGBK.length();
-    char *inbuf = new char[inputLen + 1];
-    memset(inbuf, 0x0, inputLen + 1);
-    strncpy(inbuf, strGBK.c_str(), inputLen);
-
-    int res = Log::code_convert((char *)"GBK", (char *)"UTF-8", inbuf, inputLen, outbuf, outputLen);
-    if (res == -1) {
-        LOG_ERROR("convert to utf8 error, error code is %d", errno);
+#if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
+#if defined(_WIN32) || defined(__linux__)
+    if (!_isStdout && _isConfig) {
+        log4cpp::Category::shutdown();
     }
-
-    strOutUTF8 = string(outbuf);
-
-    delete [] inbuf;
-    inbuf = NULL;
-
-    delete [] outbuf;
-    outbuf = NULL;
-
-    return strOutUTF8;
-
-#elif defined (_WIN32)
-
-    string strOutUTF8 = "";
-    WCHAR * str1;
-
-    int n = MultiByteToWideChar(CP_ACP, 0, strGBK.c_str(), -1, NULL, 0);
-
-    str1 = new WCHAR[n];
-
-    MultiByteToWideChar(CP_ACP, 0, strGBK.c_str(), -1, str1, n);
-
-    n = WideCharToMultiByte(CP_UTF8, 0, str1, -1, NULL, 0, NULL, NULL);
-
-    char * str2 = new char[n];
-    WideCharToMultiByte(CP_UTF8, 0, str1, -1, str2, n, NULL, NULL);
-    strOutUTF8 = str2;
-
-    delete [] str1;
-    str1 = NULL;
-    delete [] str2;
-    str2 = NULL;
-
-    return strOutUTF8;
-
-#else
-
-    return strGBK;
-
 #endif
-
+#endif
 }
 
-void Log::saveLog(const char* res, int resLength) {
-	static int num = -1;
-	if (Log::_output == stdout) {
-		fprintf(Log::_output, "%s\n", res);
-		return;
-	}
-
-	if (Log::_logCurrentSize + resLength > Log::_logFileSize) {
-		fclose(Log::_output);
-
-		num++;
-		num = num % Log::_bakFileCounts;
-		std::ostringstream os;
-		os << num;
-
-		std::string bakFileName = Log::_logFileName;
-		size_t index = bakFileName.find_last_of('.');
-		if (index > 0 && index < bakFileName.length()) {
-			bakFileName = bakFileName.substr(0, index) + "_bak" + os.str() + bakFileName.substr(index, bakFileName.length() - index);
-		}
-		else {
-			bakFileName = bakFileName + "_bak" + os.str();
-		}
-		FILE* bakFile = fopen(bakFileName.c_str(), "r");
-		if (NULL != bakFile) {
-			fclose(bakFile);
-			remove(bakFileName.c_str());
-		}
-		rename(Log::_logFileName, bakFileName.c_str());
-
-		FILE* fs = fopen(Log::_logFileName, "w+");
-		if (NULL != fs) {
-			Log::_output = fs;
-			Log::_logCurrentSize = 0;
-		}
-	}
-	Log::_logCurrentSize += resLength;
-	fprintf(Log::_output, "%s\n", res);
-}
-
-#if defined(__ANDROID__) || defined(__linux__)
-
-int Log::code_convert(char *from_charset, char *to_charset, char *inbuf, size_t inlen, char *outbuf, size_t outlen) {
-
-#if defined(_ANDRIOD_)
-    outbuf = inbuf;
-#else
-    iconv_t cd;
-    char **pin = &inbuf;
-    char **pout = &outbuf;
-
-    cd = iconv_open(to_charset, from_charset);
-    if (cd == 0) {
-        return -1;
-    }
-
-    memset(outbuf, 0, outlen);
-    if (iconv(cd, pin, &inlen, pout, &outlen) == (size_t)-1) {
-        return -1;
-    }
-    iconv_close(cd);
-#endif
-
-    return 0;
-
-}
-
-#endif
-
-void sleepTime(int ms) {
+unsigned long NlsLog::pthreadSelfId() {
 #if defined (_WIN32)
-    Sleep(ms);
-#else
-    usleep(ms * 1000);
-#endif
-}
-
-unsigned long PthreadSelf() {
-
-#if defined(__ANDROID__) || defined(__linux__)
-    return pthread_self();
-#elif defined (_WIN32)
-	return GetCurrentThreadId();
-#else
+    return GetCurrentThreadId();
+#elif defined(__APPLE__)
     return pthread_self()->__sig;
+#else
+    return pthread_self();
+#endif
+}
+
+#if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
+#if defined(_WIN32) || defined(__linux__)
+static log4cpp::Category& getCategory() {
+    log4cpp::Category& _category = log4cpp::Category::getRoot().getInstance("alibabaNlsLog");
+    return _category;
+}
+#endif
 #endif
 
+void NlsLog::logConfig(const char* name, int level, size_t fileSize) {
+
+    if (name) {
+        cout << "Begin LogConfig: " << _isConfig << " , " << name << " , " << level << " , " << fileSize << endl;
+    } else {
+        cout << "Begin LogConfig: " << _isConfig << " , " << level << " , " << fileSize << endl;
+    }
+    
+#if defined(_WIN32)
+    WaitForSingleObject(_mtxLog, INFINITE);
+#else
+    pthread_mutex_lock(&_mtxLog);
+#endif
+
+    if (!_isConfig) {
+#if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
+        if (name && (fileSize > 0)) {
+            log4cpp::PatternLayout* layout;
+            layout = new log4cpp::PatternLayout();
+            layout->setConversionPattern("%d: %p %c%x: %m%n");
+
+            string logFileName = name;
+            logFileName += ".log";
+//            cout << "Nls log name: " << logFileName << " ." << endl;
+            log4cpp::RollingFileAppender* rollfileAppender;
+            rollfileAppender = new log4cpp::RollingFileAppender(name, logFileName, fileSize * LOG_FILE_BASE_SIZE, LOG_FILES_NUMBER);
+            rollfileAppender->setLayout(layout);
+
+            switch(level) {
+                case 1:
+                    log4cpp::Category::getRoot().setPriority(log4cpp::Priority::ERROR);
+                    break;
+                case 2:
+                    log4cpp::Category::getRoot().setPriority(log4cpp::Priority::WARN);
+                    break;
+                case 3:
+                    log4cpp::Category::getRoot().setPriority(log4cpp::Priority::INFO);
+                    break;
+                case 4:
+                    log4cpp::Category::getRoot().setPriority(log4cpp::Priority::DEBUG);
+                    break;
+                default:
+                    log4cpp::Category::getRoot().setPriority(log4cpp::Priority::ERROR);
+                    break;
+            }
+
+            getCategory().addAppender(rollfileAppender);
+            _isStdout = false;
+        } else {
+            _isStdout = true;
+        }
+#endif
+        _logLevel = level;
+        _isConfig = true;
+    }
+
+#if defined(_WIN32)
+    ReleaseMutex(_mtxLog);
+#else
+    pthread_mutex_unlock(&_mtxLog);
+#endif
+    cout << "LogConfig Done." << endl;
+    return ;
+}
+
+void NlsLog::logVerbose(const char* function, int line, const char *format, ...) {
+    if (!format || !_isConfig) {
+        return ;
+    }
+
+    char message[LOG_BUFFER_SIZE] = {0};
+    LOG_FORMAT_STRING(function, line, format, message);
+
+#if defined (__ANDRIOD__)
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
+#elif defined(_WIN32) || defined(__linux__)
+    if (!_isStdout) {
+        getCategory().emerg(message);
+    } else {
+        LOG_PRINT_COMMON("VERBOSE", message);
+    }
+#else
+    LOG_PRINT_COMMON("VERBOSE", message);
+#endif
+}
+
+void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
+
+    if (!format || !_isConfig) {
+        return ;
+    }
+
+    char message[LOG_BUFFER_SIZE] = {0};
+    LOG_FORMAT_STRING(function, line, format, message);
+
+    if (_logLevel >= 4) {
+#if defined (__ANDRIOD__)
+        __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
+#elif defined(_WIN32) || defined(__linux__)
+        if (!_isStdout) {
+            getCategory().debug(message);
+        } else {
+            LOG_PRINT_COMMON("DEBUG", message);
+        }
+#else
+        LOG_PRINT_COMMON("DEBUG", message);
+#endif
+    }
+}
+
+void NlsLog::logInfo(const char* function, int line, const char * format, ...) {
+    if (!format || !_isConfig) {
+        return ;
+    }
+
+    char message[LOG_BUFFER_SIZE] = {0};
+    LOG_FORMAT_STRING(function, line, format, message);
+
+    if (_logLevel >= 3) {
+#if defined (__ANDRIOD__)
+        __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
+#elif defined(_WIN32) || defined(__linux__)
+        if (!_isStdout) {
+            getCategory().info(message);
+        } else {
+            LOG_PRINT_COMMON("INFO", message);
+        }
+#else
+        LOG_PRINT_COMMON("INFO", message);
+#endif
+    }
+}
+
+void NlsLog::logWarn(const char* function, int line, const char * format, ...) {
+    if (!format || !_isConfig) {
+        return ;
+    }
+
+    char message[LOG_BUFFER_SIZE] = {0};
+    LOG_FORMAT_STRING(function, line, format, message);
+
+    if (NlsLog::_logLevel >= 2) {
+#if defined (__ANDRIOD__)
+        __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
+#elif defined(_WIN32) || defined(__linux__)
+        if (!_isStdout) {
+            getCategory().warn(message);
+        } else {
+            LOG_PRINT_COMMON("WARN", message);
+        }
+#else
+        LOG_PRINT_COMMON("WARN", message);
+#endif
+    }
+}
+
+void NlsLog::logError(const char* function, int line, const char * format, ...) {
+    if (!format || !_isConfig) {
+        return ;
+    }
+
+    char message[LOG_BUFFER_SIZE] = {0};
+    LOG_FORMAT_STRING(function, line, format, message);
+
+    if (NlsLog::_logLevel >= 1) {
+#if defined (__ANDRIOD__)
+        __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
+#elif defined(_WIN32) || defined(__linux__)
+        if (!_isStdout) {
+            getCategory().error(message);
+        } else {
+            LOG_PRINT_COMMON("ERROR", message);
+        }
+#else
+        LOG_PRINT_COMMON("ERROR", message);
+#endif
+    }
+}
+
+//FATAL
+void NlsLog::logException(const char* function, int line, const char *format, ...) {
+    if (!format || !_isConfig) {
+        return ;
+    }
+
+    char message[LOG_BUFFER_SIZE] = {0};
+    LOG_FORMAT_STRING(function, line, format, message);
+
+#if defined (__ANDRIOD__)
+            __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
+#elif defined(_WIN32) || defined(__linux__)
+    if (!_isStdout) {
+        getCategory().fatal(message);
+    } else {
+        LOG_PRINT_COMMON("EXCEPTION", message);
+    }
+#else
+    LOG_PRINT_COMMON("EXCEPTION", message);
+#endif
 }
 
 }
+
 }

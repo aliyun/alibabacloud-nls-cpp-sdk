@@ -1,0 +1,3 @@
+repository='external project URL'
+module='/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/common/openssl-OpenSSL_1_1_0j.zip'
+tag='MD5=8c52672e2b808ca829226f9afff177d7'

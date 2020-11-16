@@ -22,31 +22,35 @@ using std::string;
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 #define D_CMD_START_TRANSCRIPTION "StartTranscription"
+#define D_CMD_CONTROL_TRANSCRIPTION "ControlTranscriber"
 #define D_CMD_STOP_TRANSCRIPTION "StopTranscription"
 #define D_NAMESPACE_TRANSCRIPTION "SpeechTranscriber"
 
-SpeechTranscriberParam::SpeechTranscriberParam() : INlsRequestParam(ST) {
-
+SpeechTranscriberParam::SpeechTranscriberParam() : INlsRequestParam(TypeRealTime) {
 	_header[D_NAMESPACE] = D_NAMESPACE_TRANSCRIPTION;
-
 }
 
 SpeechTranscriberParam::~SpeechTranscriberParam() {
 
 }
 
-const string SpeechTranscriberParam::getStartCommand() {
+const char*  SpeechTranscriberParam::getStartCommand() {
 
     _header[D_NAME] = D_CMD_START_TRANSCRIPTION;
 
     return INlsRequestParam::getStartCommand();
 }
 
-const string SpeechTranscriberParam::getStopCommand() {
+const char*  SpeechTranscriberParam::getControlCommand(const char* message) {
+    _header[D_NAME] = D_CMD_CONTROL_TRANSCRIPTION;
 
+    return INlsRequestParam::getControlCommand(message);
+}
+
+const char*  SpeechTranscriberParam::getStopCommand() {
     _header[D_NAME] = D_CMD_STOP_TRANSCRIPTION;
 
     return INlsRequestParam::getStopCommand();
@@ -55,6 +59,16 @@ const string SpeechTranscriberParam::getStopCommand() {
 int SpeechTranscriberParam::setMaxSentenceSilence(int value) {
     _payload[D_SR_MAX_SENTENCE_SILENCE] = value;
 
+    return 0;
+}
+
+int SpeechTranscriberParam::setEnableNlp(bool enable) {
+    _payload[D_ST_ENABLE_NLP] = enable;
+    return 0;
+}
+
+int SpeechTranscriberParam::setNlpModel(const char* value) {
+    _payload[D_ST_NLP_MODEL] = value;
     return 0;
 }
 

@@ -1,0 +1,10 @@
+prefix=/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: log4cpp
+Description: C++ library for flexible logging, modeled after Log4j
+Version: 1.1
+Libs: -L${libdir} -llog4cpp  
+Cflags: -I${includedir} -pthread -fPIC

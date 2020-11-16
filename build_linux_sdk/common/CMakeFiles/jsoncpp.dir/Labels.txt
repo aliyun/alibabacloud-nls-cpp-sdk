@@ -1,0 +1,13 @@
+# Target labels
+ jsoncpp
+# Source files and their labels
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/jsoncpp
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/jsoncpp.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/jsoncpp-complete.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-install.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-mkdir.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-download.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-update.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-patch.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-configure.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/jsoncpp-prefix/src/jsoncpp-stamp/jsoncpp-build.rule

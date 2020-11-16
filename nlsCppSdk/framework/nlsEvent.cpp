@@ -17,9 +17,10 @@
 #include "nlsEvent.h"
 #include <sstream>
 #include "log.h"
-#include "exception.h"
+//#include "exception.h"
 #include "json/json.h"
 
+using std::list;
 using std::string;
 using std::vector;
 using std::istringstream;
@@ -27,7 +28,7 @@ using std::ostringstream;
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 NlsEvent::NlsEvent(const NlsEvent& ne) {
 	this->_statusCode = ne._statusCode;
@@ -37,21 +38,39 @@ NlsEvent::NlsEvent(const NlsEvent& ne) {
 
 	this->_sentenceIndex = ne._sentenceIndex;
 	this->_sentenceTime = ne._sentenceTime;
+	this->_sentenceTimeOutStatus = ne._sentenceTimeOutStatus;
 
 	this->_msg = ne._msg;
-	this->_msgtype = ne._msgtype;
+	this->_msgType = ne._msgType;
 	this->_binaryData = ne._binaryData;
 	this->_sentenceBeginTime = ne._sentenceBeginTime;
 	this->_sentenceConfidence = ne._sentenceConfidence;
+	this->_sentenceWordsList = ne._sentenceWordsList;
+
+	this->_stashResultSentenceId = ne._stashResultSentenceId;
+	this->_stashResultBeginTime = ne._stashResultBeginTime;
+	this->_stashResultCurrentTime = ne._stashResultCurrentTime;
+	this->_stashResultText = ne._stashResultText;
+
 }
 
-NlsEvent::NlsEvent(string msg, int code, EventType type, string taskId)
-	: _statusCode(code), _msg(msg), _msgtype(type), _taskId(taskId) {
-
+NlsEvent::NlsEvent(const char * msg, int code, EventType type, string & taskId) : _statusCode(code),
+																				  _msg(msg),
+																				  _msgType(type),
+																				  _taskId(taskId) {
 }
 
-NlsEvent::NlsEvent(string msg) : _msg(msg) {
+NlsEvent::NlsEvent(string & msg) : _msg(msg) {
+	_statusCode = 0;
+	_sentenceTimeOutStatus = 0;
+	_sentenceIndex = 0;
+	_sentenceTime = 0;
+	_sentenceBeginTime = 0;
+	_sentenceConfidence = 0.0;
 
+	_stashResultSentenceId = 0;
+	_stashResultBeginTime = 0;
+	_stashResultCurrentTime = 0;
 }
 
 NlsEvent::~NlsEvent() {
@@ -64,7 +83,10 @@ int NlsEvent::parseJsonMsg() {
 	}
 
 	Json::Reader reader;
-	Json::Value head, payload, root;
+	Json::Value head(Json::objectValue);
+	Json::Value payload(Json::objectValue);
+	Json::Value root(Json::objectValue);
+	Json::Value stashResult(Json::objectValue);
 
 	if (!reader.parse(_msg, root)) {
 		LOG_ERROR("_msg:%s", _msg.c_str());
@@ -72,28 +94,26 @@ int NlsEvent::parseJsonMsg() {
 	}
 
 	// parse head
-	if (!root["header"].isNull()) {
+	if (!root["header"].isNull() && root["header"].isObject()) {
 		head = root["header"];
 
 		// name
-		if (head["name"].isNull()) {
-			return -1;
-		}
-
-		string name = head["name"].asCString();
-		if (parseMsgType(name) == -1) {
-			return -1;
+		if (!head["name"].isNull() && head["name"].isString()) {
+			string name = head["name"].asCString();
+			if (parseMsgType(name) == -1) {
+				return -1;
+			}
 		}
 
 		// status
-		if (!head["status"].isNull()) {
+		if (!head["status"].isNull() && head["status"].isInt()) {
 			_statusCode = head["status"].asInt();
 		} else {
 			return -1;
 		}
 
 		// task_id
-		if (!head["task_id"].isNull()) {
+		if (!head["task_id"].isNull() && head["task_id"].isString()) {
 			_taskId = head["task_id"].asCString();
 		}
 	} else {
@@ -101,43 +121,117 @@ int NlsEvent::parseJsonMsg() {
 	}
 
 	// parse payload
-	if (!root["payload"].isNull()) {
-		payload = root["payload"];
+	if (_msgType != SynthesisCompleted && _msgType != MetaInfo) {
+		if (!root["payload"].isNull() && root["payload"].isObject()) {
+			payload = root["payload"];
 
-		// result
-		if (!payload["result"].isNull()) {
-			_result = payload["result"].asCString();
+			// result
+			if (!payload["result"].isNull() && payload["result"].isString()) {
+				_result = payload["result"].asCString();
+			}
+
+			// index
+			if (!payload["index"].isNull() && payload["index"].isInt()) {
+				_sentenceIndex = payload["index"].asInt();
+			}
+
+			// time
+			if (!payload["time"].isNull() && payload["time"].isInt()) {
+				_sentenceTime = payload["time"].asInt();
+			}
+
+			// begin_time
+			if (!payload["begin_time"].isNull() && payload["begin_time"].isInt()) {
+				_sentenceBeginTime = payload["begin_time"].asInt();
+			}
+
+			// confidence
+			if (!payload["confidence"].isNull() && payload["confidence"].isDouble()) {
+				_sentenceConfidence = payload["confidence"].asDouble();
+			}
+
+			// display_text
+			if (!payload["display_text"].isNull() && payload["display_text"].isString()) {
+				_displayText = payload["display_text"].asCString();
+			}
+
+			// spoken_text
+			if (!payload["spoken_text"].isNull() && payload["spoken_text"].isString()) {
+				_spokenText = payload["spoken_text"].asCString();
+			}
+
+			// sentence timeOut status
+			if (!payload["status"].isNull() && payload["status"].isInt()) {
+				_sentenceTimeOutStatus = payload["status"].asInt();
+			}
+
+			//"words":[{"text":"一二三四","startTime":810,"endTime":2460}]
+			if (!payload["words"].isNull() && payload["words"].isArray()) {
+				Json::Value wordArray = payload["words"];
+				int iSize = wordArray.size();
+				WordInfomation wordInfo;
+
+				for (int nIndex = 0; nIndex < iSize; nIndex++) {
+					if (wordArray[nIndex].isMember("text") && wordArray[nIndex]["text"].isString()) {
+						wordInfo.text = wordArray[nIndex]["text"].asCString();
+					}
+
+					if (wordArray[nIndex].isMember("startTime") && wordArray[nIndex]["startTime"].isInt()) {
+						wordInfo.startTime = wordArray[nIndex]["startTime"].asInt();
+					}
+
+					if (wordArray[nIndex].isMember("endTime") && wordArray[nIndex]["endTime"].isInt()) {
+						wordInfo.endTime = wordArray[nIndex]["endTime"].asInt();
+					}
+
+					LOG_DEBUG("List Push: %s %d %d", wordInfo.text.c_str(), wordInfo.startTime, wordInfo.endTime);
+
+					_sentenceWordsList.push_back(wordInfo);
+				}
+			}
+
+			//WakeWordVerificationCompleted
+			if (_msgType == NlsEvent::WakeWordVerificationCompleted) {
+				if (!payload["accepted"].isNull() && payload["accepted"].isBool()) {
+					_wakeWordAccepted = payload["accepted"].asBool();
+				}
+
+				if (!payload["known"].isNull() && payload["known"].isBool()) {
+					_wakeWordKnown = payload["known"].asBool();
+				}
+
+				if (!payload["user_id"].isNull() && payload["user_id"].isString()) {
+					_wakeWordUserId = payload["user_id"].asCString();
+				}
+
+				if (!payload["gender"].isNull() && payload["gender"].isInt()) {
+					_wakeWordGender = payload["gender"].asInt();
+				}
+			}
+
+			//stashResult
+			if (_msgType == NlsEvent::SentenceEnd) {
+				if (!payload["stash_result"].isNull() && payload["stash_result"].isObject()) {
+					stashResult = payload["stash_result"];
+
+					if (!stashResult["sentenceId"].isNull() && stashResult["sentenceId"].isInt()) {
+						_stashResultSentenceId = stashResult["sentenceId"].asInt();
+					}
+
+					if (!stashResult["beginTime"].isNull() && stashResult["beginTime"].isInt()) {
+						_stashResultBeginTime = stashResult["beginTime"].asInt();
+					}
+
+					if (!stashResult["currentTime"].isNull() && stashResult["currentTime"].isInt()) {
+						_stashResultCurrentTime = stashResult["currentTime"].asInt();
+					}
+
+					if (!stashResult["text"].isNull() && stashResult["text"].isString()) {
+						_stashResultText = stashResult["text"].asCString();
+					}
+				}
+			}
 		}
-
-		// index
-		if (!payload["index"].isNull()) {
-			_sentenceIndex = payload["index"].asInt();
-		}
-
-		// time
-		if (!payload["time"].isNull()) {
-			_sentenceTime = payload["time"].asInt();
-		}
-
-		// begin_time
-		if (!payload["begin_time"].isNull()) {
-			_sentenceBeginTime = payload["begin_time"].asInt();
-		}
-
-		// confidence
-		if (!payload["confidence"].isNull()) {
-			_sentenceConfidence = payload["confidence"].asDouble();
-		}
-
-        // display_text
-        if (!payload["display_text"].isNull()) {
-            _displayText = payload["display_text"].asCString();
-        }
-
-        // spoken_text
-        if (!payload["spoken_text"].isNull()) {
-            _spokenText = payload["spoken_text"].asCString();
-        }
 	}
 
 	return 0;
@@ -145,30 +239,36 @@ int NlsEvent::parseJsonMsg() {
 
 int NlsEvent::parseMsgType(std::string name) {
 	if (name == "TaskFailed") {
-		_msgtype = NlsEvent::TaskFailed;
+		_msgType = NlsEvent::TaskFailed;
 	} else if (name == "RecognitionStarted") {
-		_msgtype = NlsEvent::RecognitionStarted;
+		_msgType = NlsEvent::RecognitionStarted;
 	} else if (name == "RecognitionCompleted") {
-		_msgtype = NlsEvent::RecognitionCompleted;
+		_msgType = NlsEvent::RecognitionCompleted;
 	} else if (name == "RecognitionResultChanged") {
-		_msgtype = NlsEvent::RecognitionResultChanged;
+		_msgType = NlsEvent::RecognitionResultChanged;
 	} else if (name == "TranscriptionStarted") {
-		_msgtype = NlsEvent::TranscriptionStarted;
+		_msgType = NlsEvent::TranscriptionStarted;
 	} else if (name == "SentenceBegin") {
-		_msgtype = NlsEvent::SentenceBegin;
+		_msgType = NlsEvent::SentenceBegin;
 	} else if (name == "TranscriptionResultChanged") {
-		_msgtype = NlsEvent::TranscriptionResultChanged;
+		_msgType = NlsEvent::TranscriptionResultChanged;
 	} else if (name == "SentenceEnd") {
-		_msgtype = NlsEvent::SentenceEnd;
+		_msgType = NlsEvent::SentenceEnd;
 	} else if (name == "TranscriptionCompleted") {
-		_msgtype = NlsEvent::TranscriptionCompleted;
+		_msgType = NlsEvent::TranscriptionCompleted;
 	} else if (name == "SynthesisStarted") {
-		_msgtype = NlsEvent::SynthesisStarted;
+		_msgType = NlsEvent::SynthesisStarted;
 	} else if (name == "SynthesisCompleted") {
-		_msgtype = NlsEvent::SynthesisCompleted;
+		_msgType = NlsEvent::SynthesisCompleted;
 	} else if (name == "DialogResultGenerated") {
-        _msgtype = NlsEvent::DialogResultGenerated;
-    } else {
+		_msgType = NlsEvent::DialogResultGenerated;
+    } else if (name == "WakeWordVerificationCompleted") {
+		_msgType = NlsEvent::WakeWordVerificationCompleted;
+	} else if (name == "SentenceSemantics") {
+		_msgType = NlsEvent::SentenceSemantics;
+	}  else if (name == "MetaInfo") {
+		_msgType = NlsEvent::MetaInfo;
+	} else {
 		LOG_ERROR("EVENT: type is invalid. [%s].", _msg.c_str());
 		return -1;
 	}
@@ -176,27 +276,27 @@ int NlsEvent::parseMsgType(std::string name) {
 	return 0;
 }
 
-int NlsEvent::getStausCode() {
+int NlsEvent::getStatusCode() {
 	return _statusCode;
 }
 
 const char* NlsEvent::getAllResponse() {
 	if (this->getMsgType() == Binary) {
-		LOG_WARN("this is Binary data.");
+		LOG_DEBUG("this is Binary data.");
 	}
 	return this->_msg.c_str();
 }
 
 const char* NlsEvent::getErrorMessage() {
-	if (_msgtype != TaskFailed) {
-		LOG_WARN("this msg is not error msg.");
-		return string("").c_str();
+	if (_msgType != TaskFailed) {
+		LOG_DEBUG("this msg is not error msg.");
+		return "";
 	}
 	return this->_msg.c_str();
 }	  
 
 NlsEvent::EventType NlsEvent::getMsgType() {
-	return _msgtype;
+	return _msgType;
 }
 
 const char* NlsEvent::getTaskId() {
@@ -212,20 +312,20 @@ const char* NlsEvent::getSpokenText() {
 }
 
 const char* NlsEvent::getResult() {
-	if (_msgtype != RecognitionResultChanged &&
-		_msgtype != RecognitionCompleted &&
-		_msgtype != TranscriptionResultChanged &&
-		_msgtype != SentenceEnd) {
-		return string("").c_str();
+	if (_msgType != RecognitionResultChanged &&
+		_msgType != RecognitionCompleted &&
+		_msgType != TranscriptionResultChanged &&
+		_msgType != SentenceEnd) {
+		return NULL;
 	}
 
 	return _result.c_str();
 }
 
 int NlsEvent::getSentenceIndex() {
-	if (_msgtype != SentenceBegin &&
-		_msgtype != SentenceEnd &&
-		_msgtype != TranscriptionResultChanged) {
+	if (_msgType != SentenceBegin &&
+		_msgType != SentenceEnd &&
+		_msgType != TranscriptionResultChanged) {
 		return -1;
 	}
 
@@ -233,30 +333,50 @@ int NlsEvent::getSentenceIndex() {
 }
 
 int NlsEvent::getSentenceTime() {
-	if (_msgtype != SentenceBegin &&
-		_msgtype != SentenceEnd &&
-		_msgtype != TranscriptionCompleted) {
+	if (_msgType != SentenceBegin &&
+		_msgType != SentenceEnd &&
+		_msgType != TranscriptionResultChanged) {
 		return -1;
 	}
 	return _sentenceTime;
 }
 
 int NlsEvent::getSentenceBeginTime() {
-	if (_msgtype != SentenceEnd ) {
+	if (_msgType != SentenceEnd) {
 		return -1;
 	}
 	return _sentenceBeginTime;
 }
 
 double NlsEvent::getSentenceConfidence() {
-	if (_msgtype != SentenceEnd ) {
+	if (_msgType != SentenceEnd) {
 		return -1;
 	}
 	return _sentenceConfidence;
 }
 
-NlsEvent::NlsEvent(vector<unsigned char> data, int code, EventType type, string taskId)
-	: _statusCode(code), _msgtype(type), _taskId(taskId), _binaryData(data) {
+int NlsEvent::getSentenceTimeOutStatus() {
+	if (_msgType != SentenceEnd) {
+		return -1;
+	}
+	return _sentenceTimeOutStatus;
+}
+
+list<WordInfomation> NlsEvent::getSentenceWordsList() {
+	list<WordInfomation> tmpList;
+	if (_msgType != SentenceEnd) {
+		return tmpList;
+	}
+
+	return _sentenceWordsList;
+}
+
+NlsEvent::NlsEvent(vector<unsigned char> data, int code, EventType type, string taskId) : _statusCode(code),
+																						  _msgType(type),
+																						  _taskId(taskId),
+																						  _binaryData(data) {
+	LOG_DEBUG("Binary data event:%d.", data.size());
+
 	this->_msg = "";
 }
 
@@ -267,6 +387,46 @@ vector<unsigned char> NlsEvent::getBinaryData() {
 		LOG_WARN("this hasn't Binary data.");
 		return _binaryData;
 	}
+}
+
+const bool NlsEvent::getWakeWordAccepted() {
+	if (_msgType != WakeWordVerificationCompleted) {
+		return false;
+	}
+
+	return _wakeWordAccepted;
+}
+
+const int NlsEvent::getStashResultSentenceId() {
+	if (_msgType != SentenceEnd ) {
+		return -1;
+	}
+
+	return _stashResultSentenceId;
+}
+
+const int NlsEvent::getStashResultBeginTime() {
+	if (_msgType != SentenceEnd ) {
+		return -1;
+	}
+
+	return _stashResultBeginTime;
+}
+
+const int NlsEvent::getStashResultCurrentTime() {
+	if (_msgType != SentenceEnd ) {
+		return -1;
+	}
+
+	return _stashResultCurrentTime;
+}
+
+const char* NlsEvent::getStashResultText() {
+	if (_msgType != SentenceEnd ) {
+		return NULL;
+	}
+
+	return _stashResultText.c_str();
 }
 
 }

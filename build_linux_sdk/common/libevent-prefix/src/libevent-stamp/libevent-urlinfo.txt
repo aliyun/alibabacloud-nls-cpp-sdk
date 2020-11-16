@@ -1,0 +1,3 @@
+repository='external project URL'
+module='/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/common/libevent-2.1.8-stable.tar.gz'
+tag='MD5=f3eeaed018542963b7d2416ef1135ecc'

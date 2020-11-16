@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -O3 -Wall -fPIC -fvisibility=hidden -fvisibility-inlines-hidden  -Wl,-Bsymbolic -shared -Wl,-soname,libnlsCppOpu.so -o ../lib/libnlsCppOpu.so CMakeFiles/nlsCppOpu.dir/nlsOpu/nlsOpuCoder.c.o  ../common/opus-prefix/lib/libopus.a 

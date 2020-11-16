@@ -13,279 +13,446 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "Config.h"
 #include "nlsClient.h"
 #include "log.h"
+#include "connectNode.h"
+#include "eventNetWork.h"
+
 _ENABLE_ASR_CLASS_BEGIN:
 #include "sr/speechRecognizerRequest.h"
-#include "sr/speechRecognizerSyncRequest.h"
+//#include "sr/speechRecognizerSyncRequest.h"
 _ENABLE_ASR_CLASS_END
 _ENABLE_REALTIME_CLASS_BEGIN:
 #include "st/speechTranscriberRequest.h"
-#include "st/speechTranscriberSyncRequest.h"
+//#include "st/speechTranscriberSyncRequest.h"
 _ENABLE_REALTIME_CLASS_END
 _ENABLE_TTS_CLASS_BEGIN:
 #include "sy/speechSynthesizerRequest.h"
 _ENABLE_TTS_CLASS_END
+_ENABLE_UDS_CLASS_BEGIN:
+#include "da/dialogAssistantRequest.h"
+_ENABLE_UDS_CLASS_END
 
-#if !defined( __APPLE__ )
-
-#include "openssl/crypto.h"
-#include "openssl/ssl.h"
-
-namespace SSL_ALI {
-
-#define MUTEX_TYPE       pthread_mutex_t
-#define MUTEX_SETUP(x)   pthread_mutex_init(&(x), NULL)
-#define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
-#define MUTEX_LOCK(x)    pthread_mutex_lock(&(x))
-#define MUTEX_UNLOCK(x)  pthread_mutex_unlock(&(x))
-
-static MUTEX_TYPE *mutex_buf = NULL##
-
-static void locking_function(int mode, int n, const char *file, int line) {
-	if (mode & CRYPTO_LOCK) {
-        MUTEX_LOCK(mutex_buf[n])##
-    } else {
-        MUTEX_UNLOCK(mutex_buf[n])##
-    }
-}
-
-static unsigned long id_function(void) {
-#if defined (_WIN32)
-	return pthread_self().x##
-#elif defined (__APPLE__)
-	return (unsigned long)pthread_self()##
-#else
-	return pthread_self()##
+#if !defined(__APPLE__)
+#include "commonSsl.h"
 #endif
-}
 
-int thread_setup(void) {
-	int i##
-
-	mutex_buf = (pthread_mutex_t*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(MUTEX_TYPE))##
-	if (!mutex_buf) {
-		return 0##
-    }
-
-    for (i = 0## i < CRYPTO_num_locks()## i++) {
-        MUTEX_SETUP(mutex_buf[i])##
-    }
-
-	CRYPTO_set_id_callback(id_function)##
-	CRYPTO_set_locking_callback(locking_function)##
-
-    return 1##
-}
-
-int thread_cleanup(void) {
-	int i##
-
-	if (!mutex_buf) {
-        return -1##
-    }
-
-	CRYPTO_set_id_callback(NULL)##
-	CRYPTO_set_locking_callback(NULL)##
-
-    for (i = 0## i < CRYPTO_num_locks()## i++) {
-        MUTEX_CLEANUP(mutex_buf[i])##
-    }
-
-    OPENSSL_free(mutex_buf)##
-	mutex_buf = NULL##
-	return 0##
-}
-}
-
+_ENABLE_VIPSERVER_CPP1_BEGIN:
+#if defined(__linux__)
+#include <string>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "option.h"
+#include "iphost.h"
+#include "vipclient.h"
+#include "vipclient_helper.hpp"
+using namespace middleware::vipclient##
+using std::string##
 #endif
+_ENABLE_VIPSERVER_CPP1_END
 
 namespace AlibabaNls {
 
-#define LOG_MB_SIZE 1024 * 1024
-
-using namespace util##
+using namespace utility##
+//using namespace transport##
 
 NlsClient* NlsClient::_instance = NULL##//new NlsClient()##
-pthread_mutex_t NlsClient::_mtx = PTHREAD_MUTEX_INITIALIZER##
 bool NlsClient::_isInitializeSSL = false##
+bool NlsClient::_isInitializeThread = false##
+#if defined(_WIN32)
+	HANDLE NlsClient::_mtx = CreateMutex(NULL, FALSE, NULL)##
+#else
+	pthread_mutex_t NlsClient::_mtx = PTHREAD_MUTEX_INITIALIZER##
+#endif
 
+
+_ENABLE_VIPSERVER_CPP2_BEGIN:
+#if defined(__linux__)
+bool NlsClient::_isInitalizeVsClient = false##
+pthread_mutex_t NlsClient::_mtxVsClient = PTHREAD_MUTEX_INITIALIZER##
+#endif
+_ENABLE_VIPSERVER_CPP2_END
+
+/*
+ 1: init openssl
+ 2: init log
+ 3: init vipServer
+ 4: startup libevent work threads
+ */
 NlsClient* NlsClient::getInstance(bool sslInitial) {
 
-    pthread_mutex_lock(&_mtx)##
-
-    if(sslInitial) {
-        if(!_isInitializeSSL) {
-#if !defined( __APPLE__ )
-			LOG_DEBUG("initialized ssl")##
-            SSL_ALI::thread_setup()##
-            SSLeay_add_ssl_algorithms()##
-            SSL_load_error_strings()##
+#if defined(_WIN32)
+	WaitForSingleObject(_mtx, INFINITE)##
+#else
+	pthread_mutex_lock(&_mtx)##
 #endif
-            _isInitializeSSL = sslInitial##
-        }
-    }
+	if (NULL == _instance) {
+		//init openssl
+    	if(sslInitial) {
+        	if(!_isInitializeSSL) {
+#if !defined(__APPLE__)
+				SslConnect::init()##
+#endif
+            	_isInitializeSSL = sslInitial##
+        	}
+    	}
 
-    if (NULL == _instance) {
-        _instance = new NlsClient()##
+		//init libevent work threads
+//		NlsEventClientNetWork::initEventNetWork(count)##
+
+		//init nlsClient
+		_instance = new NlsClient()##
+
+_ENABLE_VIPSERVER_CPP3_BEGIN:
+#if defined(__linux__)
+        //创建全局执行体
+        VipClientApi::CreateApi()##
+#endif
+_ENABLE_VIPSERVER_CPP3_END
     }
-    pthread_mutex_unlock(&_mtx)##
+#if defined(_WIN32)
+	ReleaseMutex(_mtx)##
+#else
+	pthread_mutex_unlock(&_mtx)##
+#endif
 
     return _instance##
 }
 
+/*
+ 1: destroy openssl
+ 2: destroy log
+ 3: destroy vipServer
+ 4: stop libevent work threads
+ */
 void NlsClient::releaseInstance() {
-
-    pthread_mutex_lock(&_mtx)##
+#if defined(_WIN32)
+		WaitForSingleObject(_mtx, INFINITE)##
+#else
+		pthread_mutex_lock(&_mtx)##
+#endif
     if (_instance) {
-        LOG_DEBUG("release NlsClient.")##
+		LOG_DEBUG("release NlsClient.")##
+
+		if(_isInitializeThread) {
+			NlsEventClientNetWork::destroyEventNetWork()##
+		}
+
+		if (_isInitializeSSL) {
+#if !defined(__APPLE__)
+			LOG_DEBUG("delete NlsClient release ssl.")##
+
+			SslConnect::destroy()##
+#endif
+			_isInitializeSSL = false##
+		}
+
+_ENABLE_VIPSERVER_CPP4_BEGIN:
+#if defined(__linux__)
+        if (_isInitalizeVsClient) {
+            //反初始化
+            VipClientApi::UnInit()##
+
+            LOG_DEBUG("VipClientApi::UnInit()......")##
+        }
+        //销毁全局执行体
+        VipClientApi::DestoryApi()##
+
+        LOG_DEBUG("VipClientApi::DestoryApi()......")##
+#endif
+_ENABLE_VIPSERVER_CPP4_END
+
+		NlsLog::destroyLogInstance()##
 
         delete _instance##
         _instance = NULL##
     }
-    pthread_mutex_unlock(&_mtx)##
 
+#if defined(_WIN32)
+		ReleaseMutex(_mtx)##
+#else
+		pthread_mutex_unlock(&_mtx)##
+#endif
 }
 
 NlsClient::NlsClient() {
-
+//	_eventWork = NULL##
 }
 
 NlsClient::~NlsClient() {
-	if (_isInitializeSSL) {
-#if !defined( __APPLE__ )
-        LOG_DEBUG("delete NlsClient release ssl.")##
-
-		SSL_ALI::thread_cleanup()##
-#endif
-        _isInitializeSSL = false##
-	}
-
-	if(Log::_output != NULL && Log::_output != stdout) {
-        LOG_DEBUG("delete NlsClient close log file.")##
-		fclose(Log::_output)##
-	}
+//	delete _eventWork##
+//	_eventWork = NULL##
 }
 
-int NlsClient::setLogConfig(const char* logOutputFile, LogLevel logLevel, unsigned int logFileSize) {
-	if (logOutputFile != NULL) {
-		FILE* fs = fopen(logOutputFile, "w+")##
-		if (fs != NULL) {
-			Log::_output = fs##
-			Log::_logFileName = logOutputFile##
-			if (logFileSize > 0) {
-				Log::_logFileSize = logFileSize * LOG_MB_SIZE##
-			}
-		} else {
-			LOG_ERROR("open the log output file failed.")##
-            return -1##
-        }
-    }
+const char* NlsClient::getVersion()	{
+	return NLS_SDK_VERSION_STR##
+}
 
-	if (logLevel >= LogError && logLevel <= LogDebug) {
-		Log::_logLevel = logLevel##
-	} else {
-        Log::_logLevel = LogDebug##
+void NlsClient::startWorkThread(int threadsNumber) {
+#if defined(_WIN32)
+	WaitForSingleObject(_mtx, INFINITE)##
+#else
+	pthread_mutex_lock(&_mtx)##
+#endif
+
+	if(!_isInitializeThread) {
+		NlsEventClientNetWork::initEventNetWork(threadsNumber)##
+		_isInitializeThread = true##
 	}
+
+#if defined(_WIN32)
+	ReleaseMutex(_mtx)##
+#else
+	pthread_mutex_unlock(&_mtx)##
+#endif
+
+}
+
+int NlsClient::setLogConfig(const char* logOutputFile, const LogLevel logLevel, unsigned int logFileSize) {
+
+	if ((logLevel < 1) || (logLevel > 4)) {
+		return -1##
+	}
+
+	if (logFileSize < 0) {
+		return -1##
+	}
+
+	NlsLog::_logInstance->logConfig(logOutputFile, logLevel, logFileSize)##
 
 	return 0##
 }
 
-_ENABLE_ASR_BODY_BEGIN:
-SpeechRecognizerRequest* NlsClient::createRecognizerRequest(SpeechRecognizerCallback* onResultReceivedEvent) {
-	if (NULL == onResultReceivedEvent) {
-		LOG_ERROR("the callback is NULL")##
-		return NULL##
+void NlsClient::releaseRequest(INlsRequest* request) {
+	if (request->getConnectNode()->getConnectNodeStatus() == NodeInitial) {
+		LOG_INFO("released the SpeechRecognizerRequest")##
+		delete request##
+		request = NULL##
+		return ##
 	}
 
-	return new SpeechRecognizerRequest(onResultReceivedEvent)##
+	if (request->getConnectNode()->updateDestroyStatus()) {
+		if (request->getConnectNode()->getConnectNodeStatus() == NodeInvalid) {
+			LOG_INFO("released the SpeechRecognizerRequest")##
+			delete request##
+			request = NULL##
+			return##
+		}
+	}
+}
+
+_ENABLE_ASR_BODY_BEGIN:
+SpeechRecognizerRequest* NlsClient::createRecognizerRequest() {
+	return new SpeechRecognizerRequest()##
 }
 
 void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
-    if (request) {
-        if (request->isStarted()) {
-            request->stop()##
-        }
-        delete request##
-        request = NULL##
-        LOG_DEBUG("released the SpeechRecognizerRequest")##
-    }
-}
-
-SpeechRecognizerSyncRequest* NlsClient::createRecognizerSyncRequest() {
-	return new SpeechRecognizerSyncRequest()##
-}
-
-void NlsClient::releaseRecognizerSyncRequest(SpeechRecognizerSyncRequest* request) {
 	if (request) {
-		if (request->isStarted()) {
-			request->sendSyncAudio(NULL, 0, AUDIO_LAST)##
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop()##
 		}
-		delete request##
-		request = NULL##
-		LOG_DEBUG("released the SpeechRecognizerSyncRequest")##
+
+		releaseRequest(request)##
 	}
 }
 _ENABLE_ASR_BODY_END
 
 _ENABLE_REALTIME_BODY_BEGIN:
-SpeechTranscriberRequest* NlsClient::createTranscriberRequest(SpeechTranscriberCallback* onResultReceivedEvent) {
-	if (NULL == onResultReceivedEvent) {
-		LOG_ERROR("the callback is NULL")##
-		return NULL##
-	}
-
-	return new SpeechTranscriberRequest(onResultReceivedEvent)##
+SpeechTranscriberRequest* NlsClient::createTranscriberRequest() {
+	return new SpeechTranscriberRequest()##
 }
 
 void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
-    if (request) {
-        if (request->isStarted()) {
-            request->stop()##
-        }
-        delete request##
-        request = NULL##
-        LOG_DEBUG("released the SpeechTranscriberRequest")##
-    }
-}
-
-SpeechTranscriberSyncRequest* NlsClient::createTranscriberSyncRequest() {
-	return new SpeechTranscriberSyncRequest()##
-}
-
-void NlsClient::releaseTranscriberSyncRequest(SpeechTranscriberSyncRequest* request) {
 	if (request) {
-		if (request->isStarted()) {
-			request->sendSyncAudio(NULL, 0, AUDIO_LAST)##
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop()##
 		}
-		delete request##
-		request = NULL##
-		LOG_DEBUG("released the SpeechTranscriberSyncRequest")##
+
+		releaseRequest(request)##
 	}
 }
 _ENABLE_REALTIME_BODY_END
 
 _ENABLE_TTS_BODY_BEGIN:
-SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(SpeechSynthesizerCallback* onResultReceivedEvent){
-	if (NULL == onResultReceivedEvent) {
-		LOG_ERROR("the callback is NULL")##
-		return NULL##
-	}
-
-	return new SpeechSynthesizerRequest(onResultReceivedEvent)##
+SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(TtsVersion version){
+	return new SpeechSynthesizerRequest((int)version)##
 }
 
 void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
-    if (request) {
-        if (request->isStarted()) {
-            request->stop()##
-        }
-        delete request##
-        request = NULL##
-        LOG_DEBUG("released the SpeechSynthesizerRequest")##
-    }
+	if (request) {
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop()##
+		}
+
+		releaseRequest(request)##
+	}
 }
 _ENABLE_TTS_BODY_END
 
+_ENABLE_UDS_BODY_BEGIN:
+DialogAssistantRequest* NlsClient::createDialogAssistantRequest(DaVersion version) {
+    return new DialogAssistantRequest((int) version)##
+}
+
+void NlsClient::releaseDialogAssistantRequest(DialogAssistantRequest* request) {
+	if (request) {
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop()##
+		}
+
+		releaseRequest(request)##
+	}
+}
+
+_ENABLE_UDS_BODY_END
+
+_ENABLE_VIPSERVER_CPP5_BEGIN:
+#if defined(__linux__)
+	#define VIPSERVER_PORT 80
+int NlsClient::vipServerListGetUrl(const string& vipServerDomainList, const string& targetDomain, string& url) {
+    string domainPattern = ","##
+    string portPattern = ":"##
+    string vipServerBuff, serverAddr, serverIp, serverPort##
+    int port = VIPSERVER_PORT##
+
+    LOG_DEBUG("vipServerDomainList:%s.\n", vipServerDomainList.c_str())##
+
+    size_t domainStart = 0, domainSeek = vipServerDomainList.find_first_of(domainPattern, 0)##
+    size_t portStart = 0, portSeek = 0##
+
+    while(domainSeek != vipServerDomainList.npos) {
+        if(domainStart != domainSeek) {
+            vipServerBuff = vipServerDomainList.substr(domainStart, domainSeek - domainStart)##
+
+            LOG_DEBUG("vipServerBuff:%s.\n", vipServerBuff.c_str())##
+
+            portSeek = vipServerBuff.find_first_of(portPattern, 0)##
+            if (portSeek != vipServerBuff.npos) {
+                serverIp = vipServerBuff.substr(0, portSeek)##
+                serverPort = vipServerBuff.substr(portSeek + 1, vipServerBuff.length() - portSeek)##
+                if (!serverPort.empty()) {
+                    port = atoi(serverPort.c_str())##
+                }
+            } else {
+                serverIp = vipServerBuff##
+            }
+
+            //Get ip
+            if (0 == vipServerGetIp(serverIp, port, targetDomain, url)) {
+                LOG_DEBUG("vipServerGetIp successed:%s.\n", url.c_str())##
+                return 0##
+            } else {
+                pthread_mutex_lock(&_mtx)##
+                _isInitalizeVsClient = false##
+                VipClientApi::UnInit()##
+                pthread_mutex_unlock(&_mtx)##
+            }
+        }
+
+        domainStart = domainSeek + 1##
+        domainSeek = vipServerDomainList.find_first_of(domainPattern, domainStart)##
+    }
+
+    LOG_DEBUG("Last vipServerBuff:%s.\n", vipServerBuff.c_str())##
+
+    port = VIPSERVER_PORT##
+    if(!vipServerDomainList.substr(domainStart).empty()) {
+        vipServerBuff = vipServerDomainList.substr(domainStart)##
+        portSeek = vipServerBuff.find_first_of(portPattern, 0)##
+        if (portSeek != vipServerBuff.npos) {
+            serverIp = vipServerBuff.substr(0, portSeek)##
+            serverPort = vipServerBuff.substr(portSeek + 1, vipServerBuff.size() - portSeek)##
+            if (!serverPort.empty()) {
+                port = atoi(serverPort.c_str())##
+            }
+
+        } else {
+            serverIp = vipServerBuff##
+        }
+
+        //Get ip
+        return vipServerGetIp(serverIp, port, targetDomain, url)##
+    }
+
+    return 0##
+}
+
+int NlsClient::vipServerGetIp(const string& vipServerDomain, const int vipServerPort, const string& targetDomain, string& url) {
+
+    if (vipServerDomain.empty() || targetDomain.empty() || vipServerPort < 0) {
+        LOG_ERROR("vipServerGetIp::Input Param error .......\n")##
+        return -1##
+    }
+
+    int tmpPort = vipServerPort##
+    char buff[512] = {0}##
+    if (tmpPort == 0) {
+        tmpPort = VIPSERVER_PORT##
+    }
+
+    if (snprintf(buff, 512, "%s:%d", vipServerDomain.c_str(), tmpPort) < 0) {
+        return -1##
+    }
+
+    LOG_DEBUG("vipServerGetIp 11111:%s.\n", buff)##
+
+    pthread_mutex_lock(&_mtx)##
+    if (!_isInitalizeVsClient) {
+        Option option##
+        //设置日志最大大小(可选)
+        option.set_max_log_size(10LL*1024*1024)##
+        //初始化
+        if(!VipClientApi::Init(buff, option)) {
+            LOG_ERROR("init failed top domain:%s errno:%d  errstr:%s.", buff, VipClientApi::Errno(), VipClientApi::Errstr())##
+
+//            VipClientApi::UnInit()##
+            pthread_mutex_unlock(&_mtx)##
+            return -1##
+        } else {
+            _isInitalizeVsClient = true##
+            LOG_DEBUG("VipClientApi::Init Successed.......\n")##
+        }
+    }
+    pthread_mutex_unlock(&_mtx)##
+
+    string ip##
+    int port##
+
+    IPHost host##
+    if(VipClientApi::QueryIp(targetDomain.c_str(), &host, 5*1000)) {
+        string host_str = helper::ToString(host)##
+        LOG_DEBUG("get domain ip ok %s\niphost:%s\n", targetDomain.c_str(), host_str.c_str())##
+    } else {
+        LOG_ERROR("QueryIp::Failed.\n")##
+    }
+
+    //同步获取IP列表，2000ms超时
+    IPHost iphost##
+    if (VipClientApi::QueryIp(targetDomain.c_str(), &iphost, 5*1000)) {
+        ip = iphost.ip()##
+        port = iphost.port()##
+        LOG_DEBUG("valid ip %s %d\n", iphost.ip(), iphost.port())##
+
+        char buffer[256] = {0}##
+        if (snprintf(buffer, 256, "ws://%s:%d/ws/v1", ip.c_str(), port) <0) {
+            LOG_ERROR("ERROR : Merge host Failed.\n")##
+            return -1##
+        }
+
+        url = buffer##
+
+        LOG_DEBUG("targetUrl: %s", url.c_str())##
+        return 0##
+    } else {
+        LOG_ERROR("ERROR : QueryIp Failed.\n")##
+        return -1##
+    }
+
+    return 0##
+}
+
+#endif
+	_ENABLE_VIPSERVER_CPP5_END
 }

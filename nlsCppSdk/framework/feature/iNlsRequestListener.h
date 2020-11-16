@@ -18,19 +18,11 @@
 #define NLS_SDK_SPEECH_LISTENER_H
 
 #if defined(_WIN32)
-#pragma warning( push )
-#pragma warning ( disable : 4251 )
-
-#include "pthread.h"
-
-#else
-
-#include <pthread.h>
-
+    #pragma warning( push )
+    #pragma warning ( disable : 4251 )
 #endif
 
 #include <string>
-#include <queue>
 #include "webSocketFrameHandleBase.h"
 #include "nlsEvent.h"
 
@@ -46,18 +38,12 @@ public:
     virtual void handlerFrame(NlsEvent) = 0;
 
     virtual void handlerFrame(std::string errorInfo, int errorCode, NlsEvent::EventType type, std::string taskId);
-
-    virtual int getRecognizerResult(std::queue<NlsEvent>* eventQueue);
-
-    std::queue<NlsEvent> _eventQueue;
-
-    pthread_mutex_t _queueMutex;
 };
 
 }
 
 #if defined(_WIN32)
-#pragma warning( pop )
+    #pragma warning( pop )
 #endif
 
 #endif //NLS_SDK_SPEECH_LISTENER_H

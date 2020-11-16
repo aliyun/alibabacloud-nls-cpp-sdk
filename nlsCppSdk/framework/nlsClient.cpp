@@ -13,267 +13,240 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "Config.h"
 #include "nlsClient.h"
 #include "log.h"
+#include "connectNode.h"
+#include "eventNetWork.h"
+
 #include "sr/speechRecognizerRequest.h"
-#include "sr/speechRecognizerSyncRequest.h"
+//#include "sr/speechRecognizerSyncRequest.h"
 #include "st/speechTranscriberRequest.h"
-#include "st/speechTranscriberSyncRequest.h"
+//#include "st/speechTranscriberSyncRequest.h"
 #include "sy/speechSynthesizerRequest.h"
+#include "da/dialogAssistantRequest.h"
 
-#if !defined( __APPLE__ )
-
-#include "openssl/crypto.h"
-#include "openssl/ssl.h"
-
-namespace SSL_ALI {
-
-#define MUTEX_TYPE       pthread_mutex_t
-#define MUTEX_SETUP(x)   pthread_mutex_init(&(x), NULL)
-#define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
-#define MUTEX_LOCK(x)    pthread_mutex_lock(&(x))
-#define MUTEX_UNLOCK(x)  pthread_mutex_unlock(&(x))
-
-static MUTEX_TYPE *mutex_buf = NULL;
-
-static void locking_function(int mode, int n, const char *file, int line) {
-	if (mode & CRYPTO_LOCK) {
-        MUTEX_LOCK(mutex_buf[n]);
-    } else {
-        MUTEX_UNLOCK(mutex_buf[n]);
-    }
-}
-
-static unsigned long id_function(void) {
-#if defined (_WIN32)
-	return pthread_self().x;
-#elif defined (__APPLE__)
-	return (unsigned long)pthread_self();
-#else
-	return pthread_self();
-#endif
-}
-
-int thread_setup(void) {
-	int i;
-
-	mutex_buf = (pthread_mutex_t*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(MUTEX_TYPE));
-	if (!mutex_buf) {
-		return 0;
-    }
-
-    for (i = 0; i < CRYPTO_num_locks(); i++) {
-        MUTEX_SETUP(mutex_buf[i]);
-    }
-
-	CRYPTO_set_id_callback(id_function);
-	CRYPTO_set_locking_callback(locking_function);
-
-    return 1;
-}
-
-int thread_cleanup(void) {
-	int i;
-
-	if (!mutex_buf) {
-        return -1;
-    }
-
-	CRYPTO_set_id_callback(NULL);
-	CRYPTO_set_locking_callback(NULL);
-
-    for (i = 0; i < CRYPTO_num_locks(); i++) {
-        MUTEX_CLEANUP(mutex_buf[i]);
-    }
-
-    OPENSSL_free(mutex_buf);
-	mutex_buf = NULL;
-	return 0;
-}
-}
-
+#if !defined(__APPLE__)
+#include "commonSsl.h"
 #endif
 
 namespace AlibabaNls {
 
-#define LOG_MB_SIZE 1024 * 1024
-
-using namespace util;
+using namespace utility;
+//using namespace transport;
 
 NlsClient* NlsClient::_instance = NULL;//new NlsClient();
-pthread_mutex_t NlsClient::_mtx = PTHREAD_MUTEX_INITIALIZER;
 bool NlsClient::_isInitializeSSL = false;
+bool NlsClient::_isInitializeThread = false;
+#if defined(_WIN32)
+	HANDLE NlsClient::_mtx = CreateMutex(NULL, FALSE, NULL);
+#else
+	pthread_mutex_t NlsClient::_mtx = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
+
+/*
+ 1: init openssl
+ 2: init log
+ 3: init vipServer
+ 4: startup libevent work threads
+ */
 NlsClient* NlsClient::getInstance(bool sslInitial) {
 
-    pthread_mutex_lock(&_mtx);
-
-    if(sslInitial) {
-        if(!_isInitializeSSL) {
-#if !defined( __APPLE__ )
-			LOG_DEBUG("initialized ssl");
-            SSL_ALI::thread_setup();
-            SSLeay_add_ssl_algorithms();
-            SSL_load_error_strings();
+#if defined(_WIN32)
+	WaitForSingleObject(_mtx, INFINITE);
+#else
+	pthread_mutex_lock(&_mtx);
 #endif
-            _isInitializeSSL = sslInitial;
-        }
-    }
+	if (NULL == _instance) {
+		//init openssl
+    	if(sslInitial) {
+        	if(!_isInitializeSSL) {
+#if !defined(__APPLE__)
+				SslConnect::init();
+#endif
+            	_isInitializeSSL = sslInitial;
+        	}
+    	}
 
-    if (NULL == _instance) {
-        _instance = new NlsClient();
+		//init libevent work threads
+//		NlsEventClientNetWork::initEventNetWork(count);
+
+		//init nlsClient
+		_instance = new NlsClient();
+
     }
-    pthread_mutex_unlock(&_mtx);
+#if defined(_WIN32)
+	ReleaseMutex(_mtx);
+#else
+	pthread_mutex_unlock(&_mtx);
+#endif
 
     return _instance;
 }
 
+/*
+ 1: destroy openssl
+ 2: destroy log
+ 3: destroy vipServer
+ 4: stop libevent work threads
+ */
 void NlsClient::releaseInstance() {
-
-    pthread_mutex_lock(&_mtx);
+#if defined(_WIN32)
+		WaitForSingleObject(_mtx, INFINITE);
+#else
+		pthread_mutex_lock(&_mtx);
+#endif
     if (_instance) {
-        LOG_DEBUG("release NlsClient.");
+		LOG_DEBUG("release NlsClient.");
+
+		if(_isInitializeThread) {
+			NlsEventClientNetWork::destroyEventNetWork();
+		}
+
+		if (_isInitializeSSL) {
+#if !defined(__APPLE__)
+			LOG_DEBUG("delete NlsClient release ssl.");
+
+			SslConnect::destroy();
+#endif
+			_isInitializeSSL = false;
+		}
+
+		NlsLog::destroyLogInstance();
 
         delete _instance;
         _instance = NULL;
     }
-    pthread_mutex_unlock(&_mtx);
 
+#if defined(_WIN32)
+		ReleaseMutex(_mtx);
+#else
+		pthread_mutex_unlock(&_mtx);
+#endif
 }
 
 NlsClient::NlsClient() {
-
+//	_eventWork = NULL;
 }
 
 NlsClient::~NlsClient() {
-	if (_isInitializeSSL) {
-#if !defined( __APPLE__ )
-        LOG_DEBUG("delete NlsClient release ssl.");
-
-		SSL_ALI::thread_cleanup();
-#endif
-        _isInitializeSSL = false;
-	}
-
-	if(Log::_output != NULL && Log::_output != stdout) {
-        LOG_DEBUG("delete NlsClient close log file.");
-		fclose(Log::_output);
-	}
+//	delete _eventWork;
+//	_eventWork = NULL;
 }
 
-int NlsClient::setLogConfig(const char* logOutputFile, LogLevel logLevel, unsigned int logFileSize) {
-	if (logOutputFile != NULL) {
-		FILE* fs = fopen(logOutputFile, "w+");
-		if (fs != NULL) {
-			Log::_output = fs;
-			Log::_logFileName = logOutputFile;
-			if (logFileSize > 0) {
-				Log::_logFileSize = logFileSize * LOG_MB_SIZE;
-			}
-		} else {
-			LOG_ERROR("open the log output file failed.");
-            return -1;
-        }
-    }
+const char* NlsClient::getVersion()	{
+	return NLS_SDK_VERSION_STR;
+}
 
-	if (logLevel >= LogError && logLevel <= LogDebug) {
-		Log::_logLevel = logLevel;
-	} else {
-        Log::_logLevel = LogDebug;
+void NlsClient::startWorkThread(int threadsNumber) {
+#if defined(_WIN32)
+	WaitForSingleObject(_mtx, INFINITE);
+#else
+	pthread_mutex_lock(&_mtx);
+#endif
+
+	if(!_isInitializeThread) {
+		NlsEventClientNetWork::initEventNetWork(threadsNumber);
+		_isInitializeThread = true;
 	}
+
+#if defined(_WIN32)
+	ReleaseMutex(_mtx);
+#else
+	pthread_mutex_unlock(&_mtx);
+#endif
+
+}
+
+int NlsClient::setLogConfig(const char* logOutputFile, const LogLevel logLevel, unsigned int logFileSize) {
+
+	if ((logLevel < 1) || (logLevel > 4)) {
+		return -1;
+	}
+
+	if (logFileSize < 0) {
+		return -1;
+	}
+
+	NlsLog::_logInstance->logConfig(logOutputFile, logLevel, logFileSize);
 
 	return 0;
 }
 
-SpeechRecognizerRequest* NlsClient::createRecognizerRequest(SpeechRecognizerCallback* onResultReceivedEvent) {
-	if (NULL == onResultReceivedEvent) {
-		LOG_ERROR("the callback is NULL");
-		return NULL;
+void NlsClient::releaseRequest(INlsRequest* request) {
+	if (request->getConnectNode()->getConnectNodeStatus() == NodeInitial) {
+		LOG_INFO("released the SpeechRecognizerRequest");
+		delete request;
+		request = NULL;
+		return ;
 	}
 
-	return new SpeechRecognizerRequest(onResultReceivedEvent);
+	if (request->getConnectNode()->updateDestroyStatus()) {
+		if (request->getConnectNode()->getConnectNodeStatus() == NodeInvalid) {
+			LOG_INFO("released the SpeechRecognizerRequest");
+			delete request;
+			request = NULL;
+			return;
+		}
+	}
+}
+
+SpeechRecognizerRequest* NlsClient::createRecognizerRequest() {
+	return new SpeechRecognizerRequest();
 }
 
 void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
-    if (request) {
-        if (request->isStarted()) {
-            request->stop();
-        }
-        delete request;
-        request = NULL;
-        LOG_DEBUG("released the SpeechRecognizerRequest");
-    }
-}
-
-SpeechRecognizerSyncRequest* NlsClient::createRecognizerSyncRequest() {
-	return new SpeechRecognizerSyncRequest();
-}
-
-void NlsClient::releaseRecognizerSyncRequest(SpeechRecognizerSyncRequest* request) {
 	if (request) {
-		if (request->isStarted()) {
-			request->sendSyncAudio(NULL, 0, AUDIO_LAST);
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop();
 		}
-		delete request;
-		request = NULL;
-		LOG_DEBUG("released the SpeechRecognizerSyncRequest");
+
+		releaseRequest(request);
 	}
 }
 
-SpeechTranscriberRequest* NlsClient::createTranscriberRequest(SpeechTranscriberCallback* onResultReceivedEvent) {
-	if (NULL == onResultReceivedEvent) {
-		LOG_ERROR("the callback is NULL");
-		return NULL;
-	}
-
-	return new SpeechTranscriberRequest(onResultReceivedEvent);
+SpeechTranscriberRequest* NlsClient::createTranscriberRequest() {
+	return new SpeechTranscriberRequest();
 }
 
 void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
-    if (request) {
-        if (request->isStarted()) {
-            request->stop();
-        }
-        delete request;
-        request = NULL;
-        LOG_DEBUG("released the SpeechTranscriberRequest");
-    }
-}
-
-SpeechTranscriberSyncRequest* NlsClient::createTranscriberSyncRequest() {
-	return new SpeechTranscriberSyncRequest();
-}
-
-void NlsClient::releaseTranscriberSyncRequest(SpeechTranscriberSyncRequest* request) {
 	if (request) {
-		if (request->isStarted()) {
-			request->sendSyncAudio(NULL, 0, AUDIO_LAST);
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop();
 		}
-		delete request;
-		request = NULL;
-		LOG_DEBUG("released the SpeechTranscriberSyncRequest");
+
+		releaseRequest(request);
 	}
 }
 
-SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(SpeechSynthesizerCallback* onResultReceivedEvent){
-	if (NULL == onResultReceivedEvent) {
-		LOG_ERROR("the callback is NULL");
-		return NULL;
-	}
-
-	return new SpeechSynthesizerRequest(onResultReceivedEvent);
+SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(TtsVersion version){
+	return new SpeechSynthesizerRequest((int)version);
 }
 
 void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
-    if (request) {
-        if (request->isStarted()) {
-            request->stop();
-        }
-        delete request;
-        request = NULL;
-        LOG_DEBUG("released the SpeechSynthesizerRequest");
-    }
+	if (request) {
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop();
+		}
+
+		releaseRequest(request);
+	}
 }
+
+DialogAssistantRequest* NlsClient::createDialogAssistantRequest(DaVersion version) {
+    return new DialogAssistantRequest((int) version);
+}
+
+void NlsClient::releaseDialogAssistantRequest(DialogAssistantRequest* request) {
+	if (request) {
+		if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
+			request->stop();
+		}
+
+		releaseRequest(request);
+	}
+}
+
 
 }

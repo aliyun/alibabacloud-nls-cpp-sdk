@@ -50,18 +50,37 @@ namespace AlibabaNls {
 #define D_SR_PUNCTUATION_PREDICTION "enable_punctuation_prediction"
 #define D_SR_TEXT_NORMALIZATION "enable_inverse_text_normalization"
 
+#define D_SR_CUSTOMIZATION_ID "customization_id"
+#define D_SR_VOCABULARY_ID "vocabulary_id"
+
 /************************speech transcriber************************/
 #define D_SR_SENTENCE_DETECTION "enable_semantic_sentence_detection"
 #define D_SR_MAX_SENTENCE_SILENCE "max_sentence_silence"
+
+#define D_ST_ENABLE_NLP "enable_nlp"
+#define D_ST_NLP_MODEL "nlp_model"
 
 /************************speech synthesizer************************/
 #define D_SY_VOICE "voice"
 #define D_SY_VOLUME "volume"
 #define D_SY_SPEECH_RATE "speech_rate"
 #define D_SY_PITCH_RATE "pitch_rate"
+#define D_SY_ENABLE_SUBTITLE "enable_subtitle"
 #define D_SY_METHOD "method"
 
 #define D_SY_TEXT "text"
+
+/**************************dialog assistant**************************/
+#define D_DA_SESSION_ID "session_id"
+#define D_DA_QUERY "query"
+#define D_DA_QUERY_PARAMS "query_params"
+#define D_DA_QUERY_CONTEXT "query_context"
+
+#define D_DA_WAKE_WORD_VERIFICATION "enable_wake_word_verification"
+#define D_DA_WAKE_WORD "wake_word"
+#define D_DA_WAKE_WORD_MODEL "wake_word_model"
+
+#define D_DA_ENABLE_MUTI_GROUP "enable_multi_group"
 
 /**************************sdk infomation**************************/
 #define D_SDK_CLIENT "sdk"

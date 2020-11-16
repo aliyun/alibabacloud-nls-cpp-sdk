@@ -25,7 +25,7 @@ using std::string;
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 SpeechTranscriberSyncRequest::SpeechTranscriberSyncRequest() {
 	_request = new SpeechTranscriberRequest(NULL);
@@ -142,7 +142,7 @@ int SpeechTranscriberSyncRequest::setContextParam(const char *value) {
     return _request->setContextParam(value);
 }
 
-int SpeechTranscriberSyncRequest::sendSyncAudio(char* data, int dataSize, AudioDataStatus status, bool encoded) {
+int SpeechTranscriberSyncRequest::sendSyncAudio(const char* data, int dataSize, AudioDataStatus status, bool encoded) {
 	if (NULL == _request) {
 		return -1;
 	}
