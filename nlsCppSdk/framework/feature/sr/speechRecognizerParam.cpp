@@ -19,27 +19,23 @@
 #include "log.h"
 #include "nlsRequestParamInfo.h"
 
-using std::string;
-
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
+using std::string;
 
 #define D_CMD_START_RECOGNITION "StartRecognition"
 #define D_CMD_STOP_RECOGNITION "StopRecognition"
 #define D_NAMESPACE_RECOGNITION "SpeechRecognizer"
 
-SpeechRecognizerParam::SpeechRecognizerParam() : INlsRequestParam(SR) {
-
+SpeechRecognizerParam::SpeechRecognizerParam() : INlsRequestParam(TypeAsr) {
 	_header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
-
 }
 
 SpeechRecognizerParam::~SpeechRecognizerParam() {
-
 }
 
-const string SpeechRecognizerParam::getStartCommand() {
+const char* SpeechRecognizerParam::getStartCommand() {
 
     _header[D_NAME] = D_CMD_START_RECOGNITION;
 
@@ -48,7 +44,7 @@ const string SpeechRecognizerParam::getStartCommand() {
     return INlsRequestParam::getStartCommand();
 }
 
-const string SpeechRecognizerParam::getStopCommand() {
+const char* SpeechRecognizerParam::getStopCommand() {
 
     _header[D_NAME] = D_CMD_STOP_RECOGNITION;
 

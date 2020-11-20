@@ -17,104 +17,61 @@
 #ifndef NLS_SDK_LOG_H
 #define NLS_SDK_LOG_H
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <ctime>
-#include <fstream>
-#include <iostream>
-
 #if defined(_WIN32)
-#include "pthread.h"
+#include <windows.h>
 #else
 #include <pthread.h>
 #endif
 
-#ifdef _ANDRIOD_
-#include <android/log.h>
-#define LOG_TAG "AliSpeechLib"
-#endif
-
 namespace AlibabaNls {
-namespace util {
 
-#ifdef _WIN32
-    #define _ssnprintf _snprintf
-#else
-    #define _ssnprintf snprintf
-#endif
+namespace utility {
 
-extern bool zlog_debug;
+class NlsLog {
 
-void sleepTime(int ms);
-unsigned long PthreadSelf();
-
-class Log {
 public:
-    static void setLogEnable(bool enable);
+    static NlsLog* _logInstance;
+    static void destroyLogInstance();
+    void logConfig(const char* name, int level, size_t fileSize);
 
-	static void saveLog(const char* res, int resLength);
+    void logVerbose(const char* function, int line, const char * format, ...);
+    void logDebug(const char* function, int line, const char * format, ...);
+    void logInfo(const char* function, int line, const char * format, ...);
+    void logWarn(const char* function, int line, const char * format, ...);
+    void logError(const char* function, int line, const char * format, ...);
+    void logException(const char* function, int line, const char * format, ...);
 
-    static std::string UTF8ToGBK(const std::string &strUTF8);
-    static std::string GBKToUTF8(const std::string &strGBK);
+//#if defined(_WIN32) || defined(__linux__)
+//    log4cpp::PatternLayout* _layout;
+//    log4cpp::RollingFileAppender* _rollfileAppender;
+//#endif
 
-    static FILE *_output;
-    static int _logLevel;
-	static const char* _logFileName;
-	static long long _logFileSize;
-	static long long _logCurrentSize;
-	static int _bakFileCounts;
-    static pthread_mutex_t mtxOutput;
+private:
+    NlsLog();
+    ~NlsLog();
 
-#if defined(__ANDROID__) || defined(__linux__)
-    static int code_convert(char *from_charset,
-                            char *to_charset,
-                            char *inbuf,
-                            size_t inlen,
-                            char *outbuf,
-                            size_t outlen);
+    unsigned long pthreadSelfId();
+
+#if defined(_WIN32)
+    static HANDLE _mtxLog;
+#else
+    static pthread_mutex_t _mtxLog;
 #endif
+
+    int _logLevel;
+    bool _isStdout;
+    bool _isConfig;
 };
 
-#ifdef _ANDRIOD_
-    #define LOG_VERBOSE(...)  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, ##__VA_ARGS__)
-    #define LOG_DEBUG(...) __android_log_print(ANDROID_LOG_DEBUG,LOG_TAG, ##__VA_ARGS__)
-    #define LOG_INFO(...) __android_log_print(ANDROID_LOG_INFO,LOG_TAG, ##__VA_ARGS__)
-    #define LOG_WARN(...) __android_log_print(ANDROID_LOG_WARN,LOG_TAG, ##__VA_ARGS__)
-    #define LOG_ERROR(...) __android_log_print(ANDROID_LOG_ERROR,LOG_TAG, ##__VA_ARGS__)
-    #define LOG_EXCEPTION(...) __android_log_print(ANDROID_LOG_FATAL,LOG_TAG, ##__VA_ARGS__)
-#else
-    #define LOG_PRINT_COMMON(level, ...) { \
-                                     char log_str[1024] = {0}; \
-                                     char res[11264] = {0}; \
-                                     _ssnprintf(log_str, 1024, __VA_ARGS__); \
-                                     time_t tt = time(NULL); \
-                                     struct tm* ptm = localtime(&tt); \
-                                     int resLength = _ssnprintf(res, 11264, "%4d-%02d-%02d %02d:%02d:%02d AliSpeech_C++SDK(%s)[%lu]: %s:%d %s",\
-                                                            (int)ptm->tm_year + 1900, \
-                                                            (int)ptm->tm_mon + 1, \
-                                                            (int)ptm->tm_mday, \
-                                                            (int)ptm->tm_hour, \
-                                                            (int)ptm->tm_min, \
-                                                            (int)ptm->tm_sec, \
-                                                            level, \
-                                                            PthreadSelf(),\
-                                                            __FUNCTION__, \
-                                                            __LINE__, \
-                                                            log_str); \
-                                     pthread_mutex_lock(&Log::mtxOutput); \
-                                     Log::saveLog(res, resLength); \
-                                     pthread_mutex_unlock(&Log::mtxOutput); \
-                                     }
+#define LOG_VERBOSE(...) NlsLog::_logInstance->logVerbose(__FUNCTION__, __LINE__, __VA_ARGS__);
+#define LOG_DEBUG(...) NlsLog::_logInstance->logDebug(__FUNCTION__, __LINE__, __VA_ARGS__);
+#define LOG_INFO(...) NlsLog::_logInstance->logInfo(__FUNCTION__, __LINE__, __VA_ARGS__);
+#define LOG_WARN(...) NlsLog::_logInstance->logWarn(__FUNCTION__, __LINE__, __VA_ARGS__);
+#define LOG_ERROR(...) NlsLog::_logInstance->logError(__FUNCTION__, __LINE__, __VA_ARGS__);
+#define LOG_EXCEPTION(...) NlsLog::_logInstance->logException(__FUNCTION__, __LINE__, __VA_ARGS__);
 
-    #define LOG_VERBOSE(...) if (zlog_debug) { LOG_PRINT_COMMON("VERBOSE", __VA_ARGS__) }
-    #define LOG_DEBUG(...) if (Log::_logLevel >= 4) { LOG_PRINT_COMMON("DEBUG",__VA_ARGS__) }
-    #define LOG_INFO(...) if (Log::_logLevel >= 3) { LOG_PRINT_COMMON("INFO",__VA_ARGS__) }
-    #define LOG_WARN(...) if (Log::_logLevel >= 2) { LOG_PRINT_COMMON("WARN",__VA_ARGS__) }
-    #define LOG_ERROR(...) if (Log::_logLevel >= 1) { LOG_PRINT_COMMON("ERROR",__VA_ARGS__) }
-    #define LOG_EXCEPTION(...) LOG_PRINT_COMMON("!!!!EXCEPTION",__VA_ARGS__)
-#endif
 }
+
 }
 
 #endif //NLS_SDK_LOG_H

@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/opus"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/opus.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/opus-complete.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-install.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-mkdir.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-download.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-update.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-patch.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-configure.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/opus-prefix/src/opus-stamp/opus-build.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"opus"
+		],
+		"name" : "opus"
+	}
+}

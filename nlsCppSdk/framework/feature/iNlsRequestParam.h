@@ -18,7 +18,6 @@
 #define NLS_SDK_REQUEST_PARAM_H
 
 #include <string>
-#include "dataStruct.h"
 #include "json/json.h"
 
 #ifdef _WIN32
@@ -30,54 +29,114 @@ namespace AlibabaNls {
 enum NlsRequestType {
     SpeechNormal = 0, /**拥有正常start, sendAudio, stop调用流程的语音功能**/
     SpeechExecuteDialog,
+	SpeechWakeWordDialog,
+	SpeechTextDialog,
     SpeechSynthesizer
 };
 
-std::string random_uuid();
+//语音类型
+enum NlsType {
+	TypeAsr = 0,
+	TypeRealTime,
+	TypeTts,
+	TypeDialog,
+	TypeNone
+};
 
+class ConnectNode;
 class INlsRequestParam {
 public:
-	INlsRequestParam(util::RequestMode mode);
+	INlsRequestParam(NlsType mode);
 	virtual ~INlsRequestParam() = 0;
 
-    virtual const std::string getStartCommand();
-    virtual const std::string getStopCommand();
-    virtual const std::string getExecuteDialog();
+    inline void setPayloadParam(const char* key, Json::Value value) {
+		_payload[key] = value[key];
+	};
 
-    virtual int setPayloadParam(const char* key, Json::Value value);
-	virtual int setContextParam(const char* key, Json::Value value);
-	virtual int setToken(const char* token);
-	virtual int setUrl(const char* url);
-    virtual int setAppKey(const char* appKey);
-    virtual int setFormat(const char* format);
-    virtual int setSampleRate(int sampleRate);
-	virtual int setTimeout(int timeout);
-	virtual int setOutputFormat(const char* outputFormat);
+	inline void setContextParam(const char* key, Json::Value value) {
+		_context[key] = value[key];
+	};
 
-    virtual int setIntermediateResult(bool value);
-    virtual int setPunctuationPrediction(bool value);
-    virtual int setTextNormalization(bool value);
-    virtual int setSentenceDetection(bool value);
+	inline void setToken(const char* token) {
+		this->_token = token;
+	};
 
-    virtual Json::Value getSdkInfo();
+	inline void setUrl(const char* url) {
+		this->_url = url;
+	};
 
-    virtual void setNlsRequestType(NlsRequestType requestType);
+    void setAppKey(const char* appKey);
+    void setFormat(const char* format);
+
+    void setSampleRate(int sampleRate);
+
+	inline void setTimeout(int timeout) {
+		_timeout = timeout;
+	};
+
+	inline void setOutputFormat(const char* outputFormat) {
+		_outputFormat = outputFormat;
+	};
+
+    void  setIntermediateResult(bool value);
+	void setPunctuationPrediction(bool value);
+    void  setTextNormalization(bool value);
+    void  setSentenceDetection(bool value);
+
+    inline void setNlsRequestType(NlsRequestType requestType) {
+		_requestType = requestType;
+	};
+
+	virtual int setCustomizationId(const char * value);
+	virtual int setVocabularyId(const char * value);
+
+	Json::Value getSdkInfo();
+	int setContextParam(const char* value);
+	int setPayloadParam(const char* value);
+
+	virtual const char* getStartCommand();
+	virtual const char* getStopCommand();
+	virtual const char* getControlCommand(const char* message);
+	virtual const char* getExecuteDialog();
+	virtual const char* getStopWakeWordCommand();
+
+	int setEnableWakeWordVerification(bool value);
+
+	bool _enableWakeWord;
 
     int _timeout;
+	int _sampleRate;
     NlsRequestType _requestType;
 
 	std::string _url;
 	std::string _outputFormat;
 	std::string _token;
-
-	util::RequestMode _mode;
+	std::string _format;
 
 	std::string _task_id;
+
+	NlsType _mode;
+
+	std::string _startCommand;
+	std::string _controlCommand;
+	std::string _stopCommand;
 
 	Json::Value _header;
 	Json::Value _payload;
 	Json::Value _context;
-	Json::Value _customParam;
+
+	std::string getRandomUuid();
+
+//	void* _cbParam;
+//	void setCallbackParam(void* param, int size);
+
+	int setSessionId(const char* sessionId);
+
+	Json::Value _httpHeader;
+	std::string _httpHeaderString;
+	int AppendHttpHeader(const char* key, const char* value);
+
+	std::string GetHttpHeader();
 };
 
 }

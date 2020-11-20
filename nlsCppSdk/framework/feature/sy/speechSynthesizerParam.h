@@ -25,7 +25,7 @@ namespace AlibabaNls {
 class SpeechSynthesizerParam : public INlsRequestParam {
 
 public:
-    SpeechSynthesizerParam();
+    SpeechSynthesizerParam(int version);
     ~SpeechSynthesizerParam();
 
     int setText(const char* value);
@@ -34,9 +34,10 @@ public:
     int setSpeechRate(int value);
     int setPitchRate(int value);
     int setMethod(int value);
+    void setEnableSubtitle(bool value);
 
-    virtual const std::string getStartCommand();
-    virtual const std::string getStopCommand();
+    const char* getStartCommand();
+    const char* getStopCommand();
 
 };
 

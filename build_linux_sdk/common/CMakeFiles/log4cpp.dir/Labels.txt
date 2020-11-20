@@ -1,0 +1,13 @@
+# Target labels
+ log4cpp
+# Source files and their labels
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/log4cpp
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/log4cpp.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/log4cpp-complete.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-install.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-mkdir.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-download.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-update.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-patch.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-configure.rule
+/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/log4cpp-prefix/src/log4cpp-stamp/log4cpp-build.rule

@@ -10,20 +10,8 @@
     <Filter Include="thirdparty">
       <UniqueIdentifier>{06ae4de8-3c6b-43ef-948d-296aa9291ab2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="thirdparty\jsoncpp">
-      <UniqueIdentifier>{8a506513-125b-4dcf-ab3c-a739e26e7b8c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="thirdparty\libopus">
-      <UniqueIdentifier>{3a17adb9-741b-4940-bb91-5cf4c60f4d2b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="thirdparty\openssl">
-      <UniqueIdentifier>{18912a19-50db-4da2-98b2-e60685a31870}</UniqueIdentifier>
-    </Filter>
     <Filter Include="transport">
       <UniqueIdentifier>{23311992-6ee6-44a2-8574-8b3a3ec35160}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="transport\engine">
-      <UniqueIdentifier>{d96b1ede-f4da-40cb-9dc9-b14aab0eda49}</UniqueIdentifier>
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{a5881f63-81e5-45ca-aca5-ffc27433f5ca}</UniqueIdentifier>
@@ -31,17 +19,38 @@
     <Filter Include="framework\feature\sr">
       <UniqueIdentifier>{182effaa-c2aa-4422-a1ba-55d3e33b0a89}</UniqueIdentifier>
     </Filter>
+    <Filter Include="thirdparty\opus">
+      <UniqueIdentifier>{149d1757-a26c-46ab-bd4f-324768ea5060}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty\libevent">
+      <UniqueIdentifier>{079ada20-3b09-48f5-bc36-ed7e74e833ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty\openssl">
+      <UniqueIdentifier>{513bf4c3-e1bc-4409-bd53-bd0c03690b3a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty\log4cpp">
+      <UniqueIdentifier>{366e1610-84c6-4519-9a95-44c65ef98dc0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty\libevent\event2">
+      <UniqueIdentifier>{ec0924e9-2f94-4bd7-b753-18c4a5d03a09}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty\json">
+      <UniqueIdentifier>{361dab8d-7f56-4ddb-b8ca-6260133ab01e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thirdparty\log4cpp\threading">
+      <UniqueIdentifier>{2549e492-78e4-4ea3-9db4-0afbba08f0c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="nlsCppOpu">
+      <UniqueIdentifier>{44a9b26b-9b0d-46c9-8d74-56d2be8f7e67}</UniqueIdentifier>
+    </Filter>
     <Filter Include="framework\feature\st">
-      <UniqueIdentifier>{9ef1f979-516f-4c8a-a59a-0e102ad63e4b}</UniqueIdentifier>
+      <UniqueIdentifier>{3aa1a434-8b97-44ee-a638-b8e1e54ad616}</UniqueIdentifier>
     </Filter>
     <Filter Include="framework\feature\sy">
-      <UniqueIdentifier>{b8b62603-a18e-4266-85bd-f414bbb0288e}</UniqueIdentifier>
+      <UniqueIdentifier>{e907ede6-d85b-446a-ac87-309658d84142}</UniqueIdentifier>
     </Filter>
-    <Filter Include="thirdparty\jsoncpp\json">
-      <UniqueIdentifier>{29d8a7ff-0ef3-4457-bebb-1a849defcfdc}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="thirdparty\pthread">
-      <UniqueIdentifier>{04a3e222-6df1-4cf0-839f-d401cf2e0c3e}</UniqueIdentifier>
+    <Filter Include="framework\feature\da">
+      <UniqueIdentifier>{da57b2d8-20ec-491c-9414-bb6c7a834060}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -49,9 +58,6 @@
     <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="framework\iWebSocketFrameResultConverter.cpp">
-      <Filter>framework</Filter>
-    </ClCompile>
     <ClCompile Include="framework\nlsClient.cpp">
       <Filter>framework</Filter>
     </ClCompile>
@@ -64,9 +70,6 @@
     <ClCompile Include="framework\feature\nlsRequestParamInfo.cpp">
       <Filter>framework\feature</Filter>
     </ClCompile>
-    <ClCompile Include="framework\feature\nlsSessionBase.cpp">
-      <Filter>framework\feature</Filter>
-    </ClCompile>
     <ClCompile Include="framework\feature\sr\speechRecognizerListener.cpp">
       <Filter>framework\feature\sr</Filter>
     </ClCompile>
@@ -75,6 +78,36 @@
     </ClCompile>
     <ClCompile Include="framework\feature\sr\speechRecognizerRequest.cpp">
       <Filter>framework\feature\sr</Filter>
+    </ClCompile>
+    <ClCompile Include="framework\feature\iNlsRequest.cpp">
+      <Filter>framework\feature</Filter>
+    </ClCompile>
+    <ClCompile Include="framework\feature\iNlsRequestListener.cpp">
+      <Filter>framework\feature</Filter>
+    </ClCompile>
+    <ClCompile Include="util\log.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="util\utility.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="transport\commonSsl.cpp">
+      <Filter>transport</Filter>
+    </ClCompile>
+    <ClCompile Include="transport\connectNode.cpp">
+      <Filter>transport</Filter>
+    </ClCompile>
+    <ClCompile Include="transport\eventNetWork.cpp">
+      <Filter>transport</Filter>
+    </ClCompile>
+    <ClCompile Include="transport\webSocketTcp.cpp">
+      <Filter>transport</Filter>
+    </ClCompile>
+    <ClCompile Include="transport\workThread.cpp">
+      <Filter>transport</Filter>
+    </ClCompile>
+    <ClCompile Include="nlsOpu\nlsOpuCoder.c">
+      <Filter>nlsCppOpu</Filter>
     </ClCompile>
     <ClCompile Include="framework\feature\st\speechTranscriberListener.cpp">
       <Filter>framework\feature\st</Filter>
@@ -94,56 +127,17 @@
     <ClCompile Include="framework\feature\sy\speechSynthesizerRequest.cpp">
       <Filter>framework\feature\sy</Filter>
     </ClCompile>
-    <ClCompile Include="thirdparty\openssl\applink.c">
-      <Filter>thirdparty\openssl</Filter>
+    <ClCompile Include="framework\feature\da\dialogAssistantListener.cpp">
+      <Filter>framework\feature\da</Filter>
     </ClCompile>
-    <ClCompile Include="transport\socket.cpp">
-      <Filter>transport</Filter>
+    <ClCompile Include="framework\feature\da\dialogAssistantParam.cpp">
+      <Filter>framework\feature\da</Filter>
     </ClCompile>
-    <ClCompile Include="transport\webSocketTcp.cpp">
-      <Filter>transport</Filter>
-    </ClCompile>
-    <ClCompile Include="transport\engine\asyncBase.cpp">
-      <Filter>transport\engine</Filter>
-    </ClCompile>
-    <ClCompile Include="transport\engine\thread.cpp">
-      <Filter>transport\engine</Filter>
-    </ClCompile>
-    <ClCompile Include="transport\engine\webSocketAgent.cpp">
-      <Filter>transport\engine</Filter>
-    </ClCompile>
-    <ClCompile Include="util\dataStruct.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="util\ensureUtility.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="util\exception.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="util\log.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="util\wstr2str.cpp">
-      <Filter>util</Filter>
-    </ClCompile>
-    <ClCompile Include="framework\feature\sr\speechRecognizerSyncRequest.cpp">
-      <Filter>framework\feature\sr</Filter>
-    </ClCompile>
-    <ClCompile Include="framework\feature\st\speechTranscriberSyncRequest.cpp">
-      <Filter>framework\feature\st</Filter>
-    </ClCompile>
-    <ClCompile Include="framework\feature\iNlsRequest.cpp">
-      <Filter>framework\feature</Filter>
-    </ClCompile>
-    <ClCompile Include="framework\feature\iNlsRequestListener.cpp">
-      <Filter>framework\feature</Filter>
+    <ClCompile Include="framework\feature\da\dialogAssistantRequest.cpp">
+      <Filter>framework\feature\da</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework\iWebSocketFrameResultConverter.h">
-      <Filter>framework</Filter>
-    </ClInclude>
     <ClInclude Include="framework\nlsClient.h">
       <Filter>framework</Filter>
     </ClInclude>
@@ -159,9 +153,6 @@
     <ClInclude Include="framework\feature\nlsRequestParamInfo.h">
       <Filter>framework\feature</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\nlsSessionBase.h">
-      <Filter>framework\feature</Filter>
-    </ClInclude>
     <ClInclude Include="framework\feature\sr\speechRecognizerListener.h">
       <Filter>framework\feature\sr</Filter>
     </ClInclude>
@@ -171,68 +162,346 @@
     <ClInclude Include="framework\feature\sr\speechRecognizerRequest.h">
       <Filter>framework\feature\sr</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\st\speechTranscriberListener.h">
-      <Filter>framework\feature\st</Filter>
+    <ClInclude Include="framework\feature\iNlsRequest.h">
+      <Filter>framework\feature</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\st\speechTranscriberParam.h">
-      <Filter>framework\feature\st</Filter>
+    <ClInclude Include="framework\feature\iNlsRequestListener.h">
+      <Filter>framework\feature</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\st\speechTranscriberRequest.h">
-      <Filter>framework\feature\st</Filter>
+    <ClInclude Include="framework\Config.h" />
+    <ClInclude Include="framework\nlsGlobal.h" />
+    <ClInclude Include="util\error.h">
+      <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\sy\speechSynthesizerListener.h">
-      <Filter>framework\feature\sy</Filter>
+    <ClInclude Include="util\log.h">
+      <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\sy\speechSynthesizerParam.h">
-      <Filter>framework\feature\sy</Filter>
+    <ClInclude Include="util\utility.h">
+      <Filter>util</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\sy\speechSynthesizerRequest.h">
-      <Filter>framework\feature\sy</Filter>
+    <ClInclude Include="transport\commonSsl.h">
+      <Filter>transport</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\assertions.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="transport\connectNode.h">
+      <Filter>transport</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\autolink.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="transport\eventNetWork.h">
+      <Filter>transport</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\config.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="transport\webSocketTcp.h">
+      <Filter>transport</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\features.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="transport\workThread.h">
+      <Filter>transport</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\forwards.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="thirdparty\libevent\evdns.h">
+      <Filter>thirdparty\libevent</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\json.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="thirdparty\libevent\event.h">
+      <Filter>thirdparty\libevent</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\reader.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="thirdparty\libevent\evhttp.h">
+      <Filter>thirdparty\libevent</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\value.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="thirdparty\libevent\evrpc.h">
+      <Filter>thirdparty\libevent</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\version.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="thirdparty\libevent\evutil.h">
+      <Filter>thirdparty\libevent</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\jsoncpp\json\writer.h">
-      <Filter>thirdparty\jsoncpp\json</Filter>
+    <ClInclude Include="thirdparty\libevent\event2\buffer.h">
+      <Filter>thirdparty\libevent\event2</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\libopus\opus.h">
-      <Filter>thirdparty\libopus</Filter>
+    <ClInclude Include="thirdparty\libevent\event2\buffer_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\libopus\opus_custom.h">
-      <Filter>thirdparty\libopus</Filter>
+    <ClInclude Include="thirdparty\libevent\event2\bufferevent.h">
+      <Filter>thirdparty\libevent\event2</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\libopus\opus_defines.h">
-      <Filter>thirdparty\libopus</Filter>
+    <ClInclude Include="thirdparty\libevent\event2\bufferevent_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\libopus\opus_multistream.h">
-      <Filter>thirdparty\libopus</Filter>
+    <ClInclude Include="thirdparty\libevent\event2\bufferevent_ssl.h">
+      <Filter>thirdparty\libevent\event2</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\libopus\opus_types.h">
-      <Filter>thirdparty\libopus</Filter>
+    <ClInclude Include="thirdparty\libevent\event2\bufferevent_struct.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\dns.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\dns_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\dns_struct.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\event.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\event_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\event_struct.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\event-config.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\http.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\http_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\http_struct.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\keyvalq_struct.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\listener.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\rpc.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\rpc_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\rpc_struct.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\tag.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\tag_compat.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\thread.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\util.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\event2\visibility.h">
+      <Filter>thirdparty\libevent\event2</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\assertions.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\autolink.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\config.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\features.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\forwards.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\json.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\reader.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\value.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\version.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\json\writer.h">
+      <Filter>thirdparty\json</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\AbortAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Appender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\AppendersFactory.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\AppenderSkeleton.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\BasicConfigurator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\BasicLayout.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\BufferingAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Category.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\CategoryStream.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\config.h">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\config-MinGW32.h">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\config-openvms.h">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Configurator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\config-win32.h">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\convenience.h">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\DailyRollingFileAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Export.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\FactoryParams.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\FileAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Filter.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\FixedContextCategory.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\HierarchyMaintainer.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\IdsaAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Layout.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\LayoutAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\LayoutsFactory.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\LevelEvaluator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\LoggingEvent.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Manipulator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\NDC.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\NTEventLogAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\OstreamAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\PassThroughLayout.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\PatternLayout.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Portability.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Priority.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\PropertyConfigurator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\RemoteSyslogAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\RollingFileAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\SimpleConfigurator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\SimpleLayout.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\StringQueueAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\SyslogAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\TimeStamp.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\TriggeringEventEvaluator.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\TriggeringEventEvaluatorFactory.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\Win32DebugAppender.hh">
+      <Filter>thirdparty\log4cpp</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\threading\BoostThreads.hh">
+      <Filter>thirdparty\log4cpp\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\threading\DummyThreads.hh">
+      <Filter>thirdparty\log4cpp\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\threading\MSThreads.hh">
+      <Filter>thirdparty\log4cpp\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\threading\OmniThreads.hh">
+      <Filter>thirdparty\log4cpp\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\threading\PThreads.hh">
+      <Filter>thirdparty\log4cpp\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\log4cpp\threading\Threading.hh">
+      <Filter>thirdparty\log4cpp\threading</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\opus\opus.h">
+      <Filter>thirdparty\opus</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\opus\opus_custom.h">
+      <Filter>thirdparty\opus</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\opus\opus_defines.h">
+      <Filter>thirdparty\opus</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\opus\opus_multistream.h">
+      <Filter>thirdparty\opus</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\opus\opus_types.h">
+      <Filter>thirdparty\opus</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\libevent\evconfig-private.h">
+      <Filter>thirdparty\libevent</Filter>
+    </ClInclude>
+    <ClInclude Include="nlsOpu\nlsOpuCoder.h">
+      <Filter>nlsCppOpu</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openssl\__DECC_INCLUDE_EPILOGUE.H">
+      <Filter>thirdparty\openssl</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openssl\__DECC_INCLUDE_PROLOGUE.H">
+      <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\aes.h">
       <Filter>thirdparty\openssl</Filter>
@@ -244,6 +513,9 @@
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\asn1t.h">
+      <Filter>thirdparty\openssl</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openssl\async.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\bio.h">
@@ -282,19 +554,16 @@
     <ClInclude Include="thirdparty\openssl\crypto.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\openssl\des.h">
+    <ClInclude Include="thirdparty\openssl\ct.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\openssl\des_old.h">
+    <ClInclude Include="thirdparty\openssl\des.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\dh.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\dsa.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\openssl\dso.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\dtls1.h">
@@ -330,10 +599,7 @@
     <ClInclude Include="thirdparty\openssl\idea.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\openssl\krb5_asn.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\openssl\kssl.h">
+    <ClInclude Include="thirdparty\openssl\kdf.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\lhash.h">
@@ -384,12 +650,6 @@
     <ClInclude Include="thirdparty\openssl\pkcs12.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\openssl\pq_compat.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\openssl\pqueue.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
     <ClInclude Include="thirdparty\openssl\rand.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
@@ -397,6 +657,9 @@
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\rc4.h">
+      <Filter>thirdparty\openssl</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openssl\rc5.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\ripemd.h">
@@ -429,22 +692,13 @@
     <ClInclude Include="thirdparty\openssl\ssl3.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\openssl\ssl23.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
     <ClInclude Include="thirdparty\openssl\stack.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\openssl\store.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\symhacks.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\tls1.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\openssl\tmdiff.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\ts.h">
@@ -454,9 +708,6 @@
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\ui.h">
-      <Filter>thirdparty\openssl</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\openssl\ui_compat.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
     <ClInclude Include="thirdparty\openssl\whrlpool.h">
@@ -471,67 +722,32 @@
     <ClInclude Include="thirdparty\openssl\x509v3.h">
       <Filter>thirdparty\openssl</Filter>
     </ClInclude>
-    <ClInclude Include="thirdparty\pthread\pthread.h">
-      <Filter>thirdparty\pthread</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\pthread\sched.h">
-      <Filter>thirdparty\pthread</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdparty\pthread\semaphore.h">
-      <Filter>thirdparty\pthread</Filter>
-    </ClInclude>
-    <ClInclude Include="transport\socket.h">
-      <Filter>transport</Filter>
-    </ClInclude>
-    <ClInclude Include="transport\webSocketTcp.h">
-      <Filter>transport</Filter>
-    </ClInclude>
-    <ClInclude Include="transport\engine\asyncBase.h">
-      <Filter>transport\engine</Filter>
-    </ClInclude>
-    <ClInclude Include="transport\engine\thread.h">
-      <Filter>transport\engine</Filter>
-    </ClInclude>
-    <ClInclude Include="transport\engine\webSocketAgent.h">
-      <Filter>transport\engine</Filter>
-    </ClInclude>
-    <ClInclude Include="util\dataStruct.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\ensureUtility.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\errorHandlingUtility.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\exception.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\log.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\smartHandle.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\targetOs.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="util\wstr2str.h">
-      <Filter>util</Filter>
-    </ClInclude>
-    <ClInclude Include="framework\feature\sr\speechRecognizerSyncRequest.h">
-      <Filter>framework\feature\sr</Filter>
-    </ClInclude>
-    <ClInclude Include="framework\feature\st\speechTranscriberSyncRequest.h">
+    <ClInclude Include="framework\feature\st\speechTranscriberListener.h">
       <Filter>framework\feature\st</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\iNlsRequest.h">
-      <Filter>framework\feature</Filter>
+    <ClInclude Include="framework\feature\st\speechTranscriberParam.h">
+      <Filter>framework\feature\st</Filter>
     </ClInclude>
-    <ClInclude Include="framework\feature\iNlsRequestListener.h">
-      <Filter>framework\feature</Filter>
+    <ClInclude Include="framework\feature\st\speechTranscriberRequest.h">
+      <Filter>framework\feature\st</Filter>
     </ClInclude>
-    <ClInclude Include="framework\Config.h" />
-    <ClInclude Include="framework\nlsGlobal.h" />
+    <ClInclude Include="framework\feature\sy\speechSynthesizerListener.h">
+      <Filter>framework\feature\sy</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\sy\speechSynthesizerParam.h">
+      <Filter>framework\feature\sy</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\sy\speechSynthesizerRequest.h">
+      <Filter>framework\feature\sy</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\da\dialogAssistantListener.h">
+      <Filter>framework\feature\da</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\da\dialogAssistantParam.h">
+      <Filter>framework\feature\da</Filter>
+    </ClInclude>
+    <ClInclude Include="framework\feature\da\dialogAssistantRequest.h">
+      <Filter>framework\feature\da</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

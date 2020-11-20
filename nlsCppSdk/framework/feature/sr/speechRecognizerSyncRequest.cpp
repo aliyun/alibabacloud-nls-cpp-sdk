@@ -17,10 +17,11 @@
 #include "speechRecognizerSyncRequest.h"
 #include <iostream>
 #include "log.h"
+#include "utility.h"
 
 namespace AlibabaNls{
 
-using namespace util;
+using namespace utility;
 
 SpeechRecognizerSyncRequest::SpeechRecognizerSyncRequest() {
 	_request = new SpeechRecognizerRequest(NULL);
@@ -132,7 +133,7 @@ int SpeechRecognizerSyncRequest::setContextParam(const char *value) {
     return _request->setContextParam(value);
 }
 
-int SpeechRecognizerSyncRequest::sendSyncAudio(char* data, int dataSize, AudioDataStatus status, bool encoded) {
+int SpeechRecognizerSyncRequest::sendSyncAudio(const uint8_t * data, size_t dataSize, AudioDataStatus status, bool encoded) {
 	if (NULL == _request) {
 		return -1;
 	}
@@ -150,12 +151,12 @@ int SpeechRecognizerSyncRequest::sendSyncAudio(char* data, int dataSize, AudioDa
 	sentSize = ret;
 
 	if (ret < 0 || AUDIO_LAST == status) {
-		if (_request->isStarted()) {
+//		if (_request->isStarted()) {
 			ret = _request->stop();
 			if (ret < 0) {
 				return ret;
 			}
-		}
+//		}
 	}
 
 	return sentSize;
@@ -169,9 +170,9 @@ int SpeechRecognizerSyncRequest::getRecognizerResult(std::queue<NlsEvent>* event
 	return _request->getRecognizerResult(eventQueue);
 }
 
-bool SpeechRecognizerSyncRequest::isStarted() {
-	return _request->isStarted();
-}
+//bool SpeechRecognizerSyncRequest::isStarted() {
+//	return _request->isStarted();
+//}
 
 int SpeechRecognizerSyncRequest::setPayloadParam(const char* value) {
 	if (NULL == _request || NULL == value) {

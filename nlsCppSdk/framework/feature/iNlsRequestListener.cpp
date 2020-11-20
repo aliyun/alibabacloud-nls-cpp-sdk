@@ -18,25 +18,27 @@
 #include "iNlsRequestListener.h"
 
 using std::string;
-using std::queue;
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 INlsRequestListener::INlsRequestListener() {
-    pthread_mutex_init(&_queueMutex, NULL);
+
 }
 
 INlsRequestListener::~INlsRequestListener() {
-    pthread_mutex_destroy(&_queueMutex);
+
 }
 
 void INlsRequestListener::handlerFrame(string errorInfo,
                                   int errorCode,
                                   NlsEvent::EventType type,
                                   string taskId) {
-    NlsEvent* nlsevent = new NlsEvent(errorInfo, errorCode, type, taskId);
+
+    LOG_DEBUG("Event Type: %d.", type);
+
+    NlsEvent* nlsevent = new NlsEvent(errorInfo.c_str(), errorCode, type, taskId);
     handlerFrame(*nlsevent);
     delete nlsevent;
 
@@ -45,18 +47,6 @@ void INlsRequestListener::handlerFrame(string errorInfo,
     } else {
         LOG_DEBUG(errorInfo.c_str());
     }
-}
-
-int INlsRequestListener::getRecognizerResult(queue<NlsEvent>* eventQueue) {
-
-    pthread_mutex_lock(&_queueMutex);
-    while (!_eventQueue.empty()) {
-        eventQueue->push(_eventQueue.front());
-        _eventQueue.pop();
-    }
-    pthread_mutex_unlock(&_queueMutex);
-
-    return 0;
 }
 
 }

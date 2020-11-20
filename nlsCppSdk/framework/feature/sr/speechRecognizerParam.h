@@ -27,8 +27,8 @@ public:
     SpeechRecognizerParam();
     ~SpeechRecognizerParam();
 
-    const std::string getStartCommand();
-    const std::string getStopCommand();
+    const char* getStartCommand();
+    const char* getStopCommand();
 
     int setEnableVoiceDetection(bool value);
     int setMaxStartSilence(int value);

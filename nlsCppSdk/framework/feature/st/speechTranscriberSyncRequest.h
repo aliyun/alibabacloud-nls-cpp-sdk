@@ -97,7 +97,7 @@ public:
 	
 	/**
     * @brief 设置是否使用语义断句
-    * @note 可选参数. 默认false
+    * @note 可选参数. 默认false. 如果使用语义断句, 则vad断句设置不会生效. 两者为互斥关系.
     * @param value true 或 false
     * @return 成功则返回0，否则返回-1
     */
@@ -106,6 +106,7 @@ public:
 	/**
     * @brief 设置vad阀值
     * @note 可选参数. 静音时长超过该阈值会被认为断句, 合法参数范围200～2000(ms), 默认值800ms.
+    * 		vad断句与语义断句为互斥关系, 不能同时使用. 调用此设置前, 请将语义断句setSemanticSentenceDetection设置为false.
     * @param value vad阀值
     * @return 成功则返回0，否则返回-1
     */
@@ -151,7 +152,7 @@ public:
     * @param encoded	是否启用压缩, 默认为false不启用数据压缩.
     * @return 成功返发送数据的大小，失败返回-1
     */
-	int sendSyncAudio(char* data, int dataSize, AudioDataStatus status, bool encoded = false);
+	int sendSyncAudio(const char* data, int dataSize, AudioDataStatus status, bool encoded = false);
 	
 	/**
 	* @brief 同步获取实时音频流识别结果

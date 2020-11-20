@@ -1,0 +1,13 @@
+PortabilityImpl.lo: PortabilityImpl.cpp /usr/include/stdc-predef.h \
+ PortabilityImpl.hh ../include/log4cpp/Portability.hh \
+ ../include/log4cpp/config.h ../include/log4cpp/Export.hh
+
+/usr/include/stdc-predef.h:
+
+PortabilityImpl.hh:
+
+../include/log4cpp/Portability.hh:
+
+../include/log4cpp/config.h:
+
+../include/log4cpp/Export.hh:

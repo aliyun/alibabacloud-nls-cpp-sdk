@@ -20,7 +20,7 @@
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 SpeechTranscriberListener::SpeechTranscriberListener(SpeechTranscriberCallback* cb) : _callback(cb) {
 
@@ -32,14 +32,6 @@ SpeechTranscriberListener::~SpeechTranscriberListener() {
 
 void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
     NlsEvent::EventType type = str.getMsgType();
-
-    if (NULL == _callback) {
-		//LOG_ERROR("the callback is NULL");
-        pthread_mutex_lock(&_queueMutex);
-		_eventQueue.push(str);
-        pthread_mutex_unlock(&_queueMutex);
-        return ;
-    }
 
     switch(type) {
         case NlsEvent::TranscriptionStarted:
@@ -60,6 +52,11 @@ void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
         case NlsEvent::SentenceEnd:
             if (NULL != _callback->_onSentenceEnd) {
                 _callback->_onSentenceEnd(&str, _callback->_paramap[NlsEvent::SentenceEnd]);
+            }
+            break;
+        case NlsEvent::SentenceSemantics:
+            if (NULL != _callback->_onSentenceSemantics) {
+                _callback->_onSentenceSemantics(&str, _callback->_paramap[NlsEvent::SentenceSemantics]);
             }
             break;
         case NlsEvent::TranscriptionCompleted:

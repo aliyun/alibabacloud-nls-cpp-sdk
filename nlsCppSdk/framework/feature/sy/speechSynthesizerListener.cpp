@@ -21,7 +21,7 @@
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 SpeechSynthesizerListener::SpeechSynthesizerListener(SpeechSynthesizerCallback* cb) : _callback(cb) {
 
@@ -35,7 +35,7 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
     NlsEvent::EventType type = str.getMsgType();
 
     if (NULL == _callback) {
-		LOG_ERROR("callback is NULL");
+        LOG_ERROR("callback is NULL");
         return ;
     }
 
@@ -58,6 +58,11 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
         case NlsEvent::Binary:
             if (NULL != _callback->_onBinaryDataReceived) {
                 _callback->_onBinaryDataReceived(&str, _callback->_paramap[NlsEvent::Binary]);
+            }
+            break;
+        case NlsEvent::MetaInfo:
+            if (NULL != _callback->_onMetaInfo) {
+                _callback->_onMetaInfo(&str, _callback->_paramap[NlsEvent::MetaInfo]);
             }
             break;
         default:

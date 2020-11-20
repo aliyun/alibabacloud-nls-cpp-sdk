@@ -24,15 +24,18 @@ using std::string;
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 #define D_CMD_START_SYNTHESIZER "StartSynthesis"
 #define D_NAMESPACE_SYNTHESIZER "SpeechSynthesizer"
+#define D_NAMESPACE_LONG_SYNTHESIZER "SpeechLongSynthesizer"
 
-SpeechSynthesizerParam::SpeechSynthesizerParam() : INlsRequestParam(SY) {
-
-	_header[D_NAMESPACE] = D_NAMESPACE_SYNTHESIZER;
-
+SpeechSynthesizerParam::SpeechSynthesizerParam(int version) : INlsRequestParam(TypeTts) {
+    if (version == 0) {
+        _header[D_NAMESPACE] = D_NAMESPACE_SYNTHESIZER;
+    } else {
+        _header[D_NAMESPACE] = D_NAMESPACE_LONG_SYNTHESIZER;
+    }
 }
 
 SpeechSynthesizerParam::~SpeechSynthesizerParam() {
@@ -75,12 +78,16 @@ int SpeechSynthesizerParam::setPitchRate(int value) {
     return 0;
 }
 
+void SpeechSynthesizerParam::setEnableSubtitle(bool value) {
+    _payload[D_SY_ENABLE_SUBTITLE] = value;
+}
+
 int SpeechSynthesizerParam::setMethod(int value) {
 	_payload[D_SY_METHOD] = value;
     return 0;
 }
 
-const string SpeechSynthesizerParam::getStartCommand() {
+const char* SpeechSynthesizerParam::getStartCommand() {
 
     _header[D_NAME] = D_CMD_START_SYNTHESIZER;
 
@@ -88,7 +95,7 @@ const string SpeechSynthesizerParam::getStartCommand() {
 
 }
 
-const string SpeechSynthesizerParam::getStopCommand() {
+const char* SpeechSynthesizerParam::getStopCommand() {
     return "";
 }
 

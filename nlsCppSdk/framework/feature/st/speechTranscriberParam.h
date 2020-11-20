@@ -28,10 +28,13 @@ public:
     SpeechTranscriberParam();
     ~SpeechTranscriberParam();
 
-    virtual const std::string getStartCommand();
-    virtual const std::string getStopCommand();
+    const char*  getStartCommand();
+    const char*  getStopCommand();
+    const char*  getControlCommand(const char* message);
 
     int setMaxSentenceSilence(int value);
+    int setEnableNlp(bool enable);
+    int setNlpModel(const char* value);
 };
 
 }

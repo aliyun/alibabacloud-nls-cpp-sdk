@@ -14,26 +14,27 @@
  * limitations under the License.
  */
 
-#include "Config.h"
-#include "iNlsRequestParam.h"
 #if defined(_WIN32)
 #include <objbase.h>
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <CoreFoundation/CFUUID.h>
 #else
+//#include "event2/util.h"
 #include "uuid/uuid.h"
 #endif // _WIN32
 
 #include "log.h"
+#include "Config.h"
+#include "connectNode.h"
 #include "nlsRequestParamInfo.h"
-
-using std::string;
-using namespace Json;
+#include "iNlsRequestParam.h"
 
 namespace AlibabaNls {
 
-using namespace util;
+using utility::NlsLog;
+using std::string;
+using namespace Json;
 
 #if defined(__ANDROID__)
     const char g_sdk_name[] = "nls-sdk-android";
@@ -48,9 +49,41 @@ using namespace util;
 const char g_sdk_language[] = "C++";
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
-string random_uuid() {
-    char uuidBuff[48] = {0};
+#define STOP_RECV_TIMEOUT 12
 
+INlsRequestParam::INlsRequestParam(NlsType mode) : _mode(mode),
+                                                   _payload(Json::objectValue) {
+	_url = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1";
+	_token = "";
+
+	_context[D_SDK_CLIENT] = getSdkInfo();
+
+#if defined(_WIN32)
+    _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
+#else
+    _outputFormat = D_DEFAULT_VALUE_ENCODE_UTF8;
+#endif
+
+    _payload[D_FORMAT] = D_DEFAULT_VALUE_AUDIO_ENCODE;
+    _payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
+
+    _requestType = SpeechNormal;
+    _timeout = STOP_RECV_TIMEOUT;
+
+    _enableWakeWord = false;
+
+//    _cbParam = NULL;
+}
+
+INlsRequestParam::~INlsRequestParam() {
+//    if (_cbParam) {
+//        delete _cbParam;
+//        _cbParam = NULL;
+//    }
+}
+
+string INlsRequestParam::getRandomUuid() {
+    char uuidBuff[48] = {0};
 #if defined(_WIN32)
     GUID guid;
     CoCreateGuid(&guid);
@@ -71,7 +104,8 @@ string random_uuid() {
     CFUUIDBytes bytes = CFUUIDGetUUIDBytes(newId);
     CFRelease(newId);
 
-    _ssnprintf(uuidBuff, 48, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", bytes.byte0,
+    snprintf(uuidBuff, 48, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+               bytes.byte0,
                bytes.byte1,
                bytes.byte2,
                bytes.byte3,
@@ -107,105 +141,6 @@ string random_uuid() {
     return uuidBuff;
 }
 
-INlsRequestParam::INlsRequestParam(RequestMode mode) : _mode(mode),
-                                                       _payload(Json::objectValue) {
-	_customParam.clear();
-	_timeout = -1;
-	_url = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1";
-	_token = "";
-
-    _task_id = random_uuid().c_str();
-
-	_context[D_SDK_CLIENT] = getSdkInfo();
-
-#if defined(_WIN32)
-    _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
-#else
-    _outputFormat = D_DEFAULT_VALUE_ENCODE_UTF8;
-#endif
-
-    _payload[D_FORMAT] = D_DEFAULT_VALUE_AUDIO_ENCODE;
-    _payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
-
-    _requestType = SpeechNormal;
-}
-
-INlsRequestParam::~INlsRequestParam() {
-
-}
-
-int INlsRequestParam::setPayloadParam(const char * key, Json::Value value) {
-    _payload[key] = value[key];
-
-    return 0;
-}
-
-int INlsRequestParam::setContextParam(const char* key, Json::Value value) {
-
-    _context[key] = value[key];
-
-    return 0;
-}
-
-int INlsRequestParam::setToken(const char* token) {
-	this->_token = token;
-	return 0;
-}
-
-int INlsRequestParam::setUrl(const char* url) {
-    this->_url = url;
-    return 0;
-}
-
-int INlsRequestParam::setAppKey(const char* appkey) {
-	_header[D_APP_KEY] = appkey;
-    return 0;
-}
-
-int INlsRequestParam::setFormat(const char* format) {
-	_payload[D_FORMAT] = format;
-    return 0;
-}
-
-int INlsRequestParam::setSampleRate(int sampleRate) {
-	_payload[D_SAMPLE_RATE] = sampleRate;
-    return 0;
-}
-
-int INlsRequestParam::setSentenceDetection(bool value) {
-
-    _payload[D_SR_SENTENCE_DETECTION] = value;
-
-    return 0;
-}
-
-int INlsRequestParam::setIntermediateResult(bool value) {
-    _payload[D_SR_INTERMEDIATE_RESULT] = value;
-
-    return 0;
-}
-
-int INlsRequestParam::setPunctuationPrediction(bool value) {
-    _payload[D_SR_PUNCTUATION_PREDICTION] = value;
-
-    return 0;
-}
-
-int INlsRequestParam::setTextNormalization(bool value) {
-    _payload[D_SR_TEXT_NORMALIZATION] = value;
-
-    return 0;
-}
-
-int INlsRequestParam::setTimeout(int timeout) {
-	_timeout = timeout;
-	return 0;
-}
-
-int INlsRequestParam::setOutputFormat(const char* outputFormat) {
-	_outputFormat = outputFormat;
-	return 0;
-}
 
 Json::Value INlsRequestParam::getSdkInfo() {
     Json::Value sdkInfo;
@@ -217,45 +152,274 @@ Json::Value INlsRequestParam::getSdkInfo() {
     return sdkInfo;
 }
 
-const string INlsRequestParam::getStartCommand() {
+const char* INlsRequestParam::getStartCommand() {
     Json::Value root;
     Json::FastWriter writer;
 
-    _header[D_TASK_ID] = this->_task_id;
-    _header[D_MESSAGE_ID] = random_uuid().c_str();
+    _task_id = getRandomUuid();
+    _header[D_TASK_ID] = _task_id;
+
+    LOG_DEBUG("TaskId:%s", _task_id.c_str());
+
+    _header[D_MESSAGE_ID] = getRandomUuid();
 
     root[D_HEADER] = _header;
     root[D_PAYLOAD] = _payload;
     root[D_CONTEXT] = _context;
 
-    string startCommand = writer.write(root);
-    LOG_INFO("StartCommand: %s", startCommand.c_str());
+    _startCommand = writer.write(root);
 
-    return startCommand;
+    LOG_INFO("Start:%s", _startCommand.c_str());
+
+    return _startCommand.c_str();
 }
 
-const string INlsRequestParam::getStopCommand() {
+const char* INlsRequestParam::getControlCommand(const char* message) {
+    Json::Value root;
+    Json::Value inputRoot;
+    Json::FastWriter writer;
+    Json::Reader reader;
+    string logInfo;
+
+    if (!reader.parse(message, inputRoot)) {
+        logInfo = "parse json fail: %s";
+        logInfo += message;
+        LOG_ERROR(logInfo.c_str());
+        return NULL;
+    }
+
+    if (!inputRoot.isObject()) {
+        LOG_ERROR("value is n't a json object.");
+        return NULL;
+    }
+
+    _header[D_TASK_ID] = _task_id;
+    LOG_DEBUG("TaskId:%s", _task_id.c_str());
+
+    _header[D_MESSAGE_ID] = getRandomUuid();
+
+    root[D_HEADER] = _header;
+    if (!inputRoot[D_PAYLOAD].isNull()) {
+        root[D_PAYLOAD] = inputRoot[D_PAYLOAD];
+    }
+    if (!inputRoot[D_CONTEXT].isNull()) {
+        root[D_CONTEXT] = inputRoot[D_CONTEXT];
+    }
+
+    _controlCommand = writer.write(root);
+
+    LOG_INFO("Control:%s", _controlCommand.c_str());
+
+    return _controlCommand.c_str();
+}
+
+const char* INlsRequestParam::getStopCommand() {
     Json::Value root;
     Json::FastWriter writer;
 
-    _header[D_TASK_ID] = this->_task_id;
-    _header[D_MESSAGE_ID] = random_uuid().c_str();
+    _header[D_TASK_ID] = _task_id;
+
+    _header[D_MESSAGE_ID] = getRandomUuid();
 
     root[D_HEADER] = _header;
     root[D_CONTEXT] = _context;
 
-    string stopCommand = writer.write(root);
-    LOG_INFO("StopCommand: %s", stopCommand.c_str());
+    _stopCommand = writer.write(root);
+    LOG_INFO("STOP:%s", _stopCommand.c_str());
 
-    return stopCommand;
+    return _stopCommand.c_str();
 }
 
-const string INlsRequestParam::getExecuteDialog() {
+//void INlsRequestParam::setConnectNode(ConnectNode * node) {
+//    _connectNode = node;
+//};
+
+const char* INlsRequestParam::getExecuteDialog() {
     return "";
 }
 
-void INlsRequestParam::setNlsRequestType(NlsRequestType requestType) {
-    _requestType = requestType;
+const char* INlsRequestParam::getStopWakeWordCommand() {
+    return "";
+}
+
+int INlsRequestParam::setPayloadParam(const char* value) {
+    Json::Value root;
+    Json::Reader reader;
+    Json::Value::iterator iter;
+    Json::Value::Members members;
+    string tmpValue = value;
+    string logInfo;
+
+    if (!reader.parse(tmpValue, root)) {
+        logInfo = "parse json fail: %s";
+        logInfo += value;
+        LOG_ERROR(logInfo.c_str());
+        return -1;
+    }
+
+    if (!root.isObject()) {
+        LOG_ERROR("value is n't a json object.");
+        return -1;
+    }
+
+    string jsonKey;
+    string jsonValue;
+    members = root.getMemberNames();
+    Json::Value::Members::iterator it = members.begin();
+    for (; it != members.end(); ++it) {
+        jsonKey = *it;
+
+        logInfo = "json key:";
+        logInfo += jsonKey;
+        LOG_DEBUG(logInfo.c_str());
+
+        _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
+    }
+
+    return 0;
+}
+
+int INlsRequestParam::setContextParam(const char* value) {
+    Json::Value root;
+    Json::Reader reader;
+    Json::Value::iterator iter;
+    Json::Value::Members members;
+    string tmpValue = value;
+    string logInfo;
+
+    if (!reader.parse(tmpValue, root)) {
+        logInfo = "parse json fail: %s";
+        logInfo += value;
+        LOG_ERROR(logInfo.c_str());
+        return -1;
+    }
+
+    if (!root.isObject()) {
+        LOG_ERROR("value is n't a json object.");
+        return -1;
+    }
+
+    string jsonKey;
+    string jsonValue;
+    members = root.getMemberNames();
+    Json::Value::Members::iterator it = members.begin();
+    for (; it != members.end(); ++it) {
+        jsonKey = *it;
+
+        logInfo = "json key:";
+        logInfo += jsonKey;
+        LOG_DEBUG(logInfo.c_str());
+
+        _context[jsonKey.c_str()] = root[jsonKey.c_str()];
+    }
+
+    return 0;
+}
+
+void INlsRequestParam::setAppKey(const char* appKey) {
+    _header[D_APP_KEY] = appKey;
+};
+
+void INlsRequestParam::setFormat(const char* format) {
+    _format = format;
+    _payload[D_FORMAT] = format;
+};
+
+void INlsRequestParam::setIntermediateResult(bool value) {
+    _payload[D_SR_INTERMEDIATE_RESULT] = value;
+};
+
+void INlsRequestParam::setPunctuationPrediction(bool value) {
+    _payload[D_SR_PUNCTUATION_PREDICTION] = value;
+};
+
+void INlsRequestParam::setTextNormalization(bool value) {
+    _payload[D_SR_TEXT_NORMALIZATION] = value;
+};
+
+int INlsRequestParam::setCustomizationId(const char * value) {
+    if (!value) {
+        return -1;
+    }
+
+    _payload[D_SR_CUSTOMIZATION_ID] = value;
+
+    return 0;
+}
+
+int INlsRequestParam::setVocabularyId(const char * value) {
+    if (!value) {
+        return -1;
+    }
+
+    _payload[D_SR_VOCABULARY_ID] = value;
+
+    return 0;
+}
+
+void INlsRequestParam::setSentenceDetection(bool value) {
+    _payload[D_SR_SENTENCE_DETECTION] = value;
+};
+
+void INlsRequestParam::setSampleRate(int sampleRate) {
+    _sampleRate = sampleRate;
+    _payload[D_SAMPLE_RATE] = sampleRate;
+};
+
+int INlsRequestParam::setEnableWakeWordVerification(bool value) {
+    _payload[D_DA_WAKE_WORD_VERIFICATION] = value;
+
+    _enableWakeWord = value;
+
+    return 0;
+}
+
+//void INlsRequestParam::setCallbackParam(void* param, int size) {
+//
+//    if (_cbParam == NULL) {
+//        _cbParam = (void *)(new char[size]);
+//        memcpy(_cbParam, param, size);
+//    }
+//
+////    _cbParam = param;
+//}
+
+int INlsRequestParam::setSessionId(const char* sessionId) {
+    _payload[D_DA_SESSION_ID] = sessionId;
+    return 0;
+}
+
+int INlsRequestParam::AppendHttpHeader(const char* key, const char* value) {
+    _httpHeader[key] = value;
+    return 0;
+}
+
+string INlsRequestParam::GetHttpHeader() {
+    Json::Value::iterator iter;
+    Json::Value::Members members;
+
+    _httpHeaderString.clear();
+
+    if (_httpHeader.empty()) {
+        return _httpHeaderString;
+    }
+
+    string jsonKey;
+    string jsonValue;
+    members = _httpHeader.getMemberNames();
+    Json::Value::Members::iterator it = members.begin();
+    for (; it != members.end(); ++it) {
+        jsonKey = *it;
+
+        _httpHeaderString += jsonKey;
+        _httpHeaderString += ": ";
+        _httpHeaderString += _httpHeader[jsonKey].asString();
+        _httpHeaderString += "\r\n";
+    }
+
+    LOG_DEBUG("HttpHeader:%s", _httpHeaderString.c_str());
+
+    return _httpHeaderString;
 }
 
 }

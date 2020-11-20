@@ -1,0 +1,3 @@
+repository='external project URL'
+module='/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/common/jsoncpp-0.y.z.zip'
+tag='MD5=8da4bafedec6d31886cb9d9c6606638f'

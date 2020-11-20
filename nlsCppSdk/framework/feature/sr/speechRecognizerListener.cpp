@@ -20,7 +20,7 @@
 
 namespace AlibabaNls {
 
-using namespace util;
+using namespace utility;
 
 SpeechRecognizerListener::SpeechRecognizerListener(SpeechRecognizerCallback* cb) : _callback(cb) {
 
@@ -32,13 +32,6 @@ SpeechRecognizerListener::~SpeechRecognizerListener() {
 
 void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
     NlsEvent::EventType type = str.getMsgType();
-
-    if (NULL == _callback) {
-        pthread_mutex_lock(&_queueMutex);
-        _eventQueue.push(str);
-        pthread_mutex_unlock(&_queueMutex);
-        return ;
-    }
 
     switch(type) {
         case NlsEvent::RecognitionStarted:

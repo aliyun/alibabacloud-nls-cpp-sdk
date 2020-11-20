@@ -13,16 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifndef NLS_SDK_IOS_SSL_H
+#define NLS_SDK_IOS_SSL_H
+
+#include <string>
 #include <Security/SecureTransport.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecItem.h>
 #include <stdint.h>
+#include <pthread.h>
 
 namespace AlibabaNls {
-
-namespace transport {
-
-#define ERROR_MESSAGE_LEN 256
 
 typedef int handle_t;
 
@@ -31,8 +33,7 @@ struct SslCustomParam {
 };
 typedef struct SslCustomParam sslCustomParam_t;
 
-class IosSslConnect {
-
+class SslConnect {
     static int sslWaitRead(handle_t socketFd);
     static int sslWaitWrite(handle_t socketFd);
 
@@ -40,22 +41,25 @@ class IosSslConnect {
     static OSStatus sslWriteCallBack(SSLConnectionRef ctxHandle, const void* data, size_t* dataLen);
 
 public:
-    IosSslConnect();
-    ~IosSslConnect();
+    SslConnect();
+    ~SslConnect();
 
-    void* iosSslHandshake(sslCustomParam_t* customParam, const char* hostname);
-    int iosSslWrite(SSLContextRef ctx, const void* buf, size_t len);
-    ssize_t iosSslRead(SSLContextRef ctx, void* buf, size_t len);
-    void iosSslClose();
+    pthread_mutex_t  _mtxSsl;
 
-    SSLContextRef getCtxHandle();
-    char* getErrorMsg();
+    int sslHandshake(int socketFd, const char* hostname);
+    ssize_t sslWrite(const uint8_t * buffer, size_t len);
+    ssize_t sslRead(uint8_t * buffer, size_t len);
+    void sslClose();
+
+    const char* getFailedMsg();
 
 private:
     SSLContextRef _ctxHandle;
-    char _errorMsg[ERROR_MESSAGE_LEN];
+    sslCustomParam_t _iosSslParam;
+
+    std::string _errorMsg;
 };
 
 }
 
-}
+#endif //NLS_SDK_IOS_SSL_H

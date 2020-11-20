@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/uuid"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/uuid.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/CMakeFiles/uuid-complete.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-install.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-mkdir.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-download.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-update.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-patch.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-configure.rule"
+		},
+		{
+			"file" : "/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/common/uuid-prefix/src/uuid-stamp/uuid-build.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"uuid"
+		],
+		"name" : "uuid"
+	}
+}

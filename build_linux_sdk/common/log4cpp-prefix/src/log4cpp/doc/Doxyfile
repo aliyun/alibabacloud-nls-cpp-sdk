@@ -1,0 +1,67 @@
+PROJECT_NAME         = log4cpp
+PROJECT_NUMBER       = 1.1
+
+# General configuration options
+#---------------------------------------------------------------------------
+QUIET                = YES
+WARNINGS             = YES
+
+GENERATE_LATEX       = no
+GENERATE_HTML        = yes
+GENERATE_MAN         = YES
+GENERATE_RTF         = NO
+
+OUTPUT_DIRECTORY     = .
+HTML_OUTPUT          = html/api
+HTML_HEADER          =
+HTML_FOOTER          = 
+LATEX_OUTPUT         = latex
+MAN_OUTPUT           = man
+
+DISABLE_INDEX        = NO
+EXTRACT_ALL          = YES
+EXTRACT_STATIC       = YES
+EXTRACT_PRIVATE      = NO
+HIDE_UNDOC_MEMBERS   = NO
+BRIEF_MEMBER_DESC    = YES
+REPEAT_BRIEF         = YES
+JAVADOC_AUTOBRIEF    = YES
+INHERIT_DOCS         = YES
+FULL_PATH_NAMES      = NO
+CLASS_DIAGRAMS       = YES
+
+# Configuration options related to the input files
+#---------------------------------------------------------------------------
+INPUT            = ../include ../src ../doc/mainPage.txt
+FILE_PATTERNS    = *.cpp *.hh
+EXAMPLE_PATH     = 
+RECURSIVE        = YES
+INPUT_FILTER     = 
+CASE_SENSE_NAMES = YES
+
+# Configuration options related to the preprocessor 
+#---------------------------------------------------------------------------
+ENABLE_PREPROCESSING = YES
+MACRO_EXPANSION      = YES
+SEARCH_INCLUDES      = YES
+INCLUDE_PATH         = 
+EXPAND_ONLY_PREDEF   = NO
+PREDEFINED           = "WIN32"
+
+# Configuration options related to external references 
+#---------------------------------------------------------------------------
+TAGFILES         = 
+GENERATE_TAGFILE = 
+ALLEXTERNALS     = NO
+PERL_PATH        = /usr/bin/perl
+
+# Configuration options related to the dot tool   
+#---------------------------------------------------------------------------
+HAVE_DOT             = no
+COLLABORATION_GRAPH  = YES
+INCLUDE_GRAPH        = YES
+INCLUDED_BY_GRAPH    = YES
+GRAPHICAL_HIERARCHY  = YES
+MAX_DOT_GRAPH_WIDTH    = 1024
+MAX_DOT_GRAPH_HEIGHT   = 1024
+GENERATE_LEGEND        = YES

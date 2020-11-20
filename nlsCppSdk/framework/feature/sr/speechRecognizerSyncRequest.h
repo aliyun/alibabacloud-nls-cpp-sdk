@@ -154,7 +154,7 @@ public:
 	* @param encoded	是否启用压缩, 默认为false不启用数据压缩.
 	* @return 成功返回发送的数据大小，失败返回-1
 	*/
-	int sendSyncAudio(char* data, int dataSize, AudioDataStatus status, bool encoded = false);
+	int sendSyncAudio(const uint8_t * data, size_t dataSize, AudioDataStatus status, bool encoded = false);
 
 	/**
 	* @brief 同步获取识别结果
@@ -167,7 +167,7 @@ public:
 	/**
 	* 内部接口
 	*/
-	bool isStarted();
+//	bool isStarted();
 
 private:
 	SpeechRecognizerRequest* _request;
