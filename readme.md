@@ -60,6 +60,7 @@ Linux: build_linux.sh (安装 cmake 3.1 或以上版本)
 2. windows下，目前支持VC12，VC14
 3. 目前windows编译实例为VC14环境
 5. 目录说明：alibabacloud-nls-cpp-sdk/lib/windows已经编译好的库目录。源码编译的时候需要将对应目录中nlsCommonSdk.dll、nlsCommonSdk.lib拷贝到编译目录。
+6、alibabacloud-nls-cpp-sdk/demo/Win32_Demo 存放windows测试demo代码。单独导入即可
 
 
 
