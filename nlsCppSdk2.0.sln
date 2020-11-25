@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.40629.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "demo", "demo\demo.vcxproj", "{D67DC3A7-58F2-4CCD-8C18-A016AE426F1F}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -11,11 +11,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nlsCppSdk", "nlsCppSdk\nlsCppSdk.vcxproj", "{814B8B07-63ED-4EDE-A3D6-D65F65216C45}"
 	ProjectSection(ProjectDependencies) = postProject
 		{BB232DFE-8001-4B20-8698-2DB4855D7AAA} = {BB232DFE-8001-4B20-8698-2DB4855D7AAA}
-	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest", "unitTest\UnitTest.vcxproj", "{AF3350CD-A994-4778-B90D-658484D9D3EF}"
-	ProjectSection(ProjectDependencies) = postProject
-		{814B8B07-63ED-4EDE-A3D6-D65F65216C45} = {814B8B07-63ED-4EDE-A3D6-D65F65216C45}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nlsCppOpu", "nlsCppSdk\nlsOpu\nlsCppOpu\nlsCppOpu.vcxproj", "{BB232DFE-8001-4B20-8698-2DB4855D7AAA}"
@@ -56,18 +51,6 @@ Global
 		{814B8B07-63ED-4EDE-A3D6-D65F65216C45}.x64|Win32.Build.0 = x64|Win32
 		{814B8B07-63ED-4EDE-A3D6-D65F65216C45}.x64|x64.ActiveCfg = x64|x64
 		{814B8B07-63ED-4EDE-A3D6-D65F65216C45}.x64|x64.Build.0 = x64|x64
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Debug|Win32.ActiveCfg = Debug|Win32
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Debug|Win32.Build.0 = Debug|Win32
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Debug|x64.ActiveCfg = Debug|x64
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Debug|x64.Build.0 = Debug|x64
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Release|Win32.ActiveCfg = Release|Win32
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Release|Win32.Build.0 = Release|Win32
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Release|x64.ActiveCfg = Release|x64
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.Release|x64.Build.0 = Release|x64
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.x64|Win32.ActiveCfg = Release|Win32
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.x64|Win32.Build.0 = Release|Win32
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.x64|x64.ActiveCfg = Release|x64
-		{AF3350CD-A994-4778-B90D-658484D9D3EF}.x64|x64.Build.0 = Release|x64
 		{BB232DFE-8001-4B20-8698-2DB4855D7AAA}.Debug|Win32.ActiveCfg = Debug|Win32
 		{BB232DFE-8001-4B20-8698-2DB4855D7AAA}.Debug|Win32.Build.0 = Debug|Win32
 		{BB232DFE-8001-4B20-8698-2DB4855D7AAA}.Debug|x64.ActiveCfg = Debug|x64

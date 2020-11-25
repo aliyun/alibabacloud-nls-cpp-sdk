@@ -506,6 +506,6 @@ int main(int arc, char* argv[]) {
 
     // 所有工作完成，进程退出前，释放nlsClient. 请注意, releaseInstance()非线程安全.
     NlsClient::releaseInstance();
-
+	//system("pause");
     return 0;
 }

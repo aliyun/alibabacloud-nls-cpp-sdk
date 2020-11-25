@@ -545,20 +545,32 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
 //    LOG_DEBUG("Node:%p AudioBuffer add buff:%zu %zu", this, length, length + tmpSize);
 
     if(length == 0 && getConnectNodeStatus() == NodeStarted) {
-        pthread_mutex_lock(&_mtxNode);
-        if (!_isStop) {
+#if defined(_WIN32)
+		WaitForSingleObject(_mtxNode, INFINITE);
+#else
+		pthread_mutex_lock(&_mtxNode);
+#endif        if (!_isStop) {
             ret = nlsSendFrame(buff);
         }
-        pthread_mutex_unlock(&_mtxNode);
-    }
+#if defined(_WIN32)
+		ReleaseMutex(_mtxNode);
+#else
+		pthread_mutex_unlock(&_mtxNode);
+#endif    }
 
     if(length == 0 && getConnectNodeStatus() == NodeWakeWording) {
-        pthread_mutex_lock(&_mtxNode);
-        if (!_isStop) {
+#if defined(_WIN32)
+		WaitForSingleObject(_mtxNode, INFINITE);
+#else
+		pthread_mutex_lock(&_mtxNode);
+#endif        if (!_isStop) {
             ret = nlsSendFrame(buff);
         }
-        pthread_mutex_unlock(&_mtxNode);
-    }
+#if defined(_WIN32)
+		ReleaseMutex(_mtxNode);
+#else
+		pthread_mutex_unlock(&_mtxNode);
+#endif    }
 
     if (ret == 0) {
         ret = sendControlDirective();

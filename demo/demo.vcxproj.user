@@ -5,11 +5,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>H85KrniCdcpVt0wS LTAI7hZuaSBAVWXx ZjWTH8TEKYrlkBtyCmgJ1FMsJt0Hxn</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>1SdZf7XPBbNXqCU1 LTAIAugidHmKX8K3 1Um5fQwcTspzGCDX6b3Ra4TeTKHMcg</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>H85KrniCdcpVt0wS LTAI7hZuaSBAVWXx ZjWTH8TEKYrlkBtyCmgJ1FMsJt0Hxn</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>1SdZf7XPBbNXqCU1 LTAIAugidHmKX8K3 1Um5fQwcTspzGCDX6b3Ra4TeTKHMcg</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

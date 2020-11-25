@@ -17,9 +17,12 @@
 #ifndef NLS_SDK_CONNECT_NODE_H
 #define NLS_SDK_CONNECT_NODE_H
 
+#if defined(_WIN32)
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 
 #include <queue>
 #include <string>
