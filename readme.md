@@ -32,15 +32,14 @@ SDK 依赖库 openssl(l-1.1.0j)，opus(1.2.1)，jsoncpp(0.10.6)，uuid(1.0.3)，
 
 - 构造项目
 
-Windows: build_windows.bat
-
+Windows: 可以使用visual studio 2015打开nlsCppSdk2.0.sln加载项目，并进行编译
 
 Linux: build_linux.sh (安装 cmake 3.1 或以上版本)
 
 
 ## 如何使用 C++ SDK
 
-接入前请仔细阅读C++ SDK2.0文档：https://help.aliyun.com/product/30413.html
+接入前请仔细阅读阿里智能语音交互文档：https://help.aliyun.com/product/30413.html
 
 
 目录说明:
