@@ -1,3 +1,0 @@
-repository='external project URL'
-module='/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/common/libuuid-1.0.3.tar.gz'
-tag='MD5=d44d866d06286c08ba0846aba1086d68'

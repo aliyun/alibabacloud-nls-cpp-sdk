@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../lib/libnlsCppOpu.a  CMakeFiles/nlsCppOpu-a.dir/nlsOpu/nlsOpuCoder.c.o
-/usr/bin/ranlib ../lib/libnlsCppOpu.a

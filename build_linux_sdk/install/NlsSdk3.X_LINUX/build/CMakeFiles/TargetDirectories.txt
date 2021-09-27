@@ -1,7 +1,0 @@
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/edit_cache.dir
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/stSyncDemo.dir
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/rebuild_cache.dir
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/stDemo.dir
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/syDemo.dir
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/srSyncDemo.dir
-/home/guogang.zhb/github/alibabacloud-nls-cpp-sdk/build_linux_sdk/install/NlsSdk3.X_LINUX/build/CMakeFiles/srDemo.dir

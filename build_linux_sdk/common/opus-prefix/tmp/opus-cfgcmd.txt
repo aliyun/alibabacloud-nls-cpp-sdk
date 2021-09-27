@@ -1,1 +1,0 @@
-cmd='./configure;CFLAGS=-fPIC;--prefix=<INSTALL_DIR>'
