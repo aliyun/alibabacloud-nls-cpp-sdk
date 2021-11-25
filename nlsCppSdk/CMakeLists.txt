@@ -1,0 +1,223 @@
+
+message(STATUS "NlsSdk CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}")
+message(STATUS "NlsSdk CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
+message(STATUS "NlsSdk CMAKE_C_COMPILER: ${CMAKE_C_COMPILER}")
+message(STATUS "NlsSdk CMAKE_CXX_COMPILER: ${CMAKE_CXX_COMPILER}")
+message(STATUS "NlsSdk CMAKE_C_FLAGS: ${CMAKE_C_FLAGS}")
+message(STATUS "NlsSdk CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "NlsSdk CMAKE_C_FLAGS_RELEASE: ${CMAKE_C_FLAGS_RELEASE}")
+message(STATUS "NlsSdk CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")
+message(STATUS "NlsSdk CMAKE_C_FLAGS_DEBUG: ${CMAKE_C_FLAGS_DEBUG}")
+message(STATUS "NlsSdk CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
+message(STATUS "NlsSdk CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
+message(STATUS "NlsSdk CMAKE_CXX_LINK_FLAGS: ${CMAKE_CXX_LINK_FLAGS}")
+
+#编译依赖库设置
+ExternalProject_Get_Property(jsoncpp INSTALL_DIR)
+set(jsoncpp_install_dir ${INSTALL_DIR})
+message(STATUS "jsoncpp install path: ${jsoncpp_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+#    ${jsoncpp_install_dir}/include
+    ${jsoncpp_install_dir}/include/jsoncpp
+    )
+
+ExternalProject_Get_Property(opus INSTALL_DIR)
+set(opus_install_dir ${INSTALL_DIR})
+message(STATUS "opus install path: ${opus_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${opus_install_dir}/include
+    )
+
+ExternalProject_Get_Property(openssl INSTALL_DIR)
+set(openssl_install_dir ${INSTALL_DIR})
+message(STATUS "openssl install path: ${openssl_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${openssl_install_dir}/include
+    )
+
+ExternalProject_Get_Property(log4cpp INSTALL_DIR)
+set(log4cpp_install_dir ${INSTALL_DIR})
+message(STATUS "log4cpp install path: ${log4cpp_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${log4cpp_install_dir}/include
+    )
+
+ExternalProject_Get_Property(libevent INSTALL_DIR)
+set(libevent_install_dir ${INSTALL_DIR})
+message(STATUS "libevent install path: ${libevent_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${libevent_install_dir}/include
+    )
+
+ExternalProject_Get_Property(uuid INSTALL_DIR)
+set(uuid_install_dir ${INSTALL_DIR})
+message(STATUS "uuid install path: ${uuid_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${uuid_install_dir}/include
+    )
+
+ExternalProject_Get_Property(curl INSTALL_DIR)
+set(curl_install_dir ${INSTALL_DIR})
+message(STATUS "curl install path: ${curl_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${curl_install_dir}/include
+    )
+
+
+#版本号
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/framework/common/Config.h.in ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/Config.h @ONLY)
+
+
+#======================================#
+#源文件-utils
+set(UTILS_INCLUDE_DIR
+    ${UTILS_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils
+    )
+set(UTILS_SOURCE_DIR
+    ${UTILS_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/nlog.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/utility.cpp
+    )
+
+#源文件-transport
+set(UTILS_INCLUDE_DIR
+    ${UTILS_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport
+    )
+set(UTILS_SOURCE_DIR
+    ${UTILS_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport/connectNode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport/nlsEventNetWork.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport/SSLconnect.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport/webSocketTcp.cpp
+    )
+
+#源文件-event
+set(UTILS_INCLUDE_DIR
+    ${UTILS_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/event
+    )
+set(UTILS_SOURCE_DIR
+    ${UTILS_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/event/workThread.cpp
+    )
+
+#源文件-encoder
+set(UTILS_INCLUDE_DIR
+    ${UTILS_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/encoder
+    )
+set(UTILS_SOURCE_DIR
+    ${UTILS_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/encoder/nlsEncoder.cpp
+    )
+
+#源文件-framework
+set(UTILS_INCLUDE_DIR
+    ${UTILS_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/item
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sr
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/da
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy
+    )
+set(UTILS_SOURCE_DIR
+    ${UTILS_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsClient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsEvent.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequestParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequestListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sr/speechRecognizerRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sr/speechRecognizerParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sr/speechRecognizerListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/da/dialogAssistantRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/da/dialogAssistantParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/da/dialogAssistantListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/speechTranscriberRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/speechTranscriberParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/speechTranscriberListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy/speechSynthesizerRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy/speechSynthesizerParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy/speechSynthesizerListener.cpp
+    )
+
+#源文件-token
+set(UTILS_INCLUDE_DIR
+    ${UTILS_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/include/internal
+    )
+set(UTILS_SOURCE_DIR
+    ${UTILS_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/nlsToken.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CommonClient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CommonResponse.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CommonRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/ServiceRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/NetworkProxy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/HttpMessage.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/HttpResponse.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/HttpRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/HttpClient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Signer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/HmacSha1Signer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CoreClient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Credentials.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/SimpleCredentialsProvider.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CurlHttpClient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/ClientConfiguration.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Url.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Error.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Utils.cpp
+    )
+
+
+#配置目标源码和头文件
+set(NLS_SDK_SOURCE_LIST
+    ${UTILS_SOURCE_DIR}
+    )
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${UTILS_INCLUDE_DIR}
+    )
+include_directories(${NLS_SDK_HEADER_LIST})
+
+#编译
+message(STATUS "nlssdk output name: ${NLS_SDK_OUTPUT_NAME}")
+set(NLS_SDK_OUTPUT_PATH
+    ${CMAKE_SOURCE_DIR}/build/nlsCppSdk/lib${NLS_SDK_OUTPUT_NAME}.a
+    )
+add_library(${NLS_SDK_OUTPUT_NAME} STATIC ${NLS_SDK_SOURCE_LIST})
+
+install(FILES ${NLS_SDK_OUTPUT_PATH}
+        DESTINATION
+        ${CMAKE_SOURCE_DIR}/build/nlsCppSdk)
+
+#======================================#
+
+set(THIRDPARTY_LIB_FILE_LIST
+    ${openssl_install_dir}/lib/libssl.a
+    ${openssl_install_dir}/lib/libcrypto.a
+    ${opus_install_dir}/lib/libopus.a
+    ${libevent_install_dir}/lib/libevent_core.a
+    ${libevent_install_dir}/lib/libevent_extra.a
+    ${libevent_install_dir}/lib/libevent_pthreads.a
+    ${log4cpp_install_dir}/lib/liblog4cpp.a
+    ${jsoncpp_install_dir}/lib/libjsoncpp.a
+    ${uuid_install_dir}/lib/libuuid.a
+    ${curl_install_dir}/lib/libcurl.a
+    )
+
+set(LIBS_FILE_LIST ${THIRDPARTY_LIB_FILE_LIST})
+
