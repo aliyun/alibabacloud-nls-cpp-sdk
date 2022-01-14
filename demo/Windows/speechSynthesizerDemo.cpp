@@ -48,7 +48,7 @@
  *
  * 注意：不要每次调用服务之前都重新生成新token，只需在token即将过期时重新生成即可。所有的服务并发可共用一个token。
  */
-// 自定义线程参数
+/* 自定义线程参数 */
 struct ParamStruct {
   char text[DEFAULT_STRING_LEN];
   char token[DEFAULT_STRING_LEN];
@@ -59,7 +59,7 @@ struct ParamStruct {
   pthread_mutex_t mtx;
 };
 
-// 自定义事件回调参数
+/* 自定义事件回调参数 */
 struct ParamCallBack {
  public:
   ParamCallBack(ParamStruct* param) {
@@ -88,7 +88,7 @@ struct ParamCallBack {
   ParamStruct* tParam;
 };
 
-// 统计参数
+/* 统计参数 */
 struct ParamStatistics {
   bool running;
   bool success_flag;
@@ -171,7 +171,7 @@ static void vectorSetParams(unsigned long pid, bool add,
   std::map<unsigned long, struct ParamStatistics*>::iterator iter;
   iter = g_statistics.find(pid);
   if (iter != g_statistics.end()) {
-    // 已经存在
+    /* 已经存在 */
     iter->second->running = params.running;
     iter->second->success_flag = params.success_flag;
     iter->second->failed_flag = false;
@@ -179,7 +179,7 @@ static void vectorSetParams(unsigned long pid, bool add,
       iter->second->audio_ms = params.audio_ms;
     }
   } else {
-    // 不存在, 新的pid
+    /* 不存在, 新的pid */
     if (add) {
 //      std::cout << "vectorSetParams create pid:" << pid << std::endl;
       struct ParamStatistics *p_tmp = new(struct ParamStatistics);
@@ -206,7 +206,7 @@ static void vectorSetResult(unsigned long pid, bool ret) {
   std::map<unsigned long, struct ParamStatistics*>::iterator iter;
   iter = g_statistics.find(pid);
   if (iter != g_statistics.end()) {
-    // 已经存在
+    /* 已经存在 */
     iter->second->success_flag = ret;
 
     if (ret) {
@@ -235,7 +235,7 @@ static void vectorSetFailed(unsigned long pid, bool ret) {
   std::map<unsigned long, struct ParamStatistics*>::iterator iter;
   iter = g_statistics.find(pid);
   if (iter != g_statistics.end()) {
-    // 已经存在
+    /* 已经存在 */
     iter->second->failed_flag = ret;
   } else {
   }
@@ -251,10 +251,10 @@ static bool vectorGetRunning(unsigned long pid) {
   std::map<unsigned long, struct ParamStatistics*>::iterator iter;
   iter = g_statistics.find(pid);
   if (iter != g_statistics.end()) {
-    // 存在
+    /* 存在 */
     result = iter->second->running;
   } else {
-    // 不存在, 新的pid
+    /* 不存在, 新的pid */
   }
 
   pthread_mutex_unlock(&params_mtx);
@@ -268,10 +268,10 @@ static bool vectorGetFailed(unsigned long pid) {
   std::map<unsigned long, struct ParamStatistics*>::iterator iter;
   iter = g_statistics.find(pid);
   if (iter != g_statistics.end()) {
-    // 存在
+    /* 存在 */
     result = iter->second->failed_flag;
   } else {
-    // 不存在, 新的pid
+    /* 不存在, 新的pid */
   }
 
   pthread_mutex_unlock(&params_mtx);
@@ -290,7 +290,7 @@ int generateToken(std::string akId, std::string akSecret,
   if (-1 == nlsTokenRequest.applyNlsToken()) {
     std::cout << "Failed: "
               << nlsTokenRequest.getErrorMsg()
-              << std::endl; /*获取失败原因*/
+              << std::endl; /* 获取失败原因 */
     return -1;
   }
 
@@ -313,10 +313,10 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
   std::cout << "OnSynthesisCompleted: "
     << "userId: " << tmpParam->userId.x
-    << ", status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-    << ", task id: " << cbEvent->getTaskId()   // 当前任务的task id，方便定位问题，建议输出
+    << ", status code: " << cbEvent->getStatusCode()  /* 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码 */
+    << ", task id: " << cbEvent->getTaskId()   /* 当前任务的task id，方便定位问题，建议输出 */
     << std::endl;
-  // std::cout << "OnSynthesisCompleted: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
+  // std::cout << "OnSynthesisCompleted: All response:" << cbEvent->getAllResponse() << std::endl; /* 获取服务端返回的全部信息 */
 
   if (cbParam) {
     gettimeofday(&(tmpParam->completedTv), NULL);
@@ -364,11 +364,11 @@ void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
 
   std::cout << "OnSynthesisTaskFailed userId: " << tmpParam->userId.x
-    << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-    << ", task id: " << cbEvent->getTaskId()   // 当前任务的task id，方便定位问题，建议输出
+    << "status code: " << cbEvent->getStatusCode()  /* 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码 */
+    << ", task id: " << cbEvent->getTaskId()   /* 当前任务的task id，方便定位问题，建议输出 */
     << ", error message: " << cbEvent->getErrorMessage()
     << std::endl;
-  std::cout << "OnSynthesisTaskFailed: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
+  std::cout << "OnSynthesisTaskFailed: All response:" << cbEvent->getAllResponse() << std::endl; /* 获取服务端返回的全部信息 */
 
   if (cbParam) {
     ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
@@ -389,10 +389,10 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
   std::cout << "OnSynthesisChannelClosed userId: "
       << tmpParam->userId.x
-      << ", All response: " << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
+      << ", All response: " << cbEvent->getAllResponse() << std::endl; /* 获取服务端返回的全部信息 */
 
 //  tmpParam->audioFile.close();
-//  delete tmpParam; //识别流程结束,释放回调参数
+//  delete tmpParam; /* 识别流程结束,释放回调参数 */
 
   if (cbParam) {
     gettimeofday(&(tmpParam->closedTv), NULL);
@@ -409,7 +409,7 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     }
 
 
-    //通知发送线程, 最终识别结果已经返回, 可以调用stop()
+    /* 通知发送线程, 最终识别结果已经返回, 可以调用stop() */
     pthread_mutex_lock(&(tmpParam->mtxWord));
     pthread_cond_signal(&(tmpParam->cvWord));
     pthread_mutex_unlock(&(tmpParam->mtxWord));
@@ -427,15 +427,15 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
 
-  std::vector<unsigned char> data = cbEvent->getBinaryData(); // getBinaryData() 获取文本合成的二进制音频数据
+  std::vector<unsigned char> data = cbEvent->getBinaryData(); /* getBinaryData() 获取文本合成的二进制音频数据 */
 #if 1
   std::cout << "OnBinaryDataRecved: "
-    << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-    << ", taskId: " << cbEvent->getTaskId()        // 当前任务的task id，方便定位问题，建议输出
-    << ", data size: " << data.size()              // 数据的大小
+    << "status code: " << cbEvent->getStatusCode()  /* 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码 */
+    << ", taskId: " << cbEvent->getTaskId()        /* 当前任务的task id，方便定位问题，建议输出 */
+    << ", data size: " << data.size()              /* 数据的大小 */
     << std::endl;
 #endif
-  // 以追加形式将二进制音频数据写入文件
+  /* 以追加形式将二进制音频数据写入文件 */
 //  if (data.size() > 0) {
 //    tmpParam->audioFile.write((char*)&data[0], data.size());
 //  }
@@ -451,7 +451,7 @@ void OnMetaInfo(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
 #if 0
   std::cout << "OnMetaInfo "
-    << "Response: " << cbEvent->getAllResponse()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
+    << "Response: " << cbEvent->getAllResponse()  /* 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码 */
     << std::endl;
 #endif
 }
@@ -471,7 +471,7 @@ void* autoCloseFunc(void* arg) {
   return NULL;
 }
 
-// 工作线程
+/* 工作线程 */
 void* pthreadFunc(void* arg) {
   /*
    * 0: 从自定义线程参数中获取token, 配置文件等参数.
@@ -484,7 +484,7 @@ void* pthreadFunc(void* arg) {
 
   pthread_mutex_init(&(tst->mtx), NULL);
 
-  // 初始化自定义回调参数
+  /* 初始化自定义回调参数 */
   ParamCallBack* cbParam = new ParamCallBack(tst);
   if (!cbParam) {
     return NULL;
@@ -504,37 +504,37 @@ void* pthreadFunc(void* arg) {
       break;
     }
 
-    // 设置音频合成结束回调函数
+    /* 设置音频合成结束回调函数 */
     request->setOnSynthesisCompleted(OnSynthesisCompleted, cbParam);
-    // 设置音频合成通道关闭回调函数
+    /* 设置音频合成通道关闭回调函数 */
     request->setOnChannelClosed(OnSynthesisChannelClosed, cbParam);
-    // 设置异常失败回调函数
+    /* 设置异常失败回调函数 */
     request->setOnTaskFailed(OnSynthesisTaskFailed, cbParam);
-    // 设置文本音频数据接收回调函数
+    /* 设置文本音频数据接收回调函数 */
     request->setOnBinaryDataReceived(OnBinaryDataRecved, cbParam);
-    // 设置字幕信息
+    /* 设置字幕信息 */
     request->setOnMetaInfo(OnMetaInfo, cbParam);
 
     if (strlen(tst->appkey) > 0) {
       request->setAppKey(tst->appkey);
     }
-    // 设置待合成文本, 必填参数. 文本内容必须为UTF-8编码
+    /* 设置待合成文本, 必填参数. 文本内容必须为UTF-8编码 */
     request->setText(tst->text);
-    // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
+    /* 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun */
     request->setVoice("siqi");
-    // 音量, 范围是0~100, 可选参数, 默认50
+    /* 音量, 范围是0~100, 可选参数, 默认50 */
     request->setVolume(50);
-    // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
+    /* 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3 */
     request->setFormat("wav");
-    // 音频采样率, 包含8000, 16000. 可选参数, 默认是16000
+    /* 音频采样率, 包含8000, 16000. 可选参数, 默认是16000 */
     request->setSampleRate(SAMPLE_RATE);
-    // 语速, 范围是-500~500, 可选参数, 默认是0
+    /* 语速, 范围是-500~500, 可选参数, 默认是0 */
     request->setSpeechRate(0);
-    // 语调, 范围是-500~500, 可选参数, 默认是0
+    /* 语调, 范围是-500~500, 可选参数, 默认是0 */
     request->setPitchRate(0);
-    //开启字幕
+    /* 开启字幕 */
     request->setEnableSubtitle(true);
-    // 设置账号校验token, 必填参数
+    /* 设置账号校验token, 必填参数 */
     if (strlen(tst->token) > 0) {
       request->setToken(tst->token);
     }
@@ -550,7 +550,7 @@ void* pthreadFunc(void* arg) {
     run_cnt++;
     if (ret < 0) {
       std::cout << "start() failed." << std::endl;
-      AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request); // start()失败，释放request对象
+      AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request); /* start()失败，释放request对象 */
       //cbParam->audioFile.close();
       break;
     } else {
@@ -580,7 +580,7 @@ void* pthreadFunc(void* arg) {
       gettimeofday(&now, NULL);
       outtime.tv_sec = now.tv_sec + 30;
       outtime.tv_nsec = now.tv_usec * 1000;
-      // 等待closed事件后再进行释放, 否则会出现崩溃
+      /* 等待closed事件后再进行释放, 否则会出现崩溃 */
       pthread_mutex_lock(&(cbParam->mtxWord));
       pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime);
       pthread_mutex_unlock(&(cbParam->mtxWord));
@@ -674,7 +674,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   global_run = true;
   std::vector<pthread_t> pthreadId(threads);
-  // 启动四个工作线程, 同时识别四个音频文件
+  /* 启动四个工作线程, 同时识别四个音频文件 */
   for (int j = 0; j < threads; j++) {
     pthread_create(&pthreadId[j], NULL, &pthreadFunc, (void *)&(pa[j]));
   }
@@ -763,7 +763,7 @@ int main(int argc, char* argv[]) {
 
   pthread_mutex_init(&params_mtx, NULL);
 
-  // 根据需要设置SDK输出日志, 可选. 此处表示SDK日志输出至log-Synthesizer.txt， LogDebug表示输出所有级别日志
+  /* 根据需要设置SDK输出日志, 可选. 此处表示SDK日志输出至log-Synthesizer.txt， LogDebug表示输出所有级别日志 */
 #ifdef LOG_TRIGGER
   int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
       "log-synthesizer", AlibabaNls::LogLevel::LogDebug, 400, 50);
@@ -773,14 +773,16 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
-  // 启动工作线程, 在创建请求和启动前必须调用此函数
-  // 入参为负时, 启动当前系统中可用的核数
+  /*
+   * 启动工作线程, 在创建请求和启动前必须调用此函数
+   * 入参为负时, 启动当前系统中可用的核数
+   */
   AlibabaNls::NlsClient::getInstance()->startWorkThread(1);
 
-  // 合成多个文本
+  /* 合成多个文本 */
   speechSynthesizerMultFile(g_appkey.c_str(), g_threads);
 
-  // 所有工作完成，进程退出前，释放nlsClient. 请注意, releaseInstance()非线程安全.
+  /* 所有工作完成，进程退出前，释放nlsClient. 请注意, releaseInstance()非线程安全. */
   std::cout << "releaseInstance -> " << std::endl;
   AlibabaNls::NlsClient::releaseInstance();
   std::cout << "releaseInstance done." << std::endl;

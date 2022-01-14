@@ -74,16 +74,16 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
     if (nlsEncoder_) {
       opus_encoder_ctl(
           (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_VBR(1)); //动态码率:OPUS_SET_VBR(1), 固定码率:OPUS_SET_VBR(0)
+          OPUS_SET_VBR(1)); /* 动态码率:OPUS_SET_VBR(1), 固定码率 : OPUS_SET_VBR(0) */
       opus_encoder_ctl(
           (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_BITRATE(27800)); //指定opus编码码率,比特率从 6kb/s 到 510 kb/s,想要压缩比大一些就设置码率小一点
+          OPUS_SET_BITRATE(27800)); /* 指定opus编码码率, 比特率从 6kb / s 到 510 kb / s, 想要压缩比大一些就设置码率小一点 */
       opus_encoder_ctl(
           (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_COMPLEXITY(8)); //计算复杂度
+          OPUS_SET_COMPLEXITY(8)); /* 计算复杂度 */
       opus_encoder_ctl(
           (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE)); //设置针对语音优化
+          OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE)); /* 设置针对语音优化 */
 
       encoder_type_ = type;
       ret = 0;

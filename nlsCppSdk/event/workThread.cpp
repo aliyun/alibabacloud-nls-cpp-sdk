@@ -609,7 +609,7 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
 
     case NodeStarted:
       ret = node->nlsSendFrame(node->getBinaryEvBuffer());
-      //音频数据发送完毕，检测是否需要发送控制指令数据
+      /* 音频数据发送完毕，检测是否需要发送控制指令数据 */
       if (ret == 0) {
         ret = node->sendControlDirective();
       }

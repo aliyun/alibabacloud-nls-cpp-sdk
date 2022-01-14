@@ -1,8 +1,6 @@
 @echo off
 
-
 set winRar="C:\Program Files (x86)\WinRAR\WinRAR.exe"
-
 
 set project_folder=%~dp0..\
 set base_folder=%project_folder%build
@@ -71,8 +69,6 @@ echo "Begin copy sdk_x64 files: "%install_folder%
 cd %install_folder%\..
 
 
-rem 拷贝全部库
-
 copy /y %build_x64_debug_folder%\nlsCppSdk.lib %x64_debug_folder%\
 copy /y %build_x64_debug_folder%\nlsCppSdk.dll %x64_debug_folder%\
 copy /y %build_x64_debug_folder%\nlsCppSdk.pdb %x64_debug_folder%\
@@ -111,7 +107,7 @@ copy /y %build_x64_release_folder%\libssl-1_1-x64.dll %x64_release_folder%\
 copy /y %build_x64_release_folder%\libssl-1_1-x64.pdb %x64_release_folder%\
 
 copy /y %build_x64_release_folder%\libcrypto-1_1-x64.lib %x64_release_folder%\
-copy /y %build_x64_releaseg_folder%\libcrypto-1_1-x64.dll %x64_release_folder%\
+copy /y %build_x64_release_folder%\libcrypto-1_1-x64.dll %x64_release_folder%\
 copy /y %build_x64_release_folder%\libcrypto-1_1-x64.pdb %x64_release_folder%\
 
 copy /y %build_x64_release_folder%\libeay32.lib %x64_release_folder%\
@@ -131,8 +127,6 @@ copy /y %build_x64_release_folder%\pthreadVC2.dll %x64_release_folder%\
 copy /y %build_x64_release_folder%\pthreadVC2.pdb %x64_release_folder%\
 
 
-rem 拷贝头文件
-
 copy /y %project_folder%\nlsCppSdk\framework\feature\da\dialogAssistantRequest.h %install_include_folder%\
 copy /y %project_folder%\nlsCppSdk\framework\feature\sr\speechRecognizerRequest.h %install_include_folder%\
 copy /y %project_folder%\nlsCppSdk\framework\feature\st\speechTranscriberRequest.h %install_include_folder%\
@@ -143,8 +137,6 @@ copy /y %project_folder%\nlsCppSdk\framework\common\nlsGlobal.h %install_include
 copy /y %project_folder%\nlsCppSdk\framework\item\iNlsRequest.h %install_include_folder%\
 copy /y %project_folder%\nlsCppSdk\token\include\nlsToken.h %install_include_folder%\
 
-
-rem 拷贝demo源代码
 
 copy /y %project_folder%\demo\Windows\* %install_demo_folder%\
 
@@ -164,7 +156,7 @@ copy /y %build_x64_debug_folder%\speechSynthesizerDemo.exe %install_bin_folder%\
 
 cd %install_folder%\..
 
-rem 压缩
+
 %winRar% a -r "%install_folder%\..\NlsSdk3.X_win64.zip" .\NlsSdk3.X_win64
 	
 
