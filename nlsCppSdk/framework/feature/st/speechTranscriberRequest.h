@@ -249,8 +249,12 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @note 异步操作。request
    * @param data 语音数据
    * @param dataSize 语音数据长度(建议每次100ms左右数据)
-   * @param type ENCODER_NONE表示原始音频进行传递;
-                 ENCODER_OPU表示以OPUS压缩后进行传递 
+   * @param type ENCODER_NONE 表示原始音频进行传递,
+                              建议每次100ms音频数据,支持16K和8K;
+                 ENCODER_OPU 表示以定制OPUS压缩后进行传递,
+                             只支持20ms 16K16b1c
+                 ENCODER_OPUS 表示以OPUS压缩后进行传递,
+                              只支持20ms, 支持16K16b1c和8K16b1c
    * @return 成功则返回0，失败返回-1。
              由于音频格式不确定，传入音频字节数和传出音频字节数
              无法通过比较判断成功与否，故成功返回0。

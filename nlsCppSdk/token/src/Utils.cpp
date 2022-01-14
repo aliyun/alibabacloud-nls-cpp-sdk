@@ -16,8 +16,10 @@
 
 #include "Utils.h"
 #include <curl/curl.h>
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <Windows.h>
+#include <Rpc.h>
+#include <wincrypt.h>
 #else
 #include <openssl/hmac.h>
 #include <openssl/md5.h>
@@ -27,7 +29,7 @@
 namespace AlibabaNlsCommon {
 
 std::string GenerateUuid() {
-#ifdef _WIN32
+#ifdef _MSC_VER
   char *data;
   UUID uuidhandle;
   UuidCreate(&uuidhandle);
@@ -64,7 +66,7 @@ std::string UrlDecode(const std::string & src) {
 }
 
 std::string ComputeContentMD5(const char * data, size_t size) {
-#ifdef _WIN32
+#ifdef _MSC_VER
   HCRYPTPROV hProv = 0;
   HCRYPTHASH hHash = 0;
   BYTE pbHash[16];

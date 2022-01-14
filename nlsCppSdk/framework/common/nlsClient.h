@@ -17,7 +17,11 @@
 #ifndef NLS_SDK_CLIENT_H
 #define NLS_SDK_CLIENT_H
 
+#ifdef _MSC_VER
+#include <Windows.h>
+#else
 #include <pthread.h>
+#endif
 #include <string>
 #include "nlsGlobal.h"
 
@@ -61,17 +65,21 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /*
    * @brief 设置日志文件与存储路径
-   * @param logOutputFile 日志文件
+   * @param logOutputFile 日志文件，绝对路径或者相对路径均可
+                          若填写"log-transcriber"，
+                          则会在程序当前目录生成log-transcriber.log；
+                          若填写"/home/XXX/NlsCppSdk/log-transcriber"，
+                          则会在/home/XXX/NlsCppSdk/下生成log-transcriber.log
    * @param logLevel  日志级别，默认1
    *                   （LogError : 1, LogWarning : 2, LogInfo : 3, LogDebug : 4）
    * @param logFileSize 日志文件的大小，以MB为单位，默认为10MB；
    *                    如果日志文件内容的大小超过这个值，
-   *                    SDK会自动备份当前的日志文件，最多可备份5个文件，
-   *                    超过后会循环覆盖已有文件
+   *                    SDK会自动备份当前的日志文件，超过后会循环覆盖已有文件
+   * @param logFileNum  日志文件循环存储最大数，默认10个文件
    * @return 成功则返回0，失败返回-1
    */
   int setLogConfig(const char* logOutputFile, const LogLevel logLevel,
-                   unsigned int logFileSize = 10);
+                   unsigned int logFileSize = 10, unsigned int logFileNum = 10);
 
   /*
    * @brief 创建一句话识别对象
@@ -189,7 +197,11 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   void releaseRequest(INlsRequest*);
 
+#ifdef _MSC_VER
+  static HANDLE _mtx;
+#else
   static pthread_mutex_t _mtx;
+#endif
   static bool _isInitializeSSL;
   static bool _isInitializeThread;
   static NlsClient* _instance;

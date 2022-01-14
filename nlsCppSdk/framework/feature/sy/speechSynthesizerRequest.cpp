@@ -130,7 +130,7 @@ SpeechSynthesizerRequest::SpeechSynthesizerRequest(int version) {
   //init connect node
   _node = new ConnectNode(this, _listener);
 
-  LOG_INFO("Create SpeechSynthesizerRequest.");
+  LOG_DEBUG("Create SpeechSynthesizerRequest.");
 }
 
 SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
@@ -149,7 +149,7 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
   delete _synthesizerParam;
   _synthesizerParam = NULL;
 
-  LOG_INFO("Destroy SpeechSynthesizerRequest.");
+  LOG_DEBUG("Destroy SpeechSynthesizerRequest.");
 }
 
 int SpeechSynthesizerRequest::start() {

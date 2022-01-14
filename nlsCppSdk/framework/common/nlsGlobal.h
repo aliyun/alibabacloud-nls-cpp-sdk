@@ -17,7 +17,7 @@
 #ifndef NLS_SDK_GLOBAL_H
 #define NLS_SDK_GLOBAL_H
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 
   #define NLS_SDK_DECL_EXPORT __declspec(dllexport)
   #define NLS_SDK_DECL_IMPORT __declspec(dllimport)
@@ -27,6 +27,13 @@
   #else
     #define NLS_SDK_CLIENT_EXPORT NLS_SDK_DECL_IMPORT
   #endif
+
+  #define NLS_EXTERN_C extern "C"
+  #define NLS_EXPORTS NLS_SDK_DECL_EXPORT
+  #define NLS_CDECL __cdecl
+  #define NLSAPI(rettype) NLS_EXTERN_C NLS_EXPORTS rettype NLS_CDECL
+
+  typedef int (NLS_CDECL * NlsCallbackDelegate)(int);
 
 #else
 

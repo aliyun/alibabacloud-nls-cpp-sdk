@@ -42,6 +42,7 @@ int SpeechSynthesizerParam::setText(const char* value) {
     return -1;
   }
 
+  LOG_DEBUG("setText: %s", value);
   _payload[D_SY_TEXT] = value;
 
   return 0;

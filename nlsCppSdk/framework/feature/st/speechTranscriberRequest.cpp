@@ -152,7 +152,7 @@ SpeechTranscriberRequest::SpeechTranscriberRequest() {
   //init connect node
   _node = new ConnectNode(this, _listener);
 
-  LOG_INFO("Create SpeechTranscriberRequest.");
+  LOG_DEBUG("Create SpeechTranscriberRequest.");
 }
 
 SpeechTranscriberRequest::~SpeechTranscriberRequest() {
@@ -171,7 +171,7 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
   delete _transcriberParam;
   _transcriberParam = NULL;
 
-  LOG_INFO("Destroy SpeechTranscriberRequest.");
+  LOG_DEBUG("Destroy SpeechTranscriberRequest.");
 }
 
 int SpeechTranscriberRequest::start() {

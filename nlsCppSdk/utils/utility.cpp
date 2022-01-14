@@ -15,13 +15,24 @@
  */
 
 #include "utility.h"
+
+#ifdef _MSC_VER
+#include <winsock2.h>
+#include <Windows.h>
+#include <Ws2tcpip.h>
+#else
 #include <errno.h>
+#endif
 
 namespace AlibabaNls {
 namespace utility {
 
 int getLastErrorCode() {
+#ifdef _MSC_VER
+  return (WSAGetLastError());
+#else
   return errno;
+#endif
 }
 
 }  // namespace utility

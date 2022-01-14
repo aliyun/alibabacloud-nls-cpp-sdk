@@ -134,7 +134,7 @@ SpeechRecognizerRequest::SpeechRecognizerRequest() {
   //init connect node
   _node = new ConnectNode(this, _listener);
 
-  LOG_INFO("Create SpeechRecognizerRequest.");
+  LOG_DEBUG("Create SpeechRecognizerRequest.");
 }
 
 SpeechRecognizerRequest::~SpeechRecognizerRequest() {
@@ -153,7 +153,7 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
   delete _recognizerParam;
   _recognizerParam = NULL;
 
-  LOG_INFO("Destroy SpeechRecognizerRequest.");
+  LOG_DEBUG("Destroy SpeechRecognizerRequest.");
 }
 
 int SpeechRecognizerRequest::start() {

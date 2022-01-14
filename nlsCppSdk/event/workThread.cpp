@@ -14,15 +14,20 @@
  * limitations under the License.
  */
 
+
+#include <math.h>
+#include <signal.h>
+#include <string>
+#include <algorithm>
+#ifdef _MSC_VER
+#include <process.h>
+#else
 #include <sys/sysinfo.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
-#include <sched.h>
-#include <math.h>
-#include <signal.h>
 #include <unistd.h>
-#include <string>
-#include <algorithm>
+#include <sched.h>
+#endif
 
 #include "nlsGlobal.h"
 #include "iNlsRequest.h"
@@ -36,13 +41,19 @@ namespace AlibabaNls {
 
 #define HOST_SIZE 256
 
+#ifndef _MSC_VER
 pthread_mutex_t WorkThread::_mtxCpu = PTHREAD_MUTEX_INITIALIZER;
+#endif
 int WorkThread::_cpuNumber = 1;
 int WorkThread::_cpuCurrent = 0;
 
 WorkThread::WorkThread() {
   LOG_DEBUG("Create WorkThread.");
+#if defined(_MSC_VER)
+  _mtxList = CreateMutex(NULL, FALSE, NULL);
+#else
   pthread_mutex_init(&_mtxList, NULL);
+#endif
 
   _workBase = event_base_new();
   if (!_workBase) {
@@ -80,20 +91,29 @@ WorkThread::WorkThread() {
     exit(1);
   }
 
+#if defined(_MSC_VER)
+  _workThreadHandle = (HANDLE)_beginthreadex(NULL, 0, loopEventCallback, (LPVOID)this, 0, &_workThreadId);
+  CloseHandle(_workThreadHandle);
+#else
   pthread_create(&_workThreadId, NULL, loopEventCallback, (void*)this);
-  LOG_INFO("WorkThread start working.");
+#endif
+  LOG_DEBUG("WorkThread start working.");
 }
 
 WorkThread::~WorkThread() {
   size_t count = 0;
   int try_count = 500;
 
-  LOG_INFO("Begin destroy WorkThread list:%p  %d.", this, _nodeList.size());
+  LOG_DEBUG("Begin destroy WorkThread list:%p  %d.", this, _nodeList.size());
   //must check asr is end
   do {
+#ifdef _MSC_VER
+    Sleep(10);
+    WaitForSingleObject(_mtxList, INFINITE);
+#else
     usleep(10 * 1000);
-
     pthread_mutex_lock(&_mtxList);
+#endif
 
     std::list<INlsRequest*>::iterator itList;
     for (itList = _nodeList.begin(); itList != _nodeList.end();) {
@@ -125,8 +145,11 @@ WorkThread::~WorkThread() {
       }  // for
     }
 
+#if defined(_MSC_VER)
+    ReleaseMutex(_mtxList);
+#else
     pthread_mutex_unlock(&_mtxList);
-
+#endif
   } while (count > 0 && try_count-- > 0);  // do while
 
   evutil_closesocket(_notifySendFd);
@@ -135,43 +158,75 @@ WorkThread::~WorkThread() {
   event_base_loopbreak(_workBase);
   //LOG_INFO("Done destroy WorkThread Begin join:%p.", this);
 
+#if defined(_MSC_VER)
+  CloseHandle(_mtxList);
+#else
   pthread_join(_workThreadId, NULL);
   pthread_mutex_destroy(&_mtxList);
+#endif
 
-  LOG_INFO("Destroy WorkThread done.");
+  LOG_DEBUG("Destroy WorkThread done.");
 }
 
 void WorkThread::insertQueueNode(WorkThread* thread, INlsRequest * request) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(thread->_mtxList, INFINITE);
+#else
   pthread_mutex_lock(&(thread->_mtxList));
+#endif
 
   thread->_nodeQueue.push(request);
 
+#if defined(_MSC_VER)
+  ReleaseMutex(thread->_mtxList);
+#else
   pthread_mutex_unlock(&(thread->_mtxList));
+#endif
 }
 
 INlsRequest* WorkThread::getQueueNode(WorkThread* thread) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(thread->_mtxList, INFINITE);
+#else
   pthread_mutex_lock(&(thread->_mtxList));
+#endif
 
   INlsRequest *request = thread->_nodeQueue.front();
   thread->_nodeQueue.pop();
 
+#if defined(_MSC_VER)
+  ReleaseMutex(thread->_mtxList);
+#else
   pthread_mutex_unlock(&(thread->_mtxList));
+#endif
 
   return request;
 }
 
 void WorkThread::insertListNode(WorkThread* thread, INlsRequest * request) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(thread->_mtxList, INFINITE);
+#else
   pthread_mutex_lock(&(thread->_mtxList));
+#endif
 
   thread->_nodeList.push_back(request);
 
+#if defined(_MSC_VER)
+  ReleaseMutex(thread->_mtxList);
+#else
   pthread_mutex_unlock(&(thread->_mtxList));
+#endif
 
   return;
 }
 
 void WorkThread::freeListNode(WorkThread* thread, INlsRequest* request) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(thread->_mtxList, INFINITE);
+#else
   pthread_mutex_lock(&(thread->_mtxList));
+#endif
 
   std::list<INlsRequest *>::iterator iLocation =
       find(thread->_nodeList.begin(), thread->_nodeList.end(), request);
@@ -181,7 +236,11 @@ void WorkThread::freeListNode(WorkThread* thread, INlsRequest* request) {
     LOG_DEBUG("List requests :%d.", thread->_nodeList.size());
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(thread->_mtxList);
+#else
   pthread_mutex_unlock(&(thread->_mtxList));
+#endif
 }
 
 void WorkThread::destroyConnectNode(ConnectNode* node) {
@@ -206,9 +265,15 @@ void WorkThread::destroyConnectNode(ConnectNode* node) {
   return;
 }
 
+#if defined(_MSC_VER)
+unsigned __stdcall WorkThread::loopEventCallback(LPVOID arg) {
+#else
 void* WorkThread::loopEventCallback(void* arg) {
+#endif
+
   WorkThread *eventParam = (WorkThread*)arg;
 
+#if defined(__ANDROID__) || defined (__linux__)
   sigset_t signal_mask;
 
   if (-1 == sigemptyset(&signal_mask)) {
@@ -227,6 +292,7 @@ void* WorkThread::loopEventCallback(void* arg) {
   }
 
   prctl(PR_SET_NAME, "eventThread");
+#endif
 
   //LOG_ERROR("event_base_dispatch begin.", _cpuCurrent);
   event_base_dispatch(eventParam->_workBase);
@@ -235,7 +301,11 @@ void* WorkThread::loopEventCallback(void* arg) {
   evdns_base_free(eventParam->_dnsBase, 0);
   event_base_free(eventParam->_workBase);
 
+#if defined(_MSC_VER)
+  return 0;
+#else
   return NULL;
+#endif
 }
 
 void WorkThread::connectEventCallback(
@@ -257,6 +327,16 @@ void WorkThread::connectEventCallback(
       if (!errorCode) {
         LOG_INFO("Node:%p connect return ev_write, check ok.", node);
         node->setConnectNodeStatus(NodeConnected);
+
+        #ifndef _MSC_VER
+        // get client ip and port from socketFd
+        struct sockaddr_in client;
+        char client_ip[20];
+        socklen_t client_len = sizeof(client);
+        getsockname(socketFd, (struct sockaddr *)&client, &client_len);
+        inet_ntop(AF_INET, &client.sin_addr, client_ip, sizeof(client_ip));
+        LOG_INFO("Node:%p local %s:%d", node, client_ip, ntohs(client.sin_port));
+        #endif
       } else {
         if (node->socketConnect() == -1) {
           goto EventProcessFailed;
@@ -268,7 +348,7 @@ void WorkThread::connectEventCallback(
       int ret = node->sslProcess();
       switch (ret) {
         case 0:
-          LOG_INFO("Node:%p Begin gateway request process.", node);
+          LOG_DEBUG("Node:%p Begin gateway request process.", node);
           if (nodeRequestProcess(node) == -1) {
             destroyConnectNode(node);
           }
@@ -381,7 +461,7 @@ void WorkThread::dnsEventCallback(int errorCode,
   }
 
   if (address->ai_canonname) {
-    LOG_INFO("Node:%p ai_canonname: %s", node, address->ai_canonname);
+    LOG_DEBUG("Node:%p ai_canonname: %s", node, address->ai_canonname);
   }
 
   struct evutil_addrinfo *ai;
@@ -393,7 +473,7 @@ void WorkThread::dnsEventCallback(int errorCode,
       ip = evutil_inet_ntop(AF_INET, &sin->sin_addr, buffer, HOST_SIZE);
 
       if (ip) {
-        LOG_INFO("Node:%p IpV4:%s", node, ip);
+        LOG_DEBUG("Node:%p IpV4:%s", node, ip);
 
         int ret = node->connectProcess(ip, AF_INET);
         if (ret == 0) {
@@ -422,7 +502,7 @@ void WorkThread::dnsEventCallback(int errorCode,
       ip = evutil_inet_ntop(AF_INET6, &sin6->sin6_addr, buffer, HOST_SIZE);
 
       if (ip) {
-        LOG_INFO("Node:%p IpV6:%s", node, ip);
+        LOG_DEBUG("Node:%p IpV6:%s", node, ip);
 
         int ret = node->connectProcess(ip, AF_INET6);
         if (ret == 0) {
@@ -470,7 +550,7 @@ void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg)
     LOG_ERROR("work Thread recv() failed:%d.", utility::getLastErrorCode());
     return;
   }
-  LOG_INFO("work Thread receive: '%c' from main thread.", msgCmd);
+  LOG_DEBUG("work Thread receive: '%c' from main thread.", msgCmd);
 
   if (msgCmd == 'c') {
     INlsRequest *request = getQueueNode(pThread);
@@ -484,7 +564,7 @@ void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg)
   } else if (msgCmd == 's') {
     event_base_loopbreak(pThread->_workBase);
   } else {
-    LOG_ERROR("work Thread recv:'%c'.", msgCmd);
+    LOG_ERROR("work Thread recv invalid cmd:'%c'.", msgCmd);
   }
 
   return;

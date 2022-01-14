@@ -17,7 +17,9 @@
 #include <iostream>
 #include <stdint.h>
 #include <stdio.h>
+#ifndef _MSC_VER
 #include <unistd.h>
+#endif
 
 #include "event2/thread.h"
 #include "event2/dns.h"
@@ -34,11 +36,20 @@ namespace AlibabaNls {
 
 #define DEFAULT_OPUS_FRAME_SIZE 640
 
+#ifdef _MSC_VER
+#pragma comment(lib, "ws2_32")
+#endif
+
 WorkThread *NlsEventNetWork::_workThreadArray = NULL;
 size_t NlsEventNetWork::_workThreadsNumber = 0;
 size_t NlsEventNetWork::_currentCpuNumber = 0;
-pthread_mutex_t NlsEventNetWork::_mtxThreadNumber = PTHREAD_MUTEX_INITIALIZER;
+
+#if defined(_MSC_VER)
+HANDLE NlsEventNetWork::_mtxThread = CreateMutex(NULL, FALSE, NULL);
+#else
 pthread_mutex_t NlsEventNetWork::_mtxThread = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
 NlsEventNetWork * NlsEventNetWork::_eventClient = new NlsEventNetWork();
 
 NlsEventNetWork::NlsEventNetWork() {}
@@ -49,41 +60,82 @@ void NlsEventNetWork::DnsLogCb(int w, const char *m) {
 }
 
 void NlsEventNetWork::initEventNetWork(int count) {
-  LOG_DEBUG("evthread_use_pthreads.");
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxThread, INFINITE);
+#else
   pthread_mutex_lock(&_mtxThread);
+#endif
 
+#if defined(_MSC_VER)
+#ifdef EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED
+  LOG_DEBUG("evthread_use_windows_thread.");
+  evthread_use_windows_threads();
+#endif
+#else
+  LOG_DEBUG("evthread_use_pthreads.");
   evthread_use_pthreads();
+#endif
 
+#if defined(_MSC_VER)
+  WORD wVersionRequested;
+  WSADATA wsaData;
+
+  wVersionRequested = MAKEWORD(2, 2);
+
+  (void)WSAStartup(wVersionRequested, &wsaData);
+#endif
+
+#if defined(_MSC_VER)
+  SYSTEM_INFO sysInfo;
+  GetSystemInfo(&sysInfo);
+  WorkThread::_cpuNumber = (int)sysInfo.dwNumberOfProcessors;
+#elif defined(__linux__) || defined(__ANDROID__)
   WorkThread::_cpuNumber = (int)sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 
   if (count <= 0) {
     _workThreadsNumber = WorkThread::_cpuNumber;
   } else {
     _workThreadsNumber = count;
   }
-  LOG_DEBUG("Work threads number: %d", _workThreadsNumber);
+  LOG_INFO("Work threads number: %d", _workThreadsNumber);
 
   _workThreadArray = new WorkThread[_workThreadsNumber];
 
   evdns_set_log_fn(DnsLogCb);
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxThread);
+#else
   pthread_mutex_unlock(&_mtxThread);
+#endif
 
-  LOG_INFO("Init ClientNetWork done.");
+  LOG_DEBUG("Init ClientNetWork done.");
   return;
 }
 
 void NlsEventNetWork::destroyEventNetWork() {
   LOG_INFO("destroy NlsEventNetWork begin.");
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxThread, INFINITE);
+#else
   pthread_mutex_lock(&_mtxThread);
+#endif
 
   delete [] _workThreadArray;
   _workThreadArray = NULL;
 
-  pthread_mutex_unlock(&_mtxThread);
+  _workThreadsNumber = 0;
+  _currentCpuNumber = 0;
 
   delete _eventClient;
   _eventClient = NULL;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxThread);
+#else
+  pthread_mutex_unlock(&_mtxThread);
+#endif
 
   LOG_INFO("destroy NlsEventNetWork done.");
   return;
@@ -91,12 +143,11 @@ void NlsEventNetWork::destroyEventNetWork() {
 
 int NlsEventNetWork::selectThreadNumber() {
   int number = 0;
-  pthread_mutex_lock(&_mtxThreadNumber);
 
   if (_workThreadArray != NULL) {
     number = _currentCpuNumber;
 
-    LOG_DEBUG("Select NO.%d", number);
+    LOG_DEBUG("Select Thread NO.%d", number);
 
     if (++_currentCpuNumber == _workThreadsNumber) {
       _currentCpuNumber = 0;
@@ -108,12 +159,15 @@ int NlsEventNetWork::selectThreadNumber() {
     number = -1;
   }
 
-  pthread_mutex_unlock(&_mtxThreadNumber);
   return number;
 }
 
 int NlsEventNetWork::start(INlsRequest *request) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxThread, INFINITE);
+#else
   pthread_mutex_lock(&_mtxThread);
+#endif
 
   ConnectNode *node = request->getConnectNode();
 
@@ -121,11 +175,15 @@ int NlsEventNetWork::start(INlsRequest *request) {
       (node->getExitStatus() == ExitInvalid)) {
     int num = selectThreadNumber();
     if (num == -1) {
+    #if defined(_MSC_VER)
+      ReleaseMutex(_mtxThread);
+    #else
       pthread_mutex_unlock(&_mtxThread);
+    #endif
       return -1;
     }
 
-    LOG_INFO("Node:%p Select NO.%d thread.", node, num);
+    LOG_DEBUG("Node:%p Select NO.%d thread.", node, num);
 
     node->_eventThread = &_workThreadArray[num];
     WorkThread::insertQueueNode(node->_eventThread, request);
@@ -136,7 +194,11 @@ int NlsEventNetWork::start(INlsRequest *request) {
                    (char *)&cmd, sizeof(char), 0);
     if (ret < 1) {
       LOG_ERROR("Node:%p Start command is failed.", node);
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxThread);
+      #else
       pthread_mutex_unlock(&_mtxThread);
+      #endif
       return -1;
     }
     node->setConnectNodeStatus(NodeConnecting);
@@ -147,13 +209,21 @@ int NlsEventNetWork::start(INlsRequest *request) {
         node->getConnectNodeStatusString().c_str(),
         node->getExitStatus(),
         node->getExitStatusString().c_str());
+    #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+    #else
     pthread_mutex_unlock(&_mtxThread);
+    #endif
     return -1;
   }
 
   node->initNlsEncoder();
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxThread);
+#else
   pthread_mutex_unlock(&_mtxThread);
+#endif
   return 0;
 }
 
@@ -161,66 +231,43 @@ int NlsEventNetWork::sendAudio(INlsRequest *request, const uint8_t * data,
                                size_t dataSize, ENCODER_TYPE type) {
   int ret = -1;
   ConnectNode * node = request->getConnectNode();
-//  LOG_DEBUG("Node:%p sendAudio -1", node);
 
-  pthread_mutex_lock(&_mtxThread);
+  // has no mtx in CppSdk3.0
+//  pthread_mutex_lock(&_mtxThread);
 
   if ((node->getConnectNodeStatus() == NodeInitial) ||
       (node->getExitStatus() != ExitInvalid)) {
     LOG_ERROR("Node:%p Invoke command failed.", node);
-    pthread_mutex_unlock(&_mtxThread);
+//    pthread_mutex_unlock(&_mtxThread);
     return -1;
   }
 
-  //LOG_DEBUG("Node:%p sendAudio Type:%d, Size %zu.", node, type, dataSize);
+//  LOG_DEBUG("Node:%p sendAudio Type:%d, Size %zu.", node, type, dataSize);
 //  LOG_DEBUG("Node:%p sendAudio NodeStatus:%s, ExitStatus:%s",
 //      node,
 //      node->getConnectNodeStatusString(node->getConnectNodeStatus()).c_str(),
 //      node->getExitStatusString(node->getExitStatus()).c_str());
 
-  if (type == ENCODER_OPUS || type == ENCODER_OPU) {
-//    if (dataSize != DEFAULT_OPUS_FRAME_SIZE) {
-//      LOG_ERROR("Node:%p The Opus data size is n't 640.", node);
-//      return -1;
-//    }
-
-//    node->initNlsEncoder();
-
-//    uint8_t outputBuffer[DEFAULT_OPUS_FRAME_SIZE] = {0};
-    uint8_t *outputBuffer = new uint8_t[dataSize];
-    if (outputBuffer == NULL) {
-      LOG_ERROR("Node:%p new outputBuffer failed", node);
-      pthread_mutex_unlock(&_mtxThread);
+  if (type == ENCODER_OPU) {
+    if (dataSize != DEFAULT_OPUS_FRAME_SIZE) {
+//      pthread_mutex_unlock(&_mtxThread);
+      LOG_ERROR("Node:%p The Opus data size is n't 640.", node);
       return -1;
     }
-    memset(outputBuffer, 0, dataSize);
-    int nSize = nlsEncoding(node->_nlsEncoder, type,
-                            data, (int)dataSize,
-                            outputBuffer, (int)dataSize);
-//                            outputBuffer, DEFAULT_FRAME_NORMAL_SIZE);
-    if (nSize < 0) {
-      LOG_ERROR("Node:%p Opus encoder failed %d.", node, nSize);
-      delete[] outputBuffer;
-      pthread_mutex_unlock(&_mtxThread);
-      return nSize;
-    }
-
-    ret = node->addAudioDataBuffer(outputBuffer, nSize);
-
-    if (outputBuffer) delete[] outputBuffer;
-  } else {
-    // type == ENCODER_NONE
-//    LOG_DEBUG("Node:%p sendAudio 0", node);
-    ret = node->addAudioDataBuffer(data, dataSize);
-//    LOG_DEBUG("Node:%p sendAudio 1", node);
   }
-  pthread_mutex_unlock(&_mtxThread);
-//  LOG_DEBUG("Node:%p sendAudio 2", node);
+
+  ret = node->addAudioDataBuffer(data, dataSize);
+
+//  pthread_mutex_unlock(&_mtxThread);
   return ret;
 }
 
 int NlsEventNetWork::stop(INlsRequest *request, int type) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxThread, INFINITE);
+#else
   pthread_mutex_lock(&_mtxThread);
+#endif
 
   ConnectNode * node = request->getConnectNode();
 
@@ -230,7 +277,11 @@ int NlsEventNetWork::stop(INlsRequest *request, int type) {
         node,
         node->getConnectNodeStatusString().c_str(),
         node->getExitStatusString().c_str());
+#if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+#else
     pthread_mutex_unlock(&_mtxThread);
+#endif
     return -1;
   }
 
@@ -246,25 +297,41 @@ int NlsEventNetWork::stop(INlsRequest *request, int type) {
   } else {
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxThread);
+#else
   pthread_mutex_unlock(&_mtxThread);
+#endif
   return ret;
 }
 
 int NlsEventNetWork::stControl(INlsRequest *request, const char* message) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxThread, INFINITE);
+#else
   pthread_mutex_lock(&_mtxThread);
+#endif
 
   ConnectNode * node = request->getConnectNode();
 
   if ((node->getConnectNodeStatus() == NodeInitial) ||
       (node->getExitStatus() != ExitInvalid)) {
     LOG_ERROR("Node:%p Invoke command failed.", node);
+#if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+#else
     pthread_mutex_unlock(&_mtxThread);
+#endif
     return -1;
   }
 
   int ret = node->cmdNotify(CmdStControl, message);
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxThread);
+#else
   pthread_mutex_unlock(&_mtxThread);
+#endif
   LOG_INFO("Node:%p call stConreol.", node);
   return ret;
 }

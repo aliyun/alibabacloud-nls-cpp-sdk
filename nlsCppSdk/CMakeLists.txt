@@ -30,6 +30,14 @@ set(NLS_SDK_HEADER_LIST
     ${opus_install_dir}/include
     )
 
+ExternalProject_Get_Property(ogg INSTALL_DIR)
+set(ogg_install_dir ${INSTALL_DIR})
+message(STATUS "ogg install path: ${ogg_install_dir}")
+set(NLS_SDK_HEADER_LIST
+    ${NLS_SDK_HEADER_LIST}
+    ${ogg_install_dir}/include
+    )
+
 ExternalProject_Get_Property(openssl INSTALL_DIR)
 set(openssl_install_dir ${INSTALL_DIR})
 message(STATUS "openssl install path: ${openssl_install_dir}")
@@ -38,13 +46,15 @@ set(NLS_SDK_HEADER_LIST
     ${openssl_install_dir}/include
     )
 
-ExternalProject_Get_Property(log4cpp INSTALL_DIR)
-set(log4cpp_install_dir ${INSTALL_DIR})
-message(STATUS "log4cpp install path: ${log4cpp_install_dir}")
-set(NLS_SDK_HEADER_LIST
-    ${NLS_SDK_HEADER_LIST}
-    ${log4cpp_install_dir}/include
-    )
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  ExternalProject_Get_Property(log4cpp INSTALL_DIR)
+  set(log4cpp_install_dir ${INSTALL_DIR})
+  message(STATUS "log4cpp install path: ${log4cpp_install_dir}")
+  set(NLS_SDK_HEADER_LIST
+      ${NLS_SDK_HEADER_LIST}
+      ${log4cpp_install_dir}/include
+      )
+endif ()
 
 ExternalProject_Get_Property(libevent INSTALL_DIR)
 set(libevent_install_dir ${INSTALL_DIR})
@@ -118,6 +128,10 @@ set(UTILS_INCLUDE_DIR
 set(UTILS_SOURCE_DIR
     ${UTILS_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/encoder/nlsEncoder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/encoder/oggopusEncoder.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/encoder/oggopusHeader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/encoder/oggopusAudioIn.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/encoder/lpc.cpp
     )
 
 #源文件-framework
@@ -195,14 +209,29 @@ include_directories(${NLS_SDK_HEADER_LIST})
 
 #编译
 message(STATUS "nlssdk output name: ${NLS_SDK_OUTPUT_NAME}")
-set(NLS_SDK_OUTPUT_PATH
-    ${CMAKE_SOURCE_DIR}/build/nlsCppSdk/lib${NLS_SDK_OUTPUT_NAME}.a
-    )
-add_library(${NLS_SDK_OUTPUT_NAME} STATIC ${NLS_SDK_SOURCE_LIST})
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 
-install(FILES ${NLS_SDK_OUTPUT_PATH}
-        DESTINATION
-        ${CMAKE_SOURCE_DIR}/build/nlsCppSdk)
+  set(NLS_SDK_OUTPUT_PATH
+      ${CMAKE_SOURCE_DIR}/build/nlsCppSdk/lib${NLS_SDK_OUTPUT_NAME}.a
+      )
+  add_library(${NLS_SDK_OUTPUT_NAME} STATIC ${NLS_SDK_SOURCE_LIST})
+
+  install(FILES ${NLS_SDK_OUTPUT_PATH}
+          DESTINATION
+          ${CMAKE_SOURCE_DIR}/build/nlsCppSdk)
+
+elseif (CMAKE_SYSTEM_NAME MATCHES "Android")
+
+  set(NLS_SDK_OUTPUT_PATH
+      ${CMAKE_SOURCE_DIR}/build/build_${ANDROID_ABI}/nlsCppSdk/lib${NLS_SDK_OUTPUT_NAME}.a
+      )
+  add_library(${NLS_SDK_OUTPUT_NAME} STATIC ${NLS_SDK_SOURCE_LIST})
+
+  install(FILES ${NLS_SDK_OUTPUT_PATH}
+          DESTINATION
+          ${CMAKE_SOURCE_DIR}/build/build_${ANDROID_ABI}/nlsCppSdk)
+
+endif ()
 
 #======================================#
 
@@ -210,6 +239,7 @@ set(THIRDPARTY_LIB_FILE_LIST
     ${openssl_install_dir}/lib/libssl.a
     ${openssl_install_dir}/lib/libcrypto.a
     ${opus_install_dir}/lib/libopus.a
+    ${ogg_install_dir}/lib/libogg.a
     ${libevent_install_dir}/lib/libevent_core.a
     ${libevent_install_dir}/lib/libevent_extra.a
     ${libevent_install_dir}/lib/libevent_pthreads.a

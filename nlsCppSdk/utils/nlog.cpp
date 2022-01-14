@@ -68,13 +68,13 @@ using std::endl;
           message); \
         }
 
+#if defined(_MSC_VER)
+HANDLE NlsLog::_mtxLog = CreateMutex(NULL, FALSE, NULL);
+#else
 pthread_mutex_t NlsLog::_mtxLog = PTHREAD_MUTEX_INITIALIZER;
-NlsLog* NlsLog::_logInstance = new NlsLog();
+#endif
 
-void NlsLog::destroyLogInstance() {
-  if (_logInstance) delete _logInstance;
-  _logInstance = NULL;
-}
+NlsLog* NlsLog::_logInstance = new NlsLog();
 
 NlsLog::NlsLog() {
   _logLevel = 1;
@@ -83,20 +83,20 @@ NlsLog::NlsLog() {
 }
 
 NlsLog::~NlsLog() {
-  _isStdout = true;
-  _isConfig = false;
-
 #if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout && _isConfig) {
     log4cpp::Category::shutdown();
   }
 #endif
 #endif
+
+  _isStdout = true;
+  _isConfig = false;
 }
 
 unsigned long NlsLog::pthreadSelfId() {
-#if defined (_WIN32)
+#if defined (_MSC_VER)
   return GetCurrentThreadId();
 #elif defined(__APPLE__)
   return pthread_self()->__sig;
@@ -105,8 +105,22 @@ unsigned long NlsLog::pthreadSelfId() {
 #endif
 }
 
+NlsLog* NlsLog::getInstance() {
+  if (_logInstance == NULL) {
+    _logInstance = new NlsLog();
+  }
+  return _logInstance;
+}
+
+void NlsLog::destroyLogInstance() {
+  if (_logInstance) {
+    delete _logInstance;
+    _logInstance = NULL;
+  }
+}
+
 #if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
-#if defined(_WIN32) || defined(__linux__)
+#if defined(_MSC_VER) || defined(__linux__)
 static log4cpp::Category& getCategory() {
   log4cpp::Category& _category =
       log4cpp::Category::getRoot().getInstance("alibabaNlsLog");
@@ -115,7 +129,8 @@ static log4cpp::Category& getCategory() {
 #endif
 #endif
 
-void NlsLog::logConfig(const char* name, int level, size_t fileSize) {
+void NlsLog::logConfig(const char* name, int level,
+                       size_t fileSize, size_t fileNum) {
   if (name) {
     cout << "Begin LogConfig: "
          << _isConfig << " , "
@@ -128,8 +143,16 @@ void NlsLog::logConfig(const char* name, int level, size_t fileSize) {
          << level << " , "
          << fileSize << endl;
   }
-    
+
+  if (fileNum < 1) {
+    fileNum = LOG_FILES_NUMBER;
+  }
+   
+#ifdef _MSC_VER
+  WaitForSingleObject(_mtxLog, INFINITE);
+#else
   pthread_mutex_lock(&_mtxLog);
+#endif
 
   if (!_isConfig) {
 #if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
@@ -145,7 +168,7 @@ void NlsLog::logConfig(const char* name, int level, size_t fileSize) {
       rollfileAppender =
           new log4cpp::RollingFileAppender(
             name, logFileName,
-            fileSize * LOG_FILE_BASE_SIZE, LOG_FILES_NUMBER);
+            fileSize * LOG_FILE_BASE_SIZE, fileNum);
       rollfileAppender->setLayout(layout);
 
       switch(level) {
@@ -176,7 +199,11 @@ void NlsLog::logConfig(const char* name, int level, size_t fileSize) {
     _isConfig = true;
   }
 
+#ifdef _MSC_VER
+  ReleaseMutex(_mtxLog);
+#else
   pthread_mutex_unlock(&_mtxLog);
+#endif
 
   cout << "LogConfig Done." << endl;
   return;
@@ -191,10 +218,10 @@ void NlsLog::logVerbose(const char* function, int line, const char *format, ...)
   LOG_FORMAT_STRING(function, line, format, message);
 
 #if defined (__ANDRIOD__)
-  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
-#elif defined(_WIN32) || defined(__linux__)
+  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+#elif defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout) {
-    getCategory().emerg(message);
+    getCategory().debug(message);
   } else {
     LOG_PRINT_COMMON("VERBOSE", message);
   }
@@ -213,8 +240,8 @@ void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
 
   if (_logLevel >= 4) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
-  #elif defined(_WIN32) || defined(__linux__)
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+  #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().debug(message);
     } else {
@@ -236,8 +263,8 @@ void NlsLog::logInfo(const char* function, int line, const char * format, ...) {
 
   if (_logLevel >= 3) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
-  #elif defined(_WIN32) || defined(__linux__)
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+  #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().info(message);
     } else {
@@ -259,8 +286,8 @@ void NlsLog::logWarn(const char* function, int line, const char * format, ...) {
 
   if (NlsLog::_logLevel >= 2) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
-  #elif defined(_WIN32) || defined(__linux__)
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+  #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().warn(message);
     } else {
@@ -282,8 +309,8 @@ void NlsLog::logError(const char* function, int line, const char * format, ...) 
 
   if (NlsLog::_logLevel >= 1) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
-  #elif defined(_WIN32) || defined(__linux__)
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+  #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().error(message);
     } else {
@@ -305,8 +332,8 @@ void NlsLog::logException(const char* function, int line, const char *format, ..
   LOG_FORMAT_STRING(function, line, format, message);
 
 #if defined (__ANDRIOD__)
-  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, message);
-#elif defined(_WIN32) || defined(__linux__)
+  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+#elif defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout) {
     getCategory().fatal(message);
   } else {

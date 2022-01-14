@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#ifdef _MSC_VER
+#include <Rpc.h>
+#else
 #include "uuid/uuid.h"
+#endif
 #include "nlsGlobal.h"
 #include "nlog.h"
 #include "Config.h"
@@ -25,18 +29,22 @@
 namespace AlibabaNls {
 
 #if defined(__ANDROID__)
-  const char g_sdk_name[] = "nls-sdk-android";
-#elif defined(_WIN32)
-  const char g_sdk_name[] = "nls-sdk-windows";
+  const char g_sdk_name[] = "nls-cpp-sdk3.x-android";
+#elif defined(_MSC_VER)
+  const char g_sdk_name[] = "nls-cpp-sdk3.x-windows";
 #elif defined(__APPLE__)
-  const char g_sdk_name[] = "nls-sdk-ios";
+  const char g_sdk_name[] = "nls-cpp-sdk3.x-ios";
 #elif defined(__linux__)
-  const char g_sdk_name[] = "nls-sdk-linux";
+  const char g_sdk_name[] = "nls-cpp-sdk3.x-linux";
 #else
-  const char g_sdk_name[] = "nls-sdk-unknown";
+  const char g_sdk_name[] = "nls-cpp-sdk3.x-unknown";
 #endif
 
+#ifdef NLS_CSHARP_SDK
+const char g_sdk_language[] = "Csharp";
+#else
 const char g_sdk_language[] = "C++";
+#endif
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
 #define STOP_RECV_TIMEOUT 12
@@ -67,8 +75,34 @@ INlsRequestParam::~INlsRequestParam() {}
 
 std::string INlsRequestParam::getRandomUuid() {
   char uuidBuff[48] = {0};
-  uuid_t uuid;
+
+#ifdef _MSC_VER
+  char* data = NULL;
+  UUID uuidhandle;
+  RPC_STATUS ret_val = UuidCreate(&uuidhandle);
+  if (ret_val != RPC_S_OK) {
+    LOG_ERROR("UuidCreate failed");
+    return uuidBuff;
+  }
+
+  UuidToString(&uuidhandle, (RPC_CSTR*)&data);
+  if (data == NULL) {
+    LOG_ERROR("UuidToString data is nullptr");
+    return uuidBuff;
+  }
+
+  int len = strnlen(data, 36);
+  int i = 0, j = 0;
+  for (i = 0; i < len; i++) {
+    if (data[i] != '-') {
+      uuidBuff[j++] = data[i];
+    }
+  }
+
+  RpcStringFree((RPC_CSTR*)&data);
+#else
   char tmp[48] = {0};
+  uuid_t uuid;
   uuid_generate(uuid);
   uuid_unparse(uuid, tmp);
 
@@ -79,7 +113,7 @@ std::string INlsRequestParam::getRandomUuid() {
     }
     i++;
   }
-
+#endif
   return uuidBuff;
 }
 

@@ -24,6 +24,7 @@
 namespace AlibabaNls {
 
 #define BUFFER_SIZE 2048  //1024
+#define READ_BUFFER_SIZE 20480
 
 union StatusCode {
   unsigned short status;

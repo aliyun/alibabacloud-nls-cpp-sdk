@@ -17,14 +17,18 @@
 #ifndef NLS_SDK_CONNECT_NODE_H
 #define NLS_SDK_CONNECT_NODE_H
 
+#if defined(_MSC_VER)
+#include <windows.h>
+#else
+#include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 
 #include <queue>
 #include <string>
 #include <stdint.h>
-#include <pthread.h>
 //#include "nlsEvent.h"
 #include "nlsEncoder.h"
 #include "error.h"
@@ -50,6 +54,16 @@ class NlsEventNetWork;
 #define BUFFER_16K_MAX_LIMIT 320000
 #define BUFFER_8K_MAX_LIMIT 160000
 
+#if defined(_MSC_VER)
+
+#define NLS_ERR_IS_EAGAIN(e) ((e) == WSAEWOULDBLOCK || (e) == EAGAIN)
+#define NLS_ERR_RW_RETRIABLE(e) ((e) == WSAEWOULDBLOCK || (e) == WSAEINTR)
+#define NLS_ERR_CONNECT_RETRIABLE(e) ((e) == WSAEWOULDBLOCK || (e) == WSAEINTR || (e) == WSAEINPROGRESS || (e) == WSAEINVAL)
+#define NLS_ERR_ACCEPT_RETRIABLE(e) EVUTIL_ERR_RW_RETRIABLE(e)
+#define NLS_ERR_CONNECT_REFUSED(e) ((e) == WSAECONNREFUSED)
+
+#else
+
 #define INVALID_SOCKET -1
 #if EAGAIN == EWOULDBLOCK
   #define NLS_ERR_IS_EAGAIN(e) ((e) == EAGAIN)
@@ -64,6 +78,8 @@ class NlsEventNetWork;
 #define NLS_ERR_ACCEPT_RETRIABLE(e) ((e) == EINTR || NLS_ERR_IS_EAGAIN(e) || (e) == ECONNABORTED)
 /* True iff e is an error that means the connection was refused */
 #define NLS_ERR_CONNECT_REFUSED(e) ((e) == ECONNREFUSED)
+
+#endif /*#if defined(_MSC_VER)*/
 
 #define CONNECT_FAILED_CODE 10000001
 #define TASK_FAILED_CODE 10000002
@@ -124,7 +140,7 @@ class ConnectNode {
 
   int nlsSend(const uint8_t * frame, size_t length);
   int nlsSendFrame(struct evbuffer * eventBuffer);
-  int nlsReceive();
+  int nlsReceive(uint8_t *buffer, int max_size);
 
   int gatewayResponse();
   int gatewayRequest();
@@ -145,7 +161,6 @@ class ConnectNode {
 
   WorkThread* _eventThread;
   evutil_socket_t _socketFd;
-  void* _nlsEncoder;
   urlAddress _url;
   INlsRequest *_request;
   HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler;
@@ -208,15 +223,25 @@ class ConnectNode {
   ExitStatus _exitStatus;
   size_t _retryConnectCount;
 
+  NlsEncoder * _nlsEncoder;
+  ENCODER_TYPE _encoder_type;
+
+#if defined(_MSC_VER)
+  HANDLE _mtxNode;
+  HANDLE _mtxCloseNode;
+#else
   pthread_mutex_t  _mtxNode;
   pthread_mutex_t  _mtxCloseNode;
+#endif
 
+#if defined(__ANDROID__) || defined(__linux__)
   int codeConvert(char *from_charset,
                   char *to_charset,
                   char *inbuf,
                   size_t inlen,
                   char *outbuf,
                   size_t outlen);
+#endif
 
   std::string utf8ToGbk(const std::string &strUTF8);
   NlsEvent* convertResult(WebSocketFrame * frame);

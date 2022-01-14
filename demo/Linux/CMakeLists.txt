@@ -20,19 +20,19 @@ include_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/incl
 link_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/lib)
 
 # 一句话识别
-add_executable(srDemo speechRecognizerDemo.cpp)
+add_executable(srDemo profile_scan.cpp speechRecognizerDemo.cpp)
 target_link_libraries(srDemo
     alibabacloud-idst-speech
     pthread z dl)
 
 # 实时识别
-add_executable(stDemo speechTranscriberDemo.cpp)
+add_executable(stDemo profile_scan.cpp speechTranscriberDemo.cpp)
 target_link_libraries(stDemo
     alibabacloud-idst-speech
     pthread z dl)
 
 # 转写
-add_executable(syDemo speechSynthesizerDemo.cpp)
+add_executable(syDemo profile_scan.cpp speechSynthesizerDemo.cpp)
 target_link_libraries(syDemo
     alibabacloud-idst-speech
     pthread z dl)

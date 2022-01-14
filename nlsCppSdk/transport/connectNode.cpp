@@ -13,21 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <vector>
+#include <iostream>
+
+#if defined(__ANDROID__) || defined(__linux__)
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#ifndef __ANDRIOD__
+#include <iconv.h>
+#endif
+#endif
+
+#ifdef __GNUC__
 #include <netdb.h>
 #include <sys/poll.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-#include <iconv.h>
-#include <iostream>
+#endif
 
 #include "nlsGlobal.h"
 #include "iNlsRequest.h"
@@ -74,6 +83,7 @@ ConnectNode::ConnectNode(INlsRequest* request,
 
   //int errorCode = 0;
   _nlsEncoder = NULL; //createNlsEncoder
+  _encoder_type = ENCODER_NONE;
 
   _eventThread = NULL;
 
@@ -92,14 +102,19 @@ ConnectNode::ConnectNode(INlsRequest* request,
   _connectTv.tv_sec = LIMIT_CONNECT_TIMEOUT;
   _connectTv.tv_usec = 0;
 
+#if defined(_MSC_VER)
+  _mtxNode = CreateMutex(NULL, FALSE, NULL);
+  _mtxCloseNode = CreateMutex(NULL, FALSE, NULL);
+#else
   pthread_mutex_init(&_mtxNode, NULL);
   pthread_mutex_init(&_mtxCloseNode, NULL);
+#endif
 
-  LOG_INFO("Create ConnectNode done.");
+  LOG_DEBUG("Create ConnectNode done.");
 }
 
 ConnectNode::~ConnectNode() {
-  LOG_INFO("Destroy ConnectNode begin.");
+  LOG_DEBUG("Destroy ConnectNode begin.");
 
   closeConnectNode();
 
@@ -113,37 +128,48 @@ ConnectNode::~ConnectNode() {
   evbuffer_free(_binaryEvBuffer);
   evbuffer_free(_wwvEvBuffer);
 
-  int encoder_type = ENCODER_NONE;
-  if (_request->getRequestParam()->_format.empty()) {
-    std::cout << "format string is empty" << std::endl;
-  } else {
-    if (_request->getRequestParam()->_format == "opu") {
-      encoder_type = ENCODER_OPU;
-    } else if (_request->getRequestParam()->_format == "opus") {
-      encoder_type = ENCODER_OPUS;
-    }
+  if (_nlsEncoder) {
+    _nlsEncoder->destroyNlsEncoder();
+    delete _nlsEncoder;
+    _nlsEncoder = NULL;
   }
-  destroyNlsEncoder(_nlsEncoder, (ENCODER_TYPE)encoder_type);
-  _nlsEncoder = NULL;
 
+#if defined(_MSC_VER)
+  CloseHandle(_mtxNode);
+  CloseHandle(_mtxCloseNode);
+#else
   pthread_mutex_destroy(&_mtxNode);
   pthread_mutex_destroy(&_mtxCloseNode);
-
-  LOG_INFO("Destroy ConnectNode done.");
+#endif
+  LOG_DEBUG("Destroy ConnectNode done.");
 }
 
 ConnectStatus ConnectNode::getConnectNodeStatus() {
   ConnectStatus status;
 
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
-  status = _workStatus;
-  pthread_mutex_unlock(&_mtxNode);
+#endif
 
+  status = _workStatus;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
+  pthread_mutex_unlock(&_mtxNode);
+#endif
   return status;
 }
 
 std::string ConnectNode::getConnectNodeStatusString() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   std::string ret_str("Unknown");
   switch (_workStatus) {
     case NodeInitial:
@@ -174,30 +200,58 @@ std::string ConnectNode::getConnectNodeStatusString() {
       ret_str.assign("NodeInvalid");
       break;
   }
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
   return ret_str;
 }
 
 void ConnectNode::setConnectNodeStatus(ConnectStatus status) {
-
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   _workStatus = status;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 }
 
 ExitStatus ConnectNode::getExitStatus() {
   ExitStatus ret = ExitInvalid;
 
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   ret = _exitStatus;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 
   return ret;
 }
 
 std::string ConnectNode::getExitStatusString() {
   std::string ret_str = "Unknown";
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   switch (_exitStatus) {
     case ExitInvalid:
       ret_str.assign("ExitInvalid");
@@ -212,47 +266,87 @@ std::string ConnectNode::getExitStatusString() {
       ret_str.assign("ExitCancel");
       break;
   }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
+
   return ret_str;
 }
 
 void ConnectNode::setExitStatus(ExitStatus status) {
-
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   if (_exitStatus != ExitCancel) {
     _exitStatus = status;
   }
-  pthread_mutex_unlock(&_mtxNode);
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
+  pthread_mutex_unlock(&_mtxNode);
+#endif
 }
 
 bool ConnectNode::updateDestroyStatus() {
   bool ret = true;
-
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   if (!_isDestroy) {
     _isDestroy = true;
     ret = false;
   }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 
   return ret;
 }
 
 void ConnectNode::setWakeStatus(bool status) {
-
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
-    _isWakeStop = status;
-  pthread_mutex_unlock(&_mtxNode);
+#endif
 
+  _isWakeStop = status;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
+  pthread_mutex_unlock(&_mtxNode);
+#endif
 }
 
 bool ConnectNode::getWakeStatus() {
   bool ret = false;
-
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   ret = _isWakeStop;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 
   return ret;
 }
@@ -260,7 +354,12 @@ bool ConnectNode::getWakeStatus() {
 bool ConnectNode::checkConnectCount() {
   bool result = false;
 
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
+
   if (_retryConnectCount < RETRY_CONNECT_COUNT) {
     _retryConnectCount ++;
     result = true;
@@ -268,7 +367,12 @@ bool ConnectNode::checkConnectCount() {
     _retryConnectCount = 0;
     // return false : restart connect failed
   }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 
   return result;
 }
@@ -318,7 +422,11 @@ bool ConnectNode::parseUrlInformation() {
 }
 
 void ConnectNode::disconnectProcess() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxCloseNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxCloseNode);
+#endif
 
   if (_socketFd != INVALID_SOCKET) {
     LOG_DEBUG("Node:%p disconnectProcess Begin.", this);
@@ -337,11 +445,19 @@ void ConnectNode::disconnectProcess() {
     LOG_INFO("Node:%p disconnectProcess done.", this);
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxCloseNode);
+#else
   pthread_mutex_unlock(&_mtxCloseNode);
+#endif
 }
 
 void ConnectNode::closeConnectNode() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxCloseNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxCloseNode);
+#endif
 
   if (_socketFd != INVALID_SOCKET) {
     LOG_DEBUG("Node:%p closeConnectNode Begin.", this);
@@ -363,11 +479,19 @@ void ConnectNode::closeConnectNode() {
     LOG_INFO("Node:%p closeConnectNode done.", this);
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxCloseNode);
+#else
   pthread_mutex_unlock(&_mtxCloseNode);
+#endif
 }
 
 int ConnectNode::socketWrite(const uint8_t * buffer, size_t len) {
+#if defined(__ANDROID__) || defined(__linux__)
   int wLen = send(_socketFd, (const char *)buffer, len, MSG_NOSIGNAL);
+#else
+  int wLen = send(_socketFd, (const char*)buffer, len, 0);
+#endif
 
   if (wLen < 0) {
     int errorCode = utility::getLastErrorCode();
@@ -418,33 +542,48 @@ int ConnectNode::gatewayRequest() {
 
 int ConnectNode::gatewayResponse() {
   int ret;
-
-  if (nlsReceive() < 0) {
-    return -1;
+  int read_len;
+  uint8_t *frame = (uint8_t *)calloc(READ_BUFFER_SIZE, sizeof(char));
+  if (frame == NULL) {
+    LOG_ERROR("%s %d calloc failed", __func__, __LINE__);
+    return 0;
   }
 
-  int tmpSize = evbuffer_get_length(_readEvBuffer);
-  char * tmp = (char *)calloc(tmpSize + 1, sizeof(char));
-  if (tmp == NULL) {
-    LOG_ERROR("calloc tmp failed\n");
+  read_len = nlsReceive(frame, READ_BUFFER_SIZE);
+  if (read_len < 0) {
+    free(frame);
     return -1;
+  } else if (read_len == 0) {
+    free(frame);
+    return 0;
   }
 
-  evbuffer_copyout(_readEvBuffer, tmp, tmpSize);  //evbuffer_peek
+  int frameSize = evbuffer_get_length(_readEvBuffer);
+  if (frameSize > READ_BUFFER_SIZE) {
+    frame = (uint8_t *)realloc(frame, frameSize + 1);
+    if (frame == NULL) {
+      LOG_ERROR("%s %d realloc failed", __func__, __LINE__);
+      free(frame);
+      return 0;
+    }
+  }
 
-  ret = _webSocket.responsePackage(tmp, tmpSize);
+  evbuffer_copyout(_readEvBuffer, frame, frameSize);  //evbuffer_peek
+
+  ret = _webSocket.responsePackage((const char*)frame, frameSize);
   if (ret == 0) {
-    evbuffer_drain(_readEvBuffer, tmpSize);
+    evbuffer_drain(_readEvBuffer, frameSize);
   } else if (ret > 0) {
-    LOG_DEBUG("Node:%p GateWay Middle response:%d\n %s", this, tmpSize, tmp);
+    LOG_DEBUG("Node:%p GateWay Middle response:%d\n %s",
+        this, frameSize, frame);
   } else {
     _nodeErrMsg = _webSocket.getFailedMsg();
     LOG_DEBUG("Node:%p webSocket.responsePackage :%s\n",
         this, _nodeErrMsg.c_str());
   }
 
-  if (tmp) free(tmp);
-  tmp = NULL;
+  if (frame) free(frame);
+  frame = NULL;
 
   return ret;
 }
@@ -455,6 +594,31 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   size_t tmpSize = 0;
   size_t length = 0;
   struct evbuffer* buff = NULL;
+
+  if (_nlsEncoder && _encoder_type != ENCODER_NONE) {
+//    LOG_DEBUG("should encording...");
+    int nSize = 0;
+    uint8_t *outputBuffer = new uint8_t[frameSize];
+    if (outputBuffer == NULL) {
+      LOG_ERROR("Node:%p new outputBuffer failed", this);
+      return -1;
+    } else {
+      memset(outputBuffer, 0, frameSize);
+      nSize = _nlsEncoder->nlsEncoding(
+          frame, (int)frameSize,
+          outputBuffer, (int)frameSize);
+      if (nSize < 0) {
+        LOG_ERROR("Node:%p Opus encoder failed %d.", this, nSize);
+        delete [] outputBuffer;
+        return -1;
+      }
+      _webSocket.binaryFrame(outputBuffer, nSize, &tmp, &tmpSize);
+      delete [] outputBuffer;
+    }
+  } else {
+    // pack frame data
+    _webSocket.binaryFrame(frame, frameSize, &tmp, &tmpSize);
+  }
 
   if (_request->getRequestParam()->_enableWakeWord == true &&
       !getWakeStatus()) {
@@ -468,11 +632,10 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   evbuffer_lock(buff);
   length = evbuffer_get_length(buff);
   if (length >= _limitSize) {
+    LOG_WARN("too many audio data in evbuffer");
     evbuffer_unlock(buff);
     return -1;
   }
-
-  _webSocket.binaryFrame(frame, frameSize, &tmp, &tmpSize);
 
   evbuffer_add(buff, (void *)tmp, tmpSize);
 
@@ -484,19 +647,35 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   //    this, length, length + tmpSize);
 
   if (length == 0 && getConnectNodeStatus() == NodeStarted) {
+    #if defined(_MSC_VER)
+    WaitForSingleObject(_mtxNode, INFINITE);
+    #else
     pthread_mutex_lock(&_mtxNode);
+    #endif
     if (!_isStop) {
       ret = nlsSendFrame(buff);
     }
+    #if defined(_MSC_VER)
+    ReleaseMutex(_mtxNode);
+    #else
     pthread_mutex_unlock(&_mtxNode);
+    #endif
   }
 
   if (length == 0 && getConnectNodeStatus() == NodeWakeWording) {
+    #if defined(_MSC_VER)
+    WaitForSingleObject(_mtxNode, INFINITE);
+    #else
     pthread_mutex_lock(&_mtxNode);
+    #endif
     if (!_isStop) {
       ret = nlsSendFrame(buff);
     }
+    #if defined(_MSC_VER)
+    ReleaseMutex(_mtxNode);
+    #else
     pthread_mutex_unlock(&_mtxNode);
+    #endif
   }
 
   if (ret == 0) {
@@ -514,7 +693,11 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
 int ConnectNode::sendControlDirective() {
   int ret = 0;
 
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
 
   if (_workStatus == NodeStarted && _exitStatus == ExitInvalid) {
     size_t length = evbuffer_get_length(getCmdEvBuffer());
@@ -531,7 +714,11 @@ int ConnectNode::sendControlDirective() {
     }
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 
   return ret;
 }
@@ -572,7 +759,7 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
     size_t frameSize = 0;
     _webSocket.textFrame((uint8_t *) cmd, strlen(cmd), &frame, &frameSize);
 
-    LOG_INFO("Node:%p WebSocket Size:%zu", this, frameSize);
+    LOG_DEBUG("Node:%p WebSocket Size:%zu", this, frameSize);
 
     evbuffer_add(_cmdEvBuffer, (void *) frame, frameSize);
 
@@ -584,7 +771,7 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
 int ConnectNode::cmdNotify(CmdType type, const char* message) {
   int ret = 0;
 
-  LOG_INFO("Node:%p CmdNotify:%d.", this, type);
+  LOG_DEBUG("Node:%p CmdNotify:%d.", this, type);
 
   if (type == CmdStop) {
     setExitStatus(ExitStopping);
@@ -698,13 +885,13 @@ int ConnectNode::nlsSendFrame(struct evbuffer * eventBuffer) {
   }
 }
 
-int ConnectNode::nlsReceive() {
+int ConnectNode::nlsReceive(uint8_t *buffer, int max_size) {
   int rLen = 0;
-  char buffer[BUFFER_SIZE] = {0};
+  int read_buffer_size = max_size;
   if (_url._isSsl) {
-    rLen = _sslHandle->sslRead((uint8_t *)buffer, BUFFER_SIZE);
+    rLen = _sslHandle->sslRead((uint8_t *)buffer, read_buffer_size);
   } else {
-    rLen = socketRead((uint8_t *)buffer, BUFFER_SIZE);
+    rLen = socketRead((uint8_t *)buffer, read_buffer_size);
   }
 
   if (rLen < 0) {
@@ -726,10 +913,16 @@ int ConnectNode::nlsReceive() {
 int ConnectNode::webSocketResponse() {
   int ret = 0;
   bool rLoop = false;
+  uint8_t *frame = (uint8_t *)calloc(READ_BUFFER_SIZE, sizeof(char));
+  if (frame == NULL) {
+    LOG_ERROR("%s %d calloc failed", __func__, __LINE__);
+    return 0;
+  }
 
   do {
-    ret = nlsReceive();
+    ret = nlsReceive(frame, READ_BUFFER_SIZE);
     if (ret < 0) {
+      free(frame);
       return -1;
     } else if (ret > 0) {
       rLoop = true;
@@ -741,24 +934,34 @@ int ConnectNode::webSocketResponse() {
       size_t frameSize = evbuffer_get_length(_readEvBuffer);
       if (frameSize == 0) {
         //LOG_DEBUG("Node:%p evbuffer_get_length:%d", this, frameSize);
+        free(frame);
         return 0;
+      } else {
+        // no new data added in evbuffer
+        if (ret == 0) {
+          usleep(2 * 1000);
+          break;
+        }
       }
 
-      uint8_t *frame = (uint8_t *) calloc(frameSize + 1, sizeof(char));
-      if (frame == NULL) {
-        LOG_ERROR("%s %d calloc failed", __func__, __LINE__);
-        return 0;
+      if (frameSize > READ_BUFFER_SIZE) {
+        frame = (uint8_t *)realloc(frame, frameSize + 1);
+        if (frame == NULL) {
+          LOG_ERROR("%s %d realloc failed", __func__, __LINE__);
+          free(frame);
+          return 0;
+        }
       }
       evbuffer_copyout(_readEvBuffer, frame, frameSize);
 
-      //LOG_DEBUG("WebSocket Middle response:%d", frameSize);
+      //LOG_DEBUG("Node:%p WebSocket Middle response:%d", this, frameSize);
 
       WebSocketFrame wsFrame;
       memset(&wsFrame, 0x0, sizeof(struct WebSocketFrame));
       if (_webSocket.receiveFullWebSocketFrame(
             frame, frameSize, &_wsType, &wsFrame) == 0) {
-        LOG_INFO("Node:%p Parse Ws frame:%zu | %zu",
-            this, wsFrame.length, evbuffer_get_length(_readEvBuffer));
+        LOG_DEBUG("Node:%p Parse Ws frame:%zu | %zu",
+            this, wsFrame.length, frameSize);
 
         parseFrame(&wsFrame);
 
@@ -766,13 +969,11 @@ int ConnectNode::webSocketResponse() {
 
         if (evbuffer_get_length(_readEvBuffer) > 0) {
           eLoop = true;
-          LOG_INFO("Node:%p Parse continue.", this);
+          LOG_DEBUG("Node:%p Parse continue.", this);
         }
       } else {
         eLoop = false;
       }
-      if (frame) free(frame);
-      frame = NULL;
     } while (eLoop);
 
     if (getConnectNodeStatus() == NodeInvalid) {
@@ -781,12 +982,19 @@ int ConnectNode::webSocketResponse() {
     }
   } while (rLoop);
 
+  if (frame) free(frame);
+  frame = NULL;
+
   return 0;
 }
 
+#if defined(__ANDROID__) || defined(__linux__)
 int ConnectNode::codeConvert(char *from_charset, char *to_charset,
                              char *inbuf, size_t inlen,
                              char *outbuf, size_t outlen) {
+#if defined(__ANDRIOD__)
+  outbuf = inbuf;
+#else
   iconv_t cd;
   char **pin = &inbuf;
   char **pout = &outbuf;
@@ -802,10 +1010,13 @@ int ConnectNode::codeConvert(char *from_charset, char *to_charset,
   }
 
   iconv_close(cd);
+#endif
   return 0;
 }
+#endif
 
 std::string ConnectNode::utf8ToGbk(const std::string &strUTF8) {
+#if defined(__ANDROID__) || defined(__linux__)
   const char *msg = strUTF8.c_str();
   size_t inputLen = strUTF8.length();
   size_t outputLen = inputLen * 20;
@@ -833,6 +1044,32 @@ std::string ConnectNode::utf8ToGbk(const std::string &strUTF8) {
   inbuf = NULL;
 
   return strTemp;
+
+#elif defined (_MSC_VER)
+
+  int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
+  unsigned short* wszGBK = new unsigned short[len + 1];
+  memset(wszGBK, 0, len * 2 + 2);
+
+  MultiByteToWideChar(CP_UTF8, 0, (char*)strUTF8.c_str(), -1, (wchar_t*)wszGBK, len);
+
+  len = WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, NULL, 0, NULL, NULL);
+
+  char* szGBK = new char[len + 1];
+  memset(szGBK, 0, len + 1);
+  WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, szGBK, len, NULL, NULL);
+
+  std::string strTemp(szGBK);
+  delete[] szGBK;
+  delete[] wszGBK;
+
+  return strTemp;
+
+#else
+
+  return strUTF8;
+
+#endif
 }
 
 NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame) {
@@ -919,7 +1156,7 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
     return -1;
   }
 
-  LOG_INFO("Node:%p parseFrame MsgType:%d, %d.",
+  LOG_DEBUG("Node:%p parseFrame MsgType:%d, %d.",
       this, frameEvent->getMsgType(), getExitStatus());
 
   //invoke cancel()
@@ -928,9 +1165,9 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
     return -1;
   }
 
-  LOG_INFO("Node:%p Begin HandlerFrame:%d.", this, getExitStatus());
+  LOG_DEBUG("Node:%p Begin HandlerFrame:%d.", this, getExitStatus());
   _handler->handlerFrame(*frameEvent);
-  LOG_INFO("Node:%p End HandlerFrame.", this);
+  LOG_DEBUG("Node:%p End HandlerFrame.", this);
 
   bool closeFlag = false;
   switch(frameEvent->getMsgType()) {
@@ -982,7 +1219,7 @@ void ConnectNode::handlerEvent(const char* error,
   //invoke cancel()
   LOG_DEBUG("Node:%p 's Exit Status:%d.", this, getExitStatus());
   if (getExitStatus() == ExitCancel || getExitStatus() == ExitStopped) {
-    LOG_DEBUG("Node:%p Invoke Cancel command, Callback will n't be invoked.", this);
+    LOG_WARN("Node:%p Invoke Cancel command, Callback will n't be invoked.", this);
     return;
   }
 
@@ -1036,9 +1273,9 @@ int ConnectNode::dnsProcess() {
   parseUrlInformation();
 
   if (_url._isSsl) {
-    LOG_ERROR("Node:%p _url._isSsl is True.", this);
+    LOG_DEBUG("Node:%p _url._isSsl is True.", this);
   } else {
-    LOG_ERROR("Node:%p _url._isSsl is false.", this);
+    LOG_DEBUG("Node:%p _url._isSsl is false.", this);
   }
 
   memset(&hints,  0,  sizeof(hints));
@@ -1266,23 +1503,48 @@ void ConnectNode::resetBufferLimit() {
 }
 
 void ConnectNode::initNlsEncoder() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
   pthread_mutex_lock(&_mtxNode);
+#endif
 
   if (_nlsEncoder == NULL) {
-    int encoder_type = ENCODER_NONE;
     if (_request->getRequestParam()->_format == "opu") {
-      encoder_type = ENCODER_OPU;
+      _encoder_type = ENCODER_OPU;
     } else if (_request->getRequestParam()->_format == "opus") {
-      encoder_type = ENCODER_OPUS;
+      _encoder_type = ENCODER_OPUS;
     }
 
-    int errorCode = 0;
-    _nlsEncoder = createNlsEncoder((ENCODER_TYPE)encoder_type, 1,
-                                   _request->getRequestParam()->_sampleRate,
-                                   &errorCode);
+    if (_encoder_type != ENCODER_NONE) {
+      int errorCode = 0;
+      _nlsEncoder = new NlsEncoder();
+      if (_nlsEncoder == NULL) {
+        LOG_ERROR("new _nlsEncoder failed");
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxNode);
+        #else
+        pthread_mutex_unlock(&_mtxNode);
+        #endif
+        return;
+      }
+      int ret = _nlsEncoder->createNlsEncoder(
+          _encoder_type, 1,
+          _request->getRequestParam()->_sampleRate,
+          &errorCode);
+      if (ret < 0) {
+        LOG_ERROR("createNlsEncoder failed, errcode:%d", errorCode);
+        delete _nlsEncoder;
+        _nlsEncoder = NULL;
+      }
+    }
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
   pthread_mutex_unlock(&_mtxNode);
+#endif
 }
 
 }  // namespace AlibabaNls

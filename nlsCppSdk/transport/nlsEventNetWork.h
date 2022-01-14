@@ -17,7 +17,11 @@
 #ifndef NLS_SDK_NETWORK_H
 #define NLS_SDK_NETWORK_H
 
+#if defined(_MSC_VER)
+#include <windows.h>
+#else
 #include <pthread.h>
+#endif
 //#include <stdint.h>
 #include "nlsEncoder.h"
 
@@ -49,8 +53,12 @@ class NlsEventNetWork {
   static WorkThread *_workThreadArray; //工作线程数组
   static size_t _workThreadsNumber;    //工作线程数量
   static size_t _currentCpuNumber;
-  static pthread_mutex_t _mtxThreadNumber;
+
+#if defined(_MSC_VER)
+  static HANDLE _mtxThread;
+#else
   static pthread_mutex_t _mtxThread;
+#endif
 
 };
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
 #include <winsock2.h>
 #else
 #include <netdb.h>
@@ -40,17 +40,17 @@ namespace AlibabaNls {
 #define HTTP_CONTENT_LENGTH_END "\r\n"
 #define HTTP_ "Transfer-Encoding: chunked\r\n"
 
-//#define OPUS_DEBUG
+//#define OPU_DEBUG
 
 WebSocketTcp::WebSocketTcp() {
   _httpCode = 0;
   _httpLength = 0;
   _rStatus = WsHeadSize;
-  LOG_INFO("create WebSocket.");
+  LOG_DEBUG("create WebSocket.");
 }
 
 WebSocketTcp::~WebSocketTcp() {
-  LOG_INFO("Destroy WebSocket.");
+  LOG_DEBUG("Destroy WebSocket.");
 }
 
 int WebSocketTcp::requestPackage(
@@ -332,6 +332,7 @@ int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
 
   if (wsType->opCode == WebSocketHeaderType::TEXT_FRAME) {
 #if 0
+    // maybe crash in this LOG_DEBUG
     if (receivedData->length > 700) {
       std::string part_result((char *)receivedData->data, 700);
       LOG_DEBUG("Receive TEXT Data too long, Part Data: %zu | %s",
@@ -426,7 +427,7 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   memcpy(*frame, header, headlen);
   memcpy(*frame + headlen, (uint8_t*)buffer, length);
  
-#ifdef OPUS_DEBUG
+#ifdef OPU_DEBUG
   std::ofstream ofs;
   ofs.open("./out.opus", std::ios::out | std::ios::app | std::ios::binary);
   if (ofs.is_open()) {

@@ -142,7 +142,7 @@ DialogAssistantRequest::DialogAssistantRequest(int version) {
   //init connect node
   _node = new ConnectNode(this, _listener);
 
-  LOG_INFO("Create DialogAssistantRequest.");
+  LOG_DEBUG("Create DialogAssistantRequest.");
 }
 
 DialogAssistantRequest::~DialogAssistantRequest() {
@@ -160,7 +160,7 @@ DialogAssistantRequest::~DialogAssistantRequest() {
 
   delete _dialogAssistantParam;
   _dialogAssistantParam = NULL;
-  LOG_INFO("Destroy DialogAssistantRequest.");
+  LOG_DEBUG("Destroy DialogAssistantRequest.");
 }
 
 int DialogAssistantRequest::start() {

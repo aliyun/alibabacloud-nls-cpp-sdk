@@ -119,7 +119,11 @@ get_property(ENABLE_BUILD_TTS GLOBAL PROPERTY BUILD_TTS)
 get_property(ENABLE_BUILD_UDS GLOBAL PROPERTY BUILD_UDS)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fPIC -pg -g -ggdb")
+  if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fPIC -pg -g -ggdb")
+  elseif (CMAKE_SYSTEM_NAME MATCHES "Android")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fPIC -g -ggdb")
+  endif ()
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
 else ()
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -Os -fPIC")
@@ -130,6 +134,8 @@ set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} -Wl,-Bsymbolic")
 
 #forbidden C++11
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+
+add_definitions(-DENABLE_OGGOPUS)
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)

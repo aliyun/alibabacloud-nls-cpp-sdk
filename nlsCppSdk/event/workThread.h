@@ -42,7 +42,11 @@ class WorkThread {
   static void dnsEventCallback(int errorCode,
                                struct evutil_addrinfo *address,
                                void *arg);
+#ifdef _MSC_VER
+  static unsigned __stdcall loopEventCallback(LPVOID arg);
+#else
   static void* loopEventCallback(void* arg);
+#endif
 
   static void destroyConnectNode(ConnectNode* node);
   static int nodeRequestProcess(ConnectNode* node);
@@ -53,9 +57,15 @@ class WorkThread {
   static void insertListNode(WorkThread* thread, INlsRequest * request);
   static void freeListNode(WorkThread* thread, INlsRequest * request);
 
+#ifdef _MSC_VER
+  HANDLE _mtxList;
+  HANDLE _workThreadHandle;
+  unsigned _workThreadId;
+#else
   pthread_t _workThreadId;
   pthread_mutex_t _mtxList;
   static pthread_mutex_t _mtxCpu;
+#endif
 
   static int _cpuNumber;
   static int _cpuCurrent;

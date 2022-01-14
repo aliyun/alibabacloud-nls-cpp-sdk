@@ -15,7 +15,6 @@
  */
 
 #include <stdio.h>
-#include <pthread.h>
 #include <string.h>
 #include "openssl/err.h"
 
@@ -191,6 +190,7 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
   int rLen = SSL_read(_ssl, (void *)buffer, (int)len);
   if (rLen <= 0) {
     int eCode = SSL_get_error(_ssl, rLen);
+    //LOG_WARN("Read maybe failed, get_error:%d", eCode);
     if (eCode == SSL_ERROR_WANT_READ ||
         eCode == SSL_ERROR_WANT_WRITE ||
         eCode == SSL_ERROR_WANT_X509_LOOKUP) {
@@ -198,7 +198,7 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
-      LOG_INFO("SSL_read failed:%d.", errno_code);
+      LOG_WARN("SSL_read failed:%d.", errno_code);
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
         return 0;

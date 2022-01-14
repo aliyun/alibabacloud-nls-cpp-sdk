@@ -5,6 +5,10 @@
 set(JSONCPP_URL  ${CMAKE_CURRENT_SOURCE_DIR}/jsoncpp-0.y.z.zip)
 set(JSONCPP_URL_HASH 8da4bafedec6d31886cb9d9c6606638f)
 
+#ogg
+set(OGG_URL ${CMAKE_CURRENT_SOURCE_DIR}/libogg-1.3.5.tar.gz)
+set(OGG_URL_HASH 3267127fe8d7ba77d3e00cb9d7ad578d)
+
 #opus
 set(OPUS_URL ${CMAKE_CURRENT_SOURCE_DIR}/opus-1.2.1.tar.gz)
 set(OPUS_URL_HASH 54bc867f13066407bc7b95be1fede090)

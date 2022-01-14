@@ -10,11 +10,22 @@ set(UUID_EXTERNAL_COMPILER_FLAGS
     )
 option(UUID_ENABLE "Enable Uuid." ON)
 
+set(OGG_C_FLAGS "-fPIC -fvisibility=hidden")
+set(OGG_EXTERNAL_COMPILER_FLAGS
+    URL ${OGG_URL}
+    URL_HASH MD5=${OGG_URL_HASH}
+    CONFIGURE_COMMAND ./configure CFLAGS=${OGG_C_FLAGS} enable_shared=no enable_static=yes --prefix=<INSTALL_DIR>
+    BUILD_IN_SOURCE 1
+    BUILD_COMMAND ${MAKE}
+    )
+option(OGG_ENABLE "Enable Ogg." ON)
+
 set(OPUS_C_FLAGS "-fPIC -fvisibility=hidden")
+set(OPUS_CXX_FLAGS "-fPIC -fvisibility=hidden -ffast-math")
 set(OPUS_EXTERNAL_COMPILER_FLAGS
     URL ${OPUS_URL}
     URL_HASH MD5=${OPUS_URL_HASH}
-    CONFIGURE_COMMAND ./configure CFLAGS=${OPUS_C_FLAGS} enable_shared=no enable_static=yes --prefix=<INSTALL_DIR>
+    CONFIGURE_COMMAND ./configure CFLAGS=${OPUS_C_FLAGS} CXXFLAGS=${OPUS_CXX_FLAGS} enable_shared=no enable_static=yes --prefix=<INSTALL_DIR>
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE}
     )

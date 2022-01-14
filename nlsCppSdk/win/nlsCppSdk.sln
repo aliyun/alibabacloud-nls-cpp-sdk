@@ -1,0 +1,67 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nlsCppSdk", "nlsCppSdk.vcxproj", "{4755B663-BF8D-4B83-BC49-0DDBBDECF802}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speechTranscriberDemo", "speechTranscriberDemo\speechTranscriberDemo.vcxproj", "{03A39A6B-15C6-4E0A-A278-81358BFD621A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802} = {4755B663-BF8D-4B83-BC49-0DDBBDECF802}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speechRecognizerDemo", "speechRecognizerDemo\speechRecognizerDemo.vcxproj", "{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802} = {4755B663-BF8D-4B83-BC49-0DDBBDECF802}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speechSynthesizerDemo", "speechSynthesizerDemo\speechSynthesizerDemo.vcxproj", "{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Debug|x64.ActiveCfg = Debug|x64
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Debug|x64.Build.0 = Debug|x64
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Debug|x86.ActiveCfg = Debug|Win32
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Debug|x86.Build.0 = Debug|Win32
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Release|x64.ActiveCfg = Release|x64
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Release|x64.Build.0 = Release|x64
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Release|x86.ActiveCfg = Release|Win32
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802}.Release|x86.Build.0 = Release|Win32
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Debug|x64.ActiveCfg = Debug|x64
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Debug|x64.Build.0 = Debug|x64
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Debug|x86.ActiveCfg = Debug|Win32
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Debug|x86.Build.0 = Debug|Win32
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Release|x64.ActiveCfg = Release|x64
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Release|x64.Build.0 = Release|x64
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Release|x86.ActiveCfg = Release|Win32
+		{03A39A6B-15C6-4E0A-A278-81358BFD621A}.Release|x86.Build.0 = Release|Win32
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Debug|x64.ActiveCfg = Debug|x64
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Debug|x64.Build.0 = Debug|x64
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Debug|x86.ActiveCfg = Debug|Win32
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Debug|x86.Build.0 = Debug|Win32
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Release|x64.ActiveCfg = Release|x64
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Release|x64.Build.0 = Release|x64
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Release|x86.ActiveCfg = Release|Win32
+		{E4C0125C-B67B-4FBF-AA62-1F68BA64E1EA}.Release|x86.Build.0 = Release|Win32
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Debug|x64.ActiveCfg = Debug|x64
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Debug|x64.Build.0 = Debug|x64
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Debug|x86.ActiveCfg = Debug|Win32
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Debug|x86.Build.0 = Debug|Win32
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x64.ActiveCfg = Release|x64
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x64.Build.0 = Release|x64
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x86.ActiveCfg = Release|Win32
+		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {28CC76B2-BD20-47B5-8D7F-41089AAB6FDF}
+	EndGlobalSection
+EndGlobal

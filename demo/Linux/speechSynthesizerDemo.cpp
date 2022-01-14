@@ -30,11 +30,13 @@
 #include "nlsEvent.h"
 #include "nlsToken.h"
 #include "speechSynthesizerRequest.h"
+#include "profile_scan.h"
 
 #define SAMPLE_RATE 16000
 #define SELF_TESTING_TRIGGER
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
+//#define TTS_AUDIO_DUMP
 #define DEFAULT_STRING_LEN 128
 
 /**
@@ -137,12 +139,15 @@ static int loop_timeout = LOOP_TIMEOUT;
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
-volatile static bool auto_close_run = false;
 static std::map<unsigned long, struct ParamStatistics *> g_statistics;
 static pthread_mutex_t params_mtx;
 static int run_cnt = 0;
 static int run_success = 0;
 static int run_fail = 0;
+
+static int profile_scan = -1;
+static int cur_profile_scan = -1;
+static PROFILE_INFO * g_sys_info = NULL;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -323,7 +328,7 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     << std::endl;
   // std::cout << "OnSynthesisCompleted: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
 
-  if (cbParam) {
+  if (cbParam && tmpParam->tParam) {
     gettimeofday(&(tmpParam->completedTv), NULL);
     tmpParam->tParam->completedConsumed ++;
 
@@ -420,7 +425,7 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 //  tmpParam->audioFile.close();
 //  delete tmpParam; //识别流程结束,释放回调参数
 
-  if (cbParam) {
+  if (cbParam && tmpParam->tParam) {
     tmpParam->tParam->closeConsumed ++;
     gettimeofday(&(tmpParam->closedTv), NULL);
 
@@ -466,22 +471,34 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
  * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
  * @return
+ * @notice 此处切记不可做block操作,只可做音频数据转存. 若在此回调中做过多操作,
+ *         会阻塞后续的数据回调和completed事件回调.
  */
 void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
 
   std::vector<unsigned char> data = cbEvent->getBinaryData(); // getBinaryData() 获取文本合成的二进制音频数据
-#if 0
+#if 1
   std::cout << "OnBinaryDataRecved: "
     << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
+    << ", userId: " << tmpParam->userId
     << ", taskId: " << cbEvent->getTaskId()        // 当前任务的task id，方便定位问题，建议输出
     << ", data size: " << data.size()              // 数据的大小
     << std::endl;
 #endif
+#ifdef TTS_AUDIO_DUMP
   // 以追加形式将二进制音频数据写入文件
-//  if (data.size() > 0) {
-//    tmpParam->audioFile.write((char*)&data[0], data.size());
-//  }
+  char file_name[256] = {0};
+  snprintf(file_name, 256,
+      "./tts_audio/%s.pcm",
+      cbEvent->getTaskId()
+      );
+  FILE *tts_stream = fopen(file_name, "a+");
+  if (tts_stream) {
+    fwrite((char*)&data[0], data.size(), 1, tts_stream);
+    fclose(tts_stream);
+  }
+#endif
 }
 
 /**
@@ -508,8 +525,59 @@ void* autoCloseFunc(void* arg) {
   timeout = loop_timeout;
   while (timeout-- > 0 && global_run) {
     usleep(1000 * 1000);
+
+    if (g_sys_info) {
+      int cur = -1;
+      if (cur_profile_scan == -1) {
+        cur = 0;
+      } else if (cur_profile_scan == 0) {
+        continue;
+      } else {
+        cur = cur_profile_scan;
+      }
+      PROFILE_INFO cur_sys_info;
+      get_profile_info("syDemo", &cur_sys_info);
+      std::cout << cur << ": cur_usr_name: " << cur_sys_info.usr_name
+        << " CPU: " << cur_sys_info.ave_cpu_percent << "%"
+        << " MEM: " << cur_sys_info.ave_mem_percent << "%"
+        << std::endl;
+
+      PROFILE_INFO *cur_info = &(g_sys_info[cur]);
+#if 0
+      if (cur_info->ave_cpu_percent == 0) {
+        strcpy(cur_info->usr_name, cur_sys_info.usr_name);
+        cur_info->ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        cur_info->ave_mem_percent = cur_sys_info.ave_mem_percent;
+        cur_info->eAveTime = 0;
+      } else {
+        cur_info->ave_cpu_percent =
+          (cur_info->ave_cpu_percent + cur_sys_info.ave_cpu_percent) / 2;
+        cur_info->ave_mem_percent =
+          (cur_info->ave_mem_percent + cur_sys_info.ave_mem_percent) / 2;
+      }
+      std::cout << cur << ": usr_name: " << cur_info->usr_name
+        << " CPU: " << cur_info->ave_cpu_percent << "%"
+        << " MEM: " << cur_info->ave_mem_percent << "%"
+        << std::endl;
+#else
+      if (cur_info->ave_cpu_percent == 0) {
+        strcpy(cur_info->usr_name, cur_sys_info.usr_name);
+        cur_info->ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        cur_info->ave_mem_percent = cur_sys_info.ave_mem_percent;
+        cur_info->eAveTime = 0;
+      } else {
+        if (cur_info->ave_cpu_percent < cur_sys_info.ave_cpu_percent) {
+          cur_info->ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        }
+        if (cur_info->ave_mem_percent < cur_sys_info.ave_mem_percent) {
+          cur_info->ave_mem_percent = cur_sys_info.ave_mem_percent;
+        }
+      }
+#endif
+    }
   }
   global_run = false;
+  std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
 }
 
 // 工作线程
@@ -526,12 +594,9 @@ void* pthreadFunc(void* arg) {
   pthread_mutex_init(&(tst->mtx), NULL);
 
   // 初始化自定义回调参数
-  ParamCallBack* cbParam = new ParamCallBack(tst);
-  if (!cbParam) {
-    return NULL;
-  }
-  cbParam->userId = pthread_self();
-  strcpy(cbParam->userInfo, "User.");
+  ParamCallBack cbParam(tst);
+  cbParam.userId = pthread_self();
+  strcpy(cbParam.userInfo, "User.");
 
   while (global_run) {
     /*
@@ -541,20 +606,20 @@ void* pthreadFunc(void* arg) {
         AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest();
     if (request == NULL) {
       std::cout << "createSynthesizerRequest failed." << std::endl;
-      //cbParam->audioFile.close();
+      //cbParam.audioFile.close();
       break;
     }
 
     // 设置音频合成结束回调函数
-    request->setOnSynthesisCompleted(OnSynthesisCompleted, cbParam);
+    request->setOnSynthesisCompleted(OnSynthesisCompleted, &cbParam);
     // 设置音频合成通道关闭回调函数
-    request->setOnChannelClosed(OnSynthesisChannelClosed, cbParam);
+    request->setOnChannelClosed(OnSynthesisChannelClosed, &cbParam);
     // 设置异常失败回调函数
-    request->setOnTaskFailed(OnSynthesisTaskFailed, cbParam);
+    request->setOnTaskFailed(OnSynthesisTaskFailed, &cbParam);
     // 设置文本音频数据接收回调函数
-    request->setOnBinaryDataReceived(OnBinaryDataRecved, cbParam);
+    request->setOnBinaryDataReceived(OnBinaryDataRecved, &cbParam);
     // 设置字幕信息
-    request->setOnMetaInfo(OnMetaInfo, cbParam);
+    request->setOnMetaInfo(OnMetaInfo, &cbParam);
 
     if (strlen(tst->appkey) > 0) {
       request->setAppKey(tst->appkey);
@@ -584,19 +649,21 @@ void* pthreadFunc(void* arg) {
     }
 
     /*
-     * 2: start()为异步操作。成功返回BinaryRecv事件。失败返回TaskFailed事件。
+     * 2: start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
-    gettimeofday(&(cbParam->startTv), NULL);
+    gettimeofday(&(cbParam.startTv), NULL);
+    pthread_mutex_lock(&(cbParam.mtxWord));
     int ret = request->start();
     run_cnt++;
     if (ret < 0) {
-      std::cout << "start() failed." << std::endl;
+      pthread_mutex_unlock(&(cbParam.mtxWord));
+      std::cout << "start failed. pid:" << pthread_self() << std::endl;
       AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request); // start()失败，释放request对象
-      //cbParam->audioFile.close();
+      //cbParam.audioFile.close();
       break;
     } else {
       std::cout << "start success. pid " << pthread_self() << std::endl;
-      cbParam->tParam->startedConsumed++;
+      cbParam.tParam->startedConsumed++;
       struct ParamStatistics params;
       params.running = true;
       params.success_flag = false;
@@ -606,45 +673,46 @@ void* pthreadFunc(void* arg) {
 
     /*
      * 6: 通知云端数据发送结束.
-     * stop()为异步操作.失败返回TaskFailed事件。
+     * stop()为无意义接口，调用与否都会跑完全程.
+     * cancel()立即停止工作, 且不会有回调返回, 失败返回TaskFailed事件。
      */
+//    ret = request->cancel();
     ret = request->stop();
 
     /*
      * 7: 识别结束, 释放request对象
      */
+    struct timeval now;
+    struct timespec outtime;
     if (ret == 0) {
-      std::cout << "wait closed callback." << std::endl;
-      struct timeval now;
-      struct timespec outtime;
+      gettimeofday(&now, NULL);
+      std::cout << "wait closed callback. pid " << pthread_self()
+        << " tv: " << now.tv_sec << std::endl;
       gettimeofday(&now, NULL);
       outtime.tv_sec = now.tv_sec + 30;
       outtime.tv_nsec = now.tv_usec * 1000;
       // 等待closed事件后再进行释放, 否则会出现崩溃
-      pthread_mutex_lock(&(cbParam->mtxWord));
-      pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime);
-      pthread_mutex_unlock(&(cbParam->mtxWord));
+      pthread_cond_timedwait(&(cbParam.cvWord), &(cbParam.mtxWord), &outtime);
+      pthread_mutex_unlock(&(cbParam.mtxWord));
     } else {
-      std::cout << "ret is " << ret << std::endl;
+      pthread_mutex_unlock(&(cbParam.mtxWord));
+      std::cout << "ret is " << ret << ", pid " << pthread_self() << std::endl;
     }
-    std::cout << "stop finished" << std::endl;
+    gettimeofday(&now, NULL);
+    std::cout << "stop finished. pid " << pthread_self()
+      << " tv: " << now.tv_sec << std::endl;
     AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
     std::cout << "release Synthesizer success. pid "
         << pthread_self() << std::endl;
 
-//    if (vectorGetFailed(cbParam->userId)) break;
+//    if (vectorGetFailed(cbParam.userId)) break;
   }  // while global_run
 
-  usleep(5 * 1000 * 1000);
+  usleep(1 * 1000 * 1000);
 
   pthread_mutex_destroy(&(tst->mtx));
 
-  if (cbParam) {
-    delete cbParam;
-    cbParam = NULL;
-  }
-
-	return NULL;
+  return NULL;
 }
 
 /**
@@ -682,10 +750,10 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   };
   const char texts[AUDIO_TEXT_NUMS][AUDIO_TEXT_LENGTH] =
   {
-    "今日天气真不错，我想去操作踢足球.",
-    "今日天气真不错，我想去操作踢足球.",
-    "今日天气真不错，我想去操作踢足球.",
-    "今日天气真不错，我想去操作踢足球."
+    "今日天气真不错，我想去操场踢足球.",
+    "今日天气真不错，我想去操场踢足球.",
+    "今日天气真不错，我想去操场踢足球.",
+    "今日天气真不错，我想去操场踢足球."
   };
 	ParamStruct pa[threads];
 
@@ -739,6 +807,8 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   for (int j = 0; j < threads; j++) {
     pthread_create(&pthreadId[j], NULL, &pthreadFunc, (void *)&(pa[j]));
   }
+
+  std::cout << "start pthread_join..." << std::endl;
 
   for (int j = 0; j < threads; j++) {
     pthread_join(pthreadId[j], NULL);
@@ -799,6 +869,18 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   eAveTime /= threads;
   cAveTime /= threads;
 
+  int cur = -1;
+  if (cur_profile_scan == -1) {
+    cur = 0;
+  } else if (cur_profile_scan == 0) {
+  } else {
+    cur = cur_profile_scan;
+  }
+  if (g_sys_info && cur >= 0 && cur_profile_scan != 0) {
+    PROFILE_INFO *cur_info = &(g_sys_info[cur]);
+    cur_info->eAveTime = eAveTime;
+  }
+
   for (int i = 0; i < threads; i ++) {
     std::cout << "No." << i
       << " Max completed time: " << pa[i].endMaxValue << " ms"
@@ -823,26 +905,28 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Total. " << std::endl;
-  std::cout << "Request: " << rTotalCount << std::endl;
-  std::cout << "Started: " << sTotalCount << std::endl;
-  std::cout << "Completed: " << eTotalCount << std::endl;
-  std::cout << "Failed: " << fTotalCount << std::endl;
-  std::cout << "Closed: " << cTotalCount << std::endl;
+  std::cout << "Final Total. " << std::endl;
+  std::cout << "Final Request: " << rTotalCount << std::endl;
+  std::cout << "Final Started: " << sTotalCount << std::endl;
+  std::cout << "Final Completed: " << eTotalCount << std::endl;
+  std::cout << "Final Failed: " << fTotalCount << std::endl;
+  std::cout << "Final Closed: " << cTotalCount << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Max completed time: " << eMaxTime << " ms" << std::endl;
-  std::cout << "Min completed time: " << eMinTime << " ms" << std::endl;
-  std::cout << "Ave completed time: " << eAveTime << " ms" << std::endl;
+  std::cout << "Final Max completed time: " << eMaxTime << " ms" << std::endl;
+  std::cout << "Final Min completed time: " << eMinTime << " ms" << std::endl;
+  std::cout << "Final Ave completed time: " << eAveTime << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Max closed time: " << cMaxTime << " ms" << std::endl;
-  std::cout << "Min closed time: " << cMinTime << " ms" << std::endl;
-  std::cout << "Ave closed time: " << cAveTime << " ms" << std::endl;
+  std::cout << "Final Max closed time: " << cMaxTime << " ms" << std::endl;
+  std::cout << "Final Min closed time: " << cMinTime << " ms" << std::endl;
+  std::cout << "Final Ave closed time: " << cAveTime << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
+
+  usleep(2 * 1000 * 1000);
 
   std::cout << "speechSynthesizerMultFile exit..." << std::endl;
   return 0;
@@ -887,6 +971,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--NlsScan")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      profile_scan = atoi(argv[index]);
     }
     index++;
   }
@@ -927,71 +1015,125 @@ int main(int argc, char* argv[]) {
 
   pthread_mutex_init(&params_mtx, NULL);
 
-  // 根据需要设置SDK输出日志, 可选. 此处表示SDK日志输出至log-Synthesizer.txt， LogDebug表示输出所有级别日志
-#ifdef LOG_TRIGGER
-  int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-      "log-synthesizer", AlibabaNls::LogDebug, 400);
-  if (-1 == ret) {
-    std::cout << "set log failed." << std::endl;
-    return -1;
+  if (profile_scan > 0) {
+    g_sys_info = new PROFILE_INFO[profile_scan + 1];
+    memset(g_sys_info, 0, sizeof(PROFILE_INFO) * (profile_scan + 1));
+  } else {
+    profile_scan = 0;
   }
-#endif
 
-  //启动工作线程
-  AlibabaNls::NlsClient::getInstance()->startWorkThread(-1);
+  for (cur_profile_scan = -1;
+       cur_profile_scan < profile_scan;
+       cur_profile_scan++) {
 
-  // 合成多个文本
-  speechSynthesizerMultFile(g_appkey.c_str(), g_threads);
+    if (cur_profile_scan == 0) continue;
 
-  // 所有工作完成，进程退出前，释放nlsClient. 请注意, releaseInstance()非线程安全.
-  std::cout << "releaseInstance -> " << std::endl;
-  AlibabaNls::NlsClient::releaseInstance();
-  std::cout << "releaseInstance done." << std::endl;
+    // 根据需要设置SDK输出日志, 可选. 此处表示SDK日志输出至log-Synthesizer.txt,
+    // LogDebug表示输出所有级别日志
+  #ifdef LOG_TRIGGER
+    int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
+        "log-synthesizer", AlibabaNls::LogDebug, 400, 50);
+    if (-1 == ret) {
+      std::cout << "set log failed." << std::endl;
+      return -1;
+    }
+  #endif
 
-  int size = g_statistics.size();
-  int run_count = 0;
-  int success_count = 0;
-  if (size > 0) {
-    std::map<unsigned long, struct ParamStatistics *>::iterator it;
-    std::cout << "\n" << std::endl;
-    pthread_mutex_lock(&params_mtx);
-    for (it = g_statistics.begin(); it != g_statistics.end(); ++it) {
-      run_count++;
-      if (it->second->success_flag) success_count++;
+    std::cout << "startWorkThread begin... " << std::endl;
 
-      std::cout << "pid: " << it->first
-        << "; run_flag: " << it->second->running
-        << "; success_flag: " << it->second->success_flag
-        << "; audio_file: " << it->second->audio_ms << "ms "
-        << std::endl;
-      if (it->second->s_cnt > 0) {
-        std::cout << "average time: "
-          << (loop_timeout * 1000 / it->second->s_cnt)
-          << "ms" << std::endl;
+    // 启动工作线程, 在创建请求和启动前必须调用此函数
+    // 入参为负时, 启动当前系统中可用的核数
+    AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);
+
+    std::cout << "startWorkThread finish" << std::endl;
+
+    // 合成多个文本
+    speechSynthesizerMultFile(g_appkey.c_str(), g_threads);
+
+    // 所有工作完成，进程退出前，释放nlsClient.
+    // 请注意, releaseInstance()非线程安全.
+    std::cout << "releaseInstance -> " << std::endl;
+    AlibabaNls::NlsClient::releaseInstance();
+    std::cout << "releaseInstance done." << std::endl;
+
+    int size = g_statistics.size();
+    int run_count = 0;
+    int success_count = 0;
+    if (size > 0) {
+      std::map<unsigned long, struct ParamStatistics *>::iterator it;
+      std::cout << "\n" << std::endl;
+  #if 0
+      pthread_mutex_lock(&params_mtx);
+      for (it = g_statistics.begin(); it != g_statistics.end(); ++it) {
+        run_count++;
+        if (it->second->success_flag) success_count++;
+        std::cout << "pid: " << it->first
+          << "; run_flag: " << it->second->running
+          << "; success_flag: " << it->second->success_flag
+          << "; audio_file: " << it->second->audio_ms << "ms "
+          << std::endl;
+        if (it->second->s_cnt > 0) {
+          std::cout << "average time: "
+            << (loop_timeout * 1000 / it->second->s_cnt)
+            << "ms" << std::endl;
+        }
+      }
+      pthread_mutex_unlock(&params_mtx);
+  #endif
+
+      std::cout << "threads run count:" << run_count
+        << " success count:" << success_count << std::endl;
+      std::cout << "requests run count:" << run_cnt
+        << " success count:" << run_success
+        << " fail count:" << run_fail << std::endl;
+
+      usleep(3000 * 1000);
+
+      pthread_mutex_lock(&params_mtx);
+      std::map<unsigned long, struct ParamStatistics *>::iterator iter;
+      for (iter = g_statistics.begin(); iter != g_statistics.end();) {
+        struct ParamStatistics *second = iter->second;
+        if (second) {
+          delete second;
+          second = NULL;
+        }
+        g_statistics.erase(iter++);
+      }
+      g_statistics.clear();
+      pthread_mutex_unlock(&params_mtx);
+    }
+
+    run_cnt = 0;
+    run_success = 0;
+    run_fail = 0;
+
+    std::cout << "===============================" << std::endl;
+
+  } // for
+
+  if (g_sys_info) {
+    int k = 0;
+    for (k = 0; k < profile_scan + 1; k++) {
+      PROFILE_INFO *cur_info = &(g_sys_info[k]);
+      if (k == 0) {
+        std::cout << "WorkThread: " << k - 1
+          << " USER: " << cur_info->usr_name
+          << " CPU: " << cur_info->ave_cpu_percent << "% "
+          << " MEM: " << cur_info->ave_mem_percent << "% "
+          << " Average Time: " << cur_info->eAveTime << "ms"
+          << std::endl;
+      } else {
+        std::cout << "WorkThread: " << k
+          << " USER: " << cur_info->usr_name
+          << " CPU: " << cur_info->ave_cpu_percent << "% "
+          << " MEM: " << cur_info->ave_mem_percent << "% "
+          << " Average Time: " << cur_info->eAveTime << "ms"
+          << std::endl;
       }
     }
-    pthread_mutex_unlock(&params_mtx);
 
-    std::cout << "threads run count:" << run_count
-      << " success count:" << success_count << std::endl;
-    std::cout << "requests run count:" << run_cnt
-      << " success count:" << run_success
-      << " fail count:" << run_fail << std::endl;
-
-    usleep(3000 * 1000);
-
-    pthread_mutex_lock(&params_mtx);
-    std::map<unsigned long, struct ParamStatistics *>::iterator iter;
-    for (iter = g_statistics.begin(); iter != g_statistics.end();) {
-      struct ParamStatistics *second = iter->second;
-      if (second) {
-        delete second;
-        second = NULL;
-      }
-      g_statistics.erase(iter++);
-    }
-    g_statistics.clear();
-    pthread_mutex_unlock(&params_mtx);
+    delete[] g_sys_info;
+    g_sys_info = NULL;
   }
 
   pthread_mutex_destroy(&params_mtx);

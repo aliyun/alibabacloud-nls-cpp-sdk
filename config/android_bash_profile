@@ -1,0 +1,11 @@
+ANDROID_NDK_ROOT=/home/fsc/toolchains/android-ndk-r21e
+export ANDROID_NDK_ROOT
+
+ANDROID_NDK_HOME=${ANDROID_NDK_ROOT}
+export ANDROID_NDK_HOME
+
+ANDROID_TOOLCHAIN=${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin
+export PATH=${PATH}:${ANDROID_TOOLCHAIN}:${ANDROID_NDK_ROOT}
+
+ANDROID_API=26
+export ANDROID_API
