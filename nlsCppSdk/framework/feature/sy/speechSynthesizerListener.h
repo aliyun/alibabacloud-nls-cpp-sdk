@@ -24,16 +24,15 @@ namespace AlibabaNls {
 class SpeechSynthesizerCallback;
 
 class SpeechSynthesizerListener : public INlsRequestListener {
-public:
+ public:
 
-    SpeechSynthesizerListener(SpeechSynthesizerCallback* cb);
+  SpeechSynthesizerListener(SpeechSynthesizerCallback* cb);
+  ~SpeechSynthesizerListener();
 
-    ~SpeechSynthesizerListener();
+  virtual void handlerFrame(NlsEvent);
 
-    virtual void handlerFrame(NlsEvent);
-
-private:
-    SpeechSynthesizerCallback* _callback;
+ private:
+  SpeechSynthesizerCallback* _callback;
 
 };
 

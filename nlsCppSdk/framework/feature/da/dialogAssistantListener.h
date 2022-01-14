@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Alibaba Group Holding Limited
+ * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,14 @@ namespace AlibabaNls {
 class DialogAssistantCallback;
 
 class DialogAssistantListener : public INlsRequestListener {
-public:
+ public:
+  DialogAssistantListener(DialogAssistantCallback* cb);
+  ~DialogAssistantListener();
 
-    DialogAssistantListener(DialogAssistantCallback* cb);
+  virtual void handlerFrame(NlsEvent);
 
-    ~DialogAssistantListener();
-
-    virtual void handlerFrame(NlsEvent);
-
-private:
-    DialogAssistantCallback* _callback;
-
+ private:
+  DialogAssistantCallback* _callback;
 };
 
 }

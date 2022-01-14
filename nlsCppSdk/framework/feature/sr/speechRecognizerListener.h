@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Alibaba Group Holding Limited
+ * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,6 @@
 #ifndef NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H
 #define NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H
 
-#if defined(_WIN32)
-#pragma warning( push )
-#pragma warning ( disable : 4251 )
-#endif
-
 #include "iNlsRequestListener.h"
 
 namespace AlibabaNls {
@@ -29,23 +24,17 @@ namespace AlibabaNls {
 class SpeechRecognizerCallback;
 
 class SpeechRecognizerListener : public INlsRequestListener {
-public:
+ public:
+  SpeechRecognizerListener(SpeechRecognizerCallback* cb);
+  ~SpeechRecognizerListener();
 
-SpeechRecognizerListener(SpeechRecognizerCallback* cb);
+  virtual void handlerFrame(NlsEvent);
 
-~SpeechRecognizerListener();
-
-virtual void handlerFrame(NlsEvent);
-
-private:
-SpeechRecognizerCallback* _callback;
+ private:
+  SpeechRecognizerCallback* _callback;
 
 };
 
 }
-
-#if defined(_WIN32)
-#pragma warning( pop )
-#endif
 
 #endif //NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H

@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Alibaba Group Holding Limited
+ * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,16 @@ namespace AlibabaNls {
 
 class SpeechRecognizerParam : public INlsRequestParam {
 
-public:
-    SpeechRecognizerParam();
-    ~SpeechRecognizerParam();
+ public:
+  SpeechRecognizerParam();
+  ~SpeechRecognizerParam();
 
-    const char* getStartCommand();
-    const char* getStopCommand();
+  const char* getStartCommand();
+  const char* getStopCommand();
 
-    int setEnableVoiceDetection(bool value);
-    int setMaxStartSilence(int value);
-    int setMaxEndSilence(int value);
-
+  int setEnableVoiceDetection(bool value);
+  int setMaxStartSilence(int value);
+  int setMaxEndSilence(int value);
 };
 
 }

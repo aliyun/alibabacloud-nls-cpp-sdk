@@ -25,19 +25,19 @@ namespace AlibabaNls {
 class SpeechSynthesizerParam : public INlsRequestParam {
 
 public:
-    SpeechSynthesizerParam(int version);
-    ~SpeechSynthesizerParam();
+  SpeechSynthesizerParam(int version);
+  ~SpeechSynthesizerParam();
 
-    int setText(const char* value);
-    int setVoice(const char* value);
-    int setVolume(int value);
-    int setSpeechRate(int value);
-    int setPitchRate(int value);
-    int setMethod(int value);
-    void setEnableSubtitle(bool value);
+  int setText(const char* value);
+  int setVoice(const char* value);
+  int setVolume(int value);
+  int setSpeechRate(int value);
+  int setPitchRate(int value);
+  int setMethod(int value);
+  void setEnableSubtitle(bool value);
 
-    const char* getStartCommand();
-    const char* getStopCommand();
+  const char* getStartCommand();
+  const char* getStopCommand();
 
 };
 

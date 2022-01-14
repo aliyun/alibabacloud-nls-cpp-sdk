@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Alibaba Group Holding Limited
+ * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-#include "speechRecognizerParam.h"
 #include <string>
-#include "log.h"
+#include "speechRecognizerParam.h"
 #include "nlsRequestParamInfo.h"
+#include "nlog.h"
 
 namespace AlibabaNls {
-
-using namespace utility;
-using std::string;
 
 #define D_CMD_START_RECOGNITION "StartRecognition"
 #define D_CMD_STOP_RECOGNITION "StopRecognition"
@@ -32,43 +29,33 @@ SpeechRecognizerParam::SpeechRecognizerParam() : INlsRequestParam(TypeAsr) {
 	_header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
 }
 
-SpeechRecognizerParam::~SpeechRecognizerParam() {
-}
+SpeechRecognizerParam::~SpeechRecognizerParam() {}
 
 const char* SpeechRecognizerParam::getStartCommand() {
-
-    _header[D_NAME] = D_CMD_START_RECOGNITION;
-
-    LOG_DEBUG("SpeechRecognizerParam Start.");
-
-    return INlsRequestParam::getStartCommand();
+  _header[D_NAME] = D_CMD_START_RECOGNITION;
+  LOG_DEBUG("SpeechRecognizerParam Start.");
+  return INlsRequestParam::getStartCommand();
 }
 
 const char* SpeechRecognizerParam::getStopCommand() {
-
-    _header[D_NAME] = D_CMD_STOP_RECOGNITION;
-
-    LOG_DEBUG("SpeechRecognizerParam Stop.");
-
-    return INlsRequestParam::getStopCommand();
+  _header[D_NAME] = D_CMD_STOP_RECOGNITION;
+  LOG_DEBUG("SpeechRecognizerParam Stop.");
+  return INlsRequestParam::getStopCommand();
 }
 
 int SpeechRecognizerParam::setEnableVoiceDetection(bool value) {
-    _payload[D_SR_VOICE_DETECTION] = value;
-
-    return 0;
+  _payload[D_SR_VOICE_DETECTION] = value;
+  return 0;
 }
 
 int SpeechRecognizerParam::setMaxStartSilence(int value) {
-    _payload[D_SR_MAX_START_SILENCE] = value;
-
-    return 0;
+  _payload[D_SR_MAX_START_SILENCE] = value;
+  return 0;
 }
 
 int SpeechRecognizerParam::setMaxEndSilence(int value) {
-    _payload[D_SR_MAX_END_SILENCE] = value;
-
-    return 0;
+  _payload[D_SR_MAX_END_SILENCE] = value;
+  return 0;
 }
 
 }

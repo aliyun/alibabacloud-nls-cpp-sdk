@@ -1,0 +1,196 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\encoder">
+      <UniqueIdentifier>{055d2181-e10e-47d0-a1e1-6f4781a1f7ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework">
+      <UniqueIdentifier>{48fa5589-667d-471f-8e2b-35a908fc822a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\token">
+      <UniqueIdentifier>{ae74e932-16f9-49e0-bc27-72666d80cb08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\event">
+      <UniqueIdentifier>{040bf386-3b39-4299-9e56-4ec719ed02c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\transport">
+      <UniqueIdentifier>{76ac0aac-608d-49e8-a88d-ee21c5b8718d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\utils">
+      <UniqueIdentifier>{4dd8b2d3-9bda-426e-865c-b76409c9e68c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\common">
+      <UniqueIdentifier>{90d5d5cc-9b54-4339-91ab-e74ea39bfe71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\feature">
+      <UniqueIdentifier>{5867fce4-1ee1-403f-bb48-ed0627912785}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\feature\st">
+      <UniqueIdentifier>{f72643eb-f240-46e4-976a-d70af8c96029}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\feature\sy">
+      <UniqueIdentifier>{bb8d79d3-27f8-4210-8f80-380d35e48264}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\feature\sr">
+      <UniqueIdentifier>{31c8db7e-eca5-464b-b16e-26e882ec6647}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\feature\da">
+      <UniqueIdentifier>{5013d983-49d5-4121-ab4c-ae33a6d02827}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\framework\item">
+      <UniqueIdentifier>{a06593f9-2829-4e31-beab-33bd17abdfb1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\encoder\nlsEncoder.cpp">
+      <Filter>源文件\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\event\workThread.cpp">
+      <Filter>源文件\event</Filter>
+    </ClCompile>
+    <ClCompile Include="..\utils\nlog.cpp">
+      <Filter>源文件\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\utils\utility.cpp">
+      <Filter>源文件\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\transport\connectNode.cpp">
+      <Filter>源文件\transport</Filter>
+    </ClCompile>
+    <ClCompile Include="..\transport\nlsEventNetWork.cpp">
+      <Filter>源文件\transport</Filter>
+    </ClCompile>
+    <ClCompile Include="..\transport\SSLconnect.cpp">
+      <Filter>源文件\transport</Filter>
+    </ClCompile>
+    <ClCompile Include="..\transport\webSocketTcp.cpp">
+      <Filter>源文件\transport</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\ClientConfiguration.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\CommonClient.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\CommonRequest.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\CommonResponse.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\CoreClient.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\Credentials.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\CredentialsProvider.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\CurlHttpClient.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\Error.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\HmacSha1Signer.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\HttpClient.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\HttpMessage.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\HttpRequest.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\HttpResponse.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\nlsToken.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\ServiceRequest.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\SimpleCredentialsProvider.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\Url.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\Utils.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\common\nlsClient.cpp">
+      <Filter>源文件\framework\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\common\nlsEvent.cpp">
+      <Filter>源文件\framework\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\item\iNlsRequest.cpp">
+      <Filter>源文件\framework\item</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\item\iNlsRequestListener.cpp">
+      <Filter>源文件\framework\item</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\item\iNlsRequestParam.cpp">
+      <Filter>源文件\framework\item</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\da\dialogAssistantListener.cpp">
+      <Filter>源文件\framework\feature\da</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\da\dialogAssistantParam.cpp">
+      <Filter>源文件\framework\feature\da</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\da\dialogAssistantRequest.cpp">
+      <Filter>源文件\framework\feature\da</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\sr\speechRecognizerListener.cpp">
+      <Filter>源文件\framework\feature\sr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\sr\speechRecognizerParam.cpp">
+      <Filter>源文件\framework\feature\sr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\sr\speechRecognizerRequest.cpp">
+      <Filter>源文件\framework\feature\sr</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\sy\speechSynthesizerListener.cpp">
+      <Filter>源文件\framework\feature\sy</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\sy\speechSynthesizerParam.cpp">
+      <Filter>源文件\framework\feature\sy</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\sy\speechSynthesizerRequest.cpp">
+      <Filter>源文件\framework\feature\sy</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\st\speechTranscriberListener.cpp">
+      <Filter>源文件\framework\feature\st</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\st\speechTranscriberParam.cpp">
+      <Filter>源文件\framework\feature\st</Filter>
+    </ClCompile>
+    <ClCompile Include="..\framework\feature\st\speechTranscriberRequest.cpp">
+      <Filter>源文件\framework\feature\st</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\NetworkProxy.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+    <ClCompile Include="..\token\src\Signer.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

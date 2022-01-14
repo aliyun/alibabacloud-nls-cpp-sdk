@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Alibaba Group Holding Limited
+ * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,23 +23,23 @@ namespace AlibabaNls {
 
 class DialogAssistantParam : public INlsRequestParam {
 
-public:
-    DialogAssistantParam(int version);
-    ~DialogAssistantParam();
+ public:
+   DialogAssistantParam(int version);
+   ~DialogAssistantParam();
 
-    virtual const char*  getStartCommand();
-    virtual const char*  getStopCommand();
-    virtual const char*  getExecuteDialog();
-    virtual const char*  getStopWakeWordCommand();
+   virtual const char*  getStartCommand();
+   virtual const char*  getStopCommand();
+   virtual const char*  getExecuteDialog();
+   virtual const char*  getStopWakeWordCommand();
 
-    virtual int setQueryParams(const char* value);
-    virtual int setQueryContext(const char* value);
-    virtual int setQuery(const char* value);
+   virtual int setQueryParams(const char* value);
+   virtual int setQueryContext(const char* value);
+   virtual int setQuery(const char* value);
 
-    int setWakeWordModel(const char* value);
-    int setWakeWord(const char* value);
+   int setWakeWordModel(const char* value);
+   int setWakeWord(const char* value);
 
-    void setEnableMultiGroup(bool value);
+   void setEnableMultiGroup(bool value);
 };
 
 }
