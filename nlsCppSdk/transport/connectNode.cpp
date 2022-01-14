@@ -939,7 +939,11 @@ int ConnectNode::webSocketResponse() {
       } else {
         // no new data added in evbuffer
         if (ret == 0) {
+        #if defined(_MSC_VER)
+          Sleep(2);
+        #else
           usleep(2 * 1000);
+        #endif
           break;
         }
       }
@@ -1084,7 +1088,7 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame) {
                              _request->getRequestParam()->_task_id);
     }
   } else if (wsFrame->type == WebSocketHeaderType::TEXT_FRAME) {
-    // 打印这个string，可能会因为太长而崩溃
+    /* 打印这个string，可能会因为太长而崩溃 */
     std::string result((char *)wsFrame->data, wsFrame->length);
     if (wsFrame->length > 1024) {
       std::string part_result((char *)wsFrame->data, 1024);
