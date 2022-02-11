@@ -24,7 +24,7 @@ namespace AlibabaNls {
 class DialogAssistantParam : public INlsRequestParam {
 
  public:
-   DialogAssistantParam(int version);
+   DialogAssistantParam(int version, const char* sdkName = "cpp");
    ~DialogAssistantParam();
 
    virtual const char*  getStartCommand();

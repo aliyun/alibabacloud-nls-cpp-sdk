@@ -93,8 +93,10 @@ static void onSynthesisDataReceived(AlibabaNls::NlsEvent* cbEvent, void* cbParam
 }
 
 
-NLSAPI(int) SYGetNlsEvent(NLS_EVENT_STRUCT &event)
+NLSAPI(int) SYGetNlsEvent(NLS_EVENT_STRUCT& event)
 {
+	WaitForSingleObject(event.eventMtx, INFINITE);
+
 	event.statusCode = syEvent->statusCode;
 	memcpy(event.msg, syEvent->msg, 8192);
 	event.msgType = syEvent->msgType;
@@ -113,12 +115,14 @@ NLSAPI(int) SYGetNlsEvent(NLS_EVENT_STRUCT &event)
 	event.wakeWordGender = syEvent->wakeWordGender;
 	memcpy(event.binaryData, syEvent->binaryData, 16384);
 	event.binaryDataSize = syEvent->binaryDataSize;
+	syEvent->binaryDataSize = 0;
 	event.stashResultSentenceId = syEvent->stashResultSentenceId;
 	event.stashResultBeginTime = syEvent->stashResultBeginTime;
 	memcpy(event.stashResultText, syEvent->stashResultText, 8192);
 	event.stashResultCurrentTime = syEvent->stashResultBeginTime;
 	event.isValid = false;
 
+	ReleaseMutex(event.eventMtx);
 	return event.binaryDataSize;
 }
 

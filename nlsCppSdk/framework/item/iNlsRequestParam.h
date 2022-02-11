@@ -43,7 +43,7 @@ class ConnectNode;
 
 class INlsRequestParam {
  public:
-  INlsRequestParam(NlsType mode);
+  INlsRequestParam(NlsType mode, const char* sdkName);
   virtual ~INlsRequestParam() = 0;
 
   std::string getRandomUuid();
@@ -114,6 +114,7 @@ class INlsRequestParam {
   std::string _task_id;
 
   NlsType _mode;
+  std::string _sdk_name;
 
   std::string _startCommand;
   std::string _controlCommand;

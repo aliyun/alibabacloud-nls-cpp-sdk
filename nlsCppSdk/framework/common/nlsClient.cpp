@@ -172,8 +172,8 @@ void NlsClient::releaseRequest(INlsRequest* request) {
   LOG_DEBUG("releaseRequest done.");
 }
 
-SpeechRecognizerRequest* NlsClient::createRecognizerRequest() {
-  return new SpeechRecognizerRequest();
+SpeechRecognizerRequest* NlsClient::createRecognizerRequest(const char* sdkName) {
+  return new SpeechRecognizerRequest(sdkName);
 }
 
 void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
@@ -189,8 +189,8 @@ void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
 //  LOG_DEBUG("releaseRecognizerRequest done.");
 }
 
-SpeechTranscriberRequest* NlsClient::createTranscriberRequest() {
-  return new SpeechTranscriberRequest();
+SpeechTranscriberRequest* NlsClient::createTranscriberRequest(const char* sdkName) {
+  return new SpeechTranscriberRequest(sdkName);
 }
 
 void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
@@ -204,8 +204,8 @@ void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
   }
 }
 
-SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(TtsVersion version){
-  return new SpeechSynthesizerRequest((int)version);
+SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(TtsVersion version, const char* sdkName){
+  return new SpeechSynthesizerRequest((int)version, sdkName);
 }
 
 void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
@@ -220,8 +220,8 @@ void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
 }
 
 DialogAssistantRequest* NlsClient::createDialogAssistantRequest(
-    DaVersion version) {
-  return new DialogAssistantRequest((int) version);
+    DaVersion version, const char* sdkName) {
+  return new DialogAssistantRequest((int)version, sdkName);
 }
 
 void NlsClient::releaseDialogAssistantRequest(DialogAssistantRequest* request) {

@@ -37,7 +37,7 @@ class INlsRequestListener;
 
 class NLS_SDK_CLIENT_EXPORT INlsRequest {
  public:
-  INlsRequest();
+  INlsRequest(const char* sdkName = "cpp");
   virtual~INlsRequest();
 
   int start(INlsRequest*);

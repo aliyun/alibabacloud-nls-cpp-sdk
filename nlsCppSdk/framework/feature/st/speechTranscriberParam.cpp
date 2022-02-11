@@ -26,8 +26,9 @@ namespace AlibabaNls {
 #define D_CMD_STOP_TRANSCRIPTION "StopTranscription"
 #define D_NAMESPACE_TRANSCRIPTION "SpeechTranscriber"
 
-SpeechTranscriberParam::SpeechTranscriberParam() : INlsRequestParam(TypeRealTime) {
-	_header[D_NAMESPACE] = D_NAMESPACE_TRANSCRIPTION;
+SpeechTranscriberParam::SpeechTranscriberParam(const char* sdkName) :
+    INlsRequestParam(TypeRealTime, sdkName) {
+  _header[D_NAMESPACE] = D_NAMESPACE_TRANSCRIPTION;
 }
 
 SpeechTranscriberParam::~SpeechTranscriberParam() {}

@@ -117,11 +117,11 @@ void SpeechSynthesizerCallback::setOnMetaInfo(
   }
 }
 
-SpeechSynthesizerRequest::SpeechSynthesizerRequest(int version) {
+SpeechSynthesizerRequest::SpeechSynthesizerRequest(int version, const char* sdkName) {
   _callback = new SpeechSynthesizerCallback();
 
   //init request param
-  _synthesizerParam = new SpeechSynthesizerParam(version);
+  _synthesizerParam = new SpeechSynthesizerParam(version, sdkName);
   _requestParam = _synthesizerParam;
 
   //init listener

@@ -517,7 +517,7 @@ void OnRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   std::cout << "OnRecognitionTaskFailed: All response:"
       << cbEvent->getAllResponse() << std::endl; /* 获取服务端返回的全部信息 */
 
-  FILE *failed_stream = fopen("recognitionTaskFailed.log", "a+");
+  FILE *failed_stream = fopen("recognitionTaskFailed.log", "ab");
   if (failed_stream) {
     std::string ts = timestamp_str();
     char outbuf[1024] = {0};
@@ -1050,6 +1050,8 @@ int parse_argv(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
+  system("chcp 65001");
+
   if (parse_argv(argc, argv)) {
     std::cout << "params is not valid.\n"
       << "Usage:\n"

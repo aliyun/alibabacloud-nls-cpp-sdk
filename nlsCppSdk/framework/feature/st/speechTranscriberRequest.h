@@ -53,7 +53,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberCallback {
 
 class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
  public:
-  SpeechTranscriberRequest();
+  SpeechTranscriberRequest(const char* sdkName = "cpp");
   ~SpeechTranscriberRequest();
 
   /*

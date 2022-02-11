@@ -19,6 +19,9 @@
 
 struct NLS_EVENT_STRUCT
 {
+	int binaryDataSize;
+	unsigned char binaryData[16384];
+
 	int statusCode;
 	char msg[8192];
 	int msgType;
@@ -36,15 +39,13 @@ struct NLS_EVENT_STRUCT
 	char wakeWordUserId[128];
 	int wakeWordGender;
 
-	unsigned char binaryData[16384];
-	int binaryDataSize;
-
 	int stashResultSentenceId;
 	int stashResultBeginTime;
 	char stashResultText[8192];
 	int stashResultCurrentTime;
 
 	bool isValid;
+	HANDLE eventMtx;
 };
 
 static NLS_EVENT_STRUCT* srEvent = NULL;
@@ -53,12 +54,18 @@ static NLS_EVENT_STRUCT* syEvent = NULL;
 
 static void CleanNlsEvent(NLS_EVENT_STRUCT* e)
 {
+	WaitForSingleObject(e->eventMtx, INFINITE);
+
 	memset(e, 0, sizeof(NLS_EVENT_STRUCT));
+
+	ReleaseMutex(e->eventMtx);
 	return;
 }
 
 static void ConvertNlsEvent(AlibabaNls::NlsEvent* in, NLS_EVENT_STRUCT* out)
 {
+	WaitForSingleObject(out->eventMtx, INFINITE);
+
 	out->statusCode = in->getStatusCode();
 	out->msgType = (int)in->getMsgType();
 	if (in->getTaskId()) strncpy(out->taskId, in->getTaskId(), 128);
@@ -74,17 +81,19 @@ static void ConvertNlsEvent(AlibabaNls::NlsEvent* in, NLS_EVENT_STRUCT* out)
 
 	if (in->getMsgType() == AlibabaNls::NlsEvent::EventType::Binary)
 	{
-		memset(out->binaryData, 0, 16384);
+		//memset(out->binaryData, 0, 16384);
 		std::vector<unsigned char> data = in->getBinaryData();
-		out->binaryDataSize = data.size();
-		if (out->binaryDataSize > 0)
+		int old_data = out->binaryDataSize;
+		int data_size = data.size();
+		if (data_size > 0)
 		{
-			memcpy(out->binaryData, (char*)&data[0], out->binaryDataSize);
+			memcpy(&out->binaryData[old_data], (char*)&data[0], data_size);
+			out->binaryDataSize = old_data + data_size;
 		}
 	}
 	else
 	{
-		out->binaryDataSize = 0;
+		//out->binaryDataSize = 0;
 	}
 
 	if (in->getAllResponse()) strncpy(out->msg, in->getAllResponse(), 8192);
@@ -96,6 +105,7 @@ static void ConvertNlsEvent(AlibabaNls::NlsEvent* in, NLS_EVENT_STRUCT* out)
 
 	out->isValid = true;
 
+	ReleaseMutex(out->eventMtx);
 	return;
 }
 

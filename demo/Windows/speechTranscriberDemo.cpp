@@ -573,7 +573,7 @@ void onTranscriptionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void onTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 	run_fail++;
 
-	FILE* failed_stream = fopen("transcriptionTaskFailed.log", "a+");
+	FILE* failed_stream = fopen("transcriptionTaskFailed.log", "ab");
 	if (failed_stream) {
 		std::string ts = timestamp_str();
 		char outbuf[1024] = { 0 };
@@ -1128,6 +1128,8 @@ int parse_argv(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
+	system("chcp 65001");
+
 	if (parse_argv(argc, argv)) {
 		std::cout << "params is not valid.\n"
 			<< "Usage:\n"

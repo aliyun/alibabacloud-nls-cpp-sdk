@@ -21,37 +21,50 @@ namespace nlsCsharpSdk
 //	[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
 	public struct NLS_EVENT_STRUCT
 	{
-		public int statusCode;
+        public int binaryDataSize;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16384)]
+        public byte[] binaryData;
+
+        public int statusCode;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
         public string msg;
+
         public int msgType;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string taskId;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
         public string result;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
         public string displayText;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
         public string spokenText;
+
         public int sentenceTimeOutStatus;
         public int sentenceIndex;
         public int sentenceTime;
         public int sentenceBeginTime;
         public double sentenceConfidence;
+
+        [MarshalAs(UnmanagedType.I1)]
         public bool wakeWordAccepted;
+        [MarshalAs(UnmanagedType.I1)]
         public bool wakeWordKnown;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string wakeWordUserId;
         public int wakeWordGender;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16384)]
-        public byte[] binaryData;
-        public int binaryDataSize;
-
         public int stashResultSentenceId;
         public int stashResultBeginTime;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
         public string stashResultText;
+
         public int stashResultCurrentTime;
 
         public int isValid;

@@ -28,8 +28,8 @@ namespace AlibabaNls {
 #define D_NAMESPACE_RECOGNITION "DialogAssistant"
 #define D_NAMESPACE_RECOGNITION_V2 "DialogAssistant.v2"
 
-DialogAssistantParam::DialogAssistantParam(int version) :
-    INlsRequestParam(TypeDialog) {
+DialogAssistantParam::DialogAssistantParam(int version, const char* sdkName) :
+    INlsRequestParam(TypeDialog, sdkName) {
   if (version == 0) {
     _header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
   } else {

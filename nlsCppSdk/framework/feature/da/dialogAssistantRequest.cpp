@@ -129,11 +129,11 @@ void DialogAssistantCallback::setOnChannelClosed(
   }
 }
 
-DialogAssistantRequest::DialogAssistantRequest(int version) {
+DialogAssistantRequest::DialogAssistantRequest(int version, const char* sdkName) {
   _callback = new DialogAssistantCallback();
 
   //init request param
-  _dialogAssistantParam = new DialogAssistantParam(version);
+  _dialogAssistantParam = new DialogAssistantParam(version, sdkName);
   _requestParam = _dialogAssistantParam;
 
   //init listener

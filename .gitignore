@@ -1,0 +1,7 @@
+build/
+*.o
+*.a
+*.so
+nlsCppSdk/win/.vs/
+nlsCppSdk/win/uuid/
+resource/audio/
