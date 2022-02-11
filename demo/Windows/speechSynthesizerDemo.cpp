@@ -39,6 +39,7 @@
 #define SELF_TESTING_TRIGGER
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
+//#define TTS_AUDIO_DUMP
 #define DEFAULT_STRING_LEN 128
 
 /**
@@ -346,7 +347,7 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   run_fail++;
 
-  FILE *failed_stream = fopen("synthesisTaskFailed.log", "a+");
+  FILE *failed_stream = fopen("synthesisTaskFailed.log", "ab");
   if (failed_stream) {
     std::string ts = timestamp_str();
     char outbuf[1024] = {0};
@@ -435,10 +436,25 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     << ", data size: " << data.size()              /* 数据的大小 */
     << std::endl;
 #endif
+#ifdef TTS_AUDIO_DUMP
   /* 以追加形式将二进制音频数据写入文件 */
-//  if (data.size() > 0) {
-//    tmpParam->audioFile.write((char*)&data[0], data.size());
-//  }
+  char file_name[256] = { 0 };
+  snprintf(file_name, 256,
+      "%s.pcm",
+      cbEvent->getTaskId()
+  );
+  FILE* tts_stream = fopen(file_name, "ab");
+  if (tts_stream) {
+      int ret = fwrite((char*)data.data(), data.size(), 1, tts_stream);
+      fclose(tts_stream);
+      std::cout << "fwrite ok " << data.size()
+          << "  ret:" << ret
+          << std::endl;
+  }
+  else {
+      std::cout << "file name:" << file_name << "cannot open" << std::endl;
+  }
+#endif
 }
 
 /**
@@ -614,7 +630,7 @@ void* pthreadFunc(void* arg) {
  * 免费用户并发连接不能超过10个;
  */
 #define AUDIO_TEXT_NUMS 4
-#define AUDIO_TEXT_LENGTH 64
+#define AUDIO_TEXT_LENGTH 640
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechSynthesizerMultFile(const char* appkey, int threads) {
   /**
@@ -738,6 +754,8 @@ int parse_argv(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
+  system("chcp 65001");
+
   if (parse_argv(argc, argv)) {
     std::cout << "params is not valid.\n"
       << "Usage:\n"

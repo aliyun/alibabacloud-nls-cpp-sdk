@@ -32,6 +32,7 @@ namespace AlibabaNls {
   const char g_sdk_name[] = "nls-cpp-sdk3.x-android";
 #elif defined(_MSC_VER)
   const char g_sdk_name[] = "nls-cpp-sdk3.x-windows";
+  const char g_csharp_sdk_name[] = "nls-csharp-sdk3.x-windows";
 #elif defined(__APPLE__)
   const char g_sdk_name[] = "nls-cpp-sdk3.x-ios";
 #elif defined(__linux__)
@@ -40,23 +41,20 @@ namespace AlibabaNls {
   const char g_sdk_name[] = "nls-cpp-sdk3.x-unknown";
 #endif
 
-#ifdef NLS_CSHARP_SDK
-const char g_sdk_language[] = "Csharp";
-#else
+const char g_csharp_sdk_language[] = "Csharp";
 const char g_sdk_language[] = "C++";
-#endif
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
 #define STOP_RECV_TIMEOUT 12
 
-INlsRequestParam::INlsRequestParam(NlsType mode) : _mode(mode),
-                                                   _payload(Json::objectValue) {
+INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mode),
+    _payload(Json::objectValue), _sdk_name(sdkName) {
   _url = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1";
   _token = "";
 
   _context[D_SDK_CLIENT] = getSdkInfo();
 
-#if defined(_WIN32)
+#if defined(_MSC_VER)
   _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
 #else
   _outputFormat = D_DEFAULT_VALUE_ENCODE_UTF8;
@@ -120,9 +118,18 @@ std::string INlsRequestParam::getRandomUuid() {
 Json::Value INlsRequestParam::getSdkInfo() {
   Json::Value sdkInfo;
 
-  sdkInfo[D_SDK_NAME] = g_sdk_name;
+  if (!_sdk_name.empty() && _sdk_name.compare("csharp") == 0) {
+    #ifdef _MSC_VER
+    sdkInfo[D_SDK_NAME] = g_csharp_sdk_name;
+    #else
+    sdkInfo[D_SDK_NAME] = g_sdk_name;
+    #endif
+    sdkInfo[D_SDK_LANGUAGE] = g_csharp_sdk_language;
+  } else {
+    sdkInfo[D_SDK_NAME] = g_sdk_name;
+    sdkInfo[D_SDK_LANGUAGE] = g_sdk_language;
+  }
   sdkInfo[D_SDK_VERSION] = g_sdk_version;
-  sdkInfo[D_SDK_LANGUAGE] = g_sdk_language;
 
   return sdkInfo;
 }

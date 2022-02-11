@@ -25,7 +25,7 @@ namespace AlibabaNls {
 #define D_CMD_STOP_RECOGNITION "StopRecognition"
 #define D_NAMESPACE_RECOGNITION "SpeechRecognizer"
 
-SpeechRecognizerParam::SpeechRecognizerParam() : INlsRequestParam(TypeAsr) {
+SpeechRecognizerParam::SpeechRecognizerParam(const char* sdkName) : INlsRequestParam(TypeAsr, sdkName) {
 	_header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
 }
 

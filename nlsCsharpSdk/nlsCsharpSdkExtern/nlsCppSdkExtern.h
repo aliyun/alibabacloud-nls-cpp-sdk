@@ -88,7 +88,8 @@ NLSAPI(void) NlsReleaseInstance()
 
 NLSAPI(AlibabaNls::SpeechTranscriberRequest*) NlsCreateTranscriberRequest()
 {
-	return AlibabaNls::NlsClient::getInstance()->createTranscriberRequest();
+	const char* sdkName = "csharp";
+	return AlibabaNls::NlsClient::getInstance()->createTranscriberRequest(sdkName);
 }
 
 NLSAPI(void) NlsReleaseTranscriberRequest(AlibabaNls::SpeechTranscriberRequest* request)
@@ -98,7 +99,8 @@ NLSAPI(void) NlsReleaseTranscriberRequest(AlibabaNls::SpeechTranscriberRequest* 
 
 NLSAPI(AlibabaNls::SpeechRecognizerRequest*) NlsCreateRecognizerRequest()
 {
-	return AlibabaNls::NlsClient::getInstance()->createRecognizerRequest();
+	const char* sdkName = "csharp";
+	return AlibabaNls::NlsClient::getInstance()->createRecognizerRequest(sdkName);
 }
 
 NLSAPI(void) NlsReleaseRecognizerRequest(AlibabaNls::SpeechRecognizerRequest* request)
@@ -108,7 +110,8 @@ NLSAPI(void) NlsReleaseRecognizerRequest(AlibabaNls::SpeechRecognizerRequest* re
 
 NLSAPI(AlibabaNls::SpeechSynthesizerRequest*) NlsCreateSynthesizerRequest(int type)
 {
-	return AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest((AlibabaNls::TtsVersion)type);
+	const char* sdkName = "csharp";
+	return AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest((AlibabaNls::TtsVersion)type, sdkName);
 }
 
 NLSAPI(void) NlsReleaseSynthesizerRequest(AlibabaNls::SpeechSynthesizerRequest* request)

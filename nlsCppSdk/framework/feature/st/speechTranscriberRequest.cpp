@@ -139,11 +139,11 @@ void SpeechTranscriberCallback::setOnChannelClosed(
   }
 }
 
-SpeechTranscriberRequest::SpeechTranscriberRequest() {
+SpeechTranscriberRequest::SpeechTranscriberRequest(const char* sdkName) {
   _callback = new SpeechTranscriberCallback();
 
   //init request param
-  _transcriberParam = new SpeechTranscriberParam();
+  _transcriberParam = new SpeechTranscriberParam(sdkName);
   _requestParam = _transcriberParam;
 
   //init listener

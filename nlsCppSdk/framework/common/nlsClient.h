@@ -84,9 +84,10 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   /*
    * @brief 创建一句话识别对象
    * @param onResultReceivedEvent  事件回调接口
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
    * @return 成功返回speechRecognizerRequest对象，否则返回NULL
    */
-  SpeechRecognizerRequest* createRecognizerRequest();
+  SpeechRecognizerRequest* createRecognizerRequest(const char* sdkName = "cpp");
 
   /*
    * @brief 销毁一句话识别对象
@@ -111,9 +112,10 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   /*
    * @brief 创建实时音频流识别对象
    * @param onResultReceivedEvent  事件回调接口
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
    * @return 成功返回SpeechTranscriberRequest对象，否则返回NULL
    */
-  SpeechTranscriberRequest* createTranscriberRequest();
+  SpeechTranscriberRequest* createTranscriberRequest(const char* sdkName = "cpp");
 
   /*
    * @brief 销毁实时音频流识别对象
@@ -138,10 +140,11 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   /*
    * @brief 创建语音合成对象
    * @param type tts类型
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
    * @return 成功则SpeechSynthesizerRequest对象，否则返回NULL
    */
   SpeechSynthesizerRequest* createSynthesizerRequest(
-      TtsVersion version = ShortTts);
+      TtsVersion version = ShortTts, const char* sdkName = "cpp");
 
   /*
    * @brief 销毁语音合成对象
@@ -152,10 +155,12 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /*
    * @brief 创建语音助手对象
-   * @param onResultReceivedEvent  事件回调接口
+   * @param version  dialogAssistant类型
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
    * @return 成功则DialogAssistantRequest对象，否则返回NULL
    */
-  DialogAssistantRequest* createDialogAssistantRequest(DaVersion version = DaV1);
+  DialogAssistantRequest* createDialogAssistantRequest(
+      DaVersion version = DaV1, const char* sdkName = "cpp");
 
   /*
    * @brief 销毁语音助手对象

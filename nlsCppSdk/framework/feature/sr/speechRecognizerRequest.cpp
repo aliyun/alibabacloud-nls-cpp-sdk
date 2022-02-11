@@ -121,11 +121,11 @@ void SpeechRecognizerCallback::setOnChannelClosed(
   }
 }
 
-SpeechRecognizerRequest::SpeechRecognizerRequest() {
+SpeechRecognizerRequest::SpeechRecognizerRequest(const char* sdkName) {
   _callback = new SpeechRecognizerCallback();
 
   //init request param
-  _recognizerParam = new SpeechRecognizerParam();
+  _recognizerParam = new SpeechRecognizerParam(sdkName);
   _requestParam = _recognizerParam;
 
   //init listener

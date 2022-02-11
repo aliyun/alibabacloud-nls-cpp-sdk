@@ -53,7 +53,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerCallback {
 
 class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
  public:
-  SpeechSynthesizerRequest(int version = 0);
+  SpeechSynthesizerRequest(int version = 0, const char* sdkName = "cpp");
   ~SpeechSynthesizerRequest();
 
   /**

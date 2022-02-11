@@ -50,7 +50,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantCallback {
 
 class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
  public:
-  DialogAssistantRequest(int version = 0);
+  DialogAssistantRequest(int version = 0, const char* sdkName = "cpp");
   ~DialogAssistantRequest();
 
   /**

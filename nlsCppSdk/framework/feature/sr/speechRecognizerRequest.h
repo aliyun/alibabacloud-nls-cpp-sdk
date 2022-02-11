@@ -45,7 +45,7 @@ class SpeechRecognizerCallback  {
 
 class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
  public:
-  SpeechRecognizerRequest();
+  SpeechRecognizerRequest(const char* sdkName = "cpp");
   virtual ~SpeechRecognizerRequest();
 
   /*

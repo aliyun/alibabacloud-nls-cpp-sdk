@@ -25,7 +25,7 @@ namespace AlibabaNls {
 class SpeechSynthesizerParam : public INlsRequestParam {
 
 public:
-  SpeechSynthesizerParam(int version);
+  SpeechSynthesizerParam(int version, const char* sdkName);
   ~SpeechSynthesizerParam();
 
   int setText(const char* value);

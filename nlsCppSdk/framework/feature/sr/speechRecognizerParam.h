@@ -24,7 +24,7 @@ namespace AlibabaNls {
 class SpeechRecognizerParam : public INlsRequestParam {
 
  public:
-  SpeechRecognizerParam();
+  SpeechRecognizerParam(const char* sdkName = "cpp");
   ~SpeechRecognizerParam();
 
   const char* getStartCommand();

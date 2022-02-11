@@ -25,8 +25,8 @@ namespace AlibabaNls {
 #define D_NAMESPACE_SYNTHESIZER "SpeechSynthesizer"
 #define D_NAMESPACE_LONG_SYNTHESIZER "SpeechLongSynthesizer"
 
-SpeechSynthesizerParam::SpeechSynthesizerParam(int version) :
-    INlsRequestParam(TypeTts) {
+SpeechSynthesizerParam::SpeechSynthesizerParam(int version, const char* sdkName) :
+    INlsRequestParam(TypeTts, sdkName) {
   if (version == 0) {
     _header[D_NAMESPACE] = D_NAMESPACE_SYNTHESIZER;
   } else {

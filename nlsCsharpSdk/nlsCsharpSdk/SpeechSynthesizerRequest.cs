@@ -349,8 +349,6 @@ namespace nlsCsharpSdk
         private static int GetNlsEvent()
         {
             int len = NativeMethods.SYGetNlsEvent(out nlsEvent);
-            // 不知道为啥, binaryDataSize始终返回-1
-            nlsEvent.binaryDataSize = len;
             return len;
         }
 

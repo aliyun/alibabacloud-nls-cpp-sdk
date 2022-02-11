@@ -25,7 +25,7 @@ namespace AlibabaNls {
 class SpeechTranscriberParam : public INlsRequestParam {
 
 public:
-    SpeechTranscriberParam();
+    SpeechTranscriberParam(const char* sdkName = "cpp");
     ~SpeechTranscriberParam();
 
     const char*  getStartCommand();

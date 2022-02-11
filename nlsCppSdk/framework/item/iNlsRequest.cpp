@@ -26,7 +26,7 @@
 
 namespace AlibabaNls {
 
-INlsRequest::INlsRequest() {}
+INlsRequest::INlsRequest(const char* sdkName) {}
 INlsRequest::~INlsRequest() {}
 
 int INlsRequest::start(INlsRequest *request) {
