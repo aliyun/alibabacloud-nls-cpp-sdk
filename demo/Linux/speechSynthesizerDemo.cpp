@@ -321,8 +321,9 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   run_success++;
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
 
-  std::cout << "OnSynthesisCompleted: "
-    << "userId: " << tmpParam->userId
+  std::string ts = timestamp_str();
+  std::cout << "OnSynthesisCompleted: " << ts.c_str()
+    << ", userId: " << tmpParam->userId
     << ", status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
     << ", task id: " << cbEvent->getTaskId()   // 当前任务的task id，方便定位问题，建议输出
     << std::endl;
@@ -333,14 +334,16 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     tmpParam->tParam->completedConsumed ++;
 
     unsigned long long timeValue1 =
-      tmpParam->completedTv.tv_sec - tmpParam->startTv.tv_sec;
+      tmpParam->startTv.tv_sec * 1000000 + tmpParam->startTv.tv_usec;
     unsigned long long timeValue2 =
-      tmpParam->completedTv.tv_usec - tmpParam->startTv.tv_usec;
-    unsigned long long timeValue = 0;
-    if (timeValue1 > 0) {
-      timeValue = (((timeValue1 * 1000000) + timeValue2) / 1000);
-    } else {
-      timeValue = (timeValue2 / 1000);
+      tmpParam->completedTv.tv_sec * 1000000 + tmpParam->completedTv.tv_usec;
+    unsigned long long timeValue = (timeValue2 - timeValue1) / 1000; // ms
+    if (timeValue > 0) {
+      if (timeValue >= 5000) {
+        std::cout << "task id: "<< cbEvent->getTaskId()
+          <<", abnormal request, timestamp: " << timeValue
+          << "ms." << std::endl;
+      }
     }
 
     //max
@@ -418,8 +421,9 @@ void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
 
-  std::cout << "OnSynthesisChannelClosed userId: "
-      << tmpParam->userId
+  std::string ts = timestamp_str();
+  std::cout << "OnSynthesisChannelClosed: " << ts.c_str()
+      << ", userId: " << tmpParam->userId
       << ", All response: " << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
 
 //  tmpParam->audioFile.close();
@@ -479,7 +483,8 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
   std::vector<unsigned char> data = cbEvent->getBinaryData(); // getBinaryData() 获取文本合成的二进制音频数据
 #if 1
-  std::cout << "OnBinaryDataRecved: "
+  std::string ts = timestamp_str();
+  std::cout << "OnBinaryDataRecved: " << ts.c_str() << ", "
     << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
     << ", userId: " << tmpParam->userId
     << ", taskId: " << cbEvent->getTaskId()        // 当前任务的task id，方便定位问题，建议输出
@@ -651,9 +656,12 @@ void* pthreadFunc(void* arg) {
     /*
      * 2: start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
-    gettimeofday(&(cbParam.startTv), NULL);
     pthread_mutex_lock(&(cbParam.mtxWord));
+    gettimeofday(&(cbParam.startTv), NULL);
+    std::string ts = timestamp_str();
+    std::cout << "start -> pid " << pthread_self() << " " << ts.c_str() << std::endl;
     int ret = request->start();
+    ts = timestamp_str();
     run_cnt++;
     if (ret < 0) {
       pthread_mutex_unlock(&(cbParam.mtxWord));
@@ -662,7 +670,7 @@ void* pthreadFunc(void* arg) {
       //cbParam.audioFile.close();
       break;
     } else {
-      std::cout << "start success. pid " << pthread_self() << std::endl;
+      std::cout << "start success. pid " << pthread_self() << " " << ts.c_str() << std::endl;
       cbParam.tParam->startedConsumed++;
       struct ParamStatistics params;
       params.running = true;
@@ -755,7 +763,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     "今日天气真不错，我想去操场踢足球.",
     "今日天气真不错，我想去操场踢足球."
   };
-	ParamStruct pa[threads];
+	ParamStruct pa[threads] = {0, };
 
 	for (int i = 0; i < threads; i ++) {
     int num = i % AUDIO_TEXT_NUMS;
@@ -1043,7 +1051,12 @@ int main(int argc, char* argv[]) {
 
     // 启动工作线程, 在创建请求和启动前必须调用此函数
     // 入参为负时, 启动当前系统中可用的核数
-    AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);
+    if (cur_profile_scan == -1) {
+      // 高并发的情况下推荐4
+      AlibabaNls::NlsClient::getInstance()->startWorkThread(4);
+    } else {
+      AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);
+    }
 
     std::cout << "startWorkThread finish" << std::endl;
 

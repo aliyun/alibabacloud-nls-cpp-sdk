@@ -45,7 +45,7 @@
 #define LOOP_TIMEOUT 60
 #define DEFAULT_STRING_LEN 128
 
- /* 自定义线程参数 */
+/* 自定义线程参数 */
 struct ParamStruct {
 	char fileName[DEFAULT_STRING_LEN];
 	char token[DEFAULT_STRING_LEN];

@@ -648,7 +648,7 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
   LOG_DEBUG("Node:%p workStatus %d(%s).",
       node, workStatus, node->getConnectNodeStatusString().c_str());
   switch(workStatus) {
-    /*connect to gateWay*/
+    /*connect to gateway*/
     case NodeHandshaking:
     case NodeHandshaked:
       ret = node->gatewayResponse();
