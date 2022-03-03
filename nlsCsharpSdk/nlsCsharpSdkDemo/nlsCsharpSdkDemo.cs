@@ -328,7 +328,7 @@ namespace nlsCsharpSdkDemo
             tokenPtr = nlsClient.CreateNlsToken();
             if (tokenPtr.native_token != IntPtr.Zero)
             {
-                if (akId != null && akSecret != null & akId.Length > 0 && akSecret.Length > 0)
+                if (akId != null && akSecret != null && akId.Length > 0 && akSecret.Length > 0)
                 {
                     tokenPtr.SetAccessKeyId(tokenPtr, akId);
                     tokenPtr.SetKeySecret(tokenPtr, akSecret);
