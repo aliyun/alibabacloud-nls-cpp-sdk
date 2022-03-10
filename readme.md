@@ -17,7 +17,7 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 
 * 获取访问令牌（Access Token)
 
-* Linux下请安装GCC 4.1.2 或以上版本
+* Linux下请安装GCC 4.8.5 或以上版本。目前验证且顺利编译运行的GCC版本有: 4.8.5、5.5.0、8.4.0
 
 详细说明请参考:[智能语音交互接入](https://help.aliyun.com/document_detail/72138.html)  
 

@@ -72,6 +72,8 @@ struct urlAddress {
   char _path[HOST_SIZE];
   char _token[TOKEN_SIZE];
   bool _isSsl;
+  char _address[HOST_SIZE];
+  bool _directIp;
 };
 
 class WebSocketTcp {

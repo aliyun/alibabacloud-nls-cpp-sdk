@@ -132,7 +132,7 @@ class ConnectNode {
               HandleBaseOneParamWithReturnVoid<NlsEvent>* handler);
   virtual ~ConnectNode();
 
-  bool parseUrlInformation();
+  bool parseUrlInformation(char *ip);
 
   void addCmdDataBuffer(CmdType type, const char* message = NULL);
   int addAudioDataBuffer(const uint8_t * frame, size_t length);
@@ -147,7 +147,7 @@ class ConnectNode {
 
   int webSocketResponse();
 
-  int dnsProcess();
+  int dnsProcess(int aiFamily, char *directIp);
   int connectProcess(const char *ip, int aiFamily);
   int sslProcess();
   void closeConnectNode();

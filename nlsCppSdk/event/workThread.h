@@ -42,6 +42,7 @@ class WorkThread {
   static void dnsEventCallback(int errorCode,
                                struct evutil_addrinfo *address,
                                void *arg);
+  static void directConnect(void *arg, char *ip);
 #ifdef _MSC_VER
   static unsigned __stdcall loopEventCallback(LPVOID arg);
 #else
@@ -56,6 +57,9 @@ class WorkThread {
   static INlsRequest* getQueueNode(WorkThread* thread);
   static void insertListNode(WorkThread* thread, INlsRequest * request);
   static void freeListNode(WorkThread* thread, INlsRequest * request);
+
+  static void setAddrInFamily(int aiFamily);
+  static void setDirectHost(char *ip);
 
 #ifdef _MSC_VER
   HANDLE _mtxList;
@@ -80,6 +84,8 @@ class WorkThread {
   std::list<INlsRequest*> _nodeList;
 
  private:
+  static int _addrInFamily;
+  static char _directIp[64];
 
 };
 

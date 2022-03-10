@@ -1093,6 +1093,11 @@ int main(int argc, char* argv[]) {
   }
 
   /*
+   * 设置运行环境需要的套接口地址类型, 默认为AF_INET
+   */
+  //AlibabaNls::NlsClient::getInstance()->setAddrInFamily("AF_INET");
+
+  /*
    * 启动工作线程, 在创建请求和启动前必须调用此函数
    * 入参为负时, 启动当前系统中可用的核数
    */

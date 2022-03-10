@@ -23,6 +23,8 @@ namespace nlsCsharpSdk
 
         string GetVersion();
 
+        void SetAddrInFamily(string aiFamily);
+
         void StartWorkThread(int threadsNumber = 1);
 
         void ReleaseInstance();

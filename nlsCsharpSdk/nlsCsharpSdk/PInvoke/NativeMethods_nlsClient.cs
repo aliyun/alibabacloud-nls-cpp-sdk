@@ -28,6 +28,8 @@ namespace nlsCsharpSdk.CPlusPlus
         [DllImport(DllExtern,EntryPoint = "NlsSetLogConfig", CallingConvention = CallingConvention.Cdecl)]
         public extern static int NlsSetLogConfig(string logFileName, int logLevel, int logFileSize, int logFileNum);
 
+        [DllImport(DllExtern, EntryPoint = "NlsSetAddrInFamily", CallingConvention = CallingConvention.Cdecl)]
+        public extern static void NlsSetAddrInFamily(string aiFamily);
 
         [DllImport(DllExtern, EntryPoint = "NlsStartWorkThread", CallingConvention = CallingConvention.Cdecl)]
         public extern static void NlsStartWorkThread(int threadsNumber);

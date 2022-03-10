@@ -16,6 +16,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speechRecognizerDemo", "spe
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speechSynthesizerDemo", "speechSynthesizerDemo\speechSynthesizerDemo.vcxproj", "{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802} = {4755B663-BF8D-4B83-BC49-0DDBBDECF802}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -904,6 +904,7 @@ int main(int argc, char* argv[]) {
 
   // 根据需要设置SDK输出日志, 可选. 
   // 此处表示SDK日志输出至log-recognizer.txt, LogDebug表示输出所有级别日志.
+  // 需要最早调用
   int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
       "log-dialogAssistant", AlibabaNls::LogDebug, 1000);
   if (-1 == ret) {
@@ -911,8 +912,17 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
+  // 设置运行环境需要的套接口地址类型, 默认为AF_INET
+  // 必须在startWorkThread()前调用
+  //AlibabaNls::NlsClient::getInstance()->setAddrInFamily("AF_INET");
+
+  // 私有云部署的情况下进行直连IP的设置
+  // 必须在startWorkThread()前调用
+  //AlibabaNls::NlsClient::getInstance()->setDirectHost("106.15.83.44");
+
   // 启动工作线程, 在创建请求和启动前必须调用此函数
   // 入参为负时, 启动当前系统中可用的核数
+  // 高并发的情况下推荐4, 单请求的情况推荐为1
   AlibabaNls::NlsClient::getInstance()->startWorkThread(-1);
 
   // 识别多个音频数据

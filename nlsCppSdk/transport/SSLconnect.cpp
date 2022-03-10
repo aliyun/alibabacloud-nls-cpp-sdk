@@ -44,6 +44,8 @@ int SSLconnect::init() {
     exit(1);
   }
 
+  SSL_CTX_set_verify(_sslCtx, SSL_VERIFY_NONE, NULL);
+
   SSL_CTX_set_mode(_sslCtx,
       SSL_MODE_ENABLE_PARTIAL_WRITE |
       SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER |

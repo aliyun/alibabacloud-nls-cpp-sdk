@@ -38,7 +38,7 @@ class NlsEventNetWork {
   static NlsEventNetWork * _eventClient;
 
   static void DnsLogCb(int w, const char *m);
-  static void initEventNetWork(int count);
+  static void initEventNetWork(int count, char *aiFamily, char *directIp);
   static void destroyEventNetWork();
 
   int start(INlsRequest *request);
@@ -53,6 +53,8 @@ class NlsEventNetWork {
   static WorkThread *_workThreadArray; //工作线程数组
   static size_t _workThreadsNumber;    //工作线程数量
   static size_t _currentCpuNumber;
+  static int _addrInFamily;
+  static char _directIp[64];
 
 #if defined(_MSC_VER)
   static HANDLE _mtxThread;

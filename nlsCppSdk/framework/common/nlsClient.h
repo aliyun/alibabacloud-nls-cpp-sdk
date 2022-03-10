@@ -176,6 +176,23 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   const char* getVersion();
 
   /*
+   * @brief 设置套接口地址结构的类型，若调用则需要在startWorkThread之前
+   * @param aiFamily 套接口地址结构类型 AF_INET/AF_INET6/AF_UNSPEC
+   *                 AF_INET:  仅返回IPV4相关的地址信息
+   *                 AF_INET6: 仅返回IPV6相关的地址信息
+   *                 AF_UNSPEC:返回适合任何协议族的地址
+   * @return
+   */
+  void setAddrInFamily(const char* aiFamily = "AF_INET");
+
+  /*
+   * @brief 跳过dns域名解析直接设置服务器ip地址，若调用则需要在startWorkThread之前
+   * @param ipv4的ip地址 比如106.15.83.44
+   * @return
+   */
+  void setDirectHost(const char* ip);
+
+  /*
    * @brief 启动工作线程数量
    * @param threadsNumber 启动工作线程数量，默认设置值为1
    * @return
@@ -210,6 +227,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   static bool _isInitializeSSL;
   static bool _isInitializeThread;
   static NlsClient* _instance;
+  static char _aiFamily[16];
+  static char _direct_host_ip[64];
 
 }; // class NLS_SDK_CLIENT_EXPORT NlsClient
 
