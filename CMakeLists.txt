@@ -137,6 +137,11 @@ add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 add_definitions(-DENABLE_OGGOPUS)
 
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  # use native getaddrinfo() instead of evdns_getaddrinfo()
+  #add_definitions(-DNLS_USE_NATIVE_GETADDRINFO)
+endif ()
+
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)
 	message(STATUS "Canon't build thirdparty.")

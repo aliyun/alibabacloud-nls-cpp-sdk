@@ -377,14 +377,27 @@ bool ConnectNode::checkConnectCount() {
   return result;
 }
 
-bool ConnectNode::parseUrlInformation() {
+bool ConnectNode::parseUrlInformation(char *directIp) {
   const char* address = _request->getRequestParam()->_url.c_str();
   const char* token = _request->getRequestParam()->_token.c_str();
   size_t tokenSize = _request->getRequestParam()->_token.size();
 
-  LOG_INFO("Node:%p Address:%s.", this, address);
-
   memset(&_url, 0x0, sizeof(struct urlAddress));
+
+  if (directIp && strnlen(directIp, 64) > 0) {
+    LOG_INFO("Node:%p direct ip address:%s.", this, directIp);
+
+    if (sscanf(directIp, "%[^:/]:%d", _url._address, &_url._port) == 2) {
+      _url._directIp = true;
+    } else if (sscanf(directIp, "%s", _url._address) == 1) {
+      _url._directIp = true;
+    } else {
+      LOG_ERROR("Node:%p Could not parse WebSocket direct ip: %s", this, directIp);
+      return false;
+    }
+  }
+
+  LOG_INFO("Node:%p Address:%s.", this, address);
 
   if (sscanf(address, "%[^:/]://%[^:/]:%d/%s", _url._type, _url._host, &_url._port, _url._path) == 4) {
     if (strcmp(_url._type, "wss") == 0 || strcmp(_url._type, "https") == 0) {
@@ -546,7 +559,7 @@ int ConnectNode::gatewayResponse() {
   uint8_t *frame = (uint8_t *)calloc(READ_BUFFER_SIZE, sizeof(char));
   if (frame == NULL) {
     LOG_ERROR("%s %d calloc failed", __func__, __LINE__);
-    return 0;
+    return -2;
   }
 
   read_len = nlsReceive(frame, READ_BUFFER_SIZE);
@@ -555,7 +568,7 @@ int ConnectNode::gatewayResponse() {
     return -1;
   } else if (read_len == 0) {
     free(frame);
-    return 0;
+    return -3;
   }
 
   int frameSize = evbuffer_get_length(_readEvBuffer);
@@ -564,7 +577,7 @@ int ConnectNode::gatewayResponse() {
     if (frame == NULL) {
       LOG_ERROR("%s %d realloc failed", __func__, __LINE__);
       free(frame);
-      return 0;
+      return -4;
     }
   }
 
@@ -1088,10 +1101,10 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame) {
     std::string result((char *)wsFrame->data, wsFrame->length);
     if (wsFrame->length > 1024) {
       std::string part_result((char *)wsFrame->data, 1024);
-      LOG_INFO("Node:%p %d too long, Part Response(1024): %s",
+      LOG_DEBUG("Node:%p %d too long, Part Response(1024): %s",
           this, wsFrame->length, part_result.c_str());
     } else {
-      LOG_INFO("Node:%p Response(%d): %s",
+      LOG_DEBUG("Node:%p Response(%d): %s",
           this, wsFrame->length, result.c_str());
     }
 
@@ -1253,7 +1266,25 @@ void ConnectNode::handlerTaskFailedEvent(std::string failedInfo) {
   return ;
 }
 
-int ConnectNode::dnsProcess() {
+#ifdef NLS_USE_NATIVE_GETADDRINFO
+static int native_getaddrinfo(
+    struct evdns_base *dns_base,
+    const char *nodename, const char *servname,
+    const struct evutil_addrinfo *hints_in,
+    evdns_getaddrinfo_cb cb, void *arg) {
+  struct evutil_addrinfo *res = NULL;
+  int err = getaddrinfo(nodename, servname, NULL, &res);
+  if (err == 0) {
+    cb(err, res, arg);
+  } else {
+    LOG_ERROR("getaddrinfo failed...(%d)", err);
+  }
+  return err;
+}
+#endif
+
+int ConnectNode::dnsProcess(int aiFamily, char *directIp) {
+  int result = 0;
   struct evutil_addrinfo hints;
   struct evdns_getaddrinfo_request *dnsRequest;
 
@@ -1270,42 +1301,66 @@ int ConnectNode::dnsProcess() {
 
   setConnectNodeStatus(NodeConnecting);
 
-  parseUrlInformation();
+  parseUrlInformation(directIp);
 
   if (_url._isSsl) {
-    LOG_DEBUG("Node:%p _url._isSsl is True.", this);
+    LOG_INFO("Node:%p _url._isSsl is True.", this);
   } else {
-    LOG_DEBUG("Node:%p _url._isSsl is false.", this);
+    LOG_INFO("Node:%p _url._isSsl is False.", this);
   }
 
-  memset(&hints,  0,  sizeof(hints));
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_flags = EVUTIL_AI_CANONNAME;
+  if (_url._directIp) {
+    LOG_INFO("Node:%p _url._directIp is True.", this);
+    WorkThread::directConnect(this, _url._address);
+  } else {
+    LOG_INFO("Node:%p _url._directIp is False.", this);
+    if (aiFamily != AF_UNSPEC && aiFamily != AF_INET && aiFamily != AF_INET6) {
+      LOG_WARN("Node:%p aiFamily is invalid, use default AF_INET",
+          this, aiFamily);
+      aiFamily = AF_INET;
+    }
+    memset(&hints,  0,  sizeof(hints));
+    hints.ai_family = aiFamily;
+    hints.ai_flags = EVUTIL_AI_CANONNAME;
 
-  /* Unless we specify a socktype, we'llget at least two entries for
-   * each address: one for TCP and onefor UDP. That's not what we
-   * want. */
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_protocol = IPPROTO_TCP;
+    /* Unless we specify a socktype, we'llget at least two entries for
+     * each address: one for TCP and onefor UDP. That's not what we
+     * want. */
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
 
-  LOG_INFO("Node:%p Dns URL:%s.", this, _request->getRequestParam()->_url.c_str());
+    LOG_INFO("Node:%p Dns URL:%s.",
+        this, _request->getRequestParam()->_url.c_str());
 
-  dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
-                                 _url._host,
-                                 NULL,
-                                 &hints,
-                                 WorkThread::dnsEventCallback,
-                                 this);
-  if (dnsRequest == NULL) {
-    //LOG_DEBUG("Node:%p dnsRequest returned immediately.", this);
+  #ifdef NLS_USE_NATIVE_GETADDRINFO
+    result = native_getaddrinfo(_eventThread->_dnsBase,
+                                _url._host,
+                                NULL,
+                                &hints,
+                                WorkThread::dnsEventCallback,
+                                this);
+    if (result != 0) {
+      result = -1;
+    }
+  #else
+    dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
+                                   _url._host,
+                                   NULL,
+                                   &hints,
+                                   WorkThread::dnsEventCallback,
+                                   this);
+    if (dnsRequest == NULL) {
+      //LOG_DEBUG("Node:%p dnsRequest returned immediately.", this);
 
-    /*
-     * No need to free user_data ordecrement n_pending_requests; that
-     * happened in the callback.
-     */
+      /*
+       * No need to free user_data ordecrement n_pending_requests; that
+       * happened in the callback.
+       */
+    }
+  #endif
   }
 
-  return 0;
+  return result;
 }
 
 int ConnectNode::connectProcess(const char *ip, int aiFamily) {

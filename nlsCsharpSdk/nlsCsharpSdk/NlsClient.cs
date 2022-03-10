@@ -67,6 +67,20 @@ namespace nlsCsharpSdk
         }
         #endregion
 
+        #region Set the socket address type
+        /// <summary>
+        /// 设置套接口地址结构的类型, 若调用需要在StartWorkThread之前.
+        /// </summary>
+        /// <param name="aiFamily">
+        /// 套接口地址结构类型 AF_INET/AF_INET6/AF_UNSPEC
+        /// </param>
+        /// <returns></returns>
+        public void SetAddrInFamily(string aiFamily)
+        {
+            NativeMethods.NlsSetAddrInFamily(aiFamily);
+        }
+        #endregion
+
         #region Start WorkThread (Init NLS SDK)
         /// <summary>
         /// 启动工作线程数量, 同时也是NLS SDK的初始化步骤.

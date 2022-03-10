@@ -218,19 +218,22 @@ int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Reader reader;
   Json::Value::iterator iter;
   Json::Value::Members members;
-  std::string tmpValue = value;
   std::string logInfo;
 
-  if (!reader.parse(tmpValue, root)) {
-    logInfo = "parse json fail: %s";
-    logInfo += value;
-    LOG_ERROR(logInfo.c_str());
+  if (value == NULL) {
+    LOG_ERROR("value is nullptr");
     return -1;
+  }
+
+  std::string tmpValue = value;
+  if (!reader.parse(tmpValue, root)) {
+    LOG_ERROR("parse json(%s) fail!", tmpValue.c_str());
+    return -2;
   }
 
   if (!root.isObject()) {
     LOG_ERROR("value is n't a json object.");
-    return -1;
+    return -3;
   }
 
   std::string jsonKey;

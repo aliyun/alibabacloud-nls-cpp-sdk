@@ -31,6 +31,8 @@ namespace AlibabaNls {
 NlsClient* NlsClient::_instance = NULL;  //new NlsClient();
 bool NlsClient::_isInitializeSSL = false;
 bool NlsClient::_isInitializeThread = false;
+char NlsClient::_aiFamily[16] = "AF_INET";
+char NlsClient::_direct_host_ip[64] = {0};
 
 #if defined(_MSC_VER)
 HANDLE NlsClient::_mtx = CreateMutex(NULL, FALSE, NULL);
@@ -109,6 +111,48 @@ const char* NlsClient::getVersion()	{
   return NLS_SDK_VERSION_STR;
 }
 
+void NlsClient::setAddrInFamily(const char* aiFamily) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtx, INFINITE);
+#else
+  pthread_mutex_lock(&_mtx);
+#endif
+
+  if (aiFamily != NULL &&
+      (strncmp(aiFamily, "AF_INET", 16) == 0 ||
+       strncmp(aiFamily, "AF_INET6", 16) == 0 ||
+       strncmp(aiFamily, "AF_UNSPEC", 16) == 0)) {
+    memset(_aiFamily, 0, 16);
+    strncpy(_aiFamily, aiFamily, 16);
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtx);
+#else
+  pthread_mutex_unlock(&_mtx);
+#endif
+}
+
+void NlsClient::setDirectHost(const char* ip) {
+  int result = 0;
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtx, INFINITE);
+#else
+  pthread_mutex_lock(&_mtx);
+#endif
+
+  memset(_direct_host_ip, 0, 64);
+  if (ip) {
+    strncpy(_direct_host_ip, ip, 64);
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtx);
+#else
+  pthread_mutex_unlock(&_mtx);
+#endif
+}
+
 void NlsClient::startWorkThread(int threadsNumber) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtx, INFINITE);
@@ -117,7 +161,7 @@ void NlsClient::startWorkThread(int threadsNumber) {
 #endif
 
   if (!_isInitializeThread) {
-    NlsEventNetWork::initEventNetWork(threadsNumber);
+    NlsEventNetWork::initEventNetWork(threadsNumber, _aiFamily, _direct_host_ip);
     _isInitializeThread = true;
   }
 

@@ -151,7 +151,7 @@ namespace nlsCsharpSdkDemo
         public nlsCsharpSdkDemo()
         {
             InitializeComponent();
-            System.Windows.Forms.Control.CheckForIllegalCrossThreadCalls = false;//设置该属性 为false
+            System.Windows.Forms.Control.CheckForIllegalCrossThreadCalls = false;//设置该属性为false
 
             nlsClient = new NlsClient();
         }
@@ -165,16 +165,6 @@ namespace nlsCsharpSdkDemo
                 nlsResult.Text = "OpenLog Failed";
         }
 
-        private void label1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void nlsCsharpSdkDemo_Load(object sender, EventArgs e)
-        {
-
-        }
-
         private void button1_Click_1(object sender, EventArgs e)
         {
             string version = nlsClient.GetVersion();
@@ -183,7 +173,10 @@ namespace nlsCsharpSdkDemo
 
         private void button1_Click_2(object sender, EventArgs e)
         {
-            nlsClient.StartWorkThread(-1);
+            /* 设置套接口地址类型, 需要在StartWorkThread前调用, 默认可不调用此接口 */
+            //nlsClient.SetAddrInFamily("AF_INET4");
+
+            nlsClient.StartWorkThread(1);
             nlsResult.Text = "StartWorkThread and init NLS success.";
             running = true;
             Thread t = new Thread(FlushLab);
@@ -238,6 +231,21 @@ namespace nlsCsharpSdkDemo
             int ret = -1;
             if (stPtr.native_request != IntPtr.Zero)
             {
+                if (appKey == null || appKey.Length == 0)
+                {
+                    appKey = tAppKey.Text;
+                }
+                if (token == null || token.Length == 0)
+                {
+                    token = tToken.Text;
+                }
+                if (appKey == null || token == null ||
+                    appKey.Length == 0 || token.Length == 0)
+                {
+                    nlsResult.Text = "Start failed, token or appkey is empty";
+                    return;
+                }
+
                 stPtr.SetAppKey(stPtr, appKey);
                 stPtr.SetToken(stPtr, token);
                 stPtr.SetUrl(stPtr, url);
@@ -328,6 +336,15 @@ namespace nlsCsharpSdkDemo
             tokenPtr = nlsClient.CreateNlsToken();
             if (tokenPtr.native_token != IntPtr.Zero)
             {
+                if (akId == null || akId.Length == 0)
+                {
+                    akId = tAkId.Text;
+                }
+                if (akSecret == null || akSecret.Length == 0)
+                {
+                    akSecret = tAkSecret.Text;
+                }
+
                 if (akId != null && akSecret != null && akId.Length > 0 && akSecret.Length > 0)
                 {
                     tokenPtr.SetAccessKeyId(tokenPtr, akId);
@@ -481,6 +498,21 @@ namespace nlsCsharpSdkDemo
             int ret = -1;
             if (syPtr.native_request != IntPtr.Zero)
             {
+                if (appKey == null || appKey.Length == 0)
+                {
+                    appKey = tAppKey.Text;
+                }
+                if (token == null || token.Length == 0)
+                {
+                    token = tToken.Text;
+                }
+                if (appKey == null || token == null ||
+                    appKey.Length == 0 || token.Length == 0)
+                {
+                    nlsResult.Text = "Start failed, token or appkey is empty";
+                    return;
+                }
+
                 syPtr.SetAppKey(syPtr, appKey);
                 syPtr.SetToken(syPtr, token);
                 syPtr.SetUrl(syPtr, url);
@@ -590,6 +622,21 @@ namespace nlsCsharpSdkDemo
             int ret = -1;
             if (srPtr.native_request != IntPtr.Zero)
             {
+                if (appKey == null || appKey.Length == 0)
+                {
+                    appKey = tAppKey.Text;
+                }
+                if (token == null || token.Length == 0)
+                {
+                    token = tToken.Text;
+                }
+                if (appKey == null || token == null ||
+                    appKey.Length == 0 || token.Length == 0)
+                {
+                    nlsResult.Text = "Start failed, token or appkey is empty";
+                    return;
+                }
+
                 srPtr.SetAppKey(srPtr, appKey);
                 srPtr.SetToken(srPtr, token);
                 srPtr.SetUrl(srPtr, url);
@@ -662,21 +709,6 @@ namespace nlsCsharpSdkDemo
             cur_sr_completed = "null";
         }
 
-        private void label6_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void label21_Click(object sender, EventArgs e)
-        {
-
-        }
-
-        private void label14_Click(object sender, EventArgs e)
-        {
-
-        }
-
         private void btnSYrelease_Click(object sender, EventArgs e)
         {
             if (syPtr.native_request != IntPtr.Zero)
@@ -693,14 +725,13 @@ namespace nlsCsharpSdkDemo
             cur_sy_completed = "null";
         }
 
-        private void syCompleted_Click(object sender, EventArgs e)
-        {
+        private void label1_Click(object sender, EventArgs e) {}
+        private void nlsCsharpSdkDemo_Load(object sender, EventArgs e) {}
+        private void label6_Click(object sender, EventArgs e) {}
+        private void label21_Click(object sender, EventArgs e) {}
+        private void label14_Click(object sender, EventArgs e) {}
+        private void syCompleted_Click(object sender, EventArgs e) {}
+        private void srCompleted_Click(object sender, EventArgs e) {}
 
-        }
-
-        private void srCompleted_Click(object sender, EventArgs e)
-        {
-
-        }
     }
 }

@@ -763,7 +763,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     "今日天气真不错，我想去操场踢足球.",
     "今日天气真不错，我想去操场踢足球."
   };
-	ParamStruct pa[threads] = {0, };
+	ParamStruct pa[threads];
 
 	for (int i = 0; i < threads; i ++) {
     int num = i % AUDIO_TEXT_NUMS;
@@ -780,8 +780,8 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     memset(pa[i].audioFile, 0, DEFAULT_STRING_LEN);
     memcpy(pa[i].audioFile, syAudioFiles[num], strlen(syAudioFiles[num]));
 
+    memset(pa[i].url, 0, DEFAULT_STRING_LEN);
     if (!g_url.empty()) {
-      memset(pa[i].url, 0, DEFAULT_STRING_LEN);
       memcpy(pa[i].url, g_url.c_str(), g_url.length());
     }
 
@@ -1038,6 +1038,7 @@ int main(int argc, char* argv[]) {
 
     // 根据需要设置SDK输出日志, 可选. 此处表示SDK日志输出至log-Synthesizer.txt,
     // LogDebug表示输出所有级别日志
+    // 需要最早调用
   #ifdef LOG_TRIGGER
     int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
         "log-synthesizer", AlibabaNls::LogDebug, 400, 50);
@@ -1047,12 +1048,20 @@ int main(int argc, char* argv[]) {
     }
   #endif
 
+    // 设置运行环境需要的套接口地址类型, 默认为AF_INET
+    // 必须在startWorkThread()前调用
+    //AlibabaNls::NlsClient::getInstance()->setAddrInFamily("AF_INET");
+
+    // 私有云部署的情况下进行直连IP的设置
+    // 必须在startWorkThread()前调用
+    //AlibabaNls::NlsClient::getInstance()->setDirectHost("106.15.83.44");
+
     std::cout << "startWorkThread begin... " << std::endl;
 
     // 启动工作线程, 在创建请求和启动前必须调用此函数
     // 入参为负时, 启动当前系统中可用的核数
     if (cur_profile_scan == -1) {
-      // 高并发的情况下推荐4
+      // 高并发的情况下推荐4, 单请求的情况推荐为1
       AlibabaNls::NlsClient::getInstance()->startWorkThread(4);
     } else {
       AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);

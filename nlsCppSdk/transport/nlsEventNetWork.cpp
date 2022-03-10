@@ -43,6 +43,8 @@ namespace AlibabaNls {
 WorkThread *NlsEventNetWork::_workThreadArray = NULL;
 size_t NlsEventNetWork::_workThreadsNumber = 0;
 size_t NlsEventNetWork::_currentCpuNumber = 0;
+int NlsEventNetWork::_addrInFamily = AF_INET;
+char NlsEventNetWork::_directIp[64] = {0};
 
 #if defined(_MSC_VER)
 HANDLE NlsEventNetWork::_mtxThread = CreateMutex(NULL, FALSE, NULL);
@@ -59,7 +61,7 @@ void NlsEventNetWork::DnsLogCb(int w, const char *m) {
   LOG_DEBUG(m);
 }
 
-void NlsEventNetWork::initEventNetWork(int count) {
+void NlsEventNetWork::initEventNetWork(int count, char *aiFamily, char *directIp) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxThread, INFINITE);
 #else
@@ -84,6 +86,23 @@ void NlsEventNetWork::initEventNetWork(int count) {
 
   (void)WSAStartup(wVersionRequested, &wsaData);
 #endif
+
+  _addrInFamily = AF_INET;
+  if (aiFamily != NULL) {
+    if (strncmp(aiFamily, "AF_INET", 16) == 0) {
+      _addrInFamily = AF_INET;
+    } else if (strncmp(aiFamily, "AF_INET6", 16) == 0) {
+      _addrInFamily = AF_INET6;
+    } else if (strncmp(aiFamily, "AF_UNSPEC", 16) == 0) {
+      _addrInFamily = AF_UNSPEC;
+    }
+    LOG_INFO("Set sockaddr_in type: %s", aiFamily);
+  }
+
+  memset(_directIp, 0, 64);
+  if (directIp) {
+    strncpy(_directIp, directIp, 64);
+  }
 
 #if defined(_MSC_VER)
   SYSTEM_INFO sysInfo;
@@ -186,6 +205,10 @@ int NlsEventNetWork::start(INlsRequest *request) {
     LOG_DEBUG("Node:%p Select NO.%d thread.", node, num);
 
     node->_eventThread = &_workThreadArray[num];
+    node->_eventThread->setAddrInFamily(_addrInFamily);
+    if (_directIp != NULL && strnlen(_directIp, 64) > 0) {
+      node->_eventThread->setDirectHost(_directIp);
+    }
     WorkThread::insertQueueNode(node->_eventThread, request);
     node->resetBufferLimit();
 

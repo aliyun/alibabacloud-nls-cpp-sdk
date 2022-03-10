@@ -46,6 +46,8 @@ pthread_mutex_t WorkThread::_mtxCpu = PTHREAD_MUTEX_INITIALIZER;
 #endif
 int WorkThread::_cpuNumber = 1;
 int WorkThread::_cpuCurrent = 0;
+int WorkThread::_addrInFamily = AF_INET;
+char WorkThread::_directIp[64] = {0};
 
 WorkThread::WorkThread() {
   LOG_DEBUG("Create WorkThread.");
@@ -373,7 +375,7 @@ EventProcessFailed:
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
 
-  if (node->dnsProcess() == -1) {
+  if (node->dnsProcess(_addrInFamily, _directIp) == -1) {
     LOG_ERROR("Node:%p try delete request.", node);
     destroyConnectNode(node);
   }
@@ -444,6 +446,41 @@ void WorkThread::writeEventCallBack(
   }
 }
 
+void WorkThread::directConnect(void *arg, char *ip) {
+  ConnectNode *node = (ConnectNode *)arg;
+  if (ip) {
+    LOG_DEBUG("Node:%p direct IpV4:%s", node, ip);
+
+    int ret = node->connectProcess(ip, AF_INET);
+    if (ret == 0) {
+      ret = node->sslProcess();
+      if (ret == 0) {
+        LOG_DEBUG("Node:%p Begin gateway request process.", node);
+        if (nodeRequestProcess(node) == -1) {
+          destroyConnectNode(node);
+        }
+        return;
+      }
+    }
+
+    if (ret == 1) {
+      // connect  EINPROGRESS
+      return;
+    } else {
+      LOG_DEBUG("Node:%p goto DirectConnectRetry.", node);
+      goto DirectConnectRetry;
+    }
+  }
+
+DirectConnectRetry:
+  node->disconnectProcess();
+  node->setConnectNodeStatus(NodeConnecting);
+  if (node->dnsProcess(_addrInFamily, ip) == -1) {
+    destroyConnectNode(node);
+  }
+
+  return;
+}
 
 void WorkThread::dnsEventCallback(int errorCode,
                                   struct evutil_addrinfo *address,
@@ -454,7 +491,7 @@ void WorkThread::dnsEventCallback(int errorCode,
     LOG_ERROR("Node:%p %s dns failed: %s.",
         node, node->_url._host, evutil_gai_strerror(errorCode));
     node->setConnectNodeStatus(NodeConnecting);
-    if (node->dnsProcess() == -1) {
+    if (node->dnsProcess(_addrInFamily, _directIp) == -1) {
       destroyConnectNode(node);
     }
     return ;
@@ -536,7 +573,7 @@ ConnectRetry:
   //node->closeConnectNode();
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  if (node->dnsProcess() == -1) {
+  if (node->dnsProcess(_addrInFamily, _directIp) == -1) {
     destroyConnectNode(node);
   }
 
@@ -558,7 +595,7 @@ void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg)
 
     LOG_DEBUG("Node:%p begin dnsprocess.", request->getConnectNode());
 
-    if (request->getConnectNode()->dnsProcess() == -1) {
+    if (request->getConnectNode()->dnsProcess(_addrInFamily, _directIp) == -1) {
       destroyConnectNode(request->getConnectNode());
     }
   } else if (msgCmd == 's') {
@@ -653,6 +690,7 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
     case NodeHandshaked:
       ret = node->gatewayResponse();
       if (ret == 0) {
+        /* ret == 0 mean parsing response successfully */
         node->setConnectNodeStatus(NodeStarting);
         if (node->_request->getRequestParam()->_requestType == SpeechTextDialog) {
           node->addCmdDataBuffer(CmdTextDialog);
@@ -695,6 +733,17 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
   //LOG_DEBUG("Node:%p nodeResponseProcess done.", node);
 
   return 0;
+}
+
+void WorkThread::setAddrInFamily(int aiFamily) {
+  _addrInFamily = aiFamily;
+}
+
+void WorkThread::setDirectHost(char *directIp) {
+  memset(_directIp, 0, 64);
+  if (directIp && strnlen(directIp, 64) > 0) {
+    strncpy(_directIp, directIp, 64);
+  }
 }
 
 }

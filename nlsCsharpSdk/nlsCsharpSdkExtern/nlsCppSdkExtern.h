@@ -30,6 +30,11 @@ NLSAPI(int) NlsSetLogConfig(const char* logFileName, int logLevel, int logFileSi
 		logFileName, (AlibabaNls::LogLevel)logLevel, logFileSize, logFileNum);
 }
 
+NLSAPI(void) NlsSetAddrInFamily(const char* aiFamily)
+{
+	return AlibabaNls::NlsClient::getInstance()->setAddrInFamily(aiFamily);
+}
+
 NLSAPI(void) NlsStartWorkThread(int threadsNumber)
 {
 	if (stEvent == NULL)
