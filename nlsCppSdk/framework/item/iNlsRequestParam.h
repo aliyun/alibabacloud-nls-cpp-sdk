@@ -95,6 +95,8 @@ class INlsRequestParam {
   virtual int setCustomizationId(const char * value);
   virtual int setVocabularyId(const char * value);
 
+  virtual int getTimeout();
+
  public:
   int AppendHttpHeader(const char* key, const char* value);
   std::string GetHttpHeader();

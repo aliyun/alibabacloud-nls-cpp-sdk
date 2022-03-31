@@ -129,7 +129,8 @@ void DialogAssistantCallback::setOnChannelClosed(
   }
 }
 
-DialogAssistantRequest::DialogAssistantRequest(int version, const char* sdkName) {
+DialogAssistantRequest::DialogAssistantRequest(
+    int version, const char* sdkName, bool isLongConnection) {
   _callback = new DialogAssistantCallback();
 
   //init request param
@@ -140,9 +141,9 @@ DialogAssistantRequest::DialogAssistantRequest(int version, const char* sdkName)
   _listener = new DialogAssistantListener(_callback);
 
   //init connect node
-  _node = new ConnectNode(this, _listener);
+  _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create DialogAssistantRequest.");
+  LOG_DEBUG("Create DialogAssistantRequest Done.");
 }
 
 DialogAssistantRequest::~DialogAssistantRequest() {
@@ -160,7 +161,7 @@ DialogAssistantRequest::~DialogAssistantRequest() {
 
   delete _dialogAssistantParam;
   _dialogAssistantParam = NULL;
-  LOG_DEBUG("Destroy DialogAssistantRequest.");
+  LOG_DEBUG("Request:%p Destroy DialogAssistantRequest.", this);
 }
 
 int DialogAssistantRequest::start() {

@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #ifndef __ANDRIOD__
 #include <iconv.h>
 #endif
@@ -51,7 +52,8 @@ namespace AlibabaNls {
 #define NODE_FRAME_SIZE 2048
 
 ConnectNode::ConnectNode(INlsRequest* request,
-                         HandleBaseOneParamWithReturnVoid<NlsEvent>* handler) : _request(request), _handler(handler) {
+                         HandleBaseOneParamWithReturnVoid<NlsEvent>* handler,
+                         bool isLongConnection) : _request(request), _handler(handler) {
 
   _connectErrCode = 0;
   _retryConnectCount = 0;
@@ -91,8 +93,16 @@ ConnectNode::ConnectNode(INlsRequest* request,
   _isWakeStop = false;
   _isStop = false;
 
+  _isLongConnection = isLongConnection;
+  _isConnected = false;
+
   _workStatus = NodeInitial;
   _exitStatus = ExitInvalid;
+
+#ifndef _MSC_VER
+  _dnsThread = 0;
+  _timeThread = 0;
+#endif
 
   _sslHandle = new SSLconnect();
   if (_sslHandle == NULL) {
@@ -108,15 +118,37 @@ ConnectNode::ConnectNode(INlsRequest* request,
 #else
   pthread_mutex_init(&_mtxNode, NULL);
   pthread_mutex_init(&_mtxCloseNode, NULL);
+
+  pthread_mutex_init(&_mtxDns, NULL);
+  pthread_cond_init(&_cvDns, NULL);
 #endif
 
   LOG_DEBUG("Create ConnectNode done.");
 }
 
 ConnectNode::~ConnectNode() {
-  LOG_DEBUG("Destroy ConnectNode begin.");
+  LOG_DEBUG("Node:%p Destroy ConnectNode begin.", this);
+
+#ifndef _MSC_VER
+  int ret = 0;
+  if (_dnsThread) {
+    ret = pthread_kill(_dnsThread, 0);
+    if (ret == 0) {
+      LOG_WARN("Node:%p dnsThread still exist", this);
+      pthread_cancel(_dnsThread);
+      _dnsThread = 0;
+    } else if (ret == ESRCH) {
+      LOG_DEBUG("Node:%p dnsThread not exist", this);
+    } else {
+      LOG_DEBUG("Node:%p dnsThread ret:%d", this, ret);
+    }
+  }
+#endif
 
   closeConnectNode();
+  if (_isLongConnection) {
+    _eventThread->freeListNode(_eventThread, _request);
+  }
 
   if (_sslHandle) {
     delete _sslHandle;
@@ -138,10 +170,34 @@ ConnectNode::~ConnectNode() {
   CloseHandle(_mtxNode);
   CloseHandle(_mtxCloseNode);
 #else
+  pthread_mutex_destroy(&_mtxDns);
+  pthread_cond_destroy(&_cvDns);
+
   pthread_mutex_destroy(&_mtxNode);
   pthread_mutex_destroy(&_mtxCloseNode);
 #endif
-  LOG_DEBUG("Destroy ConnectNode done.");
+  LOG_DEBUG("Node:%p Destroy ConnectNode done.", this);
+}
+
+void ConnectNode::initAllStatus() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxNode);
+#endif
+
+  _isStop = false;
+  _isDestroy = false;
+  _isWakeStop = false;
+
+  _workStatus = NodeInitial;
+  _exitStatus = ExitInvalid;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNode);
+#else
+  pthread_mutex_unlock(&_mtxNode);
+#endif
 }
 
 ConnectStatus ConnectNode::getConnectNodeStatus() {
@@ -259,6 +315,9 @@ std::string ConnectNode::getExitStatusString() {
     case ExitStopping:
       ret_str.assign("ExitStopping");
       break;
+    case ExitStopping2:
+      ret_str.assign("ExitStopping2");
+      break;
     case ExitStopped:
       ret_str.assign("ExitStopped");
       break;
@@ -303,6 +362,34 @@ bool ConnectNode::updateDestroyStatus() {
 #endif
 
   if (!_isDestroy) {
+  #ifndef _MSC_VER
+    int result = 0;
+    if (_dnsThread) {
+      result = pthread_kill(_dnsThread, 0);
+      if (result == 0) {
+        LOG_WARN("Node:%p dnsThread still exist", this);
+        pthread_cancel(_dnsThread);
+        _dnsThread = 0;
+      } else if (result == ESRCH) {
+        LOG_DEBUG("Node:%p dnsThread not exist", this);
+      } else {
+        LOG_DEBUG("Node:%p dnsThread result:%d", this, result);
+      }
+    }
+    if (_timeThread) {
+      result = pthread_kill(_timeThread, 0);
+      if (result == 0) {
+        LOG_WARN("Node:%p timeThread still exist", this);
+        pthread_cancel(_timeThread);
+        _timeThread = 0;
+      } else if (result == ESRCH) {
+        LOG_DEBUG("Node:%p timeThread not exist", this);
+      } else {
+        LOG_DEBUG("Node:%p timeThread result:%d", this, result);
+      }
+    }
+  #endif
+
     _isDestroy = true;
     ret = false;
   }
@@ -451,10 +538,16 @@ void ConnectNode::disconnectProcess() {
     evutil_closesocket(_socketFd);
     _socketFd = INVALID_SOCKET;
 
+  #ifndef _MSC_VER
+    if (_url._enableSysGetAddr) {
+      event_del(&_dnsEvent);
+    }
+  #endif
     event_del(&_readEvent);
     event_del(&_writeEvent);
     event_del(&_connectEvent);
 
+    _isConnected = false;
     LOG_INFO("Node:%p disconnectProcess done.", this);
   }
 
@@ -465,6 +558,37 @@ void ConnectNode::disconnectProcess() {
 #endif
 }
 
+/*
+ * 当前Node切换到close状态
+ */
+void ConnectNode::closeStatusConnectNode() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxCloseNode, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxCloseNode);
+#endif
+
+  if (_socketFd != INVALID_SOCKET) {
+    LOG_DEBUG("Node:%p closeStatusConnectNode Begin.", this);
+    setConnectNodeStatus(NodeInvalid);
+    setExitStatus(ExitStopping2);
+
+    if (_nlsEncoder) {
+      _nlsEncoder->nlsEncoderSoftRestart();
+    }
+    LOG_INFO("Node:%p closeStatusConnectNode done.", this);
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxCloseNode);
+#else
+  pthread_mutex_unlock(&_mtxCloseNode);
+#endif
+}
+
+/*
+ * 关闭当前Node的SSL和socket, 停止相关libevent事件
+ */
 void ConnectNode::closeConnectNode() {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxCloseNode, INFINITE);
@@ -476,7 +600,7 @@ void ConnectNode::closeConnectNode() {
     LOG_DEBUG("Node:%p closeConnectNode Begin.", this);
 
     setConnectNodeStatus(NodeInvalid);
-    setExitStatus(ExitStopped);
+    setExitStatus(ExitStopping2);
 
     if (_url._isSsl) {
       _sslHandle->sslClose();
@@ -485,10 +609,16 @@ void ConnectNode::closeConnectNode() {
     evutil_closesocket(_socketFd);
     _socketFd = INVALID_SOCKET;
 
+  #ifndef _MSC_VER
+    if (_url._enableSysGetAddr) {
+      event_del(&_dnsEvent);
+    }
+  #endif
     event_del(&_readEvent);
     event_del(&_writeEvent);
     event_del(&_connectEvent);
 
+    _isConnected = false;
     LOG_INFO("Node:%p closeConnectNode done.", this);
   }
 
@@ -620,6 +750,7 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
       nSize = _nlsEncoder->nlsEncoding(
           frame, (int)frameSize,
           outputBuffer, (int)frameSize);
+      //LOG_DEBUG("Node:%p Opus encoder return %d.", this, nSize);
       if (nSize < 0) {
         LOG_ERROR("Node:%p Opus encoder failed %d.", this, nSize);
         delete [] outputBuffer;
@@ -696,8 +827,8 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   }
 
   if (ret == -1) {
-    handlerTaskFailedEvent(getErrorMsg());
     disconnectProcess();
+    handlerTaskFailedEvent(getErrorMsg());
   }
 
   return ret;
@@ -772,7 +903,7 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
     size_t frameSize = 0;
     _webSocket.textFrame((uint8_t *) cmd, strlen(cmd), &frame, &frameSize);
 
-    LOG_DEBUG("Node:%p WebSocket Size:%zu", this, frameSize);
+    //LOG_DEBUG("Node:%p WebSocket Size:%zu", this, frameSize);
 
     evbuffer_add(_cmdEvBuffer, (void *) frame, frameSize);
 
@@ -819,8 +950,8 @@ int ConnectNode::cmdNotify(CmdType type, const char* message) {
   }
 
   if (ret == -1) {
-    handlerTaskFailedEvent(getErrorMsg());
     disconnectProcess();
+    handlerTaskFailedEvent(getErrorMsg());
   }
 
   return ret;
@@ -833,14 +964,14 @@ int ConnectNode::nlsSend(const uint8_t * frame, size_t length) {
   }
 
   if (_url._isSsl) {
-    //LOG_DEBUG("SSL Send data.");
+    //LOG_DEBUG("Node:%p SSL Send data.", this);
     sLen = _sslHandle->sslWrite(frame, length);
   } else {
     //LOG_DEBUG("Socket Send data.");
     sLen = socketWrite(frame, length);
   }
 
-  //LOG_DEBUG("Send data: %d.", sLen);
+  //LOG_DEBUG("Node:%p Send data: %d.", this, sLen);
 
   if (sLen < 0) {
     if (_url._isSsl) {
@@ -1164,8 +1295,8 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
 
   if (frameEvent == NULL) {
     LOG_ERROR("Node:%p Result conversion failed.", this);
-    handlerEvent(CLOSE_JSON_STRING, CLOSE_CODE, NlsEvent::Close);
     closeConnectNode();
+    handlerEvent(CLOSE_JSON_STRING, CLOSE_CODE, NlsEvent::Close);
     return -1;
   }
 
@@ -1218,8 +1349,12 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
   frameEvent = NULL;
 
   if (closeFlag) {
+    if (!_isLongConnection) {
+      closeConnectNode();
+    } else {
+      closeStatusConnectNode();
+    }
     handlerEvent(CLOSE_JSON_STRING, CLOSE_CODE, NlsEvent::Close);
-    closeConnectNode();
     return -1;
   }
 
@@ -1230,7 +1365,8 @@ void ConnectNode::handlerEvent(const char* error,
                                int errorCode,
                                NlsEvent::EventType eventType) {
   //invoke cancel()
-  LOG_DEBUG("Node:%p 's Exit Status:%d.", this, getExitStatus());
+  LOG_DEBUG("Node:%p 's Exit Status:(%d)%s, eventType:%d.",
+      this, getExitStatus(),  getExitStatusString().c_str(), eventType);
   if (getExitStatus() == ExitCancel || getExitStatus() == ExitStopped) {
     LOG_WARN("Node:%p Invoke Cancel command, Callback will n't be invoked.", this);
     return;
@@ -1243,9 +1379,15 @@ void ConnectNode::handlerEvent(const char* error,
     return;
   }
 
-  LOG_INFO("Node:%p Begin HandlerFrame.", this);
+  if (eventType == NlsEvent::Close && getExitStatus() == ExitStopping2) {
+    setExitStatus(ExitStopped);
+  }
+  //LOG_INFO("Node:%p Begin HandlerFrame.", this);
+  if (eventType == NlsEvent::Close) {
+    LOG_DEBUG("Node:%p callback NlsEvent::Close frame", this);
+  }
   _handler->handlerFrame(*useEvent);
-  LOG_INFO("Node:%p End HandlerFrame.", this);
+  //LOG_INFO("Node:%p End HandlerFrame.", this);
 
   delete useEvent;
   useEvent = NULL;
@@ -1266,24 +1408,104 @@ void ConnectNode::handlerTaskFailedEvent(std::string failedInfo) {
   return ;
 }
 
-#ifdef NLS_USE_NATIVE_GETADDRINFO
+#ifndef _MSC_VER
+static void *async_dns_resolve_thread_fn(void *arg) {
+  pthread_detach(pthread_self());
+  ConnectNode *node = (ConnectNode *)arg;
+  struct evutil_addrinfo *res = NULL;
+  evdns_getaddrinfo_cb cb = (evdns_getaddrinfo_cb)node->_getaddrinfo_cb_handle;
+  int err = getaddrinfo(node->_nodename, node->_servname, NULL, &res);
+  if (err == 0) {
+  } else {
+    LOG_ERROR("Node:%p getaddrinfo failed...(%d)", arg, err);
+  }
+
+  pthread_mutex_lock(&node->_mtxDns);
+  pthread_cond_signal(&node->_cvDns);
+  pthread_mutex_unlock(&node->_mtxDns);
+
+  event_assign(&node->_dnsEvent, node->_eventThread->_workBase,
+               -1, err, WorkThread::sysDnsEventCallback, node);
+  node->_addrinfo = res;
+  event_add(&node->_dnsEvent, NULL);
+  event_active(&node->_dnsEvent, err, 0);
+
+  node->_dnsThread = 0;
+  pthread_exit(NULL);
+}
+
+static void *async_dns_time_thread_fn(void *arg) {
+  pthread_detach(pthread_self());
+  ConnectNode *node = (ConnectNode *)arg;
+  evdns_getaddrinfo_cb cb = (evdns_getaddrinfo_cb)node->_getaddrinfo_cb_handle;
+
+  pthread_mutex_lock(&node->_mtxDns);
+  if (ETIMEDOUT == pthread_cond_timedwait(
+        &node->_cvDns, &node->_mtxDns, &node->_outtime)) {
+    if (!node->_isDestroy) {
+      INlsRequestParam* requestParam = node->_request->getRequestParam();
+      if (requestParam == NULL) {
+        LOG_ERROR("Node:%p DNS: resolved timeout, but requestParam is nullptr",
+            node);
+      } else {
+        LOG_ERROR("Node:%p DNS: resolved timeout(%dms).",
+            node, node->_request->getRequestParam()->_timeout);
+      }
+      if (node->_dnsThread) {
+        int ret = pthread_kill(node->_dnsThread, 0);
+        if (ret == 0) {
+          LOG_DEBUG("Node:%p dns timeout, dnsThread exist", node);
+          pthread_cancel(node->_dnsThread);
+          node->_dnsThread = 0;
+        } else if (ret == ESRCH) {
+          LOG_DEBUG("Node:%p dns timeout, dnsThread not exist", node);
+        } else {
+          LOG_DEBUG("Node:%p dns timeout, ret:%d", node, ret);
+        }
+
+        event_assign(&node->_dnsEvent, node->_eventThread->_workBase,
+                     -1, EAI_SYSTEM, WorkThread::sysDnsEventCallback, node);
+        node->_addrinfo = NULL;
+        event_add(&node->_dnsEvent, NULL);
+        event_active(&node->_dnsEvent, EAI_SYSTEM, 0);
+      }
+    }
+  }
+  pthread_mutex_unlock(&node->_mtxDns);
+
+  node->_timeThread = 0;
+  pthread_exit(NULL);
+}
+
 static int native_getaddrinfo(
     struct evdns_base *dns_base,
     const char *nodename, const char *servname,
     const struct evutil_addrinfo *hints_in,
     evdns_getaddrinfo_cb cb, void *arg) {
-  struct evutil_addrinfo *res = NULL;
-  int err = getaddrinfo(nodename, servname, NULL, &res);
-  if (err == 0) {
-    cb(err, res, arg);
-  } else {
-    LOG_ERROR("getaddrinfo failed...(%d)", err);
-  }
+  // arg is ConnectNode
+  int err = 0;
+  ConnectNode *node = (ConnectNode *)arg;
+  int timeout = node->_request->getRequestParam()->getTimeout();  // ms
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  long nanotime = now.tv_usec * 1000 + timeout * 1000000;
+  node->_outtime.tv_sec = now.tv_sec + nanotime / 1000000000;
+  node->_outtime.tv_nsec = nanotime % 1000000000;
+
+  node->_nodename = (char*)nodename;
+  node->_servname = (char*)servname;
+  node->_getaddrinfo_cb_handle = (void*)cb;
+
+  pthread_create(&node->_dnsThread, NULL,
+                 &async_dns_resolve_thread_fn, arg);
+
+  pthread_create(&node->_timeThread, NULL,
+                 &async_dns_time_thread_fn, arg);
   return err;
 }
 #endif
 
-int ConnectNode::dnsProcess(int aiFamily, char *directIp) {
+int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
   int result = 0;
   struct evutil_addrinfo hints;
   struct evdns_getaddrinfo_request *dnsRequest;
@@ -1291,6 +1513,24 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp) {
   //invoke cancel()
   if (getExitStatus() == ExitCancel) {
     return -1;
+  }
+
+  if (_isLongConnection && _isConnected) {
+    LOG_DEBUG("Node:%p has connected, return...", this);
+
+    setConnectNodeStatus(NodeStarting);
+    if (_request->getRequestParam()->_requestType == SpeechTextDialog) {
+      addCmdDataBuffer(CmdTextDialog);
+    } else {
+      addCmdDataBuffer(CmdStart);
+    }
+    int ret = nlsSendFrame(getCmdEvBuffer());
+    if (ret == -1) {
+      LOG_ERROR("Node:%p Response failed.", this);
+      handlerTaskFailedEvent(getErrorMsg());
+      closeConnectNode();
+    }
+    return 0;
   }
 
   if (!checkConnectCount()) {
@@ -1303,10 +1543,12 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp) {
 
   parseUrlInformation(directIp);
 
+  _url._enableSysGetAddr = sysGetAddr;
   if (_url._isSsl) {
     LOG_INFO("Node:%p _url._isSsl is True.", this);
   } else {
     LOG_INFO("Node:%p _url._isSsl is False.", this);
+    _url._enableSysGetAddr = true;
   }
 
   if (_url._directIp) {
@@ -1329,35 +1571,48 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    LOG_INFO("Node:%p Dns URL:%s.",
-        this, _request->getRequestParam()->_url.c_str());
+    LOG_INFO("Node:%p Dns URL:%s, enableSysGetAddr:%d.",
+        this, _request->getRequestParam()->_url.c_str(),
+        _url._enableSysGetAddr);
 
-  #ifdef NLS_USE_NATIVE_GETADDRINFO
-    result = native_getaddrinfo(_eventThread->_dnsBase,
-                                _url._host,
-                                NULL,
-                                &hints,
-                                WorkThread::dnsEventCallback,
-                                this);
-    if (result != 0) {
-      result = -1;
-    }
-  #else
-    dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
-                                   _url._host,
-                                   NULL,
-                                   &hints,
-                                   WorkThread::dnsEventCallback,
-                                   this);
-    if (dnsRequest == NULL) {
-      //LOG_DEBUG("Node:%p dnsRequest returned immediately.", this);
-
+    if (_url._enableSysGetAddr) {
+    #ifndef _MSC_VER
       /*
-       * No need to free user_data ordecrement n_pending_requests; that
-       * happened in the callback.
+       * 在内部ws协议下或者主动使用系统getaddrinfo的情况下, 使用系统的getaddrinfo
        */
+      result = native_getaddrinfo(_eventThread->_dnsBase,
+                                  _url._host,
+                                  NULL,
+                                  &hints,
+                                  WorkThread::dnsEventCallback,
+                                  this);
+      if (result != 0) {
+        result = -1;
+      }
+    #else
+      dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
+                                     _url._host,
+                                     NULL,
+                                     &hints,
+                                     WorkThread::dnsEventCallback,
+                                     this);
+    #endif
+    } else {
+      dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
+                                     _url._host,
+                                     NULL,
+                                     &hints,
+                                     WorkThread::dnsEventCallback,
+                                     this);
+      if (dnsRequest == NULL) {
+        //LOG_DEBUG("Node:%p dnsRequest returned immediately.", this);
+
+        /*
+         * No need to free user_data ordecrement n_pending_requests; that
+         * happened in the callback.
+         */
+      }
     }
-  #endif
   }
 
   return result;
@@ -1511,6 +1766,7 @@ int ConnectNode::socketConnect() {
   } else {
     LOG_INFO("Node:%p connected directly1.", this);
     setConnectNodeStatus(NodeConnected);
+    _isConnected = true;
   }
   return 0;
 }

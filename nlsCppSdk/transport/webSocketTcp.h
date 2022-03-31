@@ -74,6 +74,7 @@ struct urlAddress {
   bool _isSsl;
   char _address[HOST_SIZE];
   bool _directIp;
+  bool _enableSysGetAddr;
 };
 
 class WebSocketTcp {

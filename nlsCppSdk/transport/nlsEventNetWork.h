@@ -38,7 +38,8 @@ class NlsEventNetWork {
   static NlsEventNetWork * _eventClient;
 
   static void DnsLogCb(int w, const char *m);
-  static void initEventNetWork(int count, char *aiFamily, char *directIp);
+  static void initEventNetWork(
+      int count, char *aiFamily, char *directIp, bool sysGetAddr);
   static void destroyEventNetWork();
 
   int start(INlsRequest *request);
@@ -55,6 +56,7 @@ class NlsEventNetWork {
   static size_t _currentCpuNumber;
   static int _addrInFamily;
   static char _directIp[64];
+  static bool _enableSysGetAddr;
 
 #if defined(_MSC_VER)
   static HANDLE _mtxThread;

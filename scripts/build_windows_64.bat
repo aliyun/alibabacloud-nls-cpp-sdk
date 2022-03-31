@@ -245,7 +245,12 @@ pause
 
 	set event_src_folder=%event_folder%\libevent-2.1.12-stable\libevent-2.1.12-stable
 	echo cd %event_src_folder%
-	cd %event_src_folder%	
+	cd %event_src_folder%
+
+	md build
+	cd build
+	xcopy %project_folder%thirdparty\libevent_win_prj\* %event_src_folder%\build\ /y/s
+
 		
 rem x64	
 	
@@ -261,8 +266,6 @@ rem x64
 	start libevent.sln /p:Configuration=Release;Platform=x64 /t:Clean,Build	
 	
 	copy /y %prefix_dir%\lib\libevent.lib %event_lib_folder%\x64\Release
-	copy /y %prefix_dir%\lib\libevent_core.lib %event_lib_folder%\x64\Release
-	copy /y %prefix_dir%\lib\libevent_extras %event_lib_folder%\x64\Release
 	
 	
 	set prefix_dir=%event_src_folder%\x64\Debug
@@ -277,8 +280,7 @@ rem x64
 	start libevent.sln /p:Configuration=Debug;Platform=x64 /t:Clean,Build	
 	
 	copy /y %prefix_dir%\lib\libevent.lib %event_lib_folder%\x64\Debug
-	copy /y %prefix_dir%\lib\libevent_core.lib %event_lib_folder%\x64\Debug
-	copy /y %prefix_dir%\lib\libevent_extras %event_lib_folder%\x64\Debug
+
 	
 ::goto:eof
 
@@ -544,7 +546,7 @@ copy /y %build_x64_release_folder%\libssl-1_1-x64.dll %x64_release_folder%\
 copy /y %build_x64_release_folder%\libssl-1_1-x64.pdb %x64_release_folder%\
 
 copy /y %build_x64_release_folder%\libcrypto-1_1-x64.lib %x64_release_folder%\
-copy /y %build_x64_releaseg_folder%\libcrypto-1_1-x64.dll %x64_release_folder%\
+copy /y %build_x64_release_folder%\libcrypto-1_1-x64.dll %x64_release_folder%\
 copy /y %build_x64_release_folder%\libcrypto-1_1-x64.pdb %x64_release_folder%\
 
 copy /y %build_x64_release_folder%\libeay32.lib %x64_release_folder%\
@@ -582,7 +584,7 @@ rem 拷贝demo源代码
 copy /y %project_folder%\demo\Windows\* %install_demo_folder%\
 
 copy /y %project_folder%\version %install_folder%\
-copy /y %project_folder%\README.md %install_folder%\
+copy /y %project_folder%\readme.md %install_folder%\
 
 copy /y %build_x64_release_folder%\speechTranscriberDemo.exe %install_bin_folder%\stReleaseDemo.exe
 copy /y %build_x64_debug_folder%\speechTranscriberDemo.exe %install_bin_folder%\stDebugDemo.exe

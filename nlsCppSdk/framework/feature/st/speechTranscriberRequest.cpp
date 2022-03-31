@@ -139,7 +139,8 @@ void SpeechTranscriberCallback::setOnChannelClosed(
   }
 }
 
-SpeechTranscriberRequest::SpeechTranscriberRequest(const char* sdkName) {
+SpeechTranscriberRequest::SpeechTranscriberRequest(
+    const char* sdkName, bool isLongConnection) {
   _callback = new SpeechTranscriberCallback();
 
   //init request param
@@ -150,9 +151,9 @@ SpeechTranscriberRequest::SpeechTranscriberRequest(const char* sdkName) {
   _listener = new SpeechTranscriberListener(_callback);
 
   //init connect node
-  _node = new ConnectNode(this, _listener);
+  _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechTranscriberRequest.");
+  LOG_DEBUG("Create SpeechTranscriberRequest Done.");
 }
 
 SpeechTranscriberRequest::~SpeechTranscriberRequest() {
@@ -171,7 +172,7 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
   delete _transcriberParam;
   _transcriberParam = NULL;
 
-  LOG_DEBUG("Destroy SpeechTranscriberRequest.");
+  LOG_DEBUG("Request:%p Destroy SpeechTranscriberRequest Done.", this);
 }
 
 int SpeechTranscriberRequest::start() {
@@ -292,6 +293,22 @@ int SpeechTranscriberRequest::setEnableNlp(bool enable) {
 
 int SpeechTranscriberRequest::setSessionId(const char* value) {
   return _transcriberParam->setSessionId(value);
+}
+
+int SpeechTranscriberRequest::setEnableWords(bool enable) {
+  return _transcriberParam->setEnableWords(enable);
+}
+
+int SpeechTranscriberRequest::setEnableIgnoreSentenceTimeout(bool enable) {
+  return _transcriberParam->setEnableIgnoreSentenceTimeout(enable);
+}
+
+int SpeechTranscriberRequest::setDisfluency(bool enable) {
+  return _transcriberParam->setDisfluency(enable);
+}
+
+int SpeechTranscriberRequest::setSpeechNoiseThreshold(float value) {
+  return _transcriberParam->setSpeechNoiseThreshold(value);
 }
 
 void SpeechTranscriberRequest::setOnTaskFailed(

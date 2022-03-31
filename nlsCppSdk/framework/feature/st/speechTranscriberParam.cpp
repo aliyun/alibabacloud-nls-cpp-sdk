@@ -49,7 +49,7 @@ const char* SpeechTranscriberParam::getStopCommand() {
 }
 
 int SpeechTranscriberParam::setMaxSentenceSilence(int value) {
-  _payload[D_SR_MAX_SENTENCE_SILENCE] = value;
+  _payload[D_ST_MAX_SENTENCE_SILENCE] = value;
   return 0;
 }
 
@@ -60,6 +60,26 @@ int SpeechTranscriberParam::setEnableNlp(bool enable) {
 
 int SpeechTranscriberParam::setNlpModel(const char* value) {
   _payload[D_ST_NLP_MODEL] = value;
+  return 0;
+}
+
+int SpeechTranscriberParam::setEnableWords(bool enable) {
+  _payload[D_ST_ENABLE_WORDS] = enable;
+  return 0;
+}
+
+int SpeechTranscriberParam::setEnableIgnoreSentenceTimeout(bool enable) {
+  _payload[D_ST_IGNORE_SENTENCE_TIMEOUT] = enable;
+  return 0;
+}
+
+int SpeechTranscriberParam::setDisfluency(bool enable) {
+  _payload[D_ST_DISFLUENCY] = enable;
+  return 0;
+}
+
+int SpeechTranscriberParam::setSpeechNoiseThreshold(float value) {
+  _payload[D_ST_SPEECH_NOISE_THRESHOLD] = value;
   return 0;
 }
 

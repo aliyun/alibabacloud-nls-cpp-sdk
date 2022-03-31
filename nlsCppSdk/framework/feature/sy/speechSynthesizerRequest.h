@@ -53,7 +53,9 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerCallback {
 
 class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
  public:
-  SpeechSynthesizerRequest(int version = 0, const char* sdkName = "cpp");
+  SpeechSynthesizerRequest(int version = 0,
+                           const char* sdkName = "cpp",
+                           bool isLongConnection = false);
   ~SpeechSynthesizerRequest();
 
   /**
@@ -99,6 +101,10 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
   /**
    * @brief 待合成音频文本内容text设置
    * @note 必选参数，需要传入UTF-8编码的文本内容
+   *       短文本语音合成模式下(默认), 支持一次性合成300字符以内的文字,
+   *       其中1个汉字、1个英文字母或1个标点均算作1个字符,
+   *       超过300个字符的内容将会报错(或者截断).
+   *       超过300个字符可考虑长文本语音合成, 详见官方文档.
    * @param value	待合成文本字符串
    * @return 成功则返回0，否则返回-1
    */

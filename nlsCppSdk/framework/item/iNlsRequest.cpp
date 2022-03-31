@@ -26,19 +26,24 @@
 
 namespace AlibabaNls {
 
-INlsRequest::INlsRequest(const char* sdkName) {}
-INlsRequest::~INlsRequest() {}
+INlsRequest::INlsRequest(const char* sdkName) {
+  _threadNumber = -1;
+}
+
+INlsRequest::~INlsRequest() {
+  _node = NULL;
+}
 
 int INlsRequest::start(INlsRequest *request) {
   if (request == NULL) {
     LOG_ERROR("Input request is empty.");
     return -1;
   } else {
-    LOG_DEBUG("start ->");
+    LOG_DEBUG("request:%p start ->", request);
   }
 
   int ret = NlsEventNetWork::_eventClient->start(request);
-  LOG_DEBUG("start done");
+  LOG_DEBUG("request:%p start done", request);
   return ret;
 }
 
@@ -47,11 +52,11 @@ int INlsRequest::stop(INlsRequest *request, int type) {
     LOG_ERROR("Input request is empty.");
     return -1;
   } else {
-    LOG_DEBUG("stop ->");
+    LOG_DEBUG("request:%p stop ->", request);
   }
 
   int ret = NlsEventNetWork::_eventClient->stop(request, type);
-  LOG_DEBUG("stop done");
+  LOG_DEBUG("request:%p stop done", request);
   return ret;
 }
 
@@ -71,23 +76,35 @@ int INlsRequest::sendAudio(INlsRequest *request, const uint8_t* data,
     return -1;
   }
 
-//  LOG_DEBUG("Node:%p sendAudio begin, size(%d)",
-//      request->getConnectNode(), dataSize);
+//  LOG_DEBUG("Node:%p sendAudio type:%d begin, size(%d)",
+//      request->getConnectNode(), type, dataSize);
 
   int ret = NlsEventNetWork::_eventClient->sendAudio(
       request, data, dataSize, type);
 
-//  LOG_DEBUG("Node:%p sendAudio done, ret(%d).",
-//      request->getConnectNode(), ret);
+//  LOG_DEBUG("Node:%p sendAudio type:%d done, ret(%d).",
+//      request->getConnectNode(), type, ret);
   return ret;
 }
 
 ConnectNode* INlsRequest::getConnectNode() {
+  if (_node == NULL) {
+    LOG_WARN("getConnectNode nullptr");
+    return NULL;
+  }
   return _node;
 }
 
 INlsRequestParam* INlsRequest::getRequestParam() {
   return _requestParam;
+}
+
+void INlsRequest::setThreadNumber(int num) {
+  _threadNumber = num;
+}
+
+int INlsRequest::getThreadNumber() {
+  return _threadNumber;
 }
 
 }  // namespace AlibabaNls

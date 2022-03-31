@@ -35,6 +35,10 @@ public:
     int setMaxSentenceSilence(int value);
     int setEnableNlp(bool enable);
     int setNlpModel(const char* value);
+    int setEnableWords(bool enable);
+    int setEnableIgnoreSentenceTimeout(bool enable);
+    int setDisfluency(bool enable);
+    int setSpeechNoiseThreshold(float value);
 };
 
 }

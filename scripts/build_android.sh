@@ -230,7 +230,7 @@ mkdir -p $sdk_install_folder/demo
 mkdir -p $sdk_install_folder/bin
 cp $git_root_path/demo/Android/*.cpp $sdk_install_folder/demo
 cp $git_root_path/version $sdk_install_folder/
-cp $git_root_path/README.md $sdk_install_folder/
+cp $git_root_path/readme.md $sdk_install_folder/
 cp $build_folder/demo/*Demo $sdk_install_folder/bin
 cp -r $git_root_path/resource $sdk_install_folder/demo/
 cur_date=$(date +%Y%m%d%H%M)

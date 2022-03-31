@@ -49,6 +49,8 @@ class NlsEncoder {
   int nlsEncoding(const uint8_t* frameBuff, const int frameLen,
                   unsigned char* outputBuffer, int outputSize);
 
+  int nlsEncoderSoftRestart();
+
   /*
    * @brief 释放编码器
    * @return 成功返回0，失败返回负值

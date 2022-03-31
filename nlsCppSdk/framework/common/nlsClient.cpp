@@ -33,6 +33,7 @@ bool NlsClient::_isInitializeSSL = false;
 bool NlsClient::_isInitializeThread = false;
 char NlsClient::_aiFamily[16] = "AF_INET";
 char NlsClient::_direct_host_ip[64] = {0};
+bool NlsClient::_enableSysGetAddr = false;
 
 #if defined(_MSC_VER)
 HANDLE NlsClient::_mtx = CreateMutex(NULL, FALSE, NULL);
@@ -133,6 +134,22 @@ void NlsClient::setAddrInFamily(const char* aiFamily) {
 #endif
 }
 
+void NlsClient::setUseSysGetAddrInfo(bool enable) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtx, INFINITE);
+#else
+  pthread_mutex_lock(&_mtx);
+#endif
+
+  _enableSysGetAddr = enable;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtx);
+#else
+  pthread_mutex_unlock(&_mtx);
+#endif
+}
+
 void NlsClient::setDirectHost(const char* ip) {
   int result = 0;
 #if defined(_MSC_VER)
@@ -161,7 +178,8 @@ void NlsClient::startWorkThread(int threadsNumber) {
 #endif
 
   if (!_isInitializeThread) {
-    NlsEventNetWork::initEventNetWork(threadsNumber, _aiFamily, _direct_host_ip);
+    NlsEventNetWork::initEventNetWork(
+        threadsNumber, _aiFamily, _direct_host_ip, _enableSysGetAddr);
     _isInitializeThread = true;
   }
 
@@ -191,7 +209,9 @@ int NlsClient::setLogConfig(const char* logOutputFile,
 }
 
 void NlsClient::releaseRequest(INlsRequest* request) {
-  LOG_DEBUG("releaseRequest begin. %d:%s",
+  LOG_DEBUG("releaseRequest begin. request:%p Node:%p status(%d):%s",
+      request,
+      request->getConnectNode(),
       request->getConnectNode()->getConnectNodeStatus(),
       request->getConnectNode()->getConnectNodeStatusString().c_str());
 
@@ -203,6 +223,12 @@ void NlsClient::releaseRequest(INlsRequest* request) {
     return;
   }
 
+  if (request->getConnectNode()->_isLongConnection &&
+      request->getConnectNode()->getConnectNodeStatus() == NodeStarted) {
+    LOG_WARN("work status(NodeStarted) is abnormal, maybe get (err:IDLE_TIMEOUT) after start...");
+    request->getConnectNode()->setConnectNodeStatus(NodeInvalid);
+  }
+
   if (request->getConnectNode()->updateDestroyStatus()) {
     if (request->getConnectNode()->getConnectNodeStatus() == NodeInvalid) {
       LOG_INFO("released the Request -> 1");
@@ -211,13 +237,23 @@ void NlsClient::releaseRequest(INlsRequest* request) {
       LOG_INFO("released the Request done 1");
       return;
     }
+  } else {
+    if (request->getConnectNode()->_isLongConnection &&
+        request->getConnectNode()->getConnectNodeStatus() == NodeInvalid) {
+      LOG_INFO("released the Request -> 2");
+      delete request;
+      request = NULL;
+      LOG_INFO("released the Request done 2");
+      return;
+    }
   }
 
   LOG_DEBUG("releaseRequest done.");
 }
 
-SpeechRecognizerRequest* NlsClient::createRecognizerRequest(const char* sdkName) {
-  return new SpeechRecognizerRequest(sdkName);
+SpeechRecognizerRequest* NlsClient::createRecognizerRequest(
+    const char* sdkName, bool isLongConnection) {
+  return new SpeechRecognizerRequest(sdkName, isLongConnection);
 }
 
 void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
@@ -233,8 +269,9 @@ void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
 //  LOG_DEBUG("releaseRecognizerRequest done.");
 }
 
-SpeechTranscriberRequest* NlsClient::createTranscriberRequest(const char* sdkName) {
-  return new SpeechTranscriberRequest(sdkName);
+SpeechTranscriberRequest* NlsClient::createTranscriberRequest(
+    const char* sdkName, bool isLongConnection) {
+  return new SpeechTranscriberRequest(sdkName, isLongConnection);
 }
 
 void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
@@ -248,8 +285,9 @@ void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
   }
 }
 
-SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(TtsVersion version, const char* sdkName){
-  return new SpeechSynthesizerRequest((int)version, sdkName);
+SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(
+    TtsVersion version, const char* sdkName, bool isLongConnection){
+  return new SpeechSynthesizerRequest((int)version, sdkName, isLongConnection);
 }
 
 void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
@@ -264,8 +302,8 @@ void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
 }
 
 DialogAssistantRequest* NlsClient::createDialogAssistantRequest(
-    DaVersion version, const char* sdkName) {
-  return new DialogAssistantRequest((int)version, sdkName);
+    DaVersion version, const char* sdkName, bool isLongConnection) {
+  return new DialogAssistantRequest((int)version, sdkName, isLongConnection);
 }
 
 void NlsClient::releaseDialogAssistantRequest(DialogAssistantRequest* request) {

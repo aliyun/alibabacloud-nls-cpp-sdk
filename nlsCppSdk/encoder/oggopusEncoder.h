@@ -94,6 +94,7 @@ class OggOpusDataEncoder {
             void *user_data, int samplerate = 16000);
   int OggopusEncode(const char *input_data, int len);
   int OggopusFinish();
+  int OggopusSoftRestart();
   int OggopusDestroy();
 
   void SetSampleRate(int sample_rate) {

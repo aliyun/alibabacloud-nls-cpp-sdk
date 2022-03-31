@@ -49,10 +49,14 @@ class NLS_SDK_CLIENT_EXPORT INlsRequest {
   ConnectNode* getConnectNode();
   INlsRequestParam* getRequestParam();
 
+  void setThreadNumber(int num);
+  int getThreadNumber();
+
  protected:
   ConnectNode* _node;
   INlsRequestListener* _listener;
   INlsRequestParam* _requestParam;
+  int _threadNumber;
 };
 
 }  // namespace AlibabaNls

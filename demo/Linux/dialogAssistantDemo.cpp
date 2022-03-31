@@ -492,6 +492,8 @@ void* autoCloseFunc(void* arg) {
     usleep(1000 * 1000);
   }
   global_run = false;
+
+  return NULL;
 }
 
 //文本进文本出
@@ -919,6 +921,10 @@ int main(int argc, char* argv[]) {
   // 私有云部署的情况下进行直连IP的设置
   // 必须在startWorkThread()前调用
   //AlibabaNls::NlsClient::getInstance()->setDirectHost("106.15.83.44");
+
+  // 存在部分设备在设置了dns后仍然无法通过SDK的dns获取可用的IP,
+  // 可调用此接口主动启用系统的getaddrinfo来解决这个问题.
+  //AlibabaNls::NlsClient::getInstance()->setUseSysGetAddrInfo(true);
 
   // 启动工作线程, 在创建请求和启动前必须调用此函数
   // 入参为负时, 启动当前系统中可用的核数

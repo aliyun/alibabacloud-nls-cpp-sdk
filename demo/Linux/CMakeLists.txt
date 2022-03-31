@@ -37,6 +37,12 @@ target_link_libraries(syDemo
     alibabacloud-idst-speech
     pthread z dl)
 
+# 长文本转写
+add_executable(slyDemo profile_scan.cpp speechLongSynthesizerDemo.cpp)
+target_link_libraries(slyDemo
+    alibabacloud-idst-speech
+    pthread z dl)
+
 # 对话助手
 add_executable(daDemo dialogAssistantDemo.cpp)
 target_link_libraries(daDemo

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\ZenBook\Desktop\libevent-2.1.12-stable\libevent-2.1.12-stable\bufferevent_openssl.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\ZenBook\Desktop\libevent-2.1.12-stable\libevent-2.1.12-stable\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{B1899A9F-7274-3026-B5AB-5864D031F7CE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

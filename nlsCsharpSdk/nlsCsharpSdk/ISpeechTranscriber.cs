@@ -89,7 +89,7 @@ namespace nlsCsharpSdk
          * @param value true 或 false
          * @return 成功则返回0，否则返回-1
          */
-        //int SetSemanticSentenceDetection(bool value);
+        int SetSemanticSentenceDetection(SpeechTranscriberRequest request, bool value);
 
         /*
          * @brief 设置vad阀值
@@ -108,14 +108,14 @@ namespace nlsCsharpSdk
          * @param value 定制模型id字符串
          * @return 成功则返回0，否则返回-1
          */
-        //int SetCustomizationId(SpeechTranscriberRequest request, string value);
+        int SetCustomizationId(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 设置泛热词
          * @param value 定制泛热词id字符串
          * @return 成功则返回0，否则返回-1
          */
-        //int SetVocabularyId(SpeechTranscriberRequest request, string value);
+        int SetVocabularyId(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 设置Socket接收超时时间
@@ -123,21 +123,21 @@ namespace nlsCsharpSdk
          * @param value 超时时间
          * @return 成功则返回0，否则返回-1
          */
-        //int SetTimeout(SpeechTranscriberRequest request, int value);
+        int SetTimeout(SpeechTranscriberRequest request, int value);
 
         /*
          * @brief 设置是否开启nlp服务
-         * @param value 编码格式 UTF-8 or GBK
+         * @param value true 或 false
          * @return 成功则返回0，否则返回-1
          */
-        //int SetEnableNlp(SpeechTranscriberRequest request, bool enable);
+        int SetEnableNlp(SpeechTranscriberRequest request, bool enable);
 
         /*
          * @brief 设置nlp模型名称，开启NLP服务后必填
-         * @param value 编码格式 UTF-8 or GBK
+         * @param value nlp模型名称字符串
          * @return 成功则返回0，否则返回-1
          */
-        //int SetNlpModel(SpeechTranscriberRequest request, string value);
+        int SetNlpModel(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 设置session id
@@ -145,7 +145,7 @@ namespace nlsCsharpSdk
          * @param value session id 字符串
          * @return 成功则返回0，否则返回-1
          */
-        //int SetSessionId(SpeechTranscriberRequest request, string value);
+        int SetSessionId(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 设置输出文本的编码格式
@@ -153,22 +153,22 @@ namespace nlsCsharpSdk
          * @param value 编码格式 UTF-8 or GBK
          * @return 成功则返回0，否则返回-1
          */
-        //int SetOutputFormat(SpeechTranscriberRequest request, string value);
+        int SetOutputFormat(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 参数设置
-         * @note  暂不对外开放
+         * @note
          * @param value 参数
          * @return 成功则返回0，否则返回-1
          */
-        //int SetPayloadParam(SpeechTranscriberRequest request, string value);
+        int SetPayloadParam(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 设置用户自定义参数
          * @param value 参数
          * @return 成功则返回0，否则返回-1
          */
-        //int SetContextParam(SpeechTranscriberRequest request, string value);
+        int SetContextParam(SpeechTranscriberRequest request, string value);
 
         /*
          * @brief 设置用户自定义ws阶段http header参数
@@ -176,7 +176,7 @@ namespace nlsCsharpSdk
          * @param value 参数内容
          * @return 成功则返回0，否则返回-1
          */
-        //int AppendHttpHeaderParam(SpeechTranscriberRequest request, string key, string value);
+        int AppendHttpHeaderParam(SpeechTranscriberRequest request, string key, string value);
 
         /*
          * @brief 启动实时音频流识别
