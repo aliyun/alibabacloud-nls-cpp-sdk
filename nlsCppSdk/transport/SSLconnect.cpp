@@ -33,8 +33,8 @@ SSLconnect::SSLconnect() {
 }
 
 SSLconnect::~SSLconnect() {
-  //LOG_DEBUG("destroy SSLconnect done..");
   sslClose();
+  LOG_DEBUG("destroy SSLconnect done..");
 }
 
 int SSLconnect::init() {
@@ -230,6 +230,9 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
   }
 }
 
+/*
+ * 关闭TLS/SSL连接
+ */
 void SSLconnect::sslClose() {
   if (_ssl) {
     LOG_DEBUG("ssl connect close.");

@@ -58,4 +58,9 @@ int SpeechRecognizerParam::setMaxEndSilence(int value) {
   return 0;
 }
 
+int SpeechRecognizerParam::setAudioAddress(const char* value) {
+  _payload[D_SR_AUDIO_ADDRESS] = value;
+  return 0;
+}
+
 }

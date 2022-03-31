@@ -121,7 +121,8 @@ void SpeechRecognizerCallback::setOnChannelClosed(
   }
 }
 
-SpeechRecognizerRequest::SpeechRecognizerRequest(const char* sdkName) {
+SpeechRecognizerRequest::SpeechRecognizerRequest(
+    const char* sdkName, bool isLongConnection) {
   _callback = new SpeechRecognizerCallback();
 
   //init request param
@@ -132,9 +133,9 @@ SpeechRecognizerRequest::SpeechRecognizerRequest(const char* sdkName) {
   _listener = new SpeechRecognizerListener(_callback);
 
   //init connect node
-  _node = new ConnectNode(this, _listener);
+  _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechRecognizerRequest.");
+  LOG_DEBUG("Create SpeechRecognizerRequest Done.");
 }
 
 SpeechRecognizerRequest::~SpeechRecognizerRequest() {
@@ -153,7 +154,7 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
   delete _recognizerParam;
   _recognizerParam = NULL;
 
-  LOG_DEBUG("Destroy SpeechRecognizerRequest.");
+  LOG_DEBUG("Request:%p Destroy SpeechRecognizerRequest Done.", this);
 }
 
 int SpeechRecognizerRequest::start() {
@@ -263,6 +264,12 @@ int SpeechRecognizerRequest::setTimeout(int value) {
 int SpeechRecognizerRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setOutputFormat(value);
+  return 0;
+}
+
+int SpeechRecognizerRequest::setAudioAddress(const char* value) {
+  INPUT_PARAM_STRING_CHECK(value);
+  _recognizerParam->setAudioAddress(value);
   return 0;
 }
 

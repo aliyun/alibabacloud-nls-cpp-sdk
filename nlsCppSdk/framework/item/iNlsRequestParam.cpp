@@ -45,7 +45,7 @@ const char g_csharp_sdk_language[] = "Csharp";
 const char g_sdk_language[] = "C++";
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
-#define STOP_RECV_TIMEOUT 12
+#define STOP_RECV_TIMEOUT_MS 5000
 
 INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mode),
     _payload(Json::objectValue), _sdk_name(sdkName) {
@@ -64,7 +64,7 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mo
   _payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
 
   _requestType = SpeechNormal;
-  _timeout = STOP_RECV_TIMEOUT;
+  _timeout = STOP_RECV_TIMEOUT_MS;
 
   _enableWakeWord = false;
 }
@@ -149,7 +149,8 @@ const char* INlsRequestParam::getStartCommand() {
 
   _startCommand = writer.write(root);
 
-  LOG_INFO("Start:%s", _startCommand.c_str());
+  LOG_INFO("Start(%dbytes):%s",
+      strlen(_startCommand.c_str()), _startCommand.c_str());
 
   return _startCommand.c_str();
 }
@@ -332,7 +333,7 @@ int INlsRequestParam::setVocabularyId(const char * value) {
 }
 
 void INlsRequestParam::setSentenceDetection(bool value) {
-  _payload[D_SR_SENTENCE_DETECTION] = value;
+  _payload[D_ST_SENTENCE_DETECTION] = value;
 };
 
 void INlsRequestParam::setSampleRate(int sampleRate) {
@@ -383,6 +384,10 @@ std::string INlsRequestParam::GetHttpHeader() {
 
   LOG_DEBUG("HttpHeader:%s", _httpHeaderString.c_str());
   return _httpHeaderString;
+}
+
+int INlsRequestParam::getTimeout() {
+  return _timeout;
 }
 
 }  // namespace AlibabaNls

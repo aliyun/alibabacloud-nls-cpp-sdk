@@ -10,6 +10,7 @@ namespace nlsCsharpSdkDemo
     {
         private NlsClient nlsClient;
         private SpeechTranscriberRequest stPtr;
+        private SpeechTranscriberRequest stPtr1;
         private SpeechSynthesizerRequest syPtr;
         private SpeechRecognizerRequest srPtr;
         private NlsToken tokenPtr;
@@ -30,6 +31,10 @@ namespace nlsCsharpSdkDemo
         static string cur_st_result;
         static string cur_st_completed;
         static string cur_st_closed;
+
+        static bool st_send_audio_flag1 = false;
+        static bool st_audio_loop_flag1 = false;
+        static Thread st_send_audio1;
 
         static bool sr_send_audio_flag = false;
         static bool sr_audio_loop_flag = false;
@@ -103,6 +108,36 @@ namespace nlsCsharpSdkDemo
                     if (byData.Length > 0)
                     {
                         stPtr.SendAudio(stPtr, byData, (UInt64)byData.Length, EncoderType.ENCODER_PCM);
+                    }
+                    else
+                    {
+                        br.Close();
+                        fs.Dispose();
+                        fs = new FileStream(file_name, FileMode.Open, FileAccess.Read);
+                        br = new BinaryReader(fs);
+                    }
+                }
+                Thread.Sleep(20);
+            }
+            br.Close();
+            fs.Dispose();
+        }
+
+        private void STAudioLab1()
+        {
+            string file_name = System.Environment.CurrentDirectory + @"\audio_files\test2.wav";
+            System.Diagnostics.Debug.WriteLine("st1 audio file_name = {0}", file_name);
+            FileStream fs = new FileStream(file_name, FileMode.Open, FileAccess.Read);
+            BinaryReader br = new BinaryReader(fs);
+
+            while (st_audio_loop_flag1)
+            {
+                if (st_send_audio_flag1)
+                {
+                    byte[] byData = br.ReadBytes((int)640);
+                    if (byData.Length > 0)
+                    {
+                        stPtr1.SendAudio(stPtr1, byData, (UInt64)byData.Length, EncoderType.ENCODER_PCM);
                     }
                     else
                     {
@@ -207,6 +242,22 @@ namespace nlsCsharpSdkDemo
             cur_st_completed = "null";
         }
 
+        private void button4_Click_1(object sender, EventArgs e)
+        {
+            stPtr1 = nlsClient.CreateTranscriberRequest();
+            if (stPtr1.native_request != IntPtr.Zero)
+            {
+                nlsResult.Text = "CreateTranscriberRequest 1 Success";
+            }
+            else
+            {
+                nlsResult.Text = "CreateTranscriberRequest 1 Failed";
+            }
+            cur_st_result = "null";
+            cur_st_closed = "null";
+            cur_st_completed = "null";
+        }
+
         // release transcriber
         private void button2_Click(object sender, EventArgs e)
         {
@@ -219,6 +270,23 @@ namespace nlsCsharpSdkDemo
             else
             {
                 nlsResult.Text = "TranscriberRequest is nullptr";
+            }
+            cur_st_result = "null";
+            cur_st_closed = "null";
+            cur_st_completed = "null";
+        }
+
+        private void button3_Click_2(object sender, EventArgs e)
+        {
+            if (stPtr1.native_request != IntPtr.Zero)
+            {
+                nlsClient.ReleaseTranscriberRequest(stPtr1);
+                stPtr1.native_request = IntPtr.Zero;
+                nlsResult.Text = "ReleaseTranscriberRequest 1 Success";
+            }
+            else
+            {
+                nlsResult.Text = "TranscriberRequest 1 is nullptr";
             }
             cur_st_result = "null";
             cur_st_closed = "null";
@@ -255,6 +323,10 @@ namespace nlsCsharpSdkDemo
                 stPtr.SetPunctuationPrediction(stPtr, true);
                 stPtr.SetInverseTextNormalization(stPtr, true);
 
+                // 此处仅仅只是用unix时间戳作为每轮对话的session id
+                Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                stPtr.SetSessionId(stPtr, unixTimestamp.ToString());
+
                 stPtr.SetOnTranscriptionStarted(stPtr, DemoOnTranscriptionStarted, IntPtr.Zero);
                 stPtr.SetOnChannelClosed(stPtr, DemoOnTranscriptionClosed, IntPtr.Zero);
                 stPtr.SetOnTaskFailed(stPtr, DemoOnTranscriptionTaskFailed, IntPtr.Zero);
@@ -281,6 +353,66 @@ namespace nlsCsharpSdkDemo
             }
         }
 
+        private void button2_Click_1(object sender, EventArgs e)
+        {
+            int ret = -1;
+            if (stPtr1.native_request != IntPtr.Zero)
+            {
+                if (appKey == null || appKey.Length == 0)
+                {
+                    appKey = tAppKey.Text;
+                }
+                if (token == null || token.Length == 0)
+                {
+                    token = tToken.Text;
+                }
+                if (appKey == null || token == null ||
+                    appKey.Length == 0 || token.Length == 0)
+                {
+                    nlsResult.Text = "Start failed, token or appkey is empty";
+                    return;
+                }
+
+                stPtr1.SetAppKey(stPtr1, appKey);
+                stPtr1.SetToken(stPtr1, token);
+                stPtr1.SetUrl(stPtr1, url);
+                stPtr1.SetFormat(stPtr1, "pcm");
+                stPtr1.SetSampleRate(stPtr1, 16000);
+                stPtr1.SetIntermediateResult(stPtr1, true);
+                stPtr1.SetPunctuationPrediction(stPtr1, true);
+                stPtr1.SetInverseTextNormalization(stPtr1, true);
+
+                // 此处仅仅只是用unix时间戳作为每轮对话的session id
+                Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                stPtr1.SetSessionId(stPtr1, unixTimestamp.ToString());
+
+                stPtr1.SetOnTranscriptionStarted(stPtr1, DemoOnTranscriptionStarted, IntPtr.Zero);
+                stPtr1.SetOnChannelClosed(stPtr1, DemoOnTranscriptionClosed, IntPtr.Zero);
+                stPtr1.SetOnTaskFailed(stPtr1, DemoOnTranscriptionTaskFailed, IntPtr.Zero);
+                stPtr1.SetOnSentenceEnd(stPtr1, DemoOnSentenceEnd, IntPtr.Zero);
+                stPtr1.SetOnTranscriptionResultChanged(stPtr1, DemoOnTranscriptionResultChanged, IntPtr.Zero);
+
+                ret = stPtr1.Start(stPtr1);
+
+                if (st_audio_loop_flag1 == false)
+                {
+                    st_audio_loop_flag1 = true;
+                    cur_st_completed = "ready to open thread1";
+                    st_send_audio1 = new Thread(STAudioLab1);
+                    st_send_audio1.Start();
+                }
+            }
+
+            if (ret != 0)
+            {
+                nlsResult.Text = "Transcriber 1 Start failed";
+            }
+            else
+            {
+                nlsResult.Text = "Transcriber 1 Start success";
+            }
+        }
+
         // stop transcriber
         private void btnSTstop_Click(object sender, EventArgs e)
         {
@@ -297,6 +429,24 @@ namespace nlsCsharpSdkDemo
             else
             {
                 nlsResult.Text = "Transcriber Stop success";
+            }
+        }
+
+        private void button1_Click_5(object sender, EventArgs e)
+        {
+            int ret = -1;
+            if (stPtr1.native_request != IntPtr.Zero)
+                ret = stPtr1.Stop(stPtr1);
+
+            st_send_audio_flag1 = false;
+            st_audio_loop_flag1 = false;
+            if (ret != 0)
+            {
+                nlsResult.Text = "Transcriber 1 Stop failed";
+            }
+            else
+            {
+                nlsResult.Text = "Transcriber 1 Stop success";
             }
         }
         #endregion
@@ -400,6 +550,7 @@ namespace nlsCsharpSdkDemo
                 cur_st_completed = "msg : " + e.msg;
 
                 st_send_audio_flag = true;
+                st_send_audio_flag1 = true;
             };
         private CallbackDelegate DemoOnTranscriptionClosed =
             (ref NLS_EVENT_STRUCT e) =>
@@ -414,6 +565,8 @@ namespace nlsCsharpSdkDemo
                 cur_st_completed = "msg : " + e.msg;
                 st_send_audio_flag = false;
                 st_audio_loop_flag = false;
+                st_send_audio_flag1 = false;
+                st_audio_loop_flag1 = false;
             };
         private CallbackDelegate DemoOnTranscriptionResultChanged =
             (ref NLS_EVENT_STRUCT e) =>

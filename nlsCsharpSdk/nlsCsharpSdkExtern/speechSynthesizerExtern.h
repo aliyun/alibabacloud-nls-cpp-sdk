@@ -199,7 +199,9 @@ NLSAPI(int) SYsetText(AlibabaNls::SpeechSynthesizerRequest* request, uint8_t* te
 	char* textChar = new char[textSize + 1];
 	memset(textChar, 0, textSize + 1);
 	memcpy(textChar, text, textSize);
-	return request->setText((const char*)textChar);
+	int result = request->setText((const char*)textChar);
+	delete[] textChar;
+	return result;
 }
 
 NLSAPI(int) SYsetVoice(AlibabaNls::SpeechSynthesizerRequest* request, const char* value)

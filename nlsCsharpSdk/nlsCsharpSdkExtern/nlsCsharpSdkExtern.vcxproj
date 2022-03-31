@@ -41,15 +41,17 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>true</CLRSupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>true</CLRSupport>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -86,9 +88,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -101,16 +107,35 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_CONSOLE;WIN32;_DEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug;$(SolutionDir)..\..\build\install\NlsSdk3.X_win32\lib\14.0\x86\Debug</AdditionalLibraryDirectories>
+      <AdditionalDependencies>nlsCppSdk.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcrypto-1_1.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcrypto-1_1.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libssl-1_1.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libssl-1_1.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\ssleay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\ssleay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libeay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libeay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\RDebug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -118,10 +143,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -129,7 +155,27 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release;$(SolutionDir)..\..\build\install\NlsSdk3.X_win32\lib\14.0\x86\Release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>nlsCppSdk.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcrypto-1_1.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcrypto-1_1.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libssl-1_1.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libssl-1_1.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\ssleay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\ssleay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libeay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libeay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -151,6 +197,22 @@
     <ProjectReference>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
     </ProjectReference>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcrypto-1_1-x64.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcrypto-1_1-x64.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libssl-1_1-x64.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libssl-1_1-x64.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\ssleay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\ssleay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libeay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libeay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -173,6 +235,22 @@
       <AdditionalLibraryDirectories>$(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release;$(SolutionDir)..\..\build\install\NlsSdk3.X_win64\lib\14.0\x64\Release</AdditionalLibraryDirectories>
       <AdditionalDependencies>nlsCppSdk.lib</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcrypto-1_1-x64.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcrypto-1_1-x64.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libssl-1_1-x64.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libssl-1_1-x64.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\ssleay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\ssleay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libeay32.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libeay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -107,6 +107,7 @@ enum CmdType {
 enum ExitStatus {
   ExitInvalid = 0,
   ExitStopping,
+  ExitStopping2, // stopping第二阶段
   ExitStopped,
   ExitCancel,
 };
@@ -129,7 +130,8 @@ class ConnectNode {
  public:
   ConnectNode() {};
   ConnectNode(INlsRequest* request, 
-              HandleBaseOneParamWithReturnVoid<NlsEvent>* handler);
+              HandleBaseOneParamWithReturnVoid<NlsEvent>* handler,
+              bool isLongConnection = false);
   virtual ~ConnectNode();
 
   bool parseUrlInformation(char *ip);
@@ -147,9 +149,10 @@ class ConnectNode {
 
   int webSocketResponse();
 
-  int dnsProcess(int aiFamily, char *directIp);
+  int dnsProcess(int aiFamily, char *directIp, bool sysGetAddr);
   int connectProcess(const char *ip, int aiFamily);
   int sslProcess();
+  void closeStatusConnectNode();
   void closeConnectNode();
   void disconnectProcess();
 
@@ -189,13 +192,35 @@ class ConnectNode {
   void initNlsEncoder();
 
   inline const char* getErrorMsg() {
-  return _nodeErrMsg.c_str();
+    return _nodeErrMsg.c_str();
+  };
+  inline void setErrorMsg(const char* msg) {
+    _nodeErrMsg.assign(msg);
   };
   inline struct evbuffer *getBinaryEvBuffer() {return _binaryEvBuffer;};
   inline struct evbuffer *getCmdEvBuffer() {return _cmdEvBuffer;};
   inline struct evbuffer *getWwvEvBuffer() {return _wwvEvBuffer;};
 
   int sendControlDirective();
+  void initAllStatus();
+
+#ifndef _MSC_VER
+  char * _nodename;
+  char * _servname;
+
+  pthread_mutex_t  _mtxDns;
+  pthread_cond_t   _cvDns;
+  pthread_t _dnsThread;
+  pthread_t _timeThread;
+  struct timespec _outtime;
+
+  struct event _dnsEvent;
+  struct evutil_addrinfo * _addrinfo;
+  void * _getaddrinfo_cb_handle;
+#endif
+
+  bool _isLongConnection;
+  bool _isConnected;
 
  private:
   int _connectErrCode;

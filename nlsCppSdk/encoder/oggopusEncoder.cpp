@@ -555,6 +555,11 @@ int OggOpusDataEncoder::OggopusFinish() {
   return kNlsOk;
 }
 
+int OggOpusDataEncoder::OggopusSoftRestart() {
+  is_first_frame_processed_ = false;
+  return kNlsOk;
+}
+
 int OggOpusDataEncoder::OggopusDestroy() {
   if (NULL == ogg_opus_para_) {
     return kNlsStopOpusFailed;

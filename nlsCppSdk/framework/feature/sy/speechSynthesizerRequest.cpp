@@ -117,7 +117,8 @@ void SpeechSynthesizerCallback::setOnMetaInfo(
   }
 }
 
-SpeechSynthesizerRequest::SpeechSynthesizerRequest(int version, const char* sdkName) {
+SpeechSynthesizerRequest::SpeechSynthesizerRequest(
+    int version, const char* sdkName, bool isLongConnection) {
   _callback = new SpeechSynthesizerCallback();
 
   //init request param
@@ -128,9 +129,9 @@ SpeechSynthesizerRequest::SpeechSynthesizerRequest(int version, const char* sdkN
   _listener = new SpeechSynthesizerListener(_callback);
 
   //init connect node
-  _node = new ConnectNode(this, _listener);
+  _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechSynthesizerRequest.");
+  LOG_DEBUG("Create SpeechSynthesizerRequest Done.");
 }
 
 SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
@@ -149,7 +150,7 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
   delete _synthesizerParam;
   _synthesizerParam = NULL;
 
-  LOG_DEBUG("Destroy SpeechSynthesizerRequest.");
+  LOG_DEBUG("Request:%p Destroy SpeechSynthesizerRequest Done.", this);
 }
 
 int SpeechSynthesizerRequest::start() {

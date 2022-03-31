@@ -127,7 +127,7 @@ rem pause
 	md %project_folder%\nlsCppSdk\win\uuid
 	copy /y %uuid_src_folder%\*.c %project_folder%\nlsCppSdk\win\uuid
 	copy /y %uuid_src_folder%\*.h %project_folder%\nlsCppSdk\win\uuid
-	
+
 rem pause
 ::goto:eof
 
@@ -168,13 +168,22 @@ rem pause
 	
 	echo cd %event_folder%
 	cd %event_folder%
-	
+
 	echo unzip %project_folder%thirdparty\libevent-2.1.12-stable.tar.gz to %event_folder%
  	%winRar% x -ad -y "%project_folder%thirdparty\libevent-2.1.12-stable.tar.gz"
 
 	set event_src_folder=%event_folder%\libevent-2.1.12-stable\libevent-2.1.12-stable
 	xcopy %event_src_folder%\include %event_include_folder% /y/s
 	copy /y %event_src_folder%\WIN32-Code\nmake\event2\event-config.h %event_include_folder%\event2
+
+	set event_prj_folder=%event_src_folder%\build
+	if exist %event_prj_folder% (
+		echo %event_prj_folder% is exist
+	) else (
+		echo %event_prj_folder% is not exist
+		md %event_prj_folder%
+	)
+	xcopy %project_folder%thirdparty\libevent_win_prj\* %event_prj_folder% /y/s
 
 ::goto:eof
 

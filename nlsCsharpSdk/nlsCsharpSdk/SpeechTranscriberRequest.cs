@@ -219,6 +219,21 @@ namespace nlsCsharpSdk
         }
 
         /// <summary>
+        /// 设置是否使用语义断句.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// 可选参数, 默认false.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetSemanticSentenceDetection(SpeechTranscriberRequest request, bool value)
+        {
+            return NativeMethods.STsetSemanticSentenceDetection(request.native_request, value);
+        }
+
+        /// <summary>
         /// 设置vad阀值. 可选参数, 静音时长超过该阈值会被认为断句.
         /// </summary>
         /// <param name="request">
@@ -232,6 +247,156 @@ namespace nlsCsharpSdk
         public int SetMaxSentenceSilence(SpeechTranscriberRequest request, int value)
         {
             return NativeMethods.STsetMaxSentenceSilence(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置定制模型.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// 定制模型id字符串.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetCustomizationId(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetCustomizationId(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置泛热词.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// 定制泛热词id字符串.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetVocabularyId(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetVocabularyId(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置Socket接收超时时间.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// 超时时间.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetTimeout(SpeechTranscriberRequest request, int value)
+        {
+            return NativeMethods.STsetTimeout(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置是否开启nlp服务.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// 可选参数, 默认false.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetEnableNlp(SpeechTranscriberRequest request, bool value)
+        {
+            return NativeMethods.STsetEnableNlp(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置nlp模型名称，开启NLP服务后必填.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// value nlp模型名称字符串.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetNlpModel(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetNlpModel(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置session id.用于请求异常断开重连时，服务端识别是同一个会话
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// value session id 字符串.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetSessionId(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetSessionId(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置输出文本的编码格式
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// value 编码格式 UTF-8 or GBK.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetOutputFormat(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetOutputFormat(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 参数设置
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// value json格式字符串, 类似"{\"test1\":\"01\", \"test2\":\"15\"}".
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetPayloadParam(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetPayloadParam(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置用户自定义参数
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        /// value json格式字符串, 类似"{\"network\":{\"ip\":\"100.101.102.103\"}}".
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int SetContextParam(SpeechTranscriberRequest request, string value)
+        {
+            return NativeMethods.STsetContextParam(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 设置用户自定义ws阶段http header参数
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="value">
+        ///
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int AppendHttpHeaderParam(SpeechTranscriberRequest request, string key, string value)
+        {
+            return NativeMethods.STappendHttpHeaderParam(request.native_request, key, value);
         }
         #endregion
 

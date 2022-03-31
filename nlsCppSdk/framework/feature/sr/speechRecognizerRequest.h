@@ -45,7 +45,8 @@ class SpeechRecognizerCallback  {
 
 class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
  public:
-  SpeechRecognizerRequest(const char* sdkName = "cpp");
+  SpeechRecognizerRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
   virtual ~SpeechRecognizerRequest();
 
   /*
@@ -185,6 +186,14 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
   int AppendHttpHeaderParam(const char* key, const char* value);
 
   /*
+   * @brief 可通过公网访问的音频文件下载链接
+   * @param value 音频文件下载链接, 推荐使用阿里云OSS
+   * @return 成功则返回0，否则返回-1
+   */
+  int setAudioAddress(const char* value);
+
+
+  /*
    * @brief 启动SpeechRecognizerRequest
    * @note 异步操作。成功返回started事件。失败返回TaskFailed事件。
    * @return 成功则返回0，否则返回-1
@@ -216,9 +225,9 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
                              只支持20ms 16K16b1c
                  ENCODER_OPUS 表示以OPUS压缩后进行传递,
                               只支持20ms, 支持16K16b1c和8K16b1c
-   * @return 成功则返回0，失败返回-1。
+   * @return 成功则返回>=0，失败返回-1。
              由于音频格式不确定，传入音频字节数和传出音频字节数
-             无法通过比较判断成功与否，故成功返回0。
+             无法通过比较判断成功与否，故成功返回>=0。
    */
   int sendAudio(const uint8_t * data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);

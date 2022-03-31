@@ -48,6 +48,7 @@ int WorkThread::_cpuNumber = 1;
 int WorkThread::_cpuCurrent = 0;
 int WorkThread::_addrInFamily = AF_INET;
 char WorkThread::_directIp[64] = {0};
+bool WorkThread::_enableSysGetAddr = false;
 
 WorkThread::WorkThread() {
   LOG_DEBUG("Create WorkThread.");
@@ -177,7 +178,21 @@ void WorkThread::insertQueueNode(WorkThread* thread, INlsRequest * request) {
   pthread_mutex_lock(&(thread->_mtxList));
 #endif
 
-  thread->_nodeQueue.push(request);
+  std::queue<INlsRequest*> queue(thread->_nodeQueue);
+  int queue_size = thread->_nodeQueue.size();
+  int i = 0;
+  for (i = 0; i < queue_size; i++) {
+    INlsRequest* get = queue.front();
+    if (get == request) {
+      break;
+    }
+    queue.pop();
+  }
+  if (i == queue_size) {
+    // cannot find request matched
+    thread->_nodeQueue.push(request);
+  } else {
+  }
 
 #if defined(_MSC_VER)
   ReleaseMutex(thread->_mtxList);
@@ -212,7 +227,12 @@ void WorkThread::insertListNode(WorkThread* thread, INlsRequest * request) {
   pthread_mutex_lock(&(thread->_mtxList));
 #endif
 
-  thread->_nodeList.push_back(request);
+  std::list<INlsRequest *>::iterator iLocation =
+      find(thread->_nodeList.begin(), thread->_nodeList.end(), request);
+  if (iLocation == thread->_nodeList.end()) {
+    thread->_nodeList.push_back(request);
+  } else {
+  }
 
 #if defined(_MSC_VER)
   ReleaseMutex(thread->_mtxList);
@@ -235,7 +255,6 @@ void WorkThread::freeListNode(WorkThread* thread, INlsRequest* request) {
 
   if (iLocation != thread->_nodeList.end()) {
     thread->_nodeList.remove(*iLocation);
-    LOG_DEBUG("List requests :%d.", thread->_nodeList.size());
   }
 
 #if defined(_MSC_VER)
@@ -251,18 +270,19 @@ void WorkThread::destroyConnectNode(ConnectNode* node) {
     return;
   }
 
-  LOG_INFO("Node:%p FreeConnectNode begin.", node);
+  LOG_INFO("Node:%p destroyConnectNode begin.", node);
   freeListNode(node->_eventThread, node->_request);
   if (node->updateDestroyStatus()) {
-    LOG_INFO("Node:%p DestroyConnectNode done.", node);
+    LOG_INFO("Node:%p destroyConnectNode done.", node);
     INlsRequest* request = node->_request;
     if (request) {
       delete request;
       request = NULL;
+      node->_request = NULL;
     }
   }
 
-  LOG_INFO("Node:%p FreeConnectNode done.", node);
+  LOG_INFO("Node:%p destroyConnectNode finish.", node);
 
   return;
 }
@@ -339,6 +359,8 @@ void WorkThread::connectEventCallback(
         inet_ntop(AF_INET, &client.sin_addr, client_ip, sizeof(client_ip));
         LOG_INFO("Node:%p local %s:%d", node, client_ip, ntohs(client.sin_port));
         #endif
+
+        node->_isConnected = true;
       } else {
         if (node->socketConnect() == -1) {
           goto EventProcessFailed;
@@ -375,7 +397,7 @@ EventProcessFailed:
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
 
-  if (node->dnsProcess(_addrInFamily, _directIp) == -1) {
+  if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) == -1) {
     LOG_ERROR("Node:%p try delete request.", node);
     destroyConnectNode(node);
   }
@@ -408,7 +430,8 @@ void WorkThread::readEventCallBack(
     node->closeConnectNode();
   }
 
-  if (node->getConnectNodeStatus() == NodeInvalid) {
+  if (node->getConnectNodeStatus() == NodeInvalid &&
+      node->getExitStatus() != ExitStopped) {
     destroyConnectNode(node);
   }
 
@@ -425,7 +448,8 @@ void WorkThread::writeEventCallBack(
   } else if (what == EV_TIMEOUT){
     LOG_DEBUG("Node:%p Send timeout.", node);
 
-    snprintf(tmp_msg, 512 - 1, "{\"TaskFailed\":\"%s\"}",
+    snprintf(tmp_msg, 512 - 1,
+        "{\"TaskFailed\":\"Send timeout. socket error:%s\"}",
         evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
 
     node->handlerTaskFailedEvent(tmp_msg);
@@ -475,12 +499,21 @@ void WorkThread::directConnect(void *arg, char *ip) {
 DirectConnectRetry:
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  if (node->dnsProcess(_addrInFamily, ip) == -1) {
+  if (node->dnsProcess(_addrInFamily, ip, _enableSysGetAddr) == -1) {
     destroyConnectNode(node);
   }
 
   return;
 }
+
+#ifndef _MSC_VER
+void WorkThread::sysDnsEventCallback(
+    evutil_socket_t socketFd, short what, void *arg) {
+  ConnectNode *node = (ConnectNode *)arg;
+  dnsEventCallback(what, node->_addrinfo, arg);
+  return;
+}
+#endif
 
 void WorkThread::dnsEventCallback(int errorCode,
                                   struct evutil_addrinfo *address,
@@ -491,10 +524,10 @@ void WorkThread::dnsEventCallback(int errorCode,
     LOG_ERROR("Node:%p %s dns failed: %s.",
         node, node->_url._host, evutil_gai_strerror(errorCode));
     node->setConnectNodeStatus(NodeConnecting);
-    if (node->dnsProcess(_addrInFamily, _directIp) == -1) {
+    if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) == -1) {
       destroyConnectNode(node);
     }
-    return ;
+    return;
   }
 
   if (address->ai_canonname) {
@@ -573,7 +606,7 @@ ConnectRetry:
   //node->closeConnectNode();
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  if (node->dnsProcess(_addrInFamily, _directIp) == -1) {
+  if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) == -1) {
     destroyConnectNode(node);
   }
 
@@ -595,7 +628,8 @@ void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg)
 
     LOG_DEBUG("Node:%p begin dnsprocess.", request->getConnectNode());
 
-    if (request->getConnectNode()->dnsProcess(_addrInFamily, _directIp) == -1) {
+    if (request->getConnectNode()->dnsProcess(
+          _addrInFamily, _directIp, _enableSysGetAddr) == -1) {
       destroyConnectNode(request->getConnectNode());
     }
   } else if (msgCmd == 's') {
@@ -658,9 +692,16 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
   }
 
   if (ret < 0) {
-    LOG_ERROR("Node:%p Send failed.\n", node);
+    LOG_ERROR("Node:%p Send failed.", node);
 
-    node->handlerTaskFailedEvent(node->getErrorMsg());
+    std::string failedInfo = node->getErrorMsg();
+    if (failedInfo.empty()) {
+      char tmp_msg[512] = {0};
+      snprintf(tmp_msg, 512 - 1, "workThread workStatus(%s) Send failed.",
+          node->getConnectNodeStatusString().c_str());
+      failedInfo.assign(tmp_msg);
+    }
+    node->handlerTaskFailedEvent(failedInfo);
     node->closeConnectNode();
     return -1;
   }
@@ -718,15 +759,35 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
       ret = node->webSocketResponse();
       break;
 
+    case NodeConnecting:
+      if (node->_isLongConnection) {
+        /*
+         * 在长链接模式下, 可能存在进入NodeConnecting而非NodeStarted状态的情况
+         * 以NodeStarted来处理......
+         */
+        LOG_WARN("Node:%p NodeConnecting is abnormal", node);
+        ret = node->webSocketResponse();
+      } else {
+        ret = -1;
+      }
+      break;
+
     default:
       ret = -1;
       break;
   }
 
   if (ret == -1) {
-    LOG_ERROR("Node:%p Response failed.\n", node);
+    LOG_ERROR("Node:%p Response failed.", node);
 
-    node->handlerTaskFailedEvent(node->getErrorMsg());
+    std::string failedInfo = node->getErrorMsg();
+    if (failedInfo.empty()) {
+      char tmp_msg[512] = {0};
+      snprintf(tmp_msg, 512 - 1, "workThread workStatus(%s) Response failed.",
+          node->getConnectNodeStatusString().c_str());
+      failedInfo.assign(tmp_msg);
+    }
+    node->handlerTaskFailedEvent(failedInfo);
     node->closeConnectNode();
   }
 
@@ -744,6 +805,10 @@ void WorkThread::setDirectHost(char *directIp) {
   if (directIp && strnlen(directIp, 64) > 0) {
     strncpy(_directIp, directIp, 64);
   }
+}
+
+void WorkThread::setUseSysGetAddrInfo(bool enable) {
+  _enableSysGetAddr = enable;
 }
 
 }

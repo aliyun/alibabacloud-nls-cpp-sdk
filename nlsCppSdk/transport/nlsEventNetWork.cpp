@@ -45,6 +45,7 @@ size_t NlsEventNetWork::_workThreadsNumber = 0;
 size_t NlsEventNetWork::_currentCpuNumber = 0;
 int NlsEventNetWork::_addrInFamily = AF_INET;
 char NlsEventNetWork::_directIp[64] = {0};
+bool NlsEventNetWork::_enableSysGetAddr = false;
 
 #if defined(_MSC_VER)
 HANDLE NlsEventNetWork::_mtxThread = CreateMutex(NULL, FALSE, NULL);
@@ -61,7 +62,8 @@ void NlsEventNetWork::DnsLogCb(int w, const char *m) {
   LOG_DEBUG(m);
 }
 
-void NlsEventNetWork::initEventNetWork(int count, char *aiFamily, char *directIp) {
+void NlsEventNetWork::initEventNetWork(
+    int count, char *aiFamily, char *directIp, bool sysGetAddr) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxThread, INFINITE);
 #else
@@ -103,6 +105,7 @@ void NlsEventNetWork::initEventNetWork(int count, char *aiFamily, char *directIp
   if (directIp) {
     strncpy(_directIp, directIp, 64);
   }
+  _enableSysGetAddr = sysGetAddr;
 
 #if defined(_MSC_VER)
   SYSTEM_INFO sysInfo;
@@ -190,9 +193,18 @@ int NlsEventNetWork::start(INlsRequest *request) {
 
   ConnectNode *node = request->getConnectNode();
 
+  if (node && (node->getConnectNodeStatus() == NodeInvalid) &&
+      (node->getExitStatus() == ExitStopped)) {
+    // set NodeInitial and ExitInvalid
+    node->initAllStatus();
+  }
+
   if (node && (node->getConnectNodeStatus() == NodeInitial) &&
       (node->getExitStatus() == ExitInvalid)) {
-    int num = selectThreadNumber();
+    int num = request->getThreadNumber();
+    if (num < 0) {
+      num = selectThreadNumber();
+    }
     if (num == -1) {
     #if defined(_MSC_VER)
       ReleaseMutex(_mtxThread);
@@ -200,6 +212,8 @@ int NlsEventNetWork::start(INlsRequest *request) {
       pthread_mutex_unlock(&_mtxThread);
     #endif
       return -1;
+    } else {
+      request->setThreadNumber(num);
     }
 
     LOG_DEBUG("Node:%p Select NO.%d thread.", node, num);
@@ -209,6 +223,7 @@ int NlsEventNetWork::start(INlsRequest *request) {
     if (_directIp != NULL && strnlen(_directIp, 64) > 0) {
       node->_eventThread->setDirectHost(_directIp);
     }
+    node->_eventThread->setUseSysGetAddrInfo(_enableSysGetAddr);
     WorkThread::insertQueueNode(node->_eventThread, request);
     node->resetBufferLimit();
 

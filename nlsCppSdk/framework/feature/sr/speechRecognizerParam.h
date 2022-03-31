@@ -33,6 +33,7 @@ class SpeechRecognizerParam : public INlsRequestParam {
   int setEnableVoiceDetection(bool value);
   int setMaxStartSilence(int value);
   int setMaxEndSilence(int value);
+  int setAudioAddress(const char* value);
 };
 
 }

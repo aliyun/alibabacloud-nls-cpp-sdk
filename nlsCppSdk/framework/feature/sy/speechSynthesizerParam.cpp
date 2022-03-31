@@ -15,6 +15,7 @@
  */
 
 #include <cstdlib>
+#include <string.h>
 #include "speechSynthesizerParam.h"
 #include "nlsRequestParamInfo.h"
 #include "nlog.h"
@@ -42,7 +43,7 @@ int SpeechSynthesizerParam::setText(const char* value) {
     return -1;
   }
 
-  LOG_DEBUG("setText: %s", value);
+  LOG_DEBUG("setText(%dbytes): %s", strlen(value), value);
   _payload[D_SY_TEXT] = value;
 
   return 0;

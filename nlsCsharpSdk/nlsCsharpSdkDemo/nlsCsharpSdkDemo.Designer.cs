@@ -73,6 +73,10 @@
             this.syClosed = new System.Windows.Forms.Label();
             this.syCompleted = new System.Windows.Forms.Label();
             this.nlsResult = new System.Windows.Forms.Label();
+            this.button1 = new System.Windows.Forms.Button();
+            this.button2 = new System.Windows.Forms.Button();
+            this.button3 = new System.Windows.Forms.Button();
+            this.button4 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // btnOpenLog
@@ -88,10 +92,10 @@
             // stResult
             // 
             this.stResult.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.stResult.Location = new System.Drawing.Point(220, 236);
+            this.stResult.Location = new System.Drawing.Point(220, 237);
             this.stResult.Name = "stResult";
             this.stResult.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.stResult.Size = new System.Drawing.Size(837, 47);
+            this.stResult.Size = new System.Drawing.Size(907, 66);
             this.stResult.TabIndex = 1;
             this.stResult.Text = "null";
             this.stResult.Click += new System.EventHandler(this.label1_Click);
@@ -273,7 +277,7 @@
             // 
             // btnSRstop
             // 
-            this.btnSRstop.Location = new System.Drawing.Point(316, 403);
+            this.btnSRstop.Location = new System.Drawing.Point(316, 494);
             this.btnSRstop.Name = "btnSRstop";
             this.btnSRstop.Size = new System.Drawing.Size(93, 47);
             this.btnSRstop.TabIndex = 24;
@@ -283,7 +287,7 @@
             // 
             // btnSRstart
             // 
-            this.btnSRstart.Location = new System.Drawing.Point(217, 403);
+            this.btnSRstart.Location = new System.Drawing.Point(217, 494);
             this.btnSRstart.Name = "btnSRstart";
             this.btnSRstart.Size = new System.Drawing.Size(93, 47);
             this.btnSRstart.TabIndex = 23;
@@ -293,7 +297,7 @@
             // 
             // btnSRrelease
             // 
-            this.btnSRrelease.Location = new System.Drawing.Point(415, 403);
+            this.btnSRrelease.Location = new System.Drawing.Point(415, 494);
             this.btnSRrelease.Name = "btnSRrelease";
             this.btnSRrelease.Size = new System.Drawing.Size(168, 47);
             this.btnSRrelease.TabIndex = 22;
@@ -303,7 +307,7 @@
             // 
             // btnSRcreate
             // 
-            this.btnSRcreate.Location = new System.Drawing.Point(58, 403);
+            this.btnSRcreate.Location = new System.Drawing.Point(58, 494);
             this.btnSRcreate.Name = "btnSRcreate";
             this.btnSRcreate.Size = new System.Drawing.Size(153, 47);
             this.btnSRcreate.TabIndex = 21;
@@ -313,7 +317,7 @@
             // 
             // btnSYcancel
             // 
-            this.btnSYcancel.Location = new System.Drawing.Point(316, 658);
+            this.btnSYcancel.Location = new System.Drawing.Point(319, 750);
             this.btnSYcancel.Name = "btnSYcancel";
             this.btnSYcancel.Size = new System.Drawing.Size(93, 47);
             this.btnSYcancel.TabIndex = 28;
@@ -323,7 +327,7 @@
             // 
             // btnSYstart
             // 
-            this.btnSYstart.Location = new System.Drawing.Point(217, 658);
+            this.btnSYstart.Location = new System.Drawing.Point(220, 750);
             this.btnSYstart.Name = "btnSYstart";
             this.btnSYstart.Size = new System.Drawing.Size(93, 47);
             this.btnSYstart.TabIndex = 27;
@@ -333,7 +337,7 @@
             // 
             // btnSYrelease
             // 
-            this.btnSYrelease.Location = new System.Drawing.Point(415, 658);
+            this.btnSYrelease.Location = new System.Drawing.Point(418, 750);
             this.btnSYrelease.Name = "btnSYrelease";
             this.btnSYrelease.Size = new System.Drawing.Size(168, 47);
             this.btnSYrelease.TabIndex = 26;
@@ -343,7 +347,7 @@
             // 
             // btnSYcreate
             // 
-            this.btnSYcreate.Location = new System.Drawing.Point(58, 658);
+            this.btnSYcreate.Location = new System.Drawing.Point(61, 750);
             this.btnSYcreate.Name = "btnSYcreate";
             this.btnSYcreate.Size = new System.Drawing.Size(153, 47);
             this.btnSYcreate.TabIndex = 25;
@@ -354,10 +358,10 @@
             // stCompleted
             // 
             this.stCompleted.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.stCompleted.Location = new System.Drawing.Point(220, 283);
+            this.stCompleted.Location = new System.Drawing.Point(220, 312);
             this.stCompleted.Name = "stCompleted";
             this.stCompleted.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.stCompleted.Size = new System.Drawing.Size(837, 70);
+            this.stCompleted.Size = new System.Drawing.Size(907, 72);
             this.stCompleted.TabIndex = 29;
             this.stCompleted.Text = "null";
             this.stCompleted.Click += new System.EventHandler(this.label6_Click);
@@ -365,10 +369,10 @@
             // stClosed
             // 
             this.stClosed.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.stClosed.Location = new System.Drawing.Point(220, 353);
+            this.stClosed.Location = new System.Drawing.Point(220, 398);
             this.stClosed.Name = "stClosed";
             this.stClosed.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.stClosed.Size = new System.Drawing.Size(1560, 24);
+            this.stClosed.Size = new System.Drawing.Size(907, 69);
             this.stClosed.TabIndex = 30;
             this.stClosed.Text = "null";
             // 
@@ -384,7 +388,7 @@
             // label9
             // 
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(55, 283);
+            this.label9.Location = new System.Drawing.Point(55, 312);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(143, 15);
             this.label9.TabIndex = 32;
@@ -393,7 +397,7 @@
             // label10
             // 
             this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(55, 353);
+            this.label10.Location = new System.Drawing.Point(55, 398);
             this.label10.Name = "label10";
             this.label10.Size = new System.Drawing.Size(119, 15);
             this.label10.TabIndex = 33;
@@ -402,7 +406,7 @@
             // label11
             // 
             this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(55, 601);
+            this.label11.Location = new System.Drawing.Point(55, 692);
             this.label11.Name = "label11";
             this.label11.Size = new System.Drawing.Size(119, 15);
             this.label11.TabIndex = 39;
@@ -411,7 +415,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(55, 527);
+            this.label12.Location = new System.Drawing.Point(55, 618);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(143, 15);
             this.label12.TabIndex = 38;
@@ -420,7 +424,7 @@
             // label13
             // 
             this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(55, 464);
+            this.label13.Location = new System.Drawing.Point(55, 555);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(151, 15);
             this.label13.TabIndex = 37;
@@ -429,7 +433,7 @@
             // srClosed
             // 
             this.srClosed.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.srClosed.Location = new System.Drawing.Point(220, 601);
+            this.srClosed.Location = new System.Drawing.Point(220, 692);
             this.srClosed.Name = "srClosed";
             this.srClosed.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.srClosed.Size = new System.Drawing.Size(837, 24);
@@ -440,7 +444,7 @@
             // srCompleted
             // 
             this.srCompleted.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.srCompleted.Location = new System.Drawing.Point(220, 527);
+            this.srCompleted.Location = new System.Drawing.Point(220, 618);
             this.srCompleted.Name = "srCompleted";
             this.srCompleted.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.srCompleted.Size = new System.Drawing.Size(837, 60);
@@ -451,7 +455,7 @@
             // srResult
             // 
             this.srResult.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.srResult.Location = new System.Drawing.Point(220, 464);
+            this.srResult.Location = new System.Drawing.Point(220, 555);
             this.srResult.Name = "srResult";
             this.srResult.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.srResult.Size = new System.Drawing.Size(837, 63);
@@ -461,7 +465,7 @@
             // label17
             // 
             this.label17.AutoSize = true;
-            this.label17.Location = new System.Drawing.Point(55, 803);
+            this.label17.Location = new System.Drawing.Point(58, 895);
             this.label17.Name = "label17";
             this.label17.Size = new System.Drawing.Size(119, 15);
             this.label17.TabIndex = 43;
@@ -470,7 +474,7 @@
             // label18
             // 
             this.label18.AutoSize = true;
-            this.label18.Location = new System.Drawing.Point(55, 722);
+            this.label18.Location = new System.Drawing.Point(58, 814);
             this.label18.Name = "label18";
             this.label18.Size = new System.Drawing.Size(143, 15);
             this.label18.TabIndex = 42;
@@ -479,7 +483,7 @@
             // syClosed
             // 
             this.syClosed.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.syClosed.Location = new System.Drawing.Point(220, 803);
+            this.syClosed.Location = new System.Drawing.Point(223, 895);
             this.syClosed.Name = "syClosed";
             this.syClosed.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.syClosed.Size = new System.Drawing.Size(837, 31);
@@ -489,7 +493,7 @@
             // syCompleted
             // 
             this.syCompleted.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.syCompleted.Location = new System.Drawing.Point(220, 722);
+            this.syCompleted.Location = new System.Drawing.Point(223, 814);
             this.syCompleted.Name = "syCompleted";
             this.syCompleted.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.syCompleted.Size = new System.Drawing.Size(837, 66);
@@ -508,11 +512,55 @@
             this.nlsResult.Text = "nls...";
             this.nlsResult.Click += new System.EventHandler(this.label21_Click);
             // 
+            // button1
+            // 
+            this.button1.Location = new System.Drawing.Point(860, 176);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(93, 47);
+            this.button1.TabIndex = 48;
+            this.button1.Text = "Stop";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button1_Click_5);
+            // 
+            // button2
+            // 
+            this.button2.Location = new System.Drawing.Point(761, 176);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(93, 47);
+            this.button2.TabIndex = 47;
+            this.button2.Text = "Start";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Click += new System.EventHandler(this.button2_Click_1);
+            // 
+            // button3
+            // 
+            this.button3.Location = new System.Drawing.Point(959, 176);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(168, 47);
+            this.button3.TabIndex = 46;
+            this.button3.Text = "ReleaseTranscriber";
+            this.button3.UseVisualStyleBackColor = true;
+            this.button3.Click += new System.EventHandler(this.button3_Click_2);
+            // 
+            // button4
+            // 
+            this.button4.Location = new System.Drawing.Point(602, 176);
+            this.button4.Name = "button4";
+            this.button4.Size = new System.Drawing.Size(153, 47);
+            this.button4.TabIndex = 45;
+            this.button4.Text = "CreateTranscriber";
+            this.button4.UseVisualStyleBackColor = true;
+            this.button4.Click += new System.EventHandler(this.button4_Click_1);
+            // 
             // nlsCsharpSdkDemo
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1145, 918);
+            this.ClientSize = new System.Drawing.Size(1172, 1033);
+            this.Controls.Add(this.button1);
+            this.Controls.Add(this.button2);
+            this.Controls.Add(this.button3);
+            this.Controls.Add(this.button4);
             this.Controls.Add(this.nlsResult);
             this.Controls.Add(this.label17);
             this.Controls.Add(this.label18);
@@ -613,6 +661,10 @@
         private System.Windows.Forms.Label syClosed;
         private System.Windows.Forms.Label syCompleted;
         private System.Windows.Forms.Label nlsResult;
+        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button button3;
+        private System.Windows.Forms.Button button4;
     }
 }
 

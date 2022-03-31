@@ -39,6 +39,9 @@ class WorkThread {
                                    short event, void *arg);
   static void readEventCallBack(evutil_socket_t socketFd, short what, void *arg);
   static void writeEventCallBack(evutil_socket_t socketFd, short what, void *arg);
+#ifndef _MSC_VER
+  static void sysDnsEventCallback(evutil_socket_t socketFd, short what, void *arg);
+#endif
   static void dnsEventCallback(int errorCode,
                                struct evutil_addrinfo *address,
                                void *arg);
@@ -60,6 +63,7 @@ class WorkThread {
 
   static void setAddrInFamily(int aiFamily);
   static void setDirectHost(char *ip);
+  static void setUseSysGetAddrInfo(bool enable);
 
 #ifdef _MSC_VER
   HANDLE _mtxList;
@@ -86,6 +90,7 @@ class WorkThread {
  private:
   static int _addrInFamily;
   static char _directIp[64];
+  static bool _enableSysGetAddr;
 
 };
 

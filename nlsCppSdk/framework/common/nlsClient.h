@@ -87,7 +87,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
    * @return 成功返回speechRecognizerRequest对象，否则返回NULL
    */
-  SpeechRecognizerRequest* createRecognizerRequest(const char* sdkName = "cpp");
+  SpeechRecognizerRequest* createRecognizerRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
 
   /*
    * @brief 销毁一句话识别对象
@@ -115,7 +116,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
    * @return 成功返回SpeechTranscriberRequest对象，否则返回NULL
    */
-  SpeechTranscriberRequest* createTranscriberRequest(const char* sdkName = "cpp");
+  SpeechTranscriberRequest* createTranscriberRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
 
   /*
    * @brief 销毁实时音频流识别对象
@@ -144,7 +146,9 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return 成功则SpeechSynthesizerRequest对象，否则返回NULL
    */
   SpeechSynthesizerRequest* createSynthesizerRequest(
-      TtsVersion version = ShortTts, const char* sdkName = "cpp");
+      TtsVersion version = ShortTts,
+      const char* sdkName = "cpp",
+      bool isLongConnection = false);
 
   /*
    * @brief 销毁语音合成对象
@@ -160,7 +164,9 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return 成功则DialogAssistantRequest对象，否则返回NULL
    */
   DialogAssistantRequest* createDialogAssistantRequest(
-      DaVersion version = DaV1, const char* sdkName = "cpp");
+      DaVersion version = DaV1,
+      const char* sdkName = "cpp",
+      bool isLongConnection = false);
 
   /*
    * @brief 销毁语音助手对象
@@ -191,6 +197,16 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return
    */
   void setDirectHost(const char* ip);
+
+  /*
+   * @brief 是否使用系统的getaddrinfo接口, 替代libevent的域名解析, 默认false
+   *        若调用则需要在startWorkThread之前.
+   *        存在部分设备在设置了dns后仍然无法通过SDK的dns获取可用的IP,
+   *        可调用此接口启用系统的getaddrinfo来解决这个问题.
+   * @param
+   * @return
+   */
+  void setUseSysGetAddrInfo(bool enable);
 
   /*
    * @brief 启动工作线程数量
@@ -229,6 +245,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   static NlsClient* _instance;
   static char _aiFamily[16];
   static char _direct_host_ip[64];
+  static bool _enableSysGetAddr;
 
 }; // class NLS_SDK_CLIENT_EXPORT NlsClient
 

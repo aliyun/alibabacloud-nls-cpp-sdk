@@ -229,6 +229,19 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
   return encoderSize;
 }
 
+int NlsEncoder::nlsEncoderSoftRestart() {
+  if (!nlsEncoder_) {
+    LOG_WARN("nlsEncoder is inexistent");
+    return -1;
+  }
+
+  if (encoder_type_ == ENCODER_OPUS) {
+#ifdef ENABLE_OGGOPUS
+    ((OggOpusDataEncoder *)nlsEncoder_)->OggopusSoftRestart();
+#endif
+  }
+}
+
 int NlsEncoder::destroyNlsEncoder() {
   if (!nlsEncoder_) {
     LOG_WARN("nlsEncoder is inexistent");

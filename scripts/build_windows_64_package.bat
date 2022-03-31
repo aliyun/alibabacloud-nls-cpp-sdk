@@ -26,7 +26,7 @@ if exist %x64_folder% (
     echo %x64_folder% is exist
 ) else (
 	echo %x64_folder% is not exist
-	md %x86_folder%
+	md %x64_folder%
 )
 
 if exist %x64_debug_folder% (
@@ -141,7 +141,7 @@ copy /y %project_folder%\nlsCppSdk\token\include\nlsToken.h %install_include_fol
 copy /y %project_folder%\demo\Windows\* %install_demo_folder%\
 
 copy /y %project_folder%\version %install_folder%\
-copy /y %project_folder%\README.md %install_folder%\
+copy /y %project_folder%\readme.md %install_folder%\
 
 copy /y %build_x64_release_folder%\speechTranscriberDemo.exe %install_bin_folder%\stReleaseDemo.exe
 copy /y %build_x64_debug_folder%\speechTranscriberDemo.exe %install_bin_folder%\stDebugDemo.exe

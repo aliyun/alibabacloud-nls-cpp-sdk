@@ -53,7 +53,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberCallback {
 
 class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
  public:
-  SpeechTranscriberRequest(const char* sdkName = "cpp");
+  SpeechTranscriberRequest(const char* sdkName = "cpp", bool isLongConnection = false);
   ~SpeechTranscriberRequest();
 
   /*
@@ -132,7 +132,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
   /*
    * @brief 设置vad阀值
    * @note 可选参数. 静音时长超过该阈值会被认为断句,
-   *                 合法参数范围200～2000(ms), 默认值800ms.
+   *                 合法参数范围200～6000(ms), 默认值800ms.
    *                 vad断句与语义断句为互斥关系, 不能同时使用.
    *                 调用此设置前,
    *                 请将语义断句setSemanticSentenceDetection设置为false.
@@ -165,14 +165,14 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
 
   /*
    * @brief 设置是否开启nlp服务
-   * @param value 编码格式 UTF-8 or GBK
+   * @param enable 是否开启nlp服务
    * @return 成功则返回0，否则返回-1
    */
   int setEnableNlp(bool enable);
 
   /*
    * @brief 设置nlp模型名称，开启NLP服务后必填
-   * @param value 编码格式 UTF-8 or GBK
+   * @param value nlp模型名称字符串
    * @return 成功则返回0，否则返回-1
    */
   int setNlpModel(const char* value);
@@ -187,7 +187,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
 
   /*
    * @brief 设置输出文本的编码格式
-   * @note
+   * @note 暂不支持, 输出均为UTF-8
    * @param value 编码格式 UTF-8 or GBK
    * @return 成功则返回0，否则返回-1
    */
@@ -207,6 +207,37 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @return 成功则返回0，否则返回-1
    */
   int setContextParam(const char* value);
+
+  /*
+   * @brief 是否开启返回词信息, 默认是False
+   * @param enable 是否开启返回词信息
+   * @return 成功则返回0，否则返回-1
+   */
+  int setEnableWords(bool enable);
+
+  /*
+   * @brief 是否忽略实时识别中的单句识别超时, 默认是False
+   * @param enable 是否忽略实时识别中的单句识别超时
+   * @return 成功则返回0，否则返回-1
+   */
+  int setEnableIgnoreSentenceTimeout(bool enable);
+
+  /*
+   * @brief 是否对识别文本进行顺滑(去除语气词,重复说等), 默认是False
+   * @param enable 是否对识别文本进行顺滑
+   * @return 成功则返回0，否则返回-1
+   */
+  int setDisfluency(bool enable);
+
+  /*
+   * @brief 噪音参数阈值，参数范围:[-1,1]
+   *
+   * @param value 取值越趋于-1, 噪音被判定为语音的概率越大
+   *              取值越趋于+1, 语音被判定为噪音的概率越大
+   *              该参数属高级参数, 调整需慎重并重点测试
+   * @return 成功则返回0，否则返回-1
+   */
+  int setSpeechNoiseThreshold(float value);
 
   /*
    * @brief 设置用户自定义ws阶段http header参数
@@ -255,9 +286,9 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
                              只支持20ms 16K16b1c
                  ENCODER_OPUS 表示以OPUS压缩后进行传递,
                               只支持20ms, 支持16K16b1c和8K16b1c
-   * @return 成功则返回0，失败返回-1。
+   * @return 成功则返回>=0，失败返回-1。
              由于音频格式不确定，传入音频字节数和传出音频字节数
-             无法通过比较判断成功与否，故成功返回0。
+             无法通过比较判断成功与否，故成功返回>=0。
    */
   int sendAudio(const uint8_t * data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);
