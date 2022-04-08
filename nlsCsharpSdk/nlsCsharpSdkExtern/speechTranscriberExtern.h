@@ -18,15 +18,6 @@
 #define _NLSCPPSDK_TRANSCRIBER_EXTERN_H_
 
 
-static NlsCallbackDelegate transcriptionTaskFailedCallback = NULL;
-static NlsCallbackDelegate transcriptionStartedCallback = NULL;
-static NlsCallbackDelegate transcriptionResultChangedCallback = NULL;
-static NlsCallbackDelegate transcriptionCompletedCallback = NULL;
-static NlsCallbackDelegate transcriptionClosedCallback = NULL;
-static NlsCallbackDelegate sentenceBeginCallback = NULL;
-static NlsCallbackDelegate sentenceEndCallback = NULL;
-static NlsCallbackDelegate sentenceSemanticsCallback = NULL;
-
 NLSAPI(int) STstart(AlibabaNls::SpeechTranscriberRequest* request)
 {
 	return request->start();
@@ -47,9 +38,13 @@ NLSAPI(int) STsendAudio(AlibabaNls::SpeechTranscriberRequest* request, uint8_t* 
 static void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (transcriptionStartedCallback)
+	if (cbParam)
 	{
-		transcriptionStartedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -57,9 +52,13 @@ static void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onTranscriptionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (transcriptionResultChangedCallback)
+	if (cbParam)
 	{
-		transcriptionResultChangedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -67,9 +66,13 @@ static void onTranscriptionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cb
 static void onTranscriptionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (transcriptionCompletedCallback)
+	if (cbParam)
 	{
-		transcriptionCompletedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -77,9 +80,13 @@ static void onTranscriptionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbPara
 static void onTranscriptionClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (transcriptionClosedCallback)
+	if (cbParam)
 	{
-		transcriptionClosedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -87,9 +94,13 @@ static void onTranscriptionClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onTranscriptionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (transcriptionTaskFailedCallback)
+	if (cbParam)
 	{
-		transcriptionTaskFailedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -97,9 +108,13 @@ static void onTranscriptionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbPar
 static void onSentenceBegin(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (sentenceBeginCallback)
+	if (cbParam)
 	{
-		sentenceBeginCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -107,9 +122,13 @@ static void onSentenceBegin(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
-	if (sentenceEndCallback)
+	if (cbParam)
 	{
-		sentenceEndCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -146,58 +165,72 @@ NLSAPI(int) STGetNlsEvent(NLS_EVENT_STRUCT &event)
 
 // ÉèÖÃ»Øµ÷
 NLSAPI(int) STOnTranscriptionStarted(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnTranscriptionStarted(onTranscriptionStarted, NULL);
-	transcriptionStartedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnTranscriptionStarted(onTranscriptionStarted, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) STOnTranscriptionResultChanged(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnTranscriptionResultChanged(onTranscriptionResultChanged, NULL);
-	transcriptionResultChangedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnTranscriptionResultChanged(onTranscriptionResultChanged, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) STOnTranscriptionCompleted(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnTranscriptionCompleted(onTranscriptionCompleted, NULL);
-	transcriptionCompletedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnTranscriptionCompleted(onTranscriptionCompleted, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) STOnTaskFailed(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnTaskFailed(onTranscriptionTaskFailed, NULL);
-	transcriptionTaskFailedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnTaskFailed(onTranscriptionTaskFailed, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) STOnChannelClosed(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnChannelClosed(onTranscriptionClosed, NULL);
-	transcriptionClosedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnChannelClosed(onTranscriptionClosed, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) STOnSentenceBegin(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnSentenceBegin(onSentenceBegin, NULL);
-	sentenceBeginCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnSentenceBegin(onSentenceBegin, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) STOnSentenceEnd(
-	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnSentenceEnd(onSentenceEnd, NULL);
-	sentenceEndCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnSentenceEnd(onSentenceEnd, (void*)in_param);
 	return 0;
 }
 

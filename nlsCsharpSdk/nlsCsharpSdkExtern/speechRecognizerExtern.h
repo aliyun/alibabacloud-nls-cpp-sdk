@@ -18,12 +18,6 @@
 #define _NLSCPPSDK_RECOGNIZER_EXTERN_H_
 
 
-static NlsCallbackDelegate recognitionTaskFailedCallback = NULL;
-static NlsCallbackDelegate recognitionStartedCallback = NULL;
-static NlsCallbackDelegate recognitionResultChangedCallback = NULL;
-static NlsCallbackDelegate recognitionCompletedCallback = NULL;
-static NlsCallbackDelegate recognitionClosedCallback = NULL;
-
 NLSAPI(int) SRstart(AlibabaNls::SpeechRecognizerRequest* request)
 {
 	return request->start();
@@ -44,9 +38,13 @@ NLSAPI(int) SRsendAudio(AlibabaNls::SpeechRecognizerRequest* request, uint8_t* d
 static void onRecognitionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, srEvent);
-	if (recognitionStartedCallback)
+	if (cbParam)
 	{
-		recognitionStartedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -54,9 +52,13 @@ static void onRecognitionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, srEvent);
-	if (recognitionResultChangedCallback)
+	if (cbParam)
 	{
-		recognitionResultChangedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -64,9 +66,13 @@ static void onRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbPa
 static void onRecognitionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, srEvent);
-	if (recognitionCompletedCallback)
+	if (cbParam)
 	{
-		recognitionCompletedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -74,9 +80,13 @@ static void onRecognitionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onRecognitionClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, srEvent);
-	if (recognitionClosedCallback)
+	if (cbParam)
 	{
-		recognitionClosedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -84,9 +94,13 @@ static void onRecognitionClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, srEvent);
-	if (recognitionTaskFailedCallback)
+	if (cbParam)
 	{
-		recognitionTaskFailedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -117,48 +131,57 @@ NLSAPI(int) SRGetNlsEvent(NLS_EVENT_STRUCT& event)
 	memcpy(event.stashResultText, srEvent->stashResultText, 8192);
 	event.stashResultCurrentTime = srEvent->stashResultBeginTime;
 	event.isValid = false;
-
 	return 0;
 }
 
 // ÉèÖÃ»Øµ÷
 NLSAPI(int) SROnRecognitionStarted(
-	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnRecognitionStarted(onRecognitionStarted, NULL);
-	recognitionStartedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnRecognitionStarted(onRecognitionStarted, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SROnRecognitionResultChanged(
-	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnRecognitionResultChanged(onRecognitionResultChanged, NULL);
-	recognitionResultChangedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnRecognitionResultChanged(onRecognitionResultChanged, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SROnRecognitionCompleted(
-	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnRecognitionCompleted(onRecognitionCompleted, NULL);
-	recognitionCompletedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnRecognitionCompleted(onRecognitionCompleted, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SROnTaskFailed(
-	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnTaskFailed(onRecognitionTaskFailed, NULL);
-	recognitionTaskFailedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnTaskFailed(onRecognitionTaskFailed, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SROnChannelClosed(
-	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnChannelClosed(onRecognitionClosed, NULL);
-	recognitionClosedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnChannelClosed(onRecognitionClosed, (void*)in_param);
 	return 0;
 }
 

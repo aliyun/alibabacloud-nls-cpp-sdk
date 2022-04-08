@@ -89,35 +89,35 @@ namespace nlsCsharpSdk.CPlusPlus
         #region Callback
         [DllImport(DllExtern, EntryPoint = "STOnTaskFailed", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnTaskFailed(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STOnTranscriptionStarted", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnTranscriptionStarted(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STOnChannelClosed", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnChannelClosed(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STOnSentenceBegin", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnSentenceBegin(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STOnSentenceEnd", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnSentenceEnd(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STOnTranscriptionResultChanged", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnTranscriptionResultChanged(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STOnTranscriptionCompleted", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnTranscriptionCompleted(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "STsetOnSentenceSemantics", CallingConvention = CallingConvention.Cdecl)]
         public extern static int STOnSentenceSemantics(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
         #endregion
 
 

@@ -125,7 +125,7 @@ NlsSdk3.X_LINUX
 > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libeay32.dll  
 > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\ssleay32.dll  
 > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\pthreadVC2.dll   
-> {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug\audio_files\test3.wav 需要有一个名叫test3.wav的音频文件用于进行语音识别。  
+> {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug\audio_files\ 目录下, 需要名叫test0.wav、test1.wav、test2.wav、test3.wav的四个音频文件用于进行语音识别。
 > 5. nlsCsharpSdkDemo.exe 运行要点  
 > ![image](docs/images/csharpSdk02.png)  
 > a.  &lt;OpenLog&gt; 可开启日志记录（可选)  

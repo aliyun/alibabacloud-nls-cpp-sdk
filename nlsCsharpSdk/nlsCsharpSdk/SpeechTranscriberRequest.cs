@@ -15,6 +15,7 @@
  */
 
 using nlsCsharpSdk.CPlusPlus;
+using System.Runtime.InteropServices;
 
 namespace nlsCsharpSdk
 {
@@ -402,67 +403,70 @@ namespace nlsCsharpSdk
 
 
         #region Set CallbackDelegate of SpeechTranscriber
-        static object user_started_obj = null;
-        static NLS_EVENT_STRUCT nlsEvent = new NLS_EVENT_STRUCT();
-        static CallbackDelegate transcriptionStartedCallback;
-        static CallbackDelegate transcriptionTaskFailedCallback;
-        static CallbackDelegate transcriptionResultChangedCallback;
-        static CallbackDelegate transcriptionCompletedCallback;
-        static CallbackDelegate transcriptionClosedCallback;
-        static CallbackDelegate sentenceBeginCallback;
-        static CallbackDelegate sentenceEndCallback;
-        static CallbackDelegate sentenceSemanticsCallback;
-
         /// <summary>
         /// 从Native获取NlsEvent
         /// </summary>
         /// <returns></returns>
-        private static int GetNlsEvent()
+        private static int GetNlsEvent(out NLS_EVENT_STRUCT nls)
         {
-            return NativeMethods.STGetNlsEvent(out nlsEvent);
+            return NativeMethods.STGetNlsEvent(out nls);
         }
 
         NlsCallbackDelegate onTranscriptionStarted =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                transcriptionStartedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onTranscriptionTaskFailed =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                transcriptionTaskFailedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onTranscriptionResultChanged =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                transcriptionResultChangedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onTranscriptionCompleted =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                transcriptionCompletedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onTranscriptionClosed =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                transcriptionClosedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onSentenceBegin =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                sentenceBeginCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct)); // thrown
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onSentenceEnd =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                sentenceEndCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         #endregion
 
@@ -483,9 +487,13 @@ namespace nlsCsharpSdk
         public void SetOnTranscriptionStarted(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            transcriptionStartedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnTranscriptionStarted(request.native_request, onTranscriptionStarted);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnTranscriptionStarted(request.native_request, onTranscriptionStarted, (IntPtr)toCppParam);
             return;
         }
 
@@ -507,9 +515,13 @@ namespace nlsCsharpSdk
         public void SetOnTaskFailed(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            transcriptionTaskFailedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnTaskFailed(request.native_request, onTranscriptionTaskFailed);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnTaskFailed(request.native_request, onTranscriptionTaskFailed, (IntPtr)toCppParam);
             return;
         }
 
@@ -529,9 +541,13 @@ namespace nlsCsharpSdk
         public void SetOnTranscriptionResultChanged(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            transcriptionResultChangedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnTranscriptionResultChanged(request.native_request, onTranscriptionResultChanged);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnTranscriptionResultChanged(request.native_request, onTranscriptionResultChanged, (IntPtr)toCppParam);
             return;
         }
 
@@ -551,9 +567,13 @@ namespace nlsCsharpSdk
         public void SetOnTranscriptionCompleted(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            transcriptionCompletedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnTranscriptionCompleted(request.native_request, onTranscriptionCompleted);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnTranscriptionCompleted(request.native_request, onTranscriptionCompleted, (IntPtr)toCppParam);
             return;
         }
 
@@ -573,9 +593,13 @@ namespace nlsCsharpSdk
         public void SetOnChannelClosed(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            transcriptionClosedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnChannelClosed(request.native_request, onTranscriptionClosed);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnChannelClosed(request.native_request, onTranscriptionClosed, (IntPtr)toCppParam);
             return;
         }
 
@@ -595,9 +619,13 @@ namespace nlsCsharpSdk
         public void SetOnSentenceBegin(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            sentenceBeginCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnSentenceBegin(request.native_request, onSentenceBegin);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnSentenceBegin(request.native_request, onSentenceBegin, (IntPtr)toCppParam);
             return;
         }
 
@@ -617,9 +645,13 @@ namespace nlsCsharpSdk
         public void SetOnSentenceEnd(
             SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
         {
-            sentenceEndCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.STOnSentenceEnd(request.native_request, onSentenceEnd);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnSentenceEnd(request.native_request, onSentenceEnd, (IntPtr)toCppParam);
             return;
         }
         #endregion

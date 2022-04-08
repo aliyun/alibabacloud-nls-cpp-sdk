@@ -16,6 +16,8 @@
 
 using nlsCsharpSdk.CPlusPlus;
 using System.Text;
+using System.Runtime.InteropServices;
+
 
 namespace nlsCsharpSdk
 {
@@ -334,53 +336,54 @@ namespace nlsCsharpSdk
 
 
         #region Set CallbackDelegate of SpeechSynthesizer
-        static object user_started_obj = null;
-        static NLS_EVENT_STRUCT nlsEvent = new NLS_EVENT_STRUCT();
-        static CallbackDelegate synthesisTaskFailedCallback;
-        static CallbackDelegate synthesisDataReceivedCallback;
-        static CallbackDelegate synthesisCompletedCallback;
-        static CallbackDelegate synthesisClosedCallback;
-        static CallbackDelegate metaInfoCallback;
-
         /// <summary>
         /// 从Native获取NlsEvent
         /// </summary>
         /// <returns>返回语音合成数据长度.</returns>
-        private static int GetNlsEvent()
+        private static int GetNlsEvent(out NLS_EVENT_STRUCT nls)
         {
-            int len = NativeMethods.SYGetNlsEvent(out nlsEvent);
-            return len;
+            return NativeMethods.SYGetNlsEvent(out nls);
         }
 
         NlsCallbackDelegate onSynthesisTaskFailed =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                synthesisTaskFailedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onSynthesisDataReceived =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                synthesisDataReceivedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onSynthesisCompleted =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                synthesisCompletedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onSynthesisClosed =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                synthesisClosedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onMetaInfo =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                metaInfoCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         #endregion
 
@@ -402,9 +405,13 @@ namespace nlsCsharpSdk
         public void SetOnTaskFailed(
             SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
         {
-            synthesisTaskFailedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SYOnTaskFailed(request.native_request, onSynthesisTaskFailed);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SYOnTaskFailed(request.native_request, onSynthesisTaskFailed, (IntPtr)toCppParam);
             return;
         }
 
@@ -424,9 +431,13 @@ namespace nlsCsharpSdk
         public void SetOnBinaryDataReceived(
             SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
         {
-            synthesisDataReceivedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SYOnBinaryDataReceived(request.native_request, onSynthesisDataReceived);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SYOnBinaryDataReceived(request.native_request, onSynthesisDataReceived, (IntPtr)toCppParam);
             return;
         }
 
@@ -446,9 +457,13 @@ namespace nlsCsharpSdk
         public void SetOnSynthesisCompleted(
             SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
         {
-            synthesisCompletedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SYOnSynthesisCompleted(request.native_request, onSynthesisCompleted);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SYOnSynthesisCompleted(request.native_request, onSynthesisCompleted, (IntPtr)toCppParam);
             return;
         }
 
@@ -468,9 +483,13 @@ namespace nlsCsharpSdk
         public void SetOnChannelClosed(
             SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
         {
-            synthesisClosedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SYOnChannelClosed(request.native_request, onSynthesisClosed);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SYOnChannelClosed(request.native_request, onSynthesisClosed, (IntPtr)toCppParam);
             return;
         }
 
@@ -491,9 +510,13 @@ namespace nlsCsharpSdk
         public void SetOnMetaInfo(
             SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
         {
-            metaInfoCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SYOnMetaInfo(request.native_request, onMetaInfo);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SYOnMetaInfo(request.native_request, onMetaInfo, (IntPtr)toCppParam);
             return;
         }
         #endregion
