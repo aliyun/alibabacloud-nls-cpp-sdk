@@ -26,6 +26,7 @@
 #include <vector>
 #include <fstream>
 #include <signal.h>
+#include <errno.h>
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"

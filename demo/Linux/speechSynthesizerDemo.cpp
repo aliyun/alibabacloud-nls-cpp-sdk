@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include <signal.h>
+#include <errno.h>
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"

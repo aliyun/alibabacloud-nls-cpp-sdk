@@ -40,10 +40,17 @@ namespace nlsCsharpSdk
         LongTts,
     };
 
+    public struct SpeechParamStruct
+    {
+        public object user;
+        public CallbackDelegate callback;
+        public NLS_EVENT_STRUCT nlsEvent;
+    };
+
     // 声明关于事件的委托
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void NlsCallbackDelegate(int status);
+    public delegate void NlsCallbackDelegate(IntPtr handler);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void CallbackDelegate(ref NLS_EVENT_STRUCT e);
+    public delegate void CallbackDelegate(ref NLS_EVENT_STRUCT e, ref object o);
 }

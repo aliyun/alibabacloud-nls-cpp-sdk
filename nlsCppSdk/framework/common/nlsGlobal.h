@@ -33,7 +33,7 @@
   #define NLS_CDECL __cdecl
   #define NLSAPI(rettype) NLS_EXTERN_C NLS_EXPORTS rettype NLS_CDECL
 
-  typedef int (NLS_CDECL * NlsCallbackDelegate)(int);
+  typedef int (NLS_CDECL * NlsCallbackDelegate)(void*);
 
 #else
 

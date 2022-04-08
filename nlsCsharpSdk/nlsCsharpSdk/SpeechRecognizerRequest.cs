@@ -15,6 +15,8 @@
  */
 
 using nlsCsharpSdk.CPlusPlus;
+using System.Runtime.InteropServices;
+
 
 namespace nlsCsharpSdk
 {
@@ -374,52 +376,54 @@ namespace nlsCsharpSdk
         #endregion
 
         #region Set CallbackDelegate of SpeechRecognizer
-        static object user_started_obj = null;
-        static NLS_EVENT_STRUCT nlsEvent = new NLS_EVENT_STRUCT();
-        static CallbackDelegate recognitionStartedCallback;
-        static CallbackDelegate recognitionTaskFailedCallback;
-        static CallbackDelegate recognitionResultChangedCallback;
-        static CallbackDelegate recognitionCompletedCallback;
-        static CallbackDelegate recognitionClosedCallback;
-
         /// <summary>
         /// 从Native获取NlsEvent
         /// </summary>
         /// <returns></returns>
-        private static int GetNlsEvent()
+        private static int GetNlsEvent(out NLS_EVENT_STRUCT nls)
         {
-            return NativeMethods.SRGetNlsEvent(out nlsEvent);
+            return NativeMethods.SRGetNlsEvent(out nls);
         }
 
         NlsCallbackDelegate onRecognitionStarted =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                recognitionStartedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onRecognitionTaskFailed =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                recognitionTaskFailedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onRecognitionResultChanged =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                recognitionResultChangedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onRecognitionCompleted =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                recognitionCompletedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onRecognitionClosed =
-            (status) =>
+            (handler) =>
             {
-                int ret = GetNlsEvent();
-                recognitionClosedCallback(ref nlsEvent);
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         #endregion
 
@@ -440,9 +444,13 @@ namespace nlsCsharpSdk
         public void SetOnRecognitionStarted(
             SpeechRecognizerRequest request, CallbackDelegate callback, object para = null)
         {
-            recognitionStartedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SROnRecognitionStarted(request.native_request, onRecognitionStarted);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SROnRecognitionStarted(request.native_request, onRecognitionStarted, (IntPtr)toCppParam);
             return;
         }
 
@@ -463,9 +471,13 @@ namespace nlsCsharpSdk
         public void SetOnTaskFailed(
             SpeechRecognizerRequest request, CallbackDelegate callback, object para = null)
         {
-            recognitionTaskFailedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SROnTaskFailed(request.native_request, onRecognitionTaskFailed);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SROnTaskFailed(request.native_request, onRecognitionTaskFailed, (IntPtr)toCppParam);
             return;
         }
 
@@ -485,9 +497,13 @@ namespace nlsCsharpSdk
         public void SetOnRecognitionResultChanged(
             SpeechRecognizerRequest request, CallbackDelegate callback, object para = null)
         {
-            recognitionResultChangedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SROnRecognitionResultChanged(request.native_request, onRecognitionResultChanged);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SROnRecognitionResultChanged(request.native_request, onRecognitionResultChanged, (IntPtr)toCppParam);
             return;
         }
 
@@ -507,9 +523,13 @@ namespace nlsCsharpSdk
         public void SetOnRecognitionCompleted(
             SpeechRecognizerRequest request, CallbackDelegate callback, object para = null)
         {
-            recognitionCompletedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SROnRecognitionCompleted(request.native_request, onRecognitionCompleted);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SROnRecognitionCompleted(request.native_request, onRecognitionCompleted, (IntPtr)toCppParam);
             return;
         }
 
@@ -529,9 +549,13 @@ namespace nlsCsharpSdk
         public void SetOnChannelClosed(
             SpeechRecognizerRequest request, CallbackDelegate callback, object para = null)
         {
-            recognitionClosedCallback = new CallbackDelegate(callback);
-            user_started_obj = para;
-            NativeMethods.SROnChannelClosed(request.native_request, onRecognitionClosed);
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.SROnChannelClosed(request.native_request, onRecognitionClosed, (IntPtr)toCppParam);
             return;
         }
         #endregion

@@ -83,23 +83,23 @@ namespace nlsCsharpSdk.CPlusPlus
         #region Callback
         [DllImport(DllExtern, EntryPoint = "SROnTaskFailed", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SROnTaskFailed(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SROnRecognitionStarted", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SROnRecognitionStarted(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SROnChannelClosed", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SROnChannelClosed(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SROnRecognitionResultChanged", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SROnRecognitionResultChanged(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SROnRecognitionCompleted", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SROnRecognitionCompleted(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         #endregion
 

@@ -45,6 +45,9 @@ struct NLS_EVENT_STRUCT
 	int stashResultCurrentTime;
 
 	bool isValid;
+
+	void* user;
+
 	HANDLE eventMtx;
 };
 
@@ -109,6 +112,10 @@ static void ConvertNlsEvent(AlibabaNls::NlsEvent* in, NLS_EVENT_STRUCT* out)
 	return;
 }
 
-
+struct UserCallback
+{
+	NlsCallbackDelegate delegate_callback;
+	void* user_handler;
+};
 
 #endif // _NLSCPPSDK_EVENT_STRUCT_H_

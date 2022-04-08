@@ -45,9 +45,13 @@ NLSAPI(int) SYcancel(AlibabaNls::SpeechSynthesizerRequest* request)
 static void onSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, syEvent);
-	if (synthesisTaskFailedCallback)
+	if (cbParam)
 	{
-		synthesisTaskFailedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -55,9 +59,13 @@ static void onSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onSynthesisClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, syEvent);
-	if (synthesisClosedCallback)
+	if (cbParam)
 	{
-		synthesisClosedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -65,9 +73,13 @@ static void onSynthesisClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, syEvent);
-	if (synthesisCompletedCallback)
+	if (cbParam)
 	{
-		synthesisCompletedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -75,9 +87,13 @@ static void onSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onSynthesisMetaInfo(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, syEvent);
-	if (metaInfoCallback)
+	if (cbParam)
 	{
-		metaInfoCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -85,9 +101,13 @@ static void onSynthesisMetaInfo(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 static void onSynthesisDataReceived(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, syEvent);
-	if (synthesisDataReceivedCallback)
+	if (cbParam)
 	{
-		synthesisDataReceivedCallback(cbEvent->getStatusCode());
+		UserCallback* in_param = (UserCallback*)cbParam;
+		if (in_param->delegate_callback)
+		{
+			in_param->delegate_callback(in_param->user_handler);
+		}
 	}
 	return;
 }
@@ -128,42 +148,52 @@ NLSAPI(int) SYGetNlsEvent(NLS_EVENT_STRUCT& event)
 
 // ÉèÖÃ»Øµ÷
 NLSAPI(int) SYOnSynthesisCompleted(
-	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnSynthesisCompleted(onSynthesisCompleted, NULL);
-	synthesisCompletedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnSynthesisCompleted(onSynthesisCompleted, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SYOnTaskFailed(
-	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnTaskFailed(onSynthesisTaskFailed, NULL);
-	synthesisTaskFailedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnTaskFailed(onSynthesisTaskFailed, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SYOnChannelClosed(
-	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnChannelClosed(onSynthesisClosed, NULL);
-	synthesisClosedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnChannelClosed(onSynthesisClosed, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SYOnBinaryDataReceived(
-	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnBinaryDataReceived(onSynthesisDataReceived, NULL);
-	synthesisDataReceivedCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnBinaryDataReceived(onSynthesisDataReceived, (void*)in_param);
 	return 0;
 }
 
 NLSAPI(int) SYOnMetaInfo(
-	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c)
+	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c, void* user)
 {
-	request->setOnMetaInfo(onSynthesisMetaInfo, NULL);
-	metaInfoCallback = c;
+	UserCallback* in_param = new UserCallback;
+	in_param->delegate_callback = c;
+	in_param->user_handler = user;
+	request->setOnMetaInfo(onSynthesisMetaInfo, (void*)in_param);
 	return 0;
 }
 

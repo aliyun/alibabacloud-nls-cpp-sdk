@@ -83,23 +83,23 @@ namespace nlsCsharpSdk.CPlusPlus
         #region Callback
         [DllImport(DllExtern, EntryPoint = "SYOnTaskFailed", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SYOnTaskFailed(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SYOnChannelClosed", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SYOnChannelClosed(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SYOnBinaryDataReceived", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SYOnBinaryDataReceived(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SYOnSynthesisCompleted", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SYOnSynthesisCompleted(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
 
         [DllImport(DllExtern, EntryPoint = "SYOnMetaInfo", CallingConvention = CallingConvention.Cdecl)]
         public extern static int SYOnMetaInfo(
-            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c);
+            IntPtr request, [MarshalAs(UnmanagedType.FunctionPtr)] NlsCallbackDelegate c, IntPtr user);
         #endregion
 
 
