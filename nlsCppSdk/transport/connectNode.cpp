@@ -135,7 +135,9 @@ ConnectNode::~ConnectNode() {
     ret = pthread_kill(_dnsThread, 0);
     if (ret == 0) {
       LOG_WARN("Node:%p dnsThread still exist", this);
+      #ifndef __ANDROID__
       pthread_cancel(_dnsThread);
+      #endif
       _dnsThread = 0;
     } else if (ret == ESRCH) {
       LOG_DEBUG("Node:%p dnsThread not exist", this);
@@ -368,7 +370,9 @@ bool ConnectNode::updateDestroyStatus() {
       result = pthread_kill(_dnsThread, 0);
       if (result == 0) {
         LOG_WARN("Node:%p dnsThread still exist", this);
+        #ifndef __ANDROID__
         pthread_cancel(_dnsThread);
+        #endif
         _dnsThread = 0;
       } else if (result == ESRCH) {
         LOG_DEBUG("Node:%p dnsThread not exist", this);
@@ -380,7 +384,9 @@ bool ConnectNode::updateDestroyStatus() {
       result = pthread_kill(_timeThread, 0);
       if (result == 0) {
         LOG_WARN("Node:%p timeThread still exist", this);
+        #ifndef __ANDROID__
         pthread_cancel(_timeThread);
+        #endif
         _timeThread = 0;
       } else if (result == ESRCH) {
         LOG_DEBUG("Node:%p timeThread not exist", this);
@@ -1455,7 +1461,9 @@ static void *async_dns_time_thread_fn(void *arg) {
         int ret = pthread_kill(node->_dnsThread, 0);
         if (ret == 0) {
           LOG_DEBUG("Node:%p dns timeout, dnsThread exist", node);
+          #ifndef __ANDROID__
           pthread_cancel(node->_dnsThread);
+          #endif
           node->_dnsThread = 0;
         } else if (ret == ESRCH) {
           LOG_DEBUG("Node:%p dns timeout, dnsThread not exist", node);
