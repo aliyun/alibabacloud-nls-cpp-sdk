@@ -76,6 +76,8 @@ struct ParamStruct {
 
   uint64_t sendTotalValue;    /*单线程调用sendAudio总耗时*/
 
+  uint64_t audioFileTimeLen;  /*灌入音频文件的音频时长*/
+
   uint64_t s50Value;          /*start()到started用时50ms以内*/
   uint64_t s100Value;         /*start()到started用时100ms以内*/
   uint64_t s200Value;
@@ -166,6 +168,7 @@ static int cur_profile_scan = -1;
 static PROFILE_INFO * g_sys_info = NULL;
 static bool longConnection = false;
 static bool sysAddrinfo = false;
+static bool noSleepFlag = false;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -363,6 +366,26 @@ int generateToken(std::string akId, std::string akSecret,
   return 0;
 }
 
+unsigned int getAudioFileTimeMs(const int dataSize,
+                                const int sampleRate,
+                                const int compressRate) {
+  // 仅支持16位采样
+  const int sampleBytes = 16;
+  // 仅支持单通道
+  const int soundChannel = 1;
+
+  // 当前采样率，采样位数下每秒采样数据的大小
+  int bytes = (sampleRate * sampleBytes * soundChannel) / 8;
+
+  // 当前采样率，采样位数下每毫秒采样数据的大小
+  int bytesMs = bytes / 1000;
+
+  // 待发送数据大小除以每毫秒采样数据大小，以获取sleep时间
+  int fileMs = (dataSize * compressRate) / bytesMs;
+
+  return fileMs;
+}
+
 /**
  * @brief 获取sendAudio发送延时时间
  * @param dataSize 待发送数据大小
@@ -378,20 +401,7 @@ int generateToken(std::string akId, std::string akSecret,
 unsigned int getSendAudioSleepTime(const int dataSize,
                                    const int sampleRate,
                                    const int compressRate) {
-  // 仅支持16位采样
-  const int sampleBytes = 16;
-  // 仅支持单通道
-  const int soundChannel = 1;
-
-  // 当前采样率，采样位数下每秒采样数据的大小
-  int bytes = (sampleRate * sampleBytes * soundChannel) / 8;
-
-  // 当前采样率，采样位数下每毫秒采样数据的大小
-  int bytesMs = bytes / 1000;
-
-  // 待发送数据大小除以每毫秒采样数据大小，以获取sleep时间
-  int sleepMs = (dataSize * compressRate) / bytesMs;
-
+  int sleepMs = getAudioFileTimeMs(dataSize, sampleRate, compressRate);
   return sleepMs;
 }
 
@@ -697,9 +707,9 @@ void onChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     gettimeofday(&(tmpParam->closedTv), NULL);
 
     unsigned long long timeValue1 =
-      tmpParam->closedTv.tv_sec - tmpParam->startTv.tv_sec;
+        tmpParam->closedTv.tv_sec - tmpParam->startTv.tv_sec;
     unsigned long long timeValue2 =
-      tmpParam->closedTv.tv_usec - tmpParam->startTv.tv_usec;
+        tmpParam->closedTv.tv_usec - tmpParam->startTv.tv_usec;
     unsigned long long timeValue = 0;
     if (timeValue1 > 0) {
       timeValue = (((timeValue1 * 1000000) + timeValue2) / 1000);
@@ -822,6 +832,7 @@ void* pthreadFunction(void* arg) {
   } else {
     fs.seekg(0, std::ios::end);
     int len = fs.tellg();
+    tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
 
     struct ParamStatistics params;
     params.running = false;
@@ -980,20 +991,26 @@ void* pthreadFunction(void* arg) {
       sendAudio_us += tmp_us;
       sendAudio_cnt++;
 
-      /*
-       * 语音数据发送控制:
-       * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
-       * 语音数据来自文件, 发送时需要控制速率, 
-       * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
-       */
-      // 根据发送数据大小，采样率，数据压缩比 来获取sleep时间
-      sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
+      if (noSleepFlag) {
+        /*
+         * 不进行sleep, 用于测试性能.
+         */
+      } else {
+        /*
+         * 语音数据发送控制:
+         * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
+         * 语音数据来自文件, 发送时需要控制速率, 
+         * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
+         */
+        // 根据发送数据大小，采样率，数据压缩比 来获取sleep时间
+        sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
 
-      /*
-       * 语音数据发送延时控制
-       */
-      if (sleepMs * 1000 > tmp_us) {
-        usleep(sleepMs * 1000 - tmp_us);
+        /*
+         * 语音数据发送延时控制
+         */
+        if (sleepMs * 1000 > tmp_us) {
+          usleep(sleepMs * 1000 - tmp_us);
+        }
       }
     }  // while
 
@@ -1178,6 +1195,7 @@ void* pthreadLongConnectionFunction(void* arg) {
     } else {
       fs.seekg(0, std::ios::end);
       int len = fs.tellg();
+      tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
       fs.seekg(0, std::ios::beg);
 
       params.running = false;
@@ -1251,20 +1269,26 @@ void* pthreadLongConnectionFunction(void* arg) {
       sendAudio_us += tmp_us;
       sendAudio_cnt++;
 
-      /*
-       * 语音数据发送控制：
-       * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
-       * 语音数据来自文件, 发送时需要控制速率,
-       * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
-       */
-      // 根据发送数据大小，采样率，数据压缩比 来获取sleep时间
-      sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
+      if (noSleepFlag) {
+        /*
+         * 不进行sleep, 用于测试性能.
+         */
+      } else {
+        /*
+         * 语音数据发送控制：
+         * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
+         * 语音数据来自文件, 发送时需要控制速率,
+         * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
+         */
+        // 根据发送数据大小，采样率，数据压缩比 来获取sleep时间
+        sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
 
-      /*
-       * 语音数据发送延时控制
-       */
-      if (sleepMs * 1000 > tmp_us) {
-        usleep(sleepMs * 1000 - tmp_us);
+        /*
+         * 语音数据发送延时控制
+         */
+        if (sleepMs * 1000 > tmp_us) {
+          usleep(sleepMs * 1000 - tmp_us);
+        }
       }
     }  // while
 
@@ -1370,11 +1394,18 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   };
   ParamStruct pa[threads];
 
+  // init ParamStruct
   for (int i = 0; i < threads; i ++) {
+    int num = i % AUDIO_FILE_NUMS;
+    memset(pa[i].fileName, 0, DEFAULT_STRING_LEN);
+    memcpy(pa[i].fileName, audioFileNames[num], strlen(audioFileNames[num]));
+
     memset(pa[i].token, 0, DEFAULT_STRING_LEN);
     memcpy(pa[i].token, g_token.c_str(), g_token.length());
+
     memset(pa[i].appkey, 0, DEFAULT_STRING_LEN);
     memcpy(pa[i].appkey, appkey, strlen(appkey));
+
     memset(pa[i].url, 0, DEFAULT_STRING_LEN);
     if (!g_url.empty()) {
       memcpy(pa[i].url, g_url.c_str(), g_url.length());
@@ -1385,6 +1416,7 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     pa[i].closeConsumed = 0;
     pa[i].failedConsumed = 0;
     pa[i].requestConsumed = 0;
+    pa[i].sendConsumed = 0;
 
     pa[i].startTotalValue = 0;
     pa[i].startAveValue = 0;
@@ -1396,19 +1428,20 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     pa[i].endMaxValue = 0;
     pa[i].endMinValue = 0;
 
+    pa[i].closeTotalValue = 0;
+    pa[i].closeAveValue = 0;
+    pa[i].closeMaxValue = 0;
+    pa[i].closeMinValue = 0;
+    pa[i].sendTotalValue = 0;
+
+    pa[i].audioFileTimeLen = 0;
+
     pa[i].s50Value = 0;
     pa[i].s100Value = 0;
     pa[i].s200Value = 0;
     pa[i].s500Value = 0;
     pa[i].s1000Value = 0;
     pa[i].s2000Value = 0;
-
-    pa[i].sendConsumed = 0;
-    pa[i].sendTotalValue = 0;
-
-    int num = i % AUDIO_FILE_NUMS;
-    memset(pa[i].fileName, 0, DEFAULT_STRING_LEN);
-    memcpy(pa[i].fileName, audioFileNames[num], strlen(audioFileNames[num]));
   }
 
   global_run = true;
@@ -1455,6 +1488,8 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   unsigned long long sendTotalTime = 0;
   unsigned long long sendAveTime = 0;
 
+  unsigned long long audioFileAveTimeLen = 0;
+
   for (int i = 0; i < threads; i ++) {
     sTotalCount += pa[i].startedConsumed;
     eTotalCount += pa[i].completedConsumed;
@@ -1463,6 +1498,7 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     rTotalCount += pa[i].requestConsumed;
     sendTotalCount += pa[i].sendConsumed;
     sendTotalTime += pa[i].sendTotalValue; // us, 所有线程sendAudio耗时总和
+    audioFileAveTimeLen += pa[i].audioFileTimeLen;
 
     //std::cout << "Closed:" << pa[i].closeConsumed << std::endl;
 
@@ -1522,6 +1558,7 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   sAveTime /= threads;
   eAveTime /= threads;
   cAveTime /= threads;
+  audioFileAveTimeLen /= threads;
 
   int cur = -1;
   if (cur_profile_scan == -1) {
@@ -1540,6 +1577,17 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   }
 
   for (int i = 0; i < threads; i ++) {
+    std::cout << "-----" << std::endl;
+    std::cout << "No." << i
+      << " Max started time: " << pa[i].startMaxValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Min started time: " << pa[i].startMinValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Ave started time: " << pa[i].startAveValue << " ms"
+      << std::endl;
+
     std::cout << "No." << i
       << " Max completed time: " << pa[i].endMaxValue << " ms"
       << std::endl;
@@ -1558,6 +1606,10 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
       << std::endl;
     std::cout << "No." << i
       << " Ave closed time: " << pa[i].closeAveValue << " ms"
+      << std::endl;
+
+    std::cout << "No." << i
+      << " Audio File duration: " << pa[i].audioFileTimeLen << " ms"
       << std::endl;
   }
 
@@ -1600,6 +1652,11 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   std::cout << "Max closed time: " << cMaxTime << " ms" << std::endl;
   std::cout << "Min closed time: " << cMinTime << " ms" << std::endl;
   std::cout << "Ave closed time: " << cAveTime << " ms" << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  std::cout << "Ave audio file duration: " << audioFileAveTimeLen
+            << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -1665,7 +1722,7 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       logLevel = atoi(argv[index]);
-    } else if (!strcmp(argv[index], "--sample_rate")) {
+    } else if (!strcmp(argv[index], "--sampleRate")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       sample_rate = atoi(argv[index]);
@@ -1694,6 +1751,14 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         sysAddrinfo = false;
       }
+    } else if (!strcmp(argv[index], "--noSleep")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        noSleepFlag = true;
+      } else {
+        noSleepFlag = false;
+      }
     }
     index++;
   }
@@ -1718,9 +1783,10 @@ int main(int argc, char* argv[]) {
       << "  --time <Timeout secs, default 60 seconds>\n"
       << "  --type <audio type, default pcm>\n"
       << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-      << "  --sample_rate <sample rate, 16K or 8K>\n"
+      << "  --sampleRate <sample rate, 16K or 8K>\n"
       << "  --long <long connection: 1, short connection: 0, default 0>\n"
       << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
+      << "  --noSleep <use sleep after sendAudio(), default 0>\n"
       << "eg:\n"
       << "  ./stDemo --appkey xxxxxx --token xxxxxx\n"
       << "  ./stDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads 4 --time 3600\n"

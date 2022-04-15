@@ -29,6 +29,7 @@
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"
+#include "FileTrans.h"
 #include "speechTranscriberRequest.h"
 #include "speechRecognizerRequest.h"
 #include "speechSynthesizerRequest.h"

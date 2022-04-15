@@ -18,123 +18,144 @@
 #define ALIBABANLS_COMMON_FILETRANS_H_
 
 #include <string>
-#include "Global.h"
+#include "nlsGlobal.h"
 
 namespace AlibabaNlsCommon {
 
-	class NLS_SDK_CLIENT_EXPORT FileTrans {
+class NLS_SDK_CLIENT_EXPORT FileTrans {
 
-    public:
+ public:
 
-        virtual ~FileTrans();
-		FileTrans();
+  virtual ~FileTrans();
+  FileTrans();
 
-         /**
-            * @brief 调用文件转写.
-            * @note 调用之前, 请先设置请求参数.
-            * @return 成功则返回0; 失败返回-1.
-            */
-         int applyFileTrans();
+  /**
+   * @brief 调用文件转写.
+   * @note 调用之前, 请先设置请求参数.
+   * @return 成功则返回0; 失败返回-1.
+   */
+  int applyFileTrans();
 
-		 /**
-		 	* @brief 获取错误信息.
-		 	* @return 成功则返回错误信息; 失败返回NULL.
-		 	*/
-		 const char* getErrorMsg();
+  /**
+   * @brief 获取错误信息.
+   * @return 成功则返回错误信息; 失败返回NULL.
+   */
+  const char* getErrorMsg();
 
-		 /**
-			 * @brief 获取结果.
-			 * @note
-			 * @return 成功则返回token字符串; 失败返回NULL.
-			 */
-		 const char* getResult();
+  /**
+   * @brief 获取结果.
+   * @note
+   * @return 成功则返回token字符串; 失败返回NULL.
+   */
+  const char* getResult();
 
-        /**
-            * @brief 设置阿里云账号的KeySecret
-            * @param KeySecret	Secret字符串
-            * @return void
-            */
-        void setKeySecret(const std::string & KeySecret);
+  /**
+   * @brief 设置阿里云账号的KeySecret
+   * @param KeySecret Secret字符串
+   * @return void
+   */
+  void setKeySecret(const std::string & KeySecret);
 
-        /**
-            * @brief 设置阿里云账号的KeyId
-            * @param KeyId	Id字符串
-            * @return void
-            */
-        void setAccessKeyId(const std::string & accessKeyId);
+  /**
+   * @brief 设置阿里云账号的KeyId
+   * @param KeyId Id字符串
+   * @return void
+   */
+  void setAccessKeyId(const std::string & accessKeyId);
 
-		/**
-            * @brief 设置APPKEY
-            * @param appKey
-            * @return void
-            */
-		void setAppKey(const std::string & appKey);
+  /**
+   * @brief 设置APPKEY
+   * @param appKey
+   * @return void
+   */
+  void setAppKey(const std::string & appKey);
 
-		/**
-            * @brief 设置音频文件连接地址
-            * @param fileLinkUrl 音频文件Url地址
-            * @return void
-            */
-		void setFileLinkUrl(const std::string & fileLinkUrl);
+  /**
+   * @brief 设置音频文件连接地址
+   * @param fileLinkUrl 音频文件Url地址
+   * @return void
+   */
+  void setFileLinkUrl(const std::string & fileLinkUrl);
 
-		/**
-            * @brief 设置RegionId
-            * @param regionId	服务地区
-            * @return void
-            */
-		void setRegionId(const std::string & regionId);
+  /**
+   * @brief 设置RegionId
+   * @param regionId 服务地区
+   * @return void
+   */
+  void setRegionId(const std::string & regionId);
 
-		/**
-            * @brief 设置功能
-            * @param action	功能
-            * @return void
-            */
-		void setAction(const std::string & action);
+  /**
+   * @brief 设置功能
+   * @param action 功能
+   * @return void
+   */
+  void setAction(const std::string & action);
 
-        /**
-            * @brief 设置域名
-            * @param domain	域名字符串
-            * @return void
-            */
-        void setDomain(const std::string & domain);
+  /**
+   * @brief 设置域名
+   * @param domain 域名字符串
+   * @return void
+   */
+  void setDomain(const std::string & domain);
 
-        /**
-            * @brief 设置API版本
-            * @param serverVersion	API版本字符串
-            * @return void
-            */
-        void setServerVersion(const std::string & serverVersion);
+  /**
+   * @brief 设置API版本
+   * @param serverVersion API版本字符串
+   * @return void
+   */
+  void setServerVersion(const std::string & serverVersion);
 
-		/**
-		* @brief 输入参数
-		* @param customJsonString	json字符串
-		*
-		* @return void
-		*/
-		void setCustomParam(const std::string & customJsonString);
+  /**
+   * @brief 输入参数
+   * @param customJsonString json字符串
+   *
+   * @return void
+   */
+  void setCustomParam(const std::string & customJsonString);
 
-    private:
-        std::string accessKeySecret_;
-        std::string accessKeyId_;
+  /**
+   * @brief 设置输出文本的编码格式
+   * @param textFormat 编码格式 UTF-8 or GBK
+   * @return void
+   */
+  void setOutputFormat(const std::string & textFormat);
 
-        std::string domain_;
-        std::string serverVersion_;
+ private:
+#if defined(__ANDROID__) || defined(__linux__)
+  int codeConvert(char *from_charset, char *to_charset, char *inbuf,
+                  size_t inlen, char *outbuf, size_t outlen);
+#endif
 
-        std::string regionId_;
-        std::string endpointName_;
-        std::string product_;
-        std::string action_;
-        std::string appKey_;
-        std::string fileLink_;
-        std::string serverResourcePath_;
+  /**
+   * @brief 字符串UTF8转GBK
+   * @param strUTF8 UTF8格式字符串
+   * @return 转换成GBK后字符串
+   */
+  std::string utf8ToGbk(const std::string & strUTF8);
 
-		std::string errorMsg_;
-		std::string result_;
+ private:
+  std::string accessKeySecret_;
+  std::string accessKeyId_;
 
-		std::string customParam_;
+  std::string domain_;
+  std::string serverVersion_;
 
-        int paramCheck();
-    };
+  std::string regionId_;
+  std::string endpointName_;
+  std::string product_;
+  std::string action_;
+  std::string appKey_;
+  std::string fileLink_;
+  std::string serverResourcePath_;
+  std::string outputFormat_;
+
+  std::string errorMsg_;
+  std::string result_;
+
+  std::string customParam_;
+
+  int paramCheck();
+};
 
 }
 

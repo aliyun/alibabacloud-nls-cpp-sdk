@@ -136,6 +136,7 @@ copy /y %project_folder%\nlsCppSdk\framework\common\nlsEvent.h %install_include_
 copy /y %project_folder%\nlsCppSdk\framework\common\nlsGlobal.h %install_include_folder%\
 copy /y %project_folder%\nlsCppSdk\framework\item\iNlsRequest.h %install_include_folder%\
 copy /y %project_folder%\nlsCppSdk\token\include\nlsToken.h %install_include_folder%\
+copy /y %project_folder%\nlsCppSdk\token\include\FileTrans.h %install_include_folder%\
 
 
 copy /y %project_folder%\demo\Windows\* %install_demo_folder%\
@@ -151,6 +152,9 @@ copy /y %build_x64_debug_folder%\speechRecognizerDemo.exe %install_bin_folder%\s
 
 copy /y %build_x64_release_folder%\speechSynthesizerDemo.exe %install_bin_folder%\syReleaseDemo.exe
 copy /y %build_x64_debug_folder%\speechSynthesizerDemo.exe %install_bin_folder%\syDebugDemo.exe
+
+copy /y %build_x64_release_folder%\fileTransferDemo.exe %install_bin_folder%\ftReleaseDemo.exe
+copy /y %build_x64_debug_folder%\fileTransferDemo.exe %install_bin_folder%\ftDebugDemo.exe
 
 ::----------------------------
 

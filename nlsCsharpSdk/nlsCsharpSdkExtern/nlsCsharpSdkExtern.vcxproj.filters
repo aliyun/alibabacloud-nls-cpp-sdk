@@ -36,6 +36,9 @@
     <ClInclude Include="speechRecognizerExtern.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="fileTransferExtern.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="nlsCppSdkExtern.cpp">

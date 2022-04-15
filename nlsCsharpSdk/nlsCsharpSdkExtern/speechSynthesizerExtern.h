@@ -18,12 +18,6 @@
 #define _NLSCPPSDK_SYNTHESIZER_EXTERN_H_
 
 
-static NlsCallbackDelegate synthesisTaskFailedCallback = NULL;
-static NlsCallbackDelegate synthesisDataReceivedCallback = NULL;
-static NlsCallbackDelegate synthesisCompletedCallback = NULL;
-static NlsCallbackDelegate synthesisClosedCallback = NULL;
-static NlsCallbackDelegate metaInfoCallback = NULL;
-
 
 NLSAPI(int) SYstart(AlibabaNls::SpeechSynthesizerRequest* request)
 {

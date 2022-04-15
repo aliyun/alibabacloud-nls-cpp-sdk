@@ -199,6 +199,35 @@ namespace nlsCsharpSdk
         }
         #endregion
 
+        #region Creata a request of file transfer
+        /// <summary>
+        /// 创建录音文件识别对象.
+        /// </summary>
+        /// <returns></returns>
+        public FileTransferRequest CreateFileTransferRequest()
+        {
+            IntPtr request = NativeMethods.NlsCreateFileTransferRequest();
+            FileTransferRequest FTrequest = new FileTransferRequest();
+            FTrequest.native_request = request;
+            return FTrequest;
+        }
+        #endregion
+
+        #region Release the request of file transfer
+        /// <summary>
+        /// 销毁录音文件识别对象.
+        /// </summary>
+        /// <param name="request">
+        /// FileTransferRequest.
+        /// </param>
+        /// <returns></returns>
+        public void ReleaseFileTransferRequest(FileTransferRequest request)
+        {
+            NativeMethods.NlsReleaseFileTransferRequest(request.native_request);
+            return;
+        }
+        #endregion
+
         #region Create a NlsToken
         /// <summary>
         /// 创建Token获取对象.

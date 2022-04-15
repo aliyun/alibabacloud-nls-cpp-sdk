@@ -109,6 +109,7 @@ cp $git_root_path/nlsCppSdk/framework/common/nlsClient.h $sdk_install_folder/inc
 cp $git_root_path/nlsCppSdk/framework/common/nlsGlobal.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/common/nlsEvent.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/token/include/nlsToken.h $sdk_install_folder/include/
+cp $git_root_path/nlsCppSdk/token/include/FileTrans.h $sdk_install_folder/include/
 
 mkdir -p $sdk_install_folder/lib
 cp $build_folder/lib/* $sdk_install_folder/lib/
@@ -126,11 +127,13 @@ cd $install_folder
 mkdir -p $sdk_install_folder/demo
 mkdir -p $sdk_install_folder/bin
 cp $git_root_path/demo/Linux/*.cpp $sdk_install_folder/demo
+cp $git_root_path/demo/Linux/*.h $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/build_linux_demo.sh $sdk_install_folder/demo
 cp $git_root_path/version $sdk_install_folder/
 cp $git_root_path/readme.md $sdk_install_folder/
 cp $git_root_path/build/demo/*Demo $sdk_install_folder/bin
 cp -r $git_root_path/resource $sdk_install_folder/demo/
+cp -r $git_root_path/resource/audio/test*.wav $sdk_install_folder/bin/
 cur_date=$(date +%Y%m%d%H%M)
 
 rm -rf $sdk_install_folder/tmp

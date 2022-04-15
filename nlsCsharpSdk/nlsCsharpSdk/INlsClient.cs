@@ -44,6 +44,9 @@ namespace nlsCsharpSdk
 
         void ReleaseSynthesizerRequest(SpeechSynthesizerRequest request);
 
+        FileTransferRequest CreateFileTransferRequest();
+
+        void ReleaseFileTransferRequest(FileTransferRequest request);
 
         NlsToken CreateNlsToken();
 

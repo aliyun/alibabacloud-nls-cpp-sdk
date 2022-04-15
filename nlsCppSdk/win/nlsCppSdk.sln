@@ -20,6 +20,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speechSynthesizerDemo", "sp
 		{4755B663-BF8D-4B83-BC49-0DDBBDECF802} = {4755B663-BF8D-4B83-BC49-0DDBBDECF802}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fileTransferDemo", "fileTransferDemo\fileTransferDemo.vcxproj", "{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}"
+	ProjectSection(ProjectDependencies) = postProject
+		{4755B663-BF8D-4B83-BC49-0DDBBDECF802} = {4755B663-BF8D-4B83-BC49-0DDBBDECF802}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -60,6 +65,14 @@ Global
 		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x64.Build.0 = Release|x64
 		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x86.ActiveCfg = Release|Win32
 		{DDBCB31E-7E26-4F1C-BAAC-9EC1A43356F1}.Release|x86.Build.0 = Release|Win32
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Debug|x64.ActiveCfg = Debug|x64
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Debug|x64.Build.0 = Debug|x64
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Debug|x86.ActiveCfg = Debug|Win32
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Debug|x86.Build.0 = Debug|Win32
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Release|x64.ActiveCfg = Release|x64
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Release|x64.Build.0 = Release|x64
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Release|x86.ActiveCfg = Release|Win32
+		{4E8EB7E9-D870-4A7B-BDD0-0E0DD07D7052}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

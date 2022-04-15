@@ -195,6 +195,7 @@
     <ClCompile Include="..\token\src\CredentialsProvider.cpp" />
     <ClCompile Include="..\token\src\CurlHttpClient.cpp" />
     <ClCompile Include="..\token\src\Error.cpp" />
+    <ClCompile Include="..\token\src\FileTrans.cpp" />
     <ClCompile Include="..\token\src\HmacSha1Signer.cpp" />
     <ClCompile Include="..\token\src\HttpClient.cpp" />
     <ClCompile Include="..\token\src\HttpMessage.cpp" />

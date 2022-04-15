@@ -192,5 +192,8 @@
     <ClCompile Include="..\token\src\Signer.cpp">
       <Filter>源文件\token</Filter>
     </ClCompile>
+    <ClCompile Include="..\token\src\FileTrans.cpp">
+      <Filter>源文件\token</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

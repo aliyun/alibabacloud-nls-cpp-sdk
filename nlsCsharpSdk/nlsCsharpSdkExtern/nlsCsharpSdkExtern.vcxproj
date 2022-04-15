@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="fileTransferExtern.h" />
     <ClInclude Include="include_nlsCppSdk.h" />
     <ClInclude Include="nlsCppSdkExtern.h" />
     <ClInclude Include="nlsEventStruct.h" />
@@ -121,7 +122,7 @@
       <AdditionalDependencies>nlsCppSdk.lib</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcrypto-1_1.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcrypto-1_1.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
@@ -133,8 +134,13 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libeay32.lib  $(Solut
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libeay32.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
-copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\RDebug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
-copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug</Command>
+copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test2.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -173,6 +179,11 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.lib  $(Solu
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test2.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 
 </Command>
     </PostBuildEvent>
@@ -211,7 +222,12 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libeay32.dll  $(Solut
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
-copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug</Command>
+copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test2.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
+copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -249,7 +265,12 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libeay32.dll  $(Sol
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
-copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release</Command>
+copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test2.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
+copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
