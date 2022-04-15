@@ -124,6 +124,18 @@ NLSAPI(void) NlsReleaseSynthesizerRequest(AlibabaNls::SpeechSynthesizerRequest* 
 	return AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
 }
 
+NLSAPI(AlibabaNlsCommon::FileTrans*) NlsCreateFileTransferRequest()
+{
+	AlibabaNlsCommon::FileTrans* request = new AlibabaNlsCommon::FileTrans();
+	return request;
+}
+
+NLSAPI(void) NlsReleaseFileTransferRequest(AlibabaNlsCommon::FileTrans* request)
+{
+	delete request;
+	return;
+}
+
 
 NLSAPI(AlibabaNlsCommon::NlsToken*) NlsCreateNlsToken()
 {

@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <windows.h>
 #else
+#if defined(__ANDROID__) || defined(__linux__)
 #include <unistd.h>
+#ifndef __ANDRIOD__
+#include <iconv.h>
+#endif
+#endif
 #endif
 
 #include <iostream>
@@ -25,8 +30,11 @@
 #include "CommonClient.h"
 #include "json/json.h"
 #include "FileTrans.h"
+#include "nlog.h"
 
 namespace AlibabaNlsCommon {
+
+using namespace AlibabaNls;
 
 FileTrans::FileTrans() {
   accessKeySecret_ = "";
@@ -43,6 +51,12 @@ FileTrans::FileTrans() {
   serverVersion_ = "2018-08-17";
   action_ = "SubmitTask";
   product_ = "nls-filetrans";
+
+#if defined(_MSC_VER)
+  outputFormat_ = "GBK";
+#else
+  outputFormat_ = "UTF-8";
+#endif
 }
 
 FileTrans::~FileTrans() {
@@ -209,8 +223,7 @@ int FileTrans::applyFileTrans() {
     if (!resultJson["StatusCode"].isNull()) {
       statusCode = resultJson["StatusCode"].asUInt();
       if ((statusCode == 21050001) || (statusCode == 21050002)) {
-
-#if defined(_WIN32)
+#if defined(_MSC_VER)
         Sleep(100);
 #else
         usleep(100 * 1000);
@@ -236,10 +249,28 @@ int FileTrans::applyFileTrans() {
 }
 
 const char* FileTrans::getErrorMsg() {
+  if (strnlen(errorMsg_.c_str(), 2048) > 1024) {
+    std::string part_errorMsg(errorMsg_.c_str(), 1024);
+    LOG_DEBUG("file transfer get part error:%s", part_errorMsg.c_str());
+  } else {
+    LOG_DEBUG("file transfer get error:%s", errorMsg_.c_str());
+  }
+  if ("GBK" == outputFormat_) {
+    errorMsg_ = utf8ToGbk(errorMsg_);
+  }
   return errorMsg_.c_str();
 }
 
 const char* FileTrans::getResult() {
+  if (strnlen(result_.c_str(), 2048) > 1024) {
+    std::string part_result(result_.c_str(), 1024);
+    LOG_DEBUG("file transfer get part result:%s", part_result.c_str());
+  } else {
+    LOG_DEBUG("file transfer get result:%s", result_.c_str());
+  }
+  if ("GBK" == outputFormat_) {
+    result_ = utf8ToGbk(result_);
+  }
   return result_.c_str();
 }
 
@@ -277,6 +308,96 @@ void FileTrans::setAction(const std::string & action) {
 
 void FileTrans::setCustomParam(const std::string & customJsonString) {
   customParam_ = customJsonString;
+}
+
+void FileTrans::setOutputFormat(const std::string & textFormat) {
+  outputFormat_ = textFormat;
+}
+
+#if defined(__ANDROID__) || defined(__linux__)
+int FileTrans::codeConvert(char *from_charset, char *to_charset,
+                           char *inbuf, size_t inlen,
+                           char *outbuf, size_t outlen) {
+#if defined(__ANDRIOD__)
+  outbuf = inbuf;
+#else
+  iconv_t cd;
+  char **pin = &inbuf;
+  char **pout = &outbuf;
+
+  cd = iconv_open(to_charset, from_charset);
+  if (cd == 0) {
+    return -1;
+  }
+
+  memset(outbuf, 0, outlen);
+  if (iconv(cd, pin, &inlen, pout, &outlen) == (size_t)-1) {
+    return -1;
+  }
+
+  iconv_close(cd);
+#endif
+  return 0;
+}
+#endif
+
+std::string FileTrans::utf8ToGbk(const std::string & strUTF8) {
+#if defined(__ANDROID__) || defined(__linux__)
+  const char *msg = strUTF8.c_str();
+  size_t inputLen = strUTF8.length();
+  size_t outputLen = inputLen * 20;
+
+  char *outbuf = new char[outputLen + 1];
+  memset(outbuf, 0x0, outputLen + 1);
+
+  char *inbuf = new char[inputLen + 1];
+  memset(inbuf, 0x0, inputLen + 1);
+  strncpy(inbuf, msg, inputLen);
+
+  int res = codeConvert(
+      (char *)"UTF-8", (char *)"GBK", inbuf, inputLen, outbuf, outputLen);
+  if (res == -1) {
+    LOG_ERROR("ENCODE: convert to utf8 error.");
+    return NULL;
+  }
+
+  std::string strTemp(outbuf);
+
+  delete [] outbuf;
+  outbuf = NULL;
+  delete [] inbuf;
+  inbuf = NULL;
+
+  return strTemp;
+
+#elif defined (_MSC_VER)
+
+  int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
+  unsigned short* wszGBK = new unsigned short[len + 1];
+  memset(wszGBK, 0, len * 2 + 2);
+
+  MultiByteToWideChar(CP_UTF8, 0,
+                      (char*)strUTF8.c_str(), -1,
+                      (wchar_t*)wszGBK, len);
+
+  len = WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1,
+                            NULL, 0, NULL, NULL);
+
+  char* szGBK = new char[len + 1];
+  memset(szGBK, 0, len + 1);
+  WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, szGBK, len, NULL, NULL);
+
+  std::string strTemp(szGBK);
+  delete[] szGBK;
+  delete[] wszGBK;
+
+  return strTemp;
+
+#else
+
+  return strUTF8;
+
+#endif
 }
 
 }

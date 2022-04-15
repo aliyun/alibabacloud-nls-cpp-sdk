@@ -56,11 +56,18 @@ namespace nlsCsharpSdk.CPlusPlus
         [DllImport(DllExtern, EntryPoint = "NlsReleaseSynthesizerRequest", CallingConvention = CallingConvention.Cdecl)]
         public extern static void NlsReleaseSynthesizerRequest(IntPtr request);
 
+        [DllImport(DllExtern, EntryPoint = "NlsCreateFileTransferRequest", CallingConvention = CallingConvention.Cdecl)]
+        public extern static IntPtr NlsCreateFileTransferRequest();
+
+        [DllImport(DllExtern, EntryPoint = "NlsReleaseFileTransferRequest", CallingConvention = CallingConvention.Cdecl)]
+        public extern static void NlsReleaseFileTransferRequest(IntPtr request);
 
         [DllImport(DllExtern, EntryPoint = "NlsCreateNlsToken", CallingConvention = CallingConvention.Cdecl)]
         public extern static IntPtr NlsCreateNlsToken();
 
         [DllImport(DllExtern, EntryPoint = "NlsReleaseNlsToken", CallingConvention = CallingConvention.Cdecl)]
         public extern static void NlsReleaseNlsToken(IntPtr request);
+
+
     }
 }

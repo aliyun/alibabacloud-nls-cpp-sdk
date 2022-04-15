@@ -33,12 +33,14 @@
 #include "speechSynthesizerRequest.h"
 #include "profile_scan.h"
 
-#define SAMPLE_RATE 16000
+#define SAMPLE_RATE_8K 8000
+#define SAMPLE_RATE_16K 16000
 #define SELF_TESTING_TRIGGER
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
 //#define TTS_AUDIO_DUMP
 #define DEFAULT_STRING_LEN 128
+#define AUDIO_TEXT_LENGTH 1024
 
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
@@ -49,7 +51,7 @@
  */
 // 自定义线程参数
 struct ParamStruct {
-  char text[DEFAULT_STRING_LEN];
+  char text[AUDIO_TEXT_LENGTH];
   char token[DEFAULT_STRING_LEN];
   char appkey[DEFAULT_STRING_LEN];
   char audioFile[DEFAULT_STRING_LEN];
@@ -76,6 +78,9 @@ struct ParamStruct {
   uint64_t closeAveValue;     /*start()到closed事件的平均用时*/
   uint64_t closeMaxValue;     /*start()到closed事件的最大用时*/
   uint64_t closeMinValue;     /*start()到closed事件的最小用时*/
+
+  uint64_t audioTotalDuration;/*取到音频文件的音频总时长*/
+  uint64_t audioAveDuration;  /*取到音频文件的音频平均时长*/
 
   uint64_t s50Value;          /*start()到started用时50ms以内*/
   uint64_t s100Value;         /*start()到started用时100ms以内*/
@@ -141,6 +146,7 @@ static int loop_timeout = LOOP_TIMEOUT;
 long g_expireTime = -1;
 volatile static bool global_run = false;
 static std::map<unsigned long, struct ParamStatistics *> g_statistics;
+static int sample_rate = SAMPLE_RATE_16K;
 static pthread_mutex_t params_mtx;
 static int run_cnt = 0;
 static int run_success = 0;
@@ -314,6 +320,38 @@ int generateToken(std::string akId, std::string akSecret,
 }
 
 /**
+ * @brief 音频数据长转成对应时长
+ * @param dataSize 待发送数据大小
+ * @param sampleRate 采样率 16k/8K
+ * @param compressRate 数据压缩率，例如压缩比为10:1的16k opus编码，此时为10；
+ *                     非压缩数据则为1
+ * @return 返回sendAudio之后需要sleep的时间
+ * @note 对于8k pcm 编码数据, 16位采样，建议每发送1600字节 sleep 100 ms.
+         对于16k pcm 编码数据, 16位采样，建议每发送3200字节 sleep 100 ms.
+         对于其它编码格式(OPUS)的数据, 由于传递给SDK的仍然是PCM编码数据,
+         按照SDK OPUS/OPU 数据长度限制, 需要每次发送640字节 sleep 20ms.
+ */
+unsigned int getAudioFileTimeMs(const int dataSize,
+                                const int sampleRate,
+                                const int compressRate) {
+  // 仅支持16位采样
+  const int sampleBytes = 16;
+  // 仅支持单通道
+  const int soundChannel = 1;
+
+  // 当前采样率，采样位数下每秒采样数据的大小
+  int bytes = (sampleRate * sampleBytes * soundChannel) / 8;
+
+  // 当前采样率，采样位数下每毫秒采样数据的大小
+  int bytesMs = bytes / 1000;
+
+  // 待发送数据大小除以每毫秒采样数据大小，以获取sleep时间
+  int fileMs = (dataSize * compressRate) / bytesMs;
+
+  return fileMs;
+}
+
+/**
  * @brief sdk在接收到云端返回合成结束消息时, sdk内部线程上报Completed事件
  * @note 上报Completed事件之后，SDK内部会关闭识别连接通道.
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
@@ -368,6 +406,11 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     if (tmpParam->tParam->completedConsumed > 0) {
       tmpParam->tParam->endAveValue =
           tmpParam->tParam->endTotalValue / tmpParam->tParam->completedConsumed;
+    }
+
+    if (tmpParam->tParam->completedConsumed > 0) {
+      tmpParam->tParam->audioAveDuration =
+          tmpParam->tParam->audioTotalDuration / tmpParam->tParam->completedConsumed;
     }
 
     vectorSetResult(tmpParam->userId, true);
@@ -509,6 +552,11 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     fclose(tts_stream);
   }
 #endif
+
+  if (cbParam && tmpParam->tParam) {
+    tmpParam->tParam->audioTotalDuration +=
+        getAudioFileTimeMs(data.size(), sample_rate, 1);
+  }
 }
 
 /**
@@ -666,7 +714,7 @@ void* pthreadFunc(void* arg) {
     // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
     request->setFormat("wav");
     // 音频采样率, 包含8000, 16000. 可选参数, 默认是16000
-    request->setSampleRate(SAMPLE_RATE);
+    request->setSampleRate(sample_rate);
     // 语速, 范围是-500~500, 可选参数, 默认是0
     request->setSpeechRate(0);
     // 语调, 范围是-500~500, 可选参数, 默认是0
@@ -825,7 +873,7 @@ void* pthreadLongConnectionFunc(void* arg) {
   // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
   request->setFormat("wav");
   // 音频采样率, 包含8000, 16000. 可选参数, 默认是16000
-  request->setSampleRate(SAMPLE_RATE);
+  request->setSampleRate(sample_rate);
   // 语速, 范围是-500~500, 可选参数, 默认是0
   request->setSpeechRate(0);
   // 语调, 范围是-500~500, 可选参数, 默认是0
@@ -921,7 +969,6 @@ void* pthreadLongConnectionFunc(void* arg) {
  * 免费用户并发连接不能超过10个;
  */
 #define AUDIO_TEXT_NUMS 4
-#define AUDIO_TEXT_LENGTH 64
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechSynthesizerMultFile(const char* appkey, int threads) {
   /**
@@ -947,6 +994,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   {
     "syAudio0.wav", "syAudio1.wav", "syAudio2.wav", "syAudio3.wav"
   };
+  /* 不要超过AUDIO_TEXT_LENGTH */
   const char texts[AUDIO_TEXT_NUMS][AUDIO_TEXT_LENGTH] =
   {
     "今日天气真不错，我想去操场踢足球.",
@@ -965,7 +1013,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     memset(pa[i].appkey, 0, DEFAULT_STRING_LEN);
     memcpy(pa[i].appkey, appkey, strlen(appkey));
 
-    memset(pa[i].text, 0, DEFAULT_STRING_LEN);
+    memset(pa[i].text, 0, AUDIO_TEXT_LENGTH);
     memcpy(pa[i].text, texts[num], strlen(texts[num]));
 
     memset(pa[i].audioFile, 0, DEFAULT_STRING_LEN);
@@ -991,6 +1039,14 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     pa[i].endAveValue = 0;
     pa[i].endMaxValue = 0;
     pa[i].endMinValue = 0;
+
+    pa[i].closeTotalValue = 0;
+    pa[i].closeAveValue = 0;
+    pa[i].closeMaxValue = 0;
+    pa[i].closeMinValue = 0;
+
+    pa[i].audioTotalDuration = 0;
+    pa[i].audioAveDuration = 0;
 
     pa[i].s50Value = 0;
     pa[i].s100Value = 0;
@@ -1031,12 +1087,16 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   unsigned long long cMinTime = 0;
   unsigned long long cAveTime = 0;
 
+  unsigned long long audioAveTimeLen = 0;
+
   for (int i = 0; i < threads; i ++) {
     sTotalCount += pa[i].startedConsumed;
     eTotalCount += pa[i].completedConsumed;
     fTotalCount += pa[i].failedConsumed;
     cTotalCount += pa[i].closeConsumed;
     rTotalCount += pa[i].requestConsumed;
+
+    audioAveTimeLen += pa[i].audioAveDuration;
 
     //end
     if (pa[i].endMaxValue > eMaxTime) {
@@ -1071,6 +1131,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   eAveTime /= threads;
   cAveTime /= threads;
+  audioAveTimeLen /= threads;
 
   int cur = -1;
   if (cur_profile_scan == -1) {
@@ -1085,6 +1146,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   }
 
   for (int i = 0; i < threads; i ++) {
+    std::cout << "-----" << std::endl;
     std::cout << "No." << i
       << " Max completed time: " << pa[i].endMaxValue << " ms"
       << std::endl;
@@ -1103,6 +1165,10 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
       << std::endl;
     std::cout << "No." << i
       << " Ave closed time: " << pa[i].closeAveValue << " ms"
+      << std::endl;
+
+    std::cout << "No." << i
+      << " Audio Data duration: " << pa[i].audioAveDuration << " ms"
       << std::endl;
   }
 
@@ -1126,6 +1192,11 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   std::cout << "Final Max closed time: " << cMaxTime << " ms" << std::endl;
   std::cout << "Final Min closed time: " << cMinTime << " ms" << std::endl;
   std::cout << "Final Ave closed time: " << cAveTime << " ms" << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  std::cout << "Ave audio data duration: " << audioAveTimeLen
+            << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -1194,6 +1265,10 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         sysAddrinfo = false;
       }
+    } else if (!strcmp(argv[index], "--sampleRate")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      sample_rate = atoi(argv[index]);
     }
     index++;
   }
@@ -1218,7 +1293,7 @@ int main(int argc, char* argv[]) {
       << "  --time <Timeout secs, default 60 seconds>\n"
       << "  --type <audio format pcm opu or opus>\n"
       << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-      << "  --sample_rate <sample rate, 16K or 8K>\n"
+      << "  --sampleRate <sample rate, 16K or 8K>\n"
       << "  --long <long connection: 1, short connection: 0, default 0>\n"
       << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
       << "eg:\n"

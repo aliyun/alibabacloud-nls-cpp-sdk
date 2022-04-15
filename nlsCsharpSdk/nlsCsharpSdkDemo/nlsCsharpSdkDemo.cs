@@ -68,6 +68,8 @@ namespace nlsCsharpSdkDemo
         static string cur_sy_closed;
         static int sy_concurrency_number = 1;
 
+        static string fileLinkUrl = "https://gw.alipayobjects.com/os/bmw-prod/0574ee2e-f494-45a5-820f-63aee583045a.wav";
+
         public nlsCsharpSdkDemo()
         {
             InitializeComponent();
@@ -781,7 +783,7 @@ namespace nlsCsharpSdkDemo
         private CallbackDelegate DemoOnSynthesisClosed =
             (ref NLS_EVENT_STRUCT e, ref object o) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed = {0}", e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed msg = {0}", e.msg);
                 cur_sy_closed = "msg : " + e.msg;
                 DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed user uuid = {0}", user.uuid);
@@ -789,7 +791,7 @@ namespace nlsCsharpSdkDemo
         private CallbackDelegate DemoOnSynthesisTaskFailed =
             (ref NLS_EVENT_STRUCT e, ref object o) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed = {0}", e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed msg = {0}", e.msg);
                 cur_sy_completed = "msg : " + e.msg;
                 DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed user uuid = {0}", user.uuid);
@@ -797,7 +799,7 @@ namespace nlsCsharpSdkDemo
         private CallbackDelegate DemoOnSynthesisCompleted =
             (ref NLS_EVENT_STRUCT e, ref object o) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted = {0}", e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted msg = {0}", e.msg);
                 cur_sy_completed = "result : " + e.msg;
                 DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted user uuid = {0}", user.uuid);
@@ -805,7 +807,7 @@ namespace nlsCsharpSdkDemo
         private CallbackDelegate DemoOnMetaInfo =
             (ref NLS_EVENT_STRUCT e, ref object o) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo = {0}", e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo msg = {0}", e.msg);
                 //cur_sy_completed = "metaInfo : " + e.msg;
                 DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
                 System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo user uuid = {0}", user.uuid);
@@ -1293,9 +1295,40 @@ namespace nlsCsharpSdkDemo
             cur_sr_closed = "null";
             cur_sr_completed = "null";
         }
-#endregion
+        #endregion
 
-#region Useless
+        #region FileTransferButton
+        private void button1_Click_5(object sender, EventArgs e)
+        {
+            FileTransferRequest request = nlsClient.CreateFileTransferRequest();
+            request.SetAccessKeyId(request, akId);
+            request.SetKeySecret(request, akSecret);
+            request.SetAppKey(request, appKey);
+            request.SetFileLinkUrl(request, fileLinkUrl);
+
+            int ret = request.ApplyFileTrans(request);
+            if (ret == -1)
+            {
+                string ft_error_msg = request.GetErrorMsg(request);
+                System.Diagnostics.Debug.WriteLine("FileTransfer get error msg = {0}", ft_error_msg);
+                ftResult.Text = ft_error_msg;
+            }
+            else
+            {
+                string ft_result_msg = request.GetResult(request);
+                System.Diagnostics.Debug.WriteLine("FileTransfer get result msg = {0}", ft_result_msg);
+                ftResult.Text = ft_result_msg;
+            }
+            nlsClient.ReleaseFileTransferRequest(request);
+        }
+
+        private void textBox4_TextChanged(object sender, EventArgs e)
+        {
+            fileLinkUrl = tFileLinkUrl.Text;
+        }
+        #endregion
+
+        #region Useless
         private void label1_Click(object sender, EventArgs e) {}
         private void nlsCsharpSdkDemo_Load(object sender, EventArgs e) {}
         private void label6_Click(object sender, EventArgs e) {}
@@ -1304,6 +1337,7 @@ namespace nlsCsharpSdkDemo
         private void syCompleted_Click(object sender, EventArgs e) {}
         private void srCompleted_Click(object sender, EventArgs e) {}
         private void label6_Click_1(object sender, EventArgs e) {}
-#endregion
+        private void ftResult_Click(object sender, EventArgs e) {}
+        #endregion
     }
 }

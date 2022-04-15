@@ -194,6 +194,7 @@ set(UTILS_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Url.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Error.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/Utils.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/FileTrans.cpp
     )
 
 

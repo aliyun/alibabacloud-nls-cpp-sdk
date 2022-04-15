@@ -37,7 +37,8 @@
 #define FRAME_16K_20MS 640
 #define FRAME_16K_100MS 3200
 #define FRAME_8K_20MS 320
-#define SAMPLE_RATE 16000
+#define SAMPLE_RATE_8K 8000
+#define SAMPLE_RATE_16K 16000
 #define DEFAULT_STRING_LEN 128
 
 #define LOOP_TIMEOUT 60
@@ -83,6 +84,8 @@ struct ParamStruct {
   uint64_t closeMinValue;     /*start()到closed事件的最小用时*/
 
   uint64_t sendTotalValue;    /*单线程调用sendAudio总耗时*/
+
+  uint64_t audioFileTimeLen;  /*灌入音频文件的音频时长*/
 
   uint64_t s50Value;          /*start()到started用时50ms以内*/
   uint64_t s100Value;         /*start()到started用时100ms以内*/
@@ -149,6 +152,7 @@ long g_expireTime = -1;
 volatile static bool global_run = false;
 static std::map<unsigned long, struct ParamStatistics *> g_statistics;
 static pthread_mutex_t params_mtx;
+static int sample_rate = SAMPLE_RATE_16K;
 //static int frame_size = FRAME_100MS;
 //static int encoder_type = ENCODER_NONE;
 static int frame_size = FRAME_16K_20MS;
@@ -163,6 +167,7 @@ static int cur_profile_scan = -1;
 static PROFILE_INFO * g_sys_info = NULL;
 static bool longConnection = false;
 static bool sysAddrinfo = false;
+static bool noSleepFlag = false;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -361,6 +366,26 @@ int generateToken(std::string akId, std::string akSecret,
   return 0;
 }
 
+unsigned int getAudioFileTimeMs(const int dataSize,
+                                const int sampleRate,
+                                const int compressRate) {
+  // 仅支持16位采样
+  const int sampleBytes = 16;
+  // 仅支持单通道
+  const int soundChannel = 1;
+
+  // 当前采样率，采样位数下每秒采样数据的大小
+  int bytes = (sampleRate * sampleBytes * soundChannel) / 8;
+
+  // 当前采样率，采样位数下每毫秒采样数据的大小
+  int bytesMs = bytes / 1000;
+
+  // 待发送数据大小除以每毫秒采样数据大小，以获取sleep时间
+  int fileMs = (dataSize * compressRate) / bytesMs;
+
+  return fileMs;
+}
+
 /**
  * @brief 获取sendAudio发送延时时间
  * @param dataSize 待发送数据大小
@@ -376,20 +401,7 @@ int generateToken(std::string akId, std::string akSecret,
 unsigned int getSendAudioSleepTime(const int dataSize,
                                    const int sampleRate,
                                    const int compressRate) {
-  // 仅支持16位采样
-  const int sampleBytes = 16;
-  // 仅支持单通道
-  const int soundChannel = 1;
-
-  // 当前采样率，采样位数下每秒采样数据的大小
-  int bytes = (sampleRate * sampleBytes * soundChannel) / 8;
-
-  // 当前采样率，采样位数下每毫秒采样数据的大小
-  int bytesMs = bytes / 1000;
-
-  // 待发送数据大小除以每毫秒采样数据大小，以获取sleep时间
-  int sleepMs = (dataSize * compressRate) / bytesMs;
-
+  int sleepMs = getAudioFileTimeMs(dataSize, sampleRate, compressRate);
   return sleepMs;
 }
 
@@ -626,7 +638,8 @@ void OnRecognitionChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
   if (cbParam) {
     ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
-    std::cout << "OnRecognitionChannelClosed CbParam: " << tmpParam->userId << ", "
+    std::cout << "OnRecognitionChannelClosed CbParam: "
+              << tmpParam->userId << ", "
               << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
     vectorSetRunning(tmpParam->userId, false);
 
@@ -634,9 +647,9 @@ void OnRecognitionChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     gettimeofday(&(tmpParam->closedTv), NULL);
 
     unsigned long long timeValue1 =
-      tmpParam->closedTv.tv_sec - tmpParam->startTv.tv_sec;
+        tmpParam->closedTv.tv_sec - tmpParam->startTv.tv_sec;
     unsigned long long timeValue2 =
-      tmpParam->closedTv.tv_usec - tmpParam->startTv.tv_usec;
+        tmpParam->closedTv.tv_usec - tmpParam->startTv.tv_usec;
     unsigned long long timeValue = 0;
     if (timeValue1 > 0) {
       timeValue = (((timeValue1 * 1000000) + timeValue2) / 1000);
@@ -757,6 +770,7 @@ void* pthreadFunction(void* arg) {
   } else {
     fs.seekg(0, std::ios::end);
     int len = fs.tellg();
+    tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
 
     struct ParamStatistics params;
     params.running = false;
@@ -811,7 +825,7 @@ void* pthreadFunction(void* arg) {
       request->setFormat("pcm");
     }
     // 设置音频数据采样率, 可选参数, 目前支持16000, 8000. 默认是16000
-    request->setSampleRate(SAMPLE_RATE);
+    request->setSampleRate(sample_rate);
     // 设置是否返回中间识别结果, 可选参数. 默认false
     request->setIntermediateResult(true);
     // 设置是否在后处理中添加标点, 可选参数. 默认false
@@ -921,21 +935,26 @@ void* pthreadFunction(void* arg) {
       sendAudio_us += tmp_us;
       sendAudio_cnt++;
 
-      /*
-       * 语音数据发送控制：
-       * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
-       * 语音数据来自文件, 发送时需要控制速率,
-       * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
-       */
-      // 根据发送数据大小，采样率，数据压缩比来获取sleep时间
-      sleepMs = getSendAudioSleepTime(nlen, SAMPLE_RATE, 1);
-//      std::cout << "sleepMs:" << sleepMs << std::endl;
+      if (noSleepFlag) {
+        /*
+         * 不进行sleep, 用于测试性能.
+         */
+      } else {
+        /*
+         * 语音数据发送控制：
+         * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
+         * 语音数据来自文件, 发送时需要控制速率,
+         * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
+         */
+        // 根据发送数据大小，采样率，数据压缩比来获取sleep时间
+        sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
 
-      /*
-       * 语音数据发送延时控制
-       */
-      if (sleepMs * 1000 > tmp_us) {
-        usleep(sleepMs * 1000 - tmp_us);
+        /*
+         * 语音数据发送延时控制
+         */
+        if (sleepMs * 1000 > tmp_us) {
+          usleep(sleepMs * 1000 - tmp_us);
+        }
       }
     }  // while
 
@@ -1084,7 +1103,7 @@ void* pthreadLongConnectionFunction(void* arg) {
     request->setFormat("pcm");
   }
   // 设置音频数据采样率, 可选参数, 目前支持16000, 8000. 默认是16000
-  request->setSampleRate(SAMPLE_RATE);
+  request->setSampleRate(sample_rate);
   // 设置是否返回中间识别结果, 可选参数. 默认false
   request->setIntermediateResult(true);
   // 设置是否在后处理中添加标点, 可选参数. 默认false
@@ -1125,6 +1144,7 @@ void* pthreadLongConnectionFunction(void* arg) {
     } else {
       fs.seekg(0, std::ios::end);
       int len = fs.tellg();
+      tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
 
       params.running = false;
       params.success_flag = false;
@@ -1203,20 +1223,26 @@ void* pthreadLongConnectionFunction(void* arg) {
       sendAudio_us += tmp_us;
       sendAudio_cnt++;
       
-      /*
-       * 语音数据发送控制：
-       * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
-       * 语音数据来自文件, 发送时需要控制速率,
-       * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
-       */
-      // 根据发送数据大小，采样率，数据压缩比来获取sleep时间
-      sleepMs = getSendAudioSleepTime(nlen, SAMPLE_RATE, 1);
+      if (noSleepFlag) {
+        /*
+         * 不进行sleep, 用于测试性能.
+         */
+      } else {
+        /*
+         * 语音数据发送控制：
+         * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
+         * 语音数据来自文件, 发送时需要控制速率,
+         * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
+         */
+        // 根据发送数据大小，采样率，数据压缩比来获取sleep时间
+        sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
 
-      /*
-       * 语音数据发送延时控制
-       */
-      if (sleepMs * 1000 > tmp_us) {
-        usleep(sleepMs * 1000 - tmp_us);
+        /*
+         * 语音数据发送延时控制
+         */
+        if (sleepMs * 1000 > tmp_us) {
+          usleep(sleepMs * 1000 - tmp_us);
+        }
       }
     }  // while - sendAudio
 
@@ -1323,6 +1349,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   };
   ParamStruct pa[threads];
 
+  // init ParamStruct
   for (int i = 0; i < threads; i ++) {
     int num = i % AUDIO_FILE_NUMS;
 
@@ -1345,6 +1372,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     pa[i].closeConsumed = 0;
     pa[i].failedConsumed = 0;
     pa[i].requestConsumed = 0;
+    pa[i].sendConsumed = 0;
 
     pa[i].startTotalValue = 0;
     pa[i].startAveValue = 0;
@@ -1355,6 +1383,14 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     pa[i].endAveValue = 0;
     pa[i].endMaxValue = 0;
     pa[i].endMinValue = 0;
+
+    pa[i].closeTotalValue = 0;
+    pa[i].closeAveValue = 0;
+    pa[i].closeMaxValue = 0;
+    pa[i].closeMinValue = 0;
+    pa[i].sendTotalValue = 0;
+
+    pa[i].audioFileTimeLen = 0;
 
     pa[i].s50Value = 0;
     pa[i].s100Value = 0;
@@ -1408,6 +1444,8 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   unsigned long long sendTotalTime = 0;
   unsigned long long sendAveTime = 0;
 
+  unsigned long long audioFileAveTimeLen = 0;
+
   for (int i = 0; i < threads; i ++) {
     sTotalCount += pa[i].startedConsumed;
     eTotalCount += pa[i].completedConsumed;
@@ -1416,6 +1454,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     rTotalCount += pa[i].requestConsumed;
     sendTotalCount += pa[i].sendConsumed;
     sendTotalTime += pa[i].sendTotalValue; // us, 所有线程sendAudio耗时总和
+    audioFileAveTimeLen += pa[i].audioFileTimeLen;
 
     //std::cout << "Closed:" << pa[i].closeConsumed << std::endl;
 
@@ -1475,6 +1514,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   sAveTime /= threads;
   eAveTime /= threads;
   cAveTime /= threads;
+  audioFileAveTimeLen /= threads;
 
   int cur = -1;
   if (cur_profile_scan == -1) {
@@ -1493,6 +1533,17 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   }
 
   for (int i = 0; i < threads; i ++) {
+    std::cout << "-----" << std::endl;
+    std::cout << "No." << i
+      << " Max started time: " << pa[i].startMaxValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Min started time: " << pa[i].startMinValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Ave started time: " << pa[i].startAveValue << " ms"
+      << std::endl;
+
     std::cout << "No." << i
       << " Max completed time: " << pa[i].endMaxValue << " ms"
       << std::endl;
@@ -1511,6 +1562,10 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
       << std::endl;
     std::cout << "No." << i
       << " Ave closed time: " << pa[i].closeAveValue << " ms"
+      << std::endl;
+
+    std::cout << "No." << i
+      << " Audio File duration: " << pa[i].audioFileTimeLen << " ms"
       << std::endl;
   }
 
@@ -1553,6 +1608,11 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   std::cout << "Max closed time: " << cMaxTime << " ms" << std::endl;
   std::cout << "Min closed time: " << cMinTime << " ms" << std::endl;
   std::cout << "Ave closed time: " << cAveTime << " ms" << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  std::cout << "Ave audio file duration: " << audioFileAveTimeLen
+            << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -1618,6 +1678,15 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       logLevel = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--sampleRate")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      sample_rate = atoi(argv[index]);
+      if (sample_rate == SAMPLE_RATE_8K) {
+        frame_size = FRAME_8K_20MS;
+      } else if (sample_rate == SAMPLE_RATE_16K) {
+        frame_size = FRAME_16K_20MS;
+      }
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1637,6 +1706,14 @@ int parse_argv(int argc, char* argv[]) {
         sysAddrinfo = true;
       } else {
         sysAddrinfo = false;
+      }
+    } else if (!strcmp(argv[index], "--noSleep")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        noSleepFlag = true;
+      } else {
+        noSleepFlag = false;
       }
     }
     index++;
@@ -1662,9 +1739,10 @@ int main(int argc, char* argv[]) {
       << "  --time <Timeout secs, default 60 seconds>\n"
       << "  --type <audio type, default pcm>\n"
       << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-      << "  --sample_rate <sample rate, 16K or 8K>\n"
+      << "  --sampleRate <sample rate, 16K or 8K>\n"
       << "  --long <long connection: 1, short connection: 0, default 0>\n"
       << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
+      << "  --noSleep <use sleep after sendAudio(), default 0>\n"
       << "eg:\n"
       << "  ./srDemo --appkey xxxxxx --token xxxxxx\n"
       << "  ./srDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads 4 --time 3600\n"

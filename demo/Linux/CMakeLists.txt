@@ -49,5 +49,8 @@ target_link_libraries(daDemo
     alibabacloud-idst-speech
     pthread z dl)
 
-
-
+# 录音文件识别
+add_executable(ftDemo fileTransferDemo.cpp)
+target_link_libraries(ftDemo
+    alibabacloud-idst-speech
+    pthread z dl)

@@ -17,7 +17,7 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 
 * 获取访问令牌（Access Token)
 
-* Linux下请安装GCC 4.8.5 或以上版本。目前验证且顺利编译运行的GCC版本有: 4.8.5、5.5.0、8.4.0
+* Linux下请安装CMake 3.0及以上, GCC 4.8.5 或以上版本。目前验证且顺利编译运行的GCC版本有: 4.8.5、5.5.0、8.4.0
 
 详细说明请参考:[智能语音交互接入](https://help.aliyun.com/document_detail/72138.html)  
 
@@ -72,7 +72,7 @@ NlsSdk3.X_LINUX
 └── version                 版本说明  
 
 注意：
-1. linux环境下，运行环境最低要求：Glibc 2.5及以上， Gcc4及以上。   
+1. linux环境下，运行环境最低要求：CMake 3.0及以上，Glibc 2.5及以上，GCC4.8.5及以上。   
 2. linux环境下，高并发运行，注意 系统打开文件数限制，可通过ulimit -a查看当前允许的打开文件数限制。比如预设最大并发数1000，建议将open files限制设置大于1000，ulimit -n 2000。否则会出现connect failed错误。  
 
 ### 嵌入式(eg. arm-linux等)平台编译及说明：  
@@ -117,7 +117,7 @@ NlsSdk3.X_LINUX
 > nlsCsharpSdk.dll  为nls c# sdk，可进行 发布 nupkg。  
 > nlsCsharpSdkExtern.dll  为nls c#与cpp互操作层。  
 > nlsCsharpSdkDemo.exe 为nls c# UI demo。  
-> 4. 运行还需要一些nls cpp sdk相关依赖库，需要搬移到nlsCsharpSdkDemo.exe能依赖的路径{ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug。   
+> 4. 运行还需要一些nls cpp sdk相关依赖库(正常在工程编译完成后会进行自动搬运, 正常情况可跳过此步骤)，需要搬移到nlsCsharpSdkDemo.exe能依赖的路径{ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug。   
 > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\nlsCppSdk.dll  
 > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libcrypto-1_1-x64.dll  
 > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libssl-1_1-x64.dll  
@@ -133,4 +133,5 @@ NlsSdk3.X_LINUX
 > c.  填入Appkey、AkId、AkSecret，然后&lt;CreateToken&gt;生成token，合法token会在Token栏显示。  
 > d.  实时转写&lt;CreateTranscriber&gt;创建实时转写请求，点&lt;Start&gt;开始工作，会在最下方实时显示识别结果。&lt;Stop&gt;&lt;ReleaseTranscriber&gt;进行停止、释放。  
 > e.  语音合成&lt;CreateSynthesizer&gt;创建语音合成请求，点&lt;Start&gt;开始工作，会exe当前路径生成保存音频数据的taskId.pcm文件。&lt;Cancel&gt;&lt;ReleaseSynthesizer&gt;进行停止、释放。  
-> f.   一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
+> f.  一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
+> g.  录音文件识别:填写录音文件的URL,点击&lt;FileTransfer&gt;开始工作, 会在最下方显示结果。此功能只需填写Appkey、AkId、AkSecret。  

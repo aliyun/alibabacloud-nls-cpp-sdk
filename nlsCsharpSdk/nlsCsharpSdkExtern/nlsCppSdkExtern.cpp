@@ -23,3 +23,4 @@
 #include "speechTranscriberExtern.h"
 #include "speechRecognizerExtern.h"
 #include "speechSynthesizerExtern.h"
+#include "fileTransferExtern.h"
