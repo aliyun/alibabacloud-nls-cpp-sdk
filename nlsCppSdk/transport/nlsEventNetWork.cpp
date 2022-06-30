@@ -239,7 +239,6 @@ int NlsEventNetWork::start(INlsRequest *request) {
       #endif
       return -1;
     }
-    node->setConnectNodeStatus(NodeConnecting);
   } else {
     LOG_ERROR("Node:%p Invoke start failed:%d(%s), %d(%s).",
         node,
