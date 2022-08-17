@@ -262,8 +262,10 @@ const char* FileTrans::getErrorMsg() {
 }
 
 const char* FileTrans::getResult() {
-  if (strnlen(result_.c_str(), 2048) > 1024) {
-    std::string part_result(result_.c_str(), 1024);
+  if (strnlen(result_.c_str(), 2048) > 217) {
+    /* this LOG_DEBUG, cut off chinese character or special symbol
+       will crash in log4cpp */
+    std::string part_result(result_.c_str(), 217);
     LOG_DEBUG("file transfer get part result:%s", part_result.c_str());
   } else {
     LOG_DEBUG("file transfer get result:%s", result_.c_str());

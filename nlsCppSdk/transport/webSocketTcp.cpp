@@ -97,9 +97,11 @@ int WebSocketTcp::requestPackage(
     return -1;
   }
 
-  if (strnlen(buffer, BUFFER_SIZE) > 1024) {
-    std::string part_result((char *)buffer, 1024);
-    LOG_INFO("too long, part Http Request:%s", part_result.c_str());
+  if (strnlen(buffer, BUFFER_SIZE) > 217) {
+    /* this LOG_DEBUG, cut off chinese character or special symbol
+       will crash in log4cpp */
+    std::string part_result((char *)buffer, 217);
+    LOG_INFO("Part Http Request:%s", part_result.c_str());
   } else {
     LOG_INFO("Http Request:%s", buffer);
   }
@@ -332,11 +334,11 @@ int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
 
   if (wsType->opCode == WebSocketHeaderType::TEXT_FRAME) {
 #if 0
-    // maybe crash in this LOG_DEBUG
-    if (receivedData->length > 700) {
-      std::string part_result((char *)receivedData->data, 700);
-      LOG_DEBUG("Receive TEXT Data too long, Part Data: %zu | %s",
-          receivedData->length, (char *)part_result.c_str());
+    /* this LOG_DEBUG, cut off chinese character or special symbol
+       will crash in log4cpp */
+    if (receivedData->length > 217) {
+      LOG_DEBUG("Receive TEXT Data too long, Data length: %zu",
+          receivedData->length);
     } else {
       LOG_DEBUG("Receive TEXT Data: %zu | %s",
           receivedData->length, (char *)receivedData->data);

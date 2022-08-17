@@ -1234,11 +1234,12 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame) {
                              _request->getRequestParam()->_task_id);
     }
   } else if (wsFrame->type == WebSocketHeaderType::TEXT_FRAME) {
-    /* 打印这个string，可能会因为太长而崩溃 */
+    /* this LOG_DEBUG, cut off chinese character or special symbol
+       will crash in log4cpp */
     std::string result((char *)wsFrame->data, wsFrame->length);
-    if (wsFrame->length > 1024) {
-      std::string part_result((char *)wsFrame->data, 1024);
-      LOG_DEBUG("Node:%p %d too long, Part Response(1024): %s",
+    if (wsFrame->length > 217) {
+      std::string part_result((char *)wsFrame->data, 217);
+      LOG_DEBUG("Node:%p %d Part Response(217): %s",
           this, wsFrame->length, part_result.c_str());
     } else {
       LOG_DEBUG("Node:%p Response(%d): %s",
