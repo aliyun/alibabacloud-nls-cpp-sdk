@@ -16,6 +16,7 @@
 
 #include <string>
 #include "nlsGlobal.h"
+#include "nlsClient.h"
 #include "iNlsRequest.h"
 #include "iNlsRequestParam.h"
 #include "iNlsRequestListener.h"
@@ -32,38 +33,55 @@ INlsRequest::INlsRequest(const char* sdkName) {
 
 INlsRequest::~INlsRequest() {
   _node = NULL;
+  _requestParam = NULL;
 }
 
 int INlsRequest::start(INlsRequest *request) {
   if (request == NULL) {
     LOG_ERROR("Input request is empty.");
-    return -1;
+    return -(RequestEmpty);
   } else {
-    LOG_DEBUG("request:%p start ->", request);
+    LOG_INFO("request:%p start ->", request);
+  }
+
+  if (NlsEventNetWork::_eventClient == NULL) {
+    LOG_ERROR("eventWork has destroyed");
+    return -(EventClientEmpty);
   }
 
   int ret = NlsEventNetWork::_eventClient->start(request);
-  LOG_DEBUG("request:%p start done", request);
+  LOG_INFO("request:%p start done", request);
   return ret;
 }
 
 int INlsRequest::stop(INlsRequest *request, int type) {
   if (request == NULL) {
     LOG_ERROR("Input request is empty.");
-    return -1;
+    return -(RequestEmpty);
   } else {
-    LOG_DEBUG("request:%p stop ->", request);
+    LOG_INFO("request:%p stop type:%d ->", request, type);
+  }
+
+  if (NlsEventNetWork::_eventClient == NULL) {
+    LOG_ERROR("eventWork has destroyed");
+    return -(EventClientEmpty);
   }
 
   int ret = NlsEventNetWork::_eventClient->stop(request, type);
-  LOG_DEBUG("request:%p stop done", request);
+  LOG_INFO("request:%p stop type:%d callbackStatus:%d done",
+      request, type, request->getConnectNode()->getCallbackStatus());
   return ret;
 }
 
 int INlsRequest::stControl(INlsRequest *request, const char* message) {
   if (request == NULL) {
     LOG_ERROR("Input request is empty.");
-    return -1;
+    return -(RequestEmpty);
+  }
+
+  if (NlsEventNetWork::_eventClient == NULL) {
+    LOG_ERROR("eventWork has destroyed");
+    return -(EventClientEmpty);
   }
 
   return NlsEventNetWork::_eventClient->stControl(request, message);
@@ -73,11 +91,16 @@ int INlsRequest::sendAudio(INlsRequest *request, const uint8_t* data,
                            size_t dataSize, ENCODER_TYPE type) {
   if (request == NULL || data == NULL || dataSize <= 0) {
     LOG_ERROR("Input arg is empty.");
-    return -1;
+    return -(InvalidRequestParams);
   }
 
 //  LOG_DEBUG("Node:%p sendAudio type:%d begin, size(%d)",
 //      request->getConnectNode(), type, dataSize);
+
+  if (NlsEventNetWork::_eventClient == NULL) {
+    LOG_ERROR("eventWork has destroyed");
+    return -(EventClientEmpty);
+  }
 
   int ret = NlsEventNetWork::_eventClient->sendAudio(
       request, data, dataSize, type);
@@ -96,6 +119,10 @@ ConnectNode* INlsRequest::getConnectNode() {
 }
 
 INlsRequestParam* INlsRequest::getRequestParam() {
+  if (_requestParam == NULL) {
+    LOG_WARN("getRequestParam nullptr");
+    return NULL;
+  }
   return _requestParam;
 }
 

@@ -177,4 +177,20 @@ NLSAPI(void) FTsetCustomParam(AlibabaNlsCommon::FileTrans* request, const char* 
 	return;
 }
 
+NLSAPI(void) FTsetOutputFormat(AlibabaNlsCommon::FileTrans* request, const char* textFormat)
+{
+	int len = -1;
+	if (textFormat)
+	{
+		char* str = WCharToByte(textFormat, &len);
+		if (str)
+		{
+			std::string param(str);
+			delete[] str;
+			request->setOutputFormat(param);
+		}
+	}
+	return;
+}
+
 #endif // _NLSCPPSDK_FILETRANSFER_EXTERN_H_

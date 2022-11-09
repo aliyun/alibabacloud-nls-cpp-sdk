@@ -22,7 +22,6 @@
 #else
 #include <pthread.h>
 #endif
-#include <string>
 #include "nlsGlobal.h"
 
 namespace AlibabaNls {
@@ -57,8 +56,6 @@ enum DaVersion {
   DaV2
 };
 
-
-
 class NLS_SDK_CLIENT_EXPORT NlsClient {
 
  public:
@@ -76,7 +73,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    *                    如果日志文件内容的大小超过这个值，
    *                    SDK会自动备份当前的日志文件，超过后会循环覆盖已有文件
    * @param logFileNum  日志文件循环存储最大数，默认10个文件
-   * @return 成功则返回0，失败返回-1
+   * @return 成功则返回0; 失败返回负值, 详见NlsRetCode
    */
   int setLogConfig(const char* logOutputFile, const LogLevel logLevel,
                    unsigned int logFileSize = 10, unsigned int logFileNum = 10);
@@ -209,6 +206,18 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   void setUseSysGetAddrInfo(bool enable);
 
   /*
+   * @brief 待合成音频文本内容字符数
+   * @note 必选参数，需要传入UTF-8编码的文本内容
+   *       短文本语音合成模式下(默认), 支持一次性合成300字符以内的文字,
+   *       其中1个汉字、1个英文字母或1个标点均算作1个字符,
+   *       超过300个字符的内容将会报错(或者截断).
+   *       超过300个字符可考虑长文本语音合成, 详见官方文档.
+   * @param value	待合成文本字符串
+   * @return 返回字符数
+   */
+  int calculateUtf8Chars(const char* value);
+
+  /*
    * @brief 启动工作线程数量
    * @param threadsNumber 启动工作线程数量，默认设置值为1
    * @return
@@ -221,6 +230,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return NlsClient对象
    */
   static NlsClient* getInstance(bool sslInitial = true);
+
+  void* getNodeManger();
 
   /*
    * @brief 销毁NlsClient对象实例
@@ -247,8 +258,10 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   static char _direct_host_ip[64];
   static bool _enableSysGetAddr;
 
+  void* _node_manager;
+
 }; // class NLS_SDK_CLIENT_EXPORT NlsClient
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_CLIENT_H
+#endif // NLS_SDK_CLIENT_H

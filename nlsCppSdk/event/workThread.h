@@ -23,6 +23,7 @@
 #include "event.h"
 #include "event2/util.h"
 #include "event2/dns.h"
+#include "nlsClient.h"
 
 namespace AlibabaNls {
 
@@ -37,6 +38,10 @@ class WorkThread {
   static void notifyEventCallback(evutil_socket_t fd, short which, void *arg);
   static void connectEventCallback(evutil_socket_t socketFd,
                                    short event, void *arg);
+#ifdef ENABLE_HIGH_EFFICIENCY
+  static void connectTimerEventCallback(evutil_socket_t socketFd,
+                                        short event, void *arg);
+#endif
   static void readEventCallBack(evutil_socket_t socketFd, short what, void *arg);
   static void writeEventCallBack(evutil_socket_t socketFd, short what, void *arg);
 #ifndef _MSC_VER
@@ -56,7 +61,7 @@ class WorkThread {
   static int nodeRequestProcess(ConnectNode* node);
   static int nodeResponseProcess(ConnectNode* node);
 
-  static void insertQueueNode(WorkThread* thread, INlsRequest * request);
+  static int insertQueueNode(WorkThread* thread, INlsRequest * request);
   static INlsRequest* getQueueNode(WorkThread* thread);
   static void insertListNode(WorkThread* thread, INlsRequest * request);
   static void freeListNode(WorkThread* thread, INlsRequest * request);
@@ -65,21 +70,21 @@ class WorkThread {
   static void setDirectHost(char *ip);
   static void setUseSysGetAddrInfo(bool enable);
 
+  static void setInstance(NlsClient* instance);
+
 #ifdef _MSC_VER
+  unsigned _workThreadId;
   HANDLE _mtxList;
   HANDLE _workThreadHandle;
-  unsigned _workThreadId;
+  static HANDLE _mtxCpu;
 #else
   pthread_t _workThreadId;
   pthread_mutex_t _mtxList;
   static pthread_mutex_t _mtxCpu;
 #endif
 
-  static int _cpuNumber;
-  static int _cpuCurrent;
-
   struct event_base * _workBase;
-  struct evdns_base *_dnsBase;
+  struct evdns_base * _dnsBase;
   struct event _notifyEvent;
   evutil_socket_t _notifyReceiveFd;
   evutil_socket_t _notifySendFd;
@@ -91,9 +96,10 @@ class WorkThread {
   static int _addrInFamily;
   static char _directIp[64];
   static bool _enableSysGetAddr;
+  static NlsClient* _instance;
 
 };
 
 }
 
-#endif /*NLS_SDK_WORK_THREAD_H*/
+#endif // NLS_SDK_WORK_THREAD_H

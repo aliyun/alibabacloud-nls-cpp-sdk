@@ -56,7 +56,7 @@ int NlsEncoder::pushbackEncodedData(
 
 int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
                                  const int sampleRate, int *errorCode) {
-  int ret = 0;
+  int ret = Success;
   int tmpCode = 0;
   int channel_num = channels;
   
@@ -65,7 +65,7 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
   }
   if (nlsEncoder_ != NULL) {
     LOG_WARN("nlsEncoder_ is existent, pls destroy first");
-    return -1;
+    return -(EncoderExistent);
   }
 
   if (type == ENCODER_OPU) {
@@ -86,13 +86,13 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
           OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE)); /* 设置针对语音优化 */
 
       encoder_type_ = type;
-      ret = 0;
+      ret = Success;
 
       LOG_DEBUG("opus_encoder_create for OPU mode success");
     } else {
       LOG_ERROR("encoder create failed");
       nlsEncoder_ = NULL;
-      ret = -2;
+      ret = -(OpusEncoderCreateFailed);
     }
 
     *errorCode = tmpCode;
@@ -101,7 +101,7 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
     nlsEncoder_ = new OggOpusDataEncoder();
     if (nlsEncoder_ == NULL) {
       LOG_ERROR("nlsEncoder_ new OggOpusDataEncoder failed");
-      return -2;
+      return -(OggOpusEncoderCreateFailed);
     }
     ret = ((OggOpusDataEncoder *)nlsEncoder_)->OggopusEncoderCreate(
         oggopusEncodedData, this, sampleRate);
@@ -232,7 +232,7 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
 int NlsEncoder::nlsEncoderSoftRestart() {
   if (!nlsEncoder_) {
     LOG_WARN("nlsEncoder is inexistent");
-    return -1;
+    return -(EncoderInexistent);
   }
 
   if (encoder_type_ == ENCODER_OPUS) {
@@ -245,7 +245,7 @@ int NlsEncoder::nlsEncoderSoftRestart() {
 int NlsEncoder::destroyNlsEncoder() {
   if (!nlsEncoder_) {
     LOG_WARN("nlsEncoder is inexistent");
-    return -1;
+    return -(EncoderInexistent);
   }
 
   if (encoder_type_ == ENCODER_OPU) {
@@ -262,7 +262,7 @@ int NlsEncoder::destroyNlsEncoder() {
 
   encoder_type_ = ENCODER_NONE;
 
-  return 0;
+  return Success;
 }
 
 }

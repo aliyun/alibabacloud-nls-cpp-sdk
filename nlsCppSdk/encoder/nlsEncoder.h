@@ -71,4 +71,4 @@ class NlsEncoder {
 
 }
 
-#endif //ALIBABA_NLS_ENCODER_H
+#endif // ALIBABA_NLS_ENCODER_H

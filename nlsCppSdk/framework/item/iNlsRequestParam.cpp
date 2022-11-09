@@ -45,7 +45,9 @@ const char g_csharp_sdk_language[] = "Csharp";
 const char g_sdk_language[] = "C++";
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
-#define STOP_RECV_TIMEOUT_MS 5000
+#define RECV_TIMEOUT_MS 15000
+#define SEND_TIMEOUT_MS 5000
+#define CONNECTION_TIMEOUT_MS 5000
 
 INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mode),
     _payload(Json::objectValue), _sdk_name(sdkName) {
@@ -64,7 +66,9 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mo
   _payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
 
   _requestType = SpeechNormal;
-  _timeout = STOP_RECV_TIMEOUT_MS;
+  _timeout = CONNECTION_TIMEOUT_MS;
+  _recv_timeout = RECV_TIMEOUT_MS;
+  _send_timeout = SEND_TIMEOUT_MS;
 
   _enableWakeWord = false;
 }
@@ -149,9 +153,6 @@ const char* INlsRequestParam::getStartCommand() {
 
   _startCommand = writer.write(root);
 
-  LOG_INFO("Start(%dbytes):%s",
-      strlen(_startCommand.c_str()), _startCommand.c_str());
-
   return _startCommand.c_str();
 }
 
@@ -187,7 +188,6 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
   }
 
   _controlCommand = writer.write(root);
-  LOG_INFO("Control:%s", _controlCommand.c_str());
 
   return _controlCommand.c_str();
 }
@@ -199,14 +199,11 @@ const char* INlsRequestParam::getStopCommand() {
   _header[D_TASK_ID] = _task_id;
   _header[D_MESSAGE_ID] = getRandomUuid();
 
-//  Json::FastWriter writer2;
-//  LOG_DEBUG("STOP_DEBUG:%s", writer2.write(_header).c_str());
-
   root[D_HEADER] = _header;
   root[D_CONTEXT] = _context;
 
   _stopCommand = writer.write(root);
-  LOG_INFO("STOP:%s", _stopCommand.c_str());
+
   return _stopCommand.c_str();
 }
 
@@ -223,18 +220,18 @@ int INlsRequestParam::setPayloadParam(const char* value) {
 
   if (value == NULL) {
     LOG_ERROR("value is nullptr");
-    return -1;
+    return -(SeParamsEmpty);
   }
 
   std::string tmpValue = value;
   if (!reader.parse(tmpValue, root)) {
-    LOG_ERROR("parse json(%s) fail!", tmpValue.c_str());
-    return -2;
+    LOG_ERROR("parse json(%s) failed!", tmpValue.c_str());
+    return -(JsonParseFailed);
   }
 
   if (!root.isObject()) {
-    LOG_ERROR("value is n't a json object.");
-    return -3;
+    LOG_ERROR("value isn't a json object.");
+    return -(JsonObjectError);
   }
 
   std::string jsonKey;
@@ -251,7 +248,7 @@ int INlsRequestParam::setPayloadParam(const char* value) {
     _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
   }
 
-  return 0;
+  return Success;
 }
 
 int INlsRequestParam::setContextParam(const char* value) {
@@ -266,12 +263,12 @@ int INlsRequestParam::setContextParam(const char* value) {
     logInfo = "parse json fail: %s";
     logInfo += value;
     LOG_ERROR(logInfo.c_str());
-    return -1;
+    return -(JsonParseFailed);
   }
 
   if (!root.isObject()) {
     LOG_ERROR("value is n't a json object.");
-    return -1;
+    return -(JsonObjectError);
   }
 
   std::string jsonKey;
@@ -288,7 +285,7 @@ int INlsRequestParam::setContextParam(const char* value) {
     _context[jsonKey.c_str()] = root[jsonKey.c_str()];
   }
 
-  return 0;
+  return Success;
 }
 
 void INlsRequestParam::setAppKey(const char* appKey) {
@@ -313,8 +310,8 @@ void INlsRequestParam::setTextNormalization(bool value) {
 };
 
 int INlsRequestParam::setCustomizationId(const char * value) {
-  if (!value) {
-    return -1;
+  if (value == NULL) {
+    return -(SeParamsEmpty);
   }
 
   _payload[D_SR_CUSTOMIZATION_ID] = value;
@@ -323,13 +320,13 @@ int INlsRequestParam::setCustomizationId(const char * value) {
 }
 
 int INlsRequestParam::setVocabularyId(const char * value) {
-  if (!value) {
-    return -1;
+  if (value == NULL) {
+    return -(SeParamsEmpty);
   }
 
   _payload[D_SR_VOCABULARY_ID] = value;
 
-  return 0;
+  return Success;
 }
 
 void INlsRequestParam::setSentenceDetection(bool value) {
@@ -346,17 +343,17 @@ int INlsRequestParam::setEnableWakeWordVerification(bool value) {
 
   _enableWakeWord = value;
 
-  return 0;
+  return Success;
 }
 
 int INlsRequestParam::setSessionId(const char* sessionId) {
   _payload[D_DA_SESSION_ID] = sessionId;
-  return 0;
+  return Success;
 }
 
 int INlsRequestParam::AppendHttpHeader(const char* key, const char* value) {
   _httpHeader[key] = value;
-  return 0;
+  return Success;
 }
 
 std::string INlsRequestParam::GetHttpHeader() {
@@ -388,6 +385,14 @@ std::string INlsRequestParam::GetHttpHeader() {
 
 int INlsRequestParam::getTimeout() {
   return _timeout;
+}
+
+int INlsRequestParam::getRecvTimeout() {
+  return _recv_timeout;
+}
+
+int INlsRequestParam::getSendTimeout() {
+  return _send_timeout;
 }
 
 }  // namespace AlibabaNls

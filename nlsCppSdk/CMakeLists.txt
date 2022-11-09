@@ -95,6 +95,7 @@ set(UTILS_SOURCE_DIR
     ${UTILS_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/nlog.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/utility.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/text_utils.cpp
     )
 
 #源文件-transport
@@ -108,6 +109,7 @@ set(UTILS_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/nlsEventNetWork.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/SSLconnect.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/webSocketTcp.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport/nodeManager.cpp
     )
 
 #源文件-event

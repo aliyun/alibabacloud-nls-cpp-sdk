@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props" Condition="Exists('..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props')" />
+  <Import Project="..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props" Condition="Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -31,6 +33,9 @@
   <ItemGroup>
     <ClCompile Include="nlsCppSdkExtern.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -45,6 +50,7 @@
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
+    <SupportLTL>true</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -52,7 +58,8 @@
     <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>true</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -60,6 +67,7 @@
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
+    <SupportLTL>true</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -67,7 +75,8 @@
     <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>true</SupportLTL>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -136,6 +145,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.lib  $(Solut
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\Win32\Debug\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\Win32\Debug\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
@@ -154,6 +165,7 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -179,6 +191,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.lib  $(Solu
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\Win32\Release\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\Win32\Release\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
@@ -223,6 +237,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.lib  $(Solut
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\x64\Debug\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\x64\Debug\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
@@ -241,6 +257,7 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -266,6 +283,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.lib  $(Solu
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\x64\Release\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\x64\Release\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
@@ -275,5 +294,14 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets" Condition="Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>这台计算机上缺少此项目引用的 NuGet 程序包。使用“NuGet 程序包还原”可下载这些程序包。有关更多信息，请参见 http://go.microsoft.com/fwlink/?LinkID=322105。缺少的文件是 {0}。</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props')" Text="$([System.String]::Format('$(ErrorText)', '..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props'))" />
+    <Error Condition="!Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets'))" />
+    <Error Condition="!Exists('..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props')" Text="$([System.String]::Format('$(ErrorText)', '..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props'))" />
+  </Target>
 </Project>

@@ -58,6 +58,7 @@ struct ParamStruct {
   char url[DEFAULT_STRING_LEN];
 
   uint64_t startedConsumed;   /*started事件完成次数*/
+  uint64_t firstConsumed;     /*首包完成次数*/
   uint64_t completedConsumed; /*completed事件次数*/
   uint64_t closeConsumed;     /*closed事件次数*/
 
@@ -68,6 +69,12 @@ struct ParamStruct {
   uint64_t startAveValue;     /*started完成平均时间*/
   uint64_t startMaxValue;     /*调用start()到收到started事件最大用时*/
   uint64_t startMinValue;     /*调用start()到收到started事件最小用时*/
+
+  uint64_t firstTotalValue;   /*所有收到首包用时总和*/
+  uint64_t firstAveValue;     /*收到首包平均时间*/
+  uint64_t firstMaxValue;     /*调用start()到收到首包最大用时*/
+  uint64_t firstMinValue;     /*调用start()到收到首包最小用时*/
+  bool     firstFlag;         /*是否收到首包的标记*/
 
   uint64_t endTotalValue;     /*start()到completed事件的总用时*/
   uint64_t endAveValue;       /*start()到completed事件的平均用时*/
@@ -114,6 +121,7 @@ struct ParamCallBack {
 
   struct timeval startTv;
   struct timeval startedTv;
+  struct timeval firstTv;
   struct timeval completedTv;
   struct timeval closedTv;
   struct timeval failedTv;
@@ -141,16 +149,24 @@ std::string g_akSecret = "";
 std::string g_token = "";
 std::string g_url = "";
 int g_threads = 1;
-static int loop_timeout = LOOP_TIMEOUT;
+int g_cpu = 4;
+static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
+static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
 static std::map<unsigned long, struct ParamStatistics *> g_statistics;
 static int sample_rate = SAMPLE_RATE_16K;
-static pthread_mutex_t params_mtx;
+static pthread_mutex_t params_mtx; /*全局统计参数g_statistics的操作锁*/
 static int run_cnt = 0;
+static int run_cancel = 0;
 static int run_success = 0;
 static int run_fail = 0;
+
+static bool global_sys = true;
+static PROFILE_INFO g_ave_percent;
+static PROFILE_INFO g_min_percent;
+static PROFILE_INFO g_max_percent;
 
 static int profile_scan = -1;
 static int cur_profile_scan = -1;
@@ -306,11 +322,15 @@ int generateToken(std::string akId, std::string akSecret,
   nlsTokenRequest.setAccessKeyId(akId);
   nlsTokenRequest.setKeySecret(akSecret);
 
-  if (-1 == nlsTokenRequest.applyNlsToken()) {
-    std::cout << "Failed: "
+  int retCode = nlsTokenRequest.applyNlsToken();
+  /*获取失败原因*/
+  if (retCode < 0) {
+    std::cout << "Failed error code: "
+              << retCode
+              << "  error msg: "
               << nlsTokenRequest.getErrorMsg()
-              << std::endl; /*获取失败原因*/
-    return -1;
+              << std::endl;
+    return retCode;
   }
 
   *token = nlsTokenRequest.getToken();
@@ -556,6 +576,43 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   if (cbParam && tmpParam->tParam) {
     tmpParam->tParam->audioTotalDuration +=
         getAudioFileTimeMs(data.size(), sample_rate, 1);
+
+    if (tmpParam->tParam->firstFlag == false) {
+      tmpParam->tParam->firstConsumed++;
+      tmpParam->tParam->firstFlag = true;
+
+      gettimeofday(&(tmpParam->firstTv), NULL);
+
+      unsigned long long timeValue1 =
+          tmpParam->firstTv.tv_sec - tmpParam->startTv.tv_sec;
+      unsigned long long timeValue2 =
+          tmpParam->firstTv.tv_usec - tmpParam->startTv.tv_usec;
+      unsigned long long timeValue = 0;
+      if (timeValue1 > 0) {
+        timeValue = (((timeValue1 * 1000000) + timeValue2) / 1000);
+      } else {
+        timeValue = (timeValue2 / 1000);
+      }
+
+      // max
+      if (timeValue > tmpParam->tParam->firstMaxValue) {
+        tmpParam->tParam->firstMaxValue = timeValue;
+      }
+      // min
+      if (tmpParam->tParam->firstMinValue == 0) {
+        tmpParam->tParam->firstMinValue = timeValue;
+      } else {
+        if (timeValue < tmpParam->tParam->firstMinValue) {
+          tmpParam->tParam->firstMinValue = timeValue;
+        }
+      }
+      // ave
+      tmpParam->tParam->firstTotalValue += timeValue;
+      if (tmpParam->tParam->firstConsumed > 0) {
+        tmpParam->tParam->firstAveValue =
+            tmpParam->tParam->firstTotalValue / tmpParam->tParam->firstConsumed;
+      }
+    } // firstFlag
   }
 }
 
@@ -633,6 +690,50 @@ void* autoCloseFunc(void* arg) {
       }
 #endif
     }
+
+    if (global_sys) {
+      PROFILE_INFO cur_sys_info;
+      get_profile_info("syDemo", &cur_sys_info);
+
+      if (g_ave_percent.ave_cpu_percent == 0) {
+        strcpy(g_ave_percent.usr_name, cur_sys_info.usr_name);
+        strcpy(g_min_percent.usr_name, cur_sys_info.usr_name);
+        strcpy(g_max_percent.usr_name, cur_sys_info.usr_name);
+
+        g_ave_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        g_ave_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        g_ave_percent.eAveTime = 0;
+
+        g_min_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        g_min_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        g_min_percent.eAveTime = 0;
+
+        g_max_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        g_max_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        g_max_percent.eAveTime = 0;
+      } else {
+        // record min info
+        if (cur_sys_info.ave_cpu_percent < g_min_percent.ave_cpu_percent) {
+          g_min_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        }
+        if (cur_sys_info.ave_mem_percent < g_min_percent.ave_mem_percent) {
+          g_min_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        }
+        // record max info
+        if (cur_sys_info.ave_cpu_percent > g_max_percent.ave_cpu_percent) {
+          g_max_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        }
+        if (cur_sys_info.ave_mem_percent > g_max_percent.ave_mem_percent) {
+          g_max_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        }
+        // record ave info
+        g_ave_percent.ave_cpu_percent =
+            (g_ave_percent.ave_cpu_percent + cur_sys_info.ave_cpu_percent) / 2;
+        g_ave_percent.ave_mem_percent =
+            (g_ave_percent.ave_mem_percent + cur_sys_info.ave_mem_percent) / 2;
+      }
+    }
+
   }
   global_run = false;
   std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
@@ -653,6 +754,7 @@ void* autoCloseFunc(void* arg) {
  */
 void* pthreadFunc(void* arg) {
   bool timedwait_flag = false;
+  int chars_cnt = 0;
 
   /*
    * 从自定义线程参数中获取token, 配置文件等参数.
@@ -681,6 +783,11 @@ void* pthreadFunc(void* arg) {
      * 实时短文本语音合成文档详见: https://help.aliyun.com/document_detail/84435.html
      * 长文本语音合成文档详见: https://help.aliyun.com/document_detail/130509.html
      */
+    chars_cnt = AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(tst->text);
+    std::cout << "pid:" << pthread_self()
+      << " this text contains " << chars_cnt << "chars"
+      << std::endl;
+
     AlibabaNls::SpeechSynthesizerRequest* request =
         AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest();
     if (request == NULL) {
@@ -733,9 +840,9 @@ void* pthreadFunc(void* arg) {
      * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
     pthread_mutex_lock(&(cbParam.mtxWord));
-    gettimeofday(&(cbParam.startTv), NULL);
     std::string ts = timestamp_str();
     std::cout << "start -> pid " << pthread_self() << " " << ts.c_str() << std::endl;
+    gettimeofday(&(cbParam.startTv), NULL);
     int ret = request->start();
     ts = timestamp_str();
     run_cnt++;
@@ -747,6 +854,7 @@ void* pthreadFunc(void* arg) {
     } else {
       std::cout << "start success. pid " << pthread_self() << " " << ts.c_str() << std::endl;
       cbParam.tParam->startedConsumed++;
+      cbParam.tParam->firstFlag = false;
       struct ParamStatistics params;
       params.running = true;
       params.success_flag = false;
@@ -794,6 +902,10 @@ void* pthreadFunc(void* arg) {
     AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
     std::cout << "release Synthesizer success. pid "
         << pthread_self() << std::endl;
+
+    if (loop_count > 0 && run_cnt >= loop_count) {
+      global_run = false;
+    }
   }  // while global_run
 
   pthread_mutex_destroy(&(tst->mtx));
@@ -909,6 +1021,7 @@ void* pthreadLongConnectionFunc(void* arg) {
       std::cout << "start success. pid " << pthread_self()
           << " " << ts.c_str() << std::endl;
       cbParam.tParam->startedConsumed++;
+      cbParam.tParam->firstFlag = false;
       params.running = true;
       params.success_flag = false;
       params.audio_ms = 0;
@@ -954,7 +1067,10 @@ void* pthreadLongConnectionFunc(void* arg) {
     std::cout << "stop finished. pid " << pthread_self()
         << " tv: " << now.tv_sec << std::endl;
 
-  } // while
+    if (loop_count > 0 && run_cnt >= loop_count) {
+      global_run = false;
+    }
+  } // while global_run
 
   AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
   request = NULL;
@@ -978,7 +1094,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   if (g_token.empty()) {
     if (g_expireTime - curTime < 10) {
       std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-      if (-1 == generateToken(g_akId, g_akSecret, &g_token, &g_expireTime)) {
+      if (generateToken(g_akId, g_akSecret, &g_token, &g_expireTime) < 0) {
         return -1;
       }
     }
@@ -1025,6 +1141,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     }
 
     pa[i].startedConsumed = 0;
+    pa[i].firstConsumed = 0;
     pa[i].completedConsumed = 0;
     pa[i].closeConsumed = 0;
     pa[i].failedConsumed = 0;
@@ -1034,6 +1151,12 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     pa[i].startAveValue = 0;
     pa[i].startMaxValue = 0;
     pa[i].startMinValue = 0;
+
+    pa[i].firstTotalValue = 0;
+    pa[i].firstAveValue = 0;
+    pa[i].firstMaxValue = 0;
+    pa[i].firstMinValue = 0;
+    pa[i].firstFlag = false;
 
     pa[i].endTotalValue = 0;
     pa[i].endAveValue = 0;
@@ -1073,11 +1196,16 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     pthread_join(pthreadId[j], NULL);
   }
 
-  unsigned long long sTotalCount = 0;
-  unsigned long long eTotalCount = 0;
-  unsigned long long fTotalCount = 0;
-  unsigned long long cTotalCount = 0;
-  unsigned long long rTotalCount = 0;
+  unsigned long long sTotalCount = 0; /*started总次数*/
+  unsigned long long iTotalCount = 0; /*首包总次数*/
+  unsigned long long eTotalCount = 0; /*completed总次数*/
+  unsigned long long fTotalCount = 0; /*failed总次数*/
+  unsigned long long cTotalCount = 0; /*closed总次数*/
+  unsigned long long rTotalCount = 0; /*总请求数*/
+
+  unsigned long long fMaxTime = 0; /*首包最大耗时*/
+  unsigned long long fMinTime = 0; /*首包最小耗时*/
+  unsigned long long fAveTime = 0; /*首包平均耗时*/
 
   unsigned long long eMaxTime = 0;
   unsigned long long eMinTime = 0;
@@ -1091,12 +1219,28 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   for (int i = 0; i < threads; i ++) {
     sTotalCount += pa[i].startedConsumed;
+    iTotalCount += pa[i].firstConsumed;
     eTotalCount += pa[i].completedConsumed;
     fTotalCount += pa[i].failedConsumed;
     cTotalCount += pa[i].closeConsumed;
     rTotalCount += pa[i].requestConsumed;
 
     audioAveTimeLen += pa[i].audioAveDuration;
+
+    // first pack
+    if (pa[i].firstMaxValue > fMaxTime) {
+      fMaxTime = pa[i].firstMaxValue;
+    }
+
+    if (fMinTime == 0) {
+      fMinTime = pa[i].firstMinValue;
+    } else {
+      if (pa[i].firstMinValue < fMinTime) {
+        fMinTime = pa[i].firstMinValue;
+      }
+    }
+
+    fAveTime += pa[i].firstAveValue;
 
     //end
     if (pa[i].endMaxValue > eMaxTime) {
@@ -1131,6 +1275,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   eAveTime /= threads;
   cAveTime /= threads;
+  fAveTime /= threads;
   audioAveTimeLen /= threads;
 
   int cur = -1;
@@ -1147,6 +1292,16 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   for (int i = 0; i < threads; i ++) {
     std::cout << "-----" << std::endl;
+    std::cout << "No." << i
+      << " Max first package time: " << pa[i].firstMaxValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Min first package time: " << pa[i].firstMinValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Ave first package time: " << pa[i].firstAveValue << " ms"
+      << std::endl;
+
     std::cout << "No." << i
       << " Max completed time: " << pa[i].endMaxValue << " ms"
       << std::endl;
@@ -1180,6 +1335,12 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   std::cout << "Final Completed: " << eTotalCount << std::endl;
   std::cout << "Final Failed: " << fTotalCount << std::endl;
   std::cout << "Final Closed: " << cTotalCount << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  std::cout << "Max first package time: " << fMaxTime << " ms" << std::endl;
+  std::cout << "Min first package time: " << fMinTime << " ms" << std::endl;
+  std::cout << "Ave first package time: " << fAveTime << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -1241,6 +1402,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--cpu")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_cpu = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--time")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1317,7 +1482,12 @@ int main(int argc, char* argv[]) {
   if (profile_scan > 0) {
     g_sys_info = new PROFILE_INFO[profile_scan + 1];
     memset(g_sys_info, 0, sizeof(PROFILE_INFO) * (profile_scan + 1));
+
+    // 启动 profile扫描, 同时关闭sys数据打印
+    global_sys = false;
   } else {
+    // 不进行性能扫描时, profile_scan赋为0, cur_profile_scan默认-1,
+    // 即后续只跑一次startWorkThread
     profile_scan = 0;
   }
 
@@ -1333,7 +1503,7 @@ int main(int argc, char* argv[]) {
   #ifdef LOG_TRIGGER
     int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
         "log-synthesizer", AlibabaNls::LogDebug, 400, 50);
-    if (-1 == ret) {
+    if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;
     }
@@ -1359,7 +1529,8 @@ int main(int argc, char* argv[]) {
     // 入参为负时, 启动当前系统中可用的核数
     if (cur_profile_scan == -1) {
       // 高并发的情况下推荐4, 单请求的情况推荐为1
-      AlibabaNls::NlsClient::getInstance()->startWorkThread(4);
+      // 若高并发CPU占用率较高, 则可填-1启用所有CPU核
+      AlibabaNls::NlsClient::getInstance()->startWorkThread(g_cpu);
     } else {
       AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);
     }
@@ -1400,7 +1571,7 @@ int main(int argc, char* argv[]) {
       pthread_mutex_unlock(&params_mtx);
   #endif
 
-      std::cout << "threads run count:" << run_count
+      std::cout << "threads run count:" << g_threads
         << " success count:" << success_count << std::endl;
       std::cout << "requests run count:" << run_cnt
         << " success count:" << run_success
@@ -1453,6 +1624,27 @@ int main(int argc, char* argv[]) {
 
     delete[] g_sys_info;
     g_sys_info = NULL;
+  }
+
+  if (global_sys) {
+    std::cout << "WorkThread: " << g_cpu << std::endl;
+    std::cout << "  USER: " << g_ave_percent.usr_name << std::endl;
+    std::cout << "    Min: " << std::endl;
+    std::cout << "      CPU: " << g_min_percent.ave_cpu_percent
+      << " %" << std::endl;
+    std::cout << "      MEM: " << g_min_percent.ave_mem_percent
+      << " %" << std::endl;
+    std::cout << "    Max: " << std::endl;
+    std::cout << "      CPU: " << g_max_percent.ave_cpu_percent
+      << " %" << std::endl;
+    std::cout << "      MEM: " << g_max_percent.ave_mem_percent
+      << " %" << std::endl;
+    std::cout << "    Average: " << std::endl;
+    std::cout << "      CPU: " << g_ave_percent.ave_cpu_percent
+      << " %" << std::endl;
+    std::cout << "      MEM: " << g_ave_percent.ave_mem_percent
+      << " %" << std::endl;
+    std::cout << "===============================" << std::endl;
   }
 
   pthread_mutex_destroy(&params_mtx);

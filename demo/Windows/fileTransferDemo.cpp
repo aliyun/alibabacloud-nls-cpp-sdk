@@ -119,8 +119,9 @@ int main(int argc, char* argv[]) {
 
   /*开始文件识别, 成功返回0, 失败返回-1*/
   int ret = request.applyFileTrans();
-  if (-1 == ret) {
-    std::cout << "FileTrans failed: "
+  if (ret < 0) {
+    std::cout << "FileTrans failed error code: "
+      << ret << "  error msg: "
       << request.getErrorMsg() << std::endl; /*获取失败原因*/
     return -1;
   } else {

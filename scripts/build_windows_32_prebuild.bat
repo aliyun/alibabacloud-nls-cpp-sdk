@@ -239,6 +239,8 @@ rem pause
 	set log4cpp_src_folder=%log4cpp_folder%\log4cpp-1.1.3\log4cpp
 	xcopy %log4cpp_src_folder%\include %log4cpp_include_folder% /y/s
 
+	xcopy %project_folder%thirdparty\log4cpp_win_prj\vs2015 %log4cpp_src_folder%\vs2015 /y/s
+
 ::goto:eof
 
 

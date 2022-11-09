@@ -337,11 +337,15 @@ int generateToken(std::string akId, std::string akSecret,
   nlsTokenRequest.setKeySecret(akSecret);
 //  nlsTokenRequest.setDomain("nls-meta-vpc-pre.aliyuncs.com");
 
-  if (-1 == nlsTokenRequest.applyNlsToken()) {
-    std::cout << "Failed: "
+  int retCode = nlsTokenRequest.applyNlsToken();
+  /*获取失败原因*/
+  if (retCode < 0) {
+    std::cout << "Failed error code: "
+              << retCode
+              << "  error msg: "
               << nlsTokenRequest.getErrorMsg()
-              << std::endl;  /*获取失败原因*/
-    return -1;
+              << std::endl;
+    return retCode;
   }
 
   *token = nlsTokenRequest.getToken();
@@ -495,7 +499,7 @@ void OnRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 /**
  * @brief sdk在接收到云端返回识别结束消息时, sdk内部线程上报Completed事件
  * @note 上报Completed事件之后, SDK内部会关闭识别连接通道. 
- *       此时调用sendAudio会返回-1, 请停止发送.
+ *       此时调用sendAudio会返回负值, 请停止发送.
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
  * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
  * @return
@@ -558,7 +562,7 @@ void OnRecognitionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 /**
  * @brief 识别过程发生异常时, sdk内部线程上报TaskFailed事件
  * @note 上报TaskFailed事件之后, SDK内部会关闭识别连接通道. 
- *       此时调用sendAudio会返回-1, 请停止发送.
+ *       此时调用sendAudio会返回负值, 请停止发送.
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
  * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
  * @return
@@ -930,7 +934,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   if (g_token.empty()) {
     if (g_expireTime - curTime < 10) {
       std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-      if (-1 == generateToken(g_akId, g_akSecret, &g_token, &g_expireTime)) {
+      if (generateToken(g_akId, g_akSecret, &g_token, &g_expireTime) < 0) {
         return -1;
       }
     }
@@ -1271,7 +1275,7 @@ int main(int argc, char* argv[]) {
     int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
         "log-recognizer", (AlibabaNls::LogLevel)logLevel,
         400, 50); //"log-recognizer"
-    if (-1 == ret) {
+    if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;
     }

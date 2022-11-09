@@ -24,31 +24,41 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 
 ## 如何使用 C++ SDK
 
-接入前请仔细阅读C++ SDK3.0文档：https://help.aliyun.com/product/30413.html
+接入前请仔细阅读C++ SDK3.1.x文档：https://help.aliyun.com/product/30413.html
 
-特殊说明：当前版本C++SDK3.1.x，相较于3.0，接口sendAudio有改动，具体请看接口头文件中接口说明。  
+特殊说明：当前版本C++SDK3.1.x，相较于3.0，接口sendAudio和各接口返回值有改动，具体请看接口头文件中接口说明。  
+
+### 接口调用流程演示
+ ![image](docs/images/processDemo.png)  
+
 
 ### Linux平台编译及说明：
 编译指令：  
-> ./scripts/build_linux.sh                         默认增量编译，生成Debug版本  
+> ./scripts/build_linux.sh                  默认增量编译，生成Debug版本  
 > ./scripts/build_linux.sh all debug        全量编译，生成Debug版本  
-> ./scripts/build_linux.sh incr debug     增量编译，生成Debug版本  
+> ./scripts/build_linux.sh incr debug       增量编译，生成Debug版本  
 > ./scripts/build_linux.sh all release      全量编译，生成Release版本  
-> ./scripts/build_linux.sh incr release    增量编译，生成Release版本  
+> ./scripts/build_linux.sh incr release     增量编译，生成Release版本  
 
 生成物NlsSdk3.X_LINUX 目录说明:  
 NlsSdk3.X_LINUX  
 │── bin  
 │   │── daDemo         对话Demo binary文件  
+│   │── gtDemo         token生成Demo binary文件  
+│   │── ftDemo         录音文件识别Demo binary文件  
 │   │── srDemo         一句话识别Demo binary文件  
 │   │── stDemo         实时识别Demo binary文件  
-│   └── syDemo         音频转写Demo binary文件  
+│   │── slyDemo        长文本语音合成Demo binary文件  
+│   └── syDemo         语音合成Demo binary文件  
 │── demo  
-│   │── build_linux_demo.sh          一键编译当前Demo  
-│   │── dialogAssistantDemo.cpp      对话Demo源码  
-│   │── speechRecognizerDemo.cpp     一句话识别Demo源码  
-│   │── speechSynthesizerDemo.cpp    音频转写Demo源码  
-│   └── speechTranscriberDemo.cpp    实时识别Demo源码  
+│   │── build_linux_demo.sh           一键编译当前Demo  
+│   │── generateTokenDemo.cpp         token生成Demo源码  
+│   │── dialogAssistantDemo.cpp       对话Demo源码  
+│   │── speechRecognizerDemo.cpp      一句话识别Demo源码  
+│   │── speechSynthesizerDemo.cpp     语音合成Demo源码  
+│   │── speechLongSynthesizerDemo.cpp 长文本语音合成Demo源码  
+│   │── speechTranscriberDemo.cpp     实时识别Demo源码  
+│   └── fileTransferDemo.cpp          录音文件转写Demo源码  
 │   │── resource            测试资源（测试音频文件）  
 │   │   └── audio  
 │   │       ├── test0.wav  
@@ -88,50 +98,112 @@ NlsSdk3.X_LINUX
 > ./scripts/build_android.sh incr release arm64-v8a  增量编译，生成arm64-v8a架构Release版本   
 
 ### Windows Cpp 平台编译及说明：  
-#### 一、简单编译方式（推荐）
-此方式使用已经编译好的第三方库进行编译  
-> 1. 打开build_windows_64_prebuild.bat和build_windows_64_package.bat，修改解压缩工具WinRAR（set winRar="C:\Program Files (x86)\WinRAR\WinRAR.exe"）为自己电脑WinRAR路径。  
-> 1. 运行 build_windows_64_prebuild.bat  
-> 此批处理为了解压各第三方库，并把依赖头文件移动到合适位置   
-> 3. 使用vs打开nlsCppSdk.sln，直接编译。现支持x64_debug和x64_Release  
->    ![image](docs/images/cppSdk01.png)  
->
-> 4. 编译出debug_x64和release_x64  
->    Debug生成物路径: {ProjectRoot}\build\build_win64\nlsCppSdk\x64\Debug   
->    Release生成物路径: {ProjectRoot}\build\build_win64\nlsCppSdk\x64\Release   
->    下有所有生成的dll和测试exe.  
->
-> 5. 运行build_windows_64_package.bat  
->    将生成物进行打包，生成{ProjectRoot}\build\install\NlsSdk3.X_win64.zip。内部包含所有动态库、测试exe、头文件、说明文档。  
+#### 一、简单使用（推荐）
+NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库文件，建议直接拿库文件进行试用和集成。
 
-#### 二、自动化编译方式
-此方法可能由于vs版本或windows平台差异问题，无法顺利运行  
+#### 二、简单编译方式
+此方式使用已经编译好的第三方库进行编译，但过程较长，容易出错而导致无法顺利得到最终成果物，建议还是用一方法。  
+ 1. 进入scripts目录，使用文本编辑工具分别打开build_windows_64_prebuild.bat和build_windows_64_package.bat，修改解压缩工具WinRAR。  
+ 例如，您的个人电脑WinRAR.exe所在路径为C:\Program Files (x86)\WinRAR\WinRAR.exe，则修改脚本文件中第三行为 set winRar="C:\Program Files (x86)\WinRAR\WinRAR.exe" 为您的个人电脑中WinRAR路径。
+ 2. 双击批处理脚本build_windows_64_prebuild.bat，从而解压SDK源码中包含的各第三方库，并把依赖头文件释放到合适位置。
+ 3. 使用Visual Studio（VS2015及以上版本）打开nlsCppSdk.sln，直接编译需要的范例工程。  
+    > 说明  
+    > * 需要确认好各项目属性中的目标平台版本和平台工具集，按需选择。例如，您的目标平台版本为10.0.19041.0，平台工具集为Visual Studio 2015(v140)。  
+    > * 目前支持Debug_x64，Release_x64，Debug_win32和Release_win32。本文档说明均以x64为例。  
+
+    ![image](docs/images/cppSdk01.png)  
+
+ 4. 右键单击speechTranscriberDemo项目（以实时语音识别Demo为例），单击生成进行编译。
+ 5. 编译Debug_x64和Release_x64。 
+    > * Debug生成物路径：{ProjectRoot}\build\build_win64\nlsCppSdk\x64\Debug  
+    > * Release生成物路径：{ProjectRoot}\build\build_win64\nlsCppSdk\x64\Release  
+
+    各路径包含所有生成的dll和测试exe文件。其中{ProjectRoot}为SDK源码路径。
+ 6. 若需要对生成的库文件、测试exe文件、头文件、说明文档等对外披露的文件进行打包，则在scripts目录下双击运行build_windows_64_package.bat，生成{ProjectRoot}\build\install\NlsSdk3.X_win64.zip。其中{ProjectRoot}为SDK源码路径。
+
+#### 三、自动化编译方式
+此方法可能由于vs版本或windows平台差异问题，无法顺利运行。  
 >  运行 build_windows_64.bat  
 
 ### Windows C# 平台编译及说明：  
-此方式使用已经编译好的第三方库进行编译
-> 1. 必须先完成windows Cpp 平台编译，C#依赖windows cpp sdk。  
-> 2. 使用vs打开nlsCsharpSdk.sln，进行c#工程编译  
-> ![image](docs/images/csharpSdk01.png)  
-> 3. {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug下生成所有生成物。  
-> nlsCsharpSdk.dll  为nls c# sdk，可进行 发布 nupkg。  
-> nlsCsharpSdkExtern.dll  为nls c#与cpp互操作层。  
-> nlsCsharpSdkDemo.exe 为nls c# UI demo。  
-> 4. 运行还需要一些nls cpp sdk相关依赖库(正常在工程编译完成后会进行自动搬运, 正常情况可跳过此步骤)，需要搬移到nlsCsharpSdkDemo.exe能依赖的路径{ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug。   
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\nlsCppSdk.dll  
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libcrypto-1_1-x64.dll  
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libssl-1_1-x64.dll  
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libcurld.dll (release版为libcurl.dll)  
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libeay32.dll  
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\ssleay32.dll  
-> {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\pthreadVC2.dll   
-> {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug\audio_files\ 目录下, 需要名叫test0.wav、test1.wav、test2.wav、test3.wav的四个音频文件用于进行语音识别。
-> 5. nlsCsharpSdkDemo.exe 运行要点  
-> ![image](docs/images/csharpSdk02.png)  
-> a.  &lt;OpenLog&gt; 可开启日志记录（可选)  
-> b.  &lt;InitNls&gt; 初始化sdk   
-> c.  填入Appkey、AkId、AkSecret，然后&lt;CreateToken&gt;生成token，合法token会在Token栏显示。  
-> d.  实时转写&lt;CreateTranscriber&gt;创建实时转写请求，点&lt;Start&gt;开始工作，会在最下方实时显示识别结果。&lt;Stop&gt;&lt;ReleaseTranscriber&gt;进行停止、释放。  
-> e.  语音合成&lt;CreateSynthesizer&gt;创建语音合成请求，点&lt;Start&gt;开始工作，会exe当前路径生成保存音频数据的taskId.pcm文件。&lt;Cancel&gt;&lt;ReleaseSynthesizer&gt;进行停止、释放。  
-> f.  一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
-> g.  录音文件识别:填写录音文件的URL,点击&lt;FileTransfer&gt;开始工作, 会在最下方显示结果。此功能只需填写Appkey、AkId、AkSecret。  
+#### 一、简单使用（推荐）
+NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库文件，建议直接拿库文件进行试用和集成。
+
+#### 二、自动化编译方式
+必须先完成Windows平台Cpp SDK编译，C#依赖Windows Cpp SDK的库和头文件。完成以上编译后开始进行C#编译。此过程较长，容易出错而导致无法顺利得到最终成果物，建议还是用一方法。  
+ 1. 使用Visual Studio（VS2015及以上版本）打开nlsCsharpSdk.sln，进行C#工程编译。 
+    > 说明  
+    > * 需要确认nlsCsharpSdkExtern的平台工具集和目标平台版本，以及nlsCsharpSdkDemo和nlsCsharpSdk的.NET版本。  
+ 2. 右键nlsCsharpSdkDemo项目，选择生成，生成所有生成物。  
+ ![image](docs/images/csharpSdk01.png)  
+    > 说明  
+    > * nlsCsharpSdk.dll为NLS C# SDK，可进行发布Nupkg。
+    > * nlsCsharpSdkExtern.dll为NLS C#与Cpp互操作层。 
+    > *  nlsCsharpSdkDemo.exe为NLS C# UI Demo。  
+ 3. 以Debug版本为例，运行还需要一些NLS Cpp SDK相关依赖库，需要将依赖库和测试音频文件搬移到nlsCsharpSdkDemo.exe能依赖的路径：{ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug。即分别将下方动态库拷贝至 {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug目录下。
+    > 说明  
+    > * 正常情况下在工程编译完成后系统会进行自动搬运，您可跳过此步骤。若目标路径无以下文件，则需要进行手动搬运。  
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\nlsCppSdk.dll
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libcrypto-1_1-x64.dll 
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libssl-1_1-x64.dll 
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libcurld.dll (release版为libcurl.dll) 
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\libeay32.dll 
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\ssleay32.dll 
+    > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\pthreadVC2.dll   
+
+    {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug\audio_files\ 目录下，需要包含命名为test0.wav、test1.wav、test2.wav、test3.wav的四个音频文件，用于进行语音识别。这些WAV文件可从resource/audio目录拷贝。若缺少这些文件，系统将会在运行语音识别过程中，因找不到文件而退出。
+ 4. 双击nlsCsharpSdkDemo.exe，运行如下：
+ ![image](docs/images/csharpSdk02.png)  
+ 5. （可选）单击&lt;OpenLog&gt;可开启日志记录。  
+ 6. 单击&lt;InitNls&gt; 初始化sdk。  
+ 7. 填入Appkey、AkId、AkSecret，然后单击&lt;CreateToken&gt;生成token，合法token会在Token栏显示。  
+ 8. 实时转写&lt;CreateTranscriber&gt;创建实时转写请求，点&lt;Start&gt;开始工作，会在最下方实时显示识别结果。&lt;Stop&gt;&lt;ReleaseTranscriber&gt;进行停止、释放。  
+ 9. 语音合成&lt;CreateSynthesizer&gt;创建语音合成请求，点&lt;Start&gt;开始工作，会exe当前路径生成保存音频数据的taskId.pcm文件。&lt;Cancel&gt;&lt;ReleaseSynthesizer&gt;进行停止、释放。  
+ 10. 一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
+ 11. 录音文件识别:填写录音文件的URL,点击&lt;FileTransfer&gt;开始工作, 会在最下方显示结果。此功能只需填写Appkey、AkId、AkSecret。  
+
+## 并发性能说明
+测试环境：十六核 Intel(R) Xeon(R) Platinum 8163 CPU @ 2.50GHz  
+以下测试数据仅做参考，实际运行会根据设置参数、运行环境不同等因素有较大差异。
+
+### 语音合成测试数据及说明
+合成文本：“今日天气真不错，我想去操场踢足球。”  
+合成音频后103278字节，约3.2秒。
+#### 测试数据
+| 版本 | 链接模式 | 并发数 | 启用事件池数 | 首包延迟 | 单轮时长 | CPU占用率 | 每分钟完成请求数 |
+|:----:|:------:|:-----:|:----------:|:-------:|:-------:|:--------:|:--------:|
+| 3.1.14 | 短链接 | 100  | 1 | 489ms |  712ms  | 100% / 1600% | 8784 |
+| 3.1.14 | 短链接 | 100  | 4 | 341ms |  507ms  | 266% / 1600% | 12357 |
+| 3.1.14 | 短链接 | 200  | 4 | 530ms |  924ms  | 294% / 1600% | 13921 |
+
+#### 说明
+##### 链接模式选择短链接还是长链接？
+&emsp;默认为短链接。高并发情况下，短链接模式每次请求都会申请联网完成后再释放，会有一定的系统负载。可改成长链接模式，维持链接状态进行请求，可一定程度降低CPU占用率和首包延迟。但是需要特别注意的是，长时间链接语音服务器而无动作，会被服务器断开，所以请谨慎使用长链接模式。
+##### 初始化时startWorkThread(事件池数)应该填多少？
+&emsp;单机并发低于100时，事件池数可为1。单机并发超过100，事件池数建议为4（1的话容易单核打满）。事件池数越大，单轮完成耗时越短，但是CPU整体占用率越高。可根据耗时和CPU占用率找个平衡。
+##### 单机最大并发可达多少？
+&emsp;目前单机并发极限测试记录为800，只要机器的网络性能和CPU占用率可承受，完成一轮的用时可接收，可继续提高并发数。
+
+
+### 语音识别测试数据及说明
+#### 测试数据
+| 版本 | 链接模式 | 并发数 | 启用事件池数 | 音频格式 | 音频时长 | 单轮时长 | start耗时 | sendAudio耗时 | CPU占用率 |
+|:----:|:------:|:-----:|:----------:|:-------:|:------:|:------:|:--------:|:-------------:|:--------:|
+| 3.1.14 | 短链接 | 100  | 1 | PCM | 5287ms | 5904ms | 287ms | 65us | 20% / 1600% |
+| 3.1.14 | 短链接 | 200  | 1 | PCM | 5287ms | 6015ms | 297ms | 64us | 38% / 1600% |
+| 3.1.14 | 短链接 | 200  | 1 | OPUS | 5287ms | 7283ms | 307ms | 1108us | 758% / 1600% |
+| 3.1.14 | 短链接 | 200  | 4 | OPUS | 5287ms | 6264ms | 295ms | 1199us | 892% / 1600% |
+| 3.1.14 | 短链接 | 400  | 1 | PCM | 5287ms | 6104ms | 327ms | 71us | 72% / 1600% |
+
+#### 说明
+##### 链接模式选择短链接还是长链接？
+&emsp;默认为短链接。高并发情况下，短链接模式每次请求都会申请联网完成后再释放，会有一定的系统负载。可改成长链接模式，维持链接状态进行请求，可一定程度降低CPU占用率和首包延迟。但是需要特别注意的是，长时间链接语音服务器而无动作，会被服务器断开，所以请谨慎使用长链接模式。
+##### 音频格式选PCM还是OPUS？
+&emsp;即语音交互时，音频数据以PCM格式还是OPUS格式发送给服务器。PCM数据为原始音频，体积较大，高并发情况下带宽压力较大。OPUS为压缩音频，体积约为原始音频的八分之一左右，但是增加了音频压缩的步骤，极大增加了CPU占用率。单机并发数超过200建议使用PCM格式。
+##### 初始化时startWorkThread(事件池数)应该填多少？
+&emsp;PCM格式情况下单机并发低于400时，事件池数可为1。PCM格式情况下单机并发超过400，事件池数建议为4（1的话容易单核打满）。事件池数越大，单轮完成耗时越短，但是CPU整体占用率越高。可根据耗时和CPU占用率找个平衡。OPUS格式情况下高并发，事件池数可为-1（CPU核数），并发数个位的时候事件池数可为1。
+##### 单机最大并发可达多少？
+&emsp;目前单机并发极限测试记录为1600，只要机器的网络性能和CPU占用率可承受，完成一轮的用时可接收，可继续提高并发数。
+
+## 安全提醒
+3.1.14版本及以后，日志中已隐藏所有账号相关日志，可放心打开日志。

@@ -24,12 +24,6 @@
 
 namespace AlibabaNls {
 
-enum AudioDataStatus {
-  AUDIO_FIRST = 0, /* 第一块音频数据   */ 
-  AUDIO_MIDDLE,    /* 中间音频数据     */
-  AUDIO_LAST       /* 最后一块音频数据 */
-};
-
 typedef struct {
   std::string text;
   int startTime;
@@ -50,13 +44,13 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
     TranscriptionResultChanged,
     SentenceEnd,
     SentenceSemantics,
-    TranscriptionCompleted,
+    TranscriptionCompleted = 10,
     SynthesisStarted,
     SynthesisCompleted,
     Binary,
     MetaInfo,
     DialogResultGenerated,
-    Close  /*语音功能通道连接关闭*/
+    Close = 16  /*语音功能通道连接关闭*/
   };
 
   /*
@@ -97,9 +91,9 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
   ~NlsEvent();
 
   /*
-   * @brief 解析消息字符串$
-   * @note SDK内部函数$
-   * @return 成功返回0，失败返回-1, 抛出异常$
+   * @brief 解析消息字符串
+   * @note SDK内部函数
+   * @return 成功返回0，失败返回负值, 抛出异常
    */
   int parseJsonMsg();
 
@@ -193,6 +187,12 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
   EventType getMsgType();
 
   /*
+   * @brief 获取当前所发生Event的类型的字符串形式
+   * @return std::string
+   */
+  std::string getMsgTypeString();
+
+  /*
    * @brief 获取用于显示的文本
    * @return const char*
    */
@@ -268,4 +268,4 @@ typedef void (*NlsCallbackMethod)(NlsEvent*, void*);
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_EVENT_H
+#endif // NLS_SDK_EVENT_H

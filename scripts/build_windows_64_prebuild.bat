@@ -152,6 +152,14 @@ rem pause
 	set jsoncpp_src_folder=%jsoncpp_folder%\jsoncpp-1.9.4\jsoncpp-master
 	xcopy %jsoncpp_src_folder%\include %jsoncpp_include_folder% /y/s
 
+	echo cd %jsoncpp_src_folder%
+	cd %jsoncpp_src_folder%
+	echo copy %project_folder%thirdparty\jsoncpp_win_prj\makefiles to %jsoncpp_src_folder%\makefiles
+	md %jsoncpp_src_folder%\makefiles
+	md %jsoncpp_src_folder%\makefiles\vs2015
+	copy /y %project_folder%thirdparty\jsoncpp_win_prj\makefiles\vs2015 %jsoncpp_src_folder%\makefiles\vs2015
+	
+
 ::goto:eof
 
 
@@ -232,6 +240,8 @@ rem pause
 
 	set log4cpp_src_folder=%log4cpp_folder%\log4cpp-1.1.3\log4cpp
 	xcopy %log4cpp_src_folder%\include %log4cpp_include_folder% /y/s
+
+	xcopy %project_folder%thirdparty\log4cpp_win_prj\vs2015 %log4cpp_src_folder%\vs2015 /y/s
 
 ::goto:eof
 

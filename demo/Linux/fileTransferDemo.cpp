@@ -15,7 +15,6 @@
  */
 
 #include <sys/time.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <ctime>
 #include <stdlib.h>
@@ -35,6 +34,8 @@ std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
 std::string g_fileLinkUrl = "https://gw.alipayobjects.com/os/bmw-prod/0574ee2e-f494-45a5-820f-63aee583045a.wav";
+bool g_sync = true;
+int g_threads = 1;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -70,6 +71,18 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_fileLinkUrl = argv[index];
+    } else if (!strcmp(argv[index], "--sync")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        g_sync = true;
+      } else {
+        g_sync = false;
+      }
+    } else if (!strcmp(argv[index], "--threads")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_threads = atoi(argv[index]);
     }
     index++;
   }
@@ -77,6 +90,139 @@ int parse_argv(int argc, char* argv[]) {
       g_appkey.empty()) {
     std::cout << "short of params..." << std::endl;
     return 1;
+  }
+  return 0;
+}
+
+void fileTransferCallback(void* request, void* cbParam) {
+  if (request) {
+    AlibabaNlsCommon::FileTrans* result = (AlibabaNlsCommon::FileTrans*)request;
+    std::map<std::string, AlibabaNlsCommon::FileTrans> *requests =
+      (std::map<std::string, AlibabaNlsCommon::FileTrans> *)cbParam;
+
+    std::string taskId = result->getTaskId();
+    int event = result->getEvent();
+
+    std::cout << "Callback taskId:" << taskId << std::endl;
+    std::cout << "   event:" << event << std::endl;
+    if (event == AlibabaNlsCommon::TaskFailed) {
+      std::cout << "   errorMesg:" << result->getErrorMsg() << std::endl;
+    } else {
+      std::cout << "   result:" << result->getResult() << std::endl;
+    }
+    std::map<std::string, AlibabaNlsCommon::FileTrans>::iterator iter = requests->find(taskId);
+    if (iter != requests->end()) {
+      iter->second = *result; 
+    } else {
+      requests->insert(std::make_pair(taskId, *result));
+    }
+  } else {
+    std::cout << "request is nullptr." << std::endl;
+  }
+  return;
+}
+
+void releaseAllRequests(std::map<std::string, AlibabaNlsCommon::FileTrans> *requests) {
+  while (!requests->empty()) {
+    requests->erase(requests->begin());
+  }
+
+  return;
+}
+
+void waitComplete(
+    int threads, int cnt,
+    std::map<std::string, AlibabaNlsCommon::FileTrans> *requests) {
+  int completed = 0;
+  int failed = 0;
+  int requests_cnt = threads;
+  int started_cnt = cnt;
+
+  while ((completed + failed) != started_cnt) {
+    failed = 0;
+    completed = 0;
+
+    std::map<std::string, AlibabaNlsCommon::FileTrans>::iterator iter;
+    for (iter = requests->begin(); iter != requests->end(); iter++) {
+      int event = iter->second.getEvent();
+      if (event == AlibabaNlsCommon::TaskFailed) {
+        failed++;
+      } else if (event == AlibabaNlsCommon::TaskCompleted) {
+        completed++;
+      }
+    }
+
+    std::cout << "--- ---" << std::endl;
+    std::cout << "  requests count: " << requests_cnt << std::endl;
+    std::cout << "  requests started: " << started_cnt << std::endl;
+    std::cout << "  requests completed: " << completed << std::endl;
+    std::cout << "  requests failed: " << failed << std::endl;
+
+    usleep(500 * 1000);
+  }
+
+  return;
+}
+
+int fileTransferMultThreads(
+    int threads, std::map<std::string, AlibabaNlsCommon::FileTrans> *requests,
+    AlibabaNlsCommon::FileTrans *request_array) {
+  int cnt = 0;
+
+  for (int i = 0; i < threads; i++) {
+    /*设置文件识别事件回调*/
+    request_array[i].setEventListener(fileTransferCallback, requests);
+    /*设置阿里云账号AccessKey Id*/
+    request_array[i].setAccessKeyId(g_akId);
+    /*设置阿里云账号AccessKey Secret*/
+    request_array[i].setKeySecret(g_akSecret);
+    /*设置阿里云AppKey*/
+    request_array[i].setAppKey(g_appkey);
+    /*设置音频文件url地址*/
+    request_array[i].setFileLinkUrl(g_fileLinkUrl);
+
+    /*开始文件识别, 成功返回0, 失败返回非0*/
+    int ret = request_array[i].applyFileTrans(false);
+    if (ret) {
+      std::cout << "FileTrans (" << i << ") failed error code: "
+        << ret << "  error msg: "
+        << request_array[i].getErrorMsg() << std::endl; /*获取失败原因*/
+    } else {
+      requests->insert(
+          std::make_pair(request_array[i].getTaskId(), request_array[i]));
+      cnt++;
+    }
+  } // for ()
+
+  return cnt;
+}
+
+int fileTransferSync() {
+  /**
+   * 录音文件识别
+   */
+  AlibabaNlsCommon::FileTrans request;
+
+  /*设置阿里云账号AccessKey Id*/
+  request.setAccessKeyId(g_akId);
+  /*设置阿里云账号AccessKey Secret*/
+  request.setKeySecret(g_akSecret);
+  /*设置阿里云AppKey*/
+  request.setAppKey(g_appkey);
+  /*设置音频文件url地址*/
+  request.setFileLinkUrl(g_fileLinkUrl);
+
+  /*开始文件识别, 成功返回0, 失败返回负值*/
+  int ret = request.applyFileTrans();
+  if (ret < 0) {
+    std::cout << "FileTrans failed error code: "
+      << ret << "  error msg: "
+      << request.getErrorMsg() << std::endl; /*获取失败原因*/
+    return -1;
+  } else {
+    std::string result = request.getResult();
+
+    std::cout << "FileTrans successed: " << result << std::endl;
   }
   return 0;
 }
@@ -91,6 +237,7 @@ int main(int argc, char* argv[]) {
       << "  --fileLinkUrl <your file link url>\n"
       << "eg:\n"
       << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --fileLinkUrl xxxxxxxxx\n"
+      << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --fileLinkUrl xxxxxxxxx --sync 0 --threads 50\n"
       << std::endl;
     return -1;
   }
@@ -108,30 +255,19 @@ int main(int argc, char* argv[]) {
   AlibabaNls::NlsClient::getInstance()->setLogConfig(
       "log-filetransfer", AlibabaNls::LogDebug, 100, 10);
 
-  /**
-   * 录音文件识别
-   */
-  AlibabaNlsCommon::FileTrans request;
 
-  /*设置阿里云账号AccessKey Id*/
-  request.setAccessKeyId(g_akId);
-  /*设置阿里云账号AccessKey Secret*/
-  request.setKeySecret(g_akSecret);
-  /*设置阿里云AppKey*/
-  request.setAppKey(g_appkey);
-  /*设置音频文件url地址*/
-  request.setFileLinkUrl(g_fileLinkUrl);
-
-  /*开始文件识别, 成功返回0, 失败返回-1*/
-  int ret = request.applyFileTrans();
-  if (-1 == ret) {
-    std::cout << "FileTrans failed: "
-      << request.getErrorMsg() << std::endl; /*获取失败原因*/
-    return -1;
+  if (g_sync) {
+    fileTransferSync();
   } else {
-    std::string result = request.getResult();
+    std::map<std::string, AlibabaNlsCommon::FileTrans> requests;
+    AlibabaNlsCommon::FileTrans request_array[g_threads];
 
-    std::cout << "FileTrans successed: " << result << std::endl;
+    int cnt = fileTransferMultThreads(g_threads, &requests, request_array);
+    std::cout << "multi-threads request finish." << std::endl;
+
+    waitComplete(g_threads, cnt, &requests);
+
+    releaseAllRequests(&requests);
   }
 
   /* 若启动了Log记录, 须反初始化 */

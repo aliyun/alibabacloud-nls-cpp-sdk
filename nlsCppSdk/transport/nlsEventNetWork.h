@@ -22,7 +22,6 @@
 #else
 #include <pthread.h>
 #endif
-//#include <stdint.h>
 #include "nlsEncoder.h"
 
 namespace AlibabaNls {
@@ -38,9 +37,12 @@ class NlsEventNetWork {
   static NlsEventNetWork * _eventClient;
 
   static void DnsLogCb(int w, const char *m);
-  static void initEventNetWork(
-      int count, char *aiFamily, char *directIp, bool sysGetAddr);
-  static void destroyEventNetWork();
+  static void tryCreateMutex();
+  static void tryDestroyMutex();
+
+  void initEventNetWork(
+      NlsClient* instance, int count, char *aiFamily, char *directIp, bool sysGetAddr);
+  void destroyEventNetWork();
 
   int start(INlsRequest *request);
   int sendAudio(INlsRequest *request, const uint8_t * data,
@@ -48,24 +50,27 @@ class NlsEventNetWork {
   int stop(INlsRequest *request, int type);
   int stControl(INlsRequest* request, const char* message);
 
+  NlsClient* getInstance();
+
  private:
   int selectThreadNumber();            //循环选择工作线程
 
-  static WorkThread *_workThreadArray; //工作线程数组
-  static size_t _workThreadsNumber;    //工作线程数量
-  static size_t _currentCpuNumber;
-  static int _addrInFamily;
-  static char _directIp[64];
-  static bool _enableSysGetAddr;
+  WorkThread *_workThreadArray; //工作线程数组
+  size_t _workThreadsNumber;    //工作线程数量
+  size_t _currentCpuNumber;
+  int _addrInFamily;
+  char _directIp[64];
+  bool _enableSysGetAddr;
+  NlsClient* _instance;
 
 #if defined(_MSC_VER)
   static HANDLE _mtxThread;
 #else
   static pthread_mutex_t _mtxThread;
 #endif
-
+  static int _opCount;
 };
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_NETWORK_H
+#endif // NLS_SDK_NETWORK_H

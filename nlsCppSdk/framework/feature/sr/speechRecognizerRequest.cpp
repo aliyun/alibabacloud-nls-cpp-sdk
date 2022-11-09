@@ -50,7 +50,7 @@ void SpeechRecognizerCallback::setOnTaskFailed(
     NlsCallbackMethod event, void* param) {
   //LOG_DEBUG("setOnTaskFailed callback");
   if (param == NULL) {
-    LOG_DEBUG("setOnTaskFailed NULL");
+    LOG_ERROR("setOnTaskFailed NULL");
   }
 
   this->_onTaskFailed = event;
@@ -65,7 +65,7 @@ void SpeechRecognizerCallback::setOnRecognitionStarted(
     NlsCallbackMethod event, void* param) {
   //LOG_DEBUG("setOnRecognitionStarted callback");
   if (param == NULL) {
-    LOG_DEBUG("setOnRecognitionStarted NULL");
+    LOG_ERROR("setOnRecognitionStarted NULL");
   }
 
   this->_onRecognitionStarted = event;
@@ -80,7 +80,7 @@ void SpeechRecognizerCallback::setOnRecognitionCompleted(
     NlsCallbackMethod event, void* param) {
   //LOG_DEBUG("setOnRecognitionCompleted callback");
   if (param == NULL) {
-    LOG_DEBUG("setOnRecognitionCompleted NULL");
+    LOG_ERROR("setOnRecognitionCompleted NULL");
   }
 
   this->_onRecognitionCompleted = event;
@@ -95,7 +95,7 @@ void SpeechRecognizerCallback::setOnRecognitionResultChanged(
     NlsCallbackMethod event, void* param) {
   //LOG_DEBUG("setOnRecognitionResultChanged callback");
   if (param == NULL) {
-    LOG_DEBUG("setOnRecognitionResultChanged NULL");
+    LOG_ERROR("setOnRecognitionResultChanged NULL");
   }
 
   this->_onRecognitionResultChanged = event;
@@ -110,7 +110,7 @@ void SpeechRecognizerCallback::setOnChannelClosed(
     NlsCallbackMethod event, void* param) {
   //LOG_DEBUG("setOnChannelClosed callback");
   if (param == NULL) {
-    LOG_DEBUG("setOnChannelClosed NULL");
+    LOG_ERROR("setOnChannelClosed NULL");
   }
 
   this->_onChannelClosed = event;
@@ -258,6 +258,16 @@ int SpeechRecognizerRequest::setVocabularyId(const char * value) {
 
 int SpeechRecognizerRequest::setTimeout(int value) {
   _recognizerParam->setTimeout(value);
+  return 0;
+}
+
+int SpeechRecognizerRequest::setRecvTimeout(int value) {
+  _recognizerParam->setRecvTimeout(value);
+  return 0;
+}
+
+int SpeechRecognizerRequest::setSendTimeout(int value) {
+  _recognizerParam->setSendTimeout(value);
   return 0;
 }
 

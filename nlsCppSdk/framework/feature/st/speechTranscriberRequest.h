@@ -155,13 +155,26 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    */
   int setVocabularyId(const char * value);
 
-  /*
-   * @brief 设置Socket接收超时时间
-   * @note
-   * @param value 超时时间
+  /**
+   * @brief 设置链接超时时间
+   * @param value 超时时间(ms), 默认5000ms
    * @return 成功则返回0，否则返回-1
    */
   int setTimeout(int value);
+
+  /**
+   * @brief 设置接收超时时间
+   * @param value 超时时间(ms), 默认15000ms
+   * @return 成功则返回0，否则返回-1
+   */
+  int setRecvTimeout(int value);
+
+  /**
+   * @brief 设置发送超时时间
+   * @param value 超时时间(ms), 默认5000ms
+   * @return 成功则返回0，否则返回-1
+   */
+  int setSendTimeout(int value);
 
   /*
    * @brief 设置是否开启nlp服务
@@ -250,28 +263,28 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
   /*
    * @brief 启动实时音频流识别
    * @note 异步操作。成功返回started事件。失败返回TaskFailed事件。
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
    */
   int start();
 
   /*
    * @brief 要求服务端更新识别参数
    * @note 异步操作。失败返回TaskFailed。
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
    */
   int control(const char* message);
 
   /*
    * @brief 会与服务端确认关闭，正常停止实时音频流识别操作
    * @note 异步操作。失败返回TaskFailed。
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
    */
   int stop();
 
   /*
    * @brief 直接关闭实时音频流识别过程
    * @note 调用cancel之后不会在上报任何回调事件
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
    */
   int cancel();
 
@@ -286,7 +299,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
                              只支持20ms 16K16b1c
                  ENCODER_OPUS 表示以OPUS压缩后进行传递,
                               只支持20ms, 支持16K16b1c和8K16b1c
-   * @return 成功则返回>=0，失败返回-1。
+   * @return 成功则返回>=0，失败返回负值，查看nlsGlobal.h中错误码详细定位。
              由于音频格式不确定，传入音频字节数和传出音频字节数
              无法通过比较判断成功与否，故成功返回>=0。
    */

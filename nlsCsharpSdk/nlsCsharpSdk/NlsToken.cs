@@ -25,6 +25,9 @@ namespace nlsCsharpSdk
 
     public class NlsToken : INlsToken
     {
+        /// <summary>
+        /// NLS TOKEN请求的Native指针.
+        /// </summary>
         public IntPtr native_token;
 
         /// <summary>

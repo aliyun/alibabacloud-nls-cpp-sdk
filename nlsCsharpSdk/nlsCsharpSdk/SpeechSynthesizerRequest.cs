@@ -22,11 +22,14 @@ using System.Runtime.InteropServices;
 namespace nlsCsharpSdk
 {
     /// <summary>
-    /// 语言合成
+    /// 语音合成
     /// </summary>
 
     public class SpeechSynthesizerRequest : ISpeechSynthesizer
     {
+        /// <summary>
+        /// 语音合成请求的Native指针.
+        /// </summary>
         public IntPtr native_request;
 
         #region Start the request of speech synthesizer
@@ -118,7 +121,7 @@ namespace nlsCsharpSdk
         }
 
         /// <summary>
-        /// 设置音频数据编码格式字段Format.
+        /// 设置合成的音频数据编码格式.
         /// </summary>
         /// <param name="request">
         /// CreateSynthesizerRequest所建立的request对象.
@@ -242,7 +245,7 @@ namespace nlsCsharpSdk
         }
 
         /// <summary>
-        /// 是否开启字幕功能.
+        /// 是否开启字幕功能. 开启后可获得详细的合成信息, 比如每个字的时间戳.
         /// </summary>
         /// <param name="request">
         /// CreateSynthesizerRequest所建立的request对象.
@@ -271,7 +274,7 @@ namespace nlsCsharpSdk
         }
 
         /// <summary>
-        /// 设置输出文本的编码格式.
+        /// 设置输出文本的编码格式. 默认GBK.
         /// </summary>
         /// <param name="request">
         /// CreateSynthesizerRequest所建立的request对象.

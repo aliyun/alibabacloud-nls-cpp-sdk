@@ -277,6 +277,16 @@ int SpeechTranscriberRequest::setTimeout(int value) {
   return 0;
 }
 
+int SpeechTranscriberRequest::setRecvTimeout(int value) {
+  _transcriberParam->setRecvTimeout(value);
+  return 0;
+}
+
+int SpeechTranscriberRequest::setSendTimeout(int value) {
+  _transcriberParam->setSendTimeout(value);
+  return 0;
+}
+
 int SpeechTranscriberRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _transcriberParam->setOutputFormat(value);

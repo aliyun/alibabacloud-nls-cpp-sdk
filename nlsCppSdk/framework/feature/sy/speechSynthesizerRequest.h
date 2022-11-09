@@ -168,12 +168,25 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
   int setPayloadParam(const char* value);
 
   /**
-   * @brief 设置Socket接收超时时间
-   * @note
-   * @param value 超时时间
+   * @brief 设置链接超时时间
+   * @param value 超时时间(ms), 默认5000ms
    * @return 成功则返回0，否则返回-1
    */
   int setTimeout(int value);
+
+  /**
+   * @brief 设置接收超时时间
+   * @param value 超时时间(ms), 默认15000ms
+   * @return 成功则返回0，否则返回-1
+   */
+  int setRecvTimeout(int value);
+
+  /**
+   * @brief 设置发送超时时间
+   * @param value 超时时间(ms), 默认5000ms
+   * @return 成功则返回0，否则返回-1
+   */
+  int setSendTimeout(int value);
 
   /**
    * @brief 设置输出文本的编码格式

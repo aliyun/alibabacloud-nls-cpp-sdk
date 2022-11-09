@@ -16,7 +16,11 @@ MESSAGE("build speech-demo enter..")
 MESSAGE("PROFECT_SOURCE_DIR " ${PROJECT_SOURCE_DIR})
 MESSAGE("CMAKE_SOURCE_DIR " ${CMAKE_SOURCE_DIR})
 
-include_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/include)
+set(NLS_DEMO_LIST
+    ${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/include
+    ${CMAKE_SOURCE_DIR}/../../nlsCppSdk/utils
+    )
+include_directories(${NLS_DEMO_LIST})
 link_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/lib)
 
 # 一句话识别
@@ -54,3 +58,16 @@ add_executable(ftDemo fileTransferDemo.cpp)
 target_link_libraries(ftDemo
     alibabacloud-idst-speech
     pthread z dl)
+
+# Token生成
+add_executable(gtDemo generateTokenDemo.cpp)
+target_link_libraries(gtDemo
+    alibabacloud-idst-speech
+    pthread z dl)
+
+# log4cpp单元测试
+add_executable(logUnitTest log4cppUnitTest.cpp)
+target_link_libraries(logUnitTest
+    alibabacloud-idst-speech
+    pthread z dl)
+

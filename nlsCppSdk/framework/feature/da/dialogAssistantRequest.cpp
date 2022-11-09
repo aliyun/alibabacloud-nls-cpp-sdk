@@ -240,6 +240,16 @@ int DialogAssistantRequest::setTimeout(int value) {
   return 0;
 }
 
+int DialogAssistantRequest::setRecvTimeout(int value) {
+  _dialogAssistantParam->setRecvTimeout(value);
+  return 0;
+}
+
+int DialogAssistantRequest::setSendTimeout(int value) {
+  _dialogAssistantParam->setSendTimeout(value);
+  return 0;
+}
+
 int DialogAssistantRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _dialogAssistantParam->setOutputFormat(value);

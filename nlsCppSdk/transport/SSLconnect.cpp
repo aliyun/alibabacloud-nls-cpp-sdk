@@ -38,10 +38,12 @@ SSLconnect::~SSLconnect() {
 }
 
 int SSLconnect::init() {
-  _sslCtx = SSL_CTX_new(SSLv23_client_method());
   if (_sslCtx == NULL) {
-    LOG_ERROR("SSL: couldn't create a context!");
-    exit(1);
+    _sslCtx = SSL_CTX_new(SSLv23_client_method());
+    if (_sslCtx == NULL) {
+      LOG_ERROR("SSL: couldn't create a context!");
+      exit(1);
+    }
   }
 
   SSL_CTX_set_verify(_sslCtx, SSL_VERIFY_NONE, NULL);
@@ -69,10 +71,8 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
   //LOG_DEBUG("begin sslHandshake.");
 
   if (_sslCtx == NULL) {
-    return -1;
+    return -(SslCtxEmpty);
   }
-
-  //LOG_DEBUG("sslHandshake 000.");
 
   int ret;
   if (_ssl == NULL) {
@@ -85,7 +85,7 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
                          _errorMsg + strnlen(SSL_new_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("SSL SSL_new failed:%s.", _errorMsg);
-      return -1;
+      return -(SslNewFailed);
     }
 
     ret = SSL_set_fd(_ssl, socketFd);
@@ -97,10 +97,8 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
                          _errorMsg + strnlen(SSL_set_fd_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("SSL set_fd failed:%s.", _errorMsg);
-      return -1;
+      return -(SslSetFailed);
     }
-
-    //LOG_DEBUG("sslHandshake 001.");
 
     SSL_set_mode(_ssl,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
@@ -124,12 +122,16 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       return sslError;
     } else if (sslError == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
-      LOG_INFO("SSL connect failed:%d.", errno_code);
+      LOG_INFO("SSL connect error_syscall failed, errno:%d.", errno_code);
+
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
         return SSL_ERROR_WANT_READ;
+      } else if (errno_code == 0) {
+        LOG_DEBUG("SSL connect syscall success.");
+        return Success;
       } else {
-        return -1;
+        return -(SslConnectFailed);
       }
     } else {
       memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -140,11 +142,11 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("SSL connect failed:%s.", _errorMsg);
       sslClose();
-      return -1;
+      return -(SslConnectFailed);
     }
   } else {
     LOG_DEBUG("sslHandshake success.");
-    return 0;
+    return Success;
   }
 }
 
@@ -158,10 +160,13 @@ int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
-      LOG_INFO("SSL_write failed:%d.", errno_code);
+      LOG_INFO("SSL_write error_syscall failed, errno:%d.", errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
+        return 0;
+      } else if (errno_code == 0) {
+        LOG_DEBUG("SSL_write syscall success.");
         return 0;
       } else {
         memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -171,7 +176,7 @@ int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
                            _errorMsg + strnlen(SSL_write_ret, 64),
                            MAX_SSL_ERROR_LENGTH);
         LOG_ERROR("SSL_ERROR_SYSCALL Ssl write failed:%s.", _errorMsg);
-        return -1;
+        return -(SslWriteFailed);
       }
     } else {
       memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -181,7 +186,7 @@ int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
                          _errorMsg + strnlen(SSL_write_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("Ssl write failed:%s.", _errorMsg);
-      return -1;
+      return -(SslWriteFailed);
     }
   } else {
     return wLen;
@@ -200,9 +205,13 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
-      LOG_WARN("SSL_read failed:%d.", errno_code);
+      LOG_INFO("SSL_read error_syscall failed, errno:%d.", errno_code);
+
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
+        return 0;
+      } else if (errno_code == 0) {
+        LOG_DEBUG("SSL_write syscall success.");
         return 0;
       } else {
         memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -212,7 +221,7 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
                            _errorMsg + strnlen(SSL_read_ret, 64),
                            MAX_SSL_ERROR_LENGTH);
         LOG_ERROR("SSL_ERROR_SYSCALL Read failed:%d, %s.", eCode, _errorMsg);
-        return -1;
+        return -(SslReadSysError);
       }
     } else {
       memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -223,7 +232,7 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
                          _errorMsg + strnlen(SSL_read_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("Read failed:%d, %s.", eCode, _errorMsg);
-      return -1;
+      return -(SslReadFailed);
     }
   } else {
     return rLen;
@@ -231,7 +240,9 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
 }
 
 /*
- * 关闭TLS/SSL连接
+ * Description: 关闭TLS/SSL连接
+ * Return:
+ * Others:
  */
 void SSLconnect::sslClose() {
   if (_ssl) {

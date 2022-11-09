@@ -29,12 +29,13 @@
 #include <queue>
 #include <string>
 #include <stdint.h>
-//#include "nlsEvent.h"
 #include "nlsEncoder.h"
 #include "error.h"
 #include "webSocketTcp.h"
 #include "webSocketFrameHandleBase.h"
 #include "SSLconnect.h"
+#include "nlsClient.h"
+#include "nlsGlobal.h"
 
 #include "event2/util.h"
 #include "event2/dns.h"
@@ -47,12 +48,12 @@ class INlsRequest;
 class WorkThread;
 class NlsEventNetWork;
 
-#define LIMIT_CONNECT_TIMEOUT 2
-#define RETRY_CONNECT_COUNT 4
-#define SAMPLE_RATE_16K 16000
-#define SAMPLE_RATE_8K 8000
-#define BUFFER_16K_MAX_LIMIT 320000
-#define BUFFER_8K_MAX_LIMIT 160000
+#define CONNECT_TIMER_INVERVAL_MS 20
+#define RETRY_CONNECT_COUNT       4
+#define SAMPLE_RATE_16K           16000
+#define SAMPLE_RATE_8K            8000
+#define BUFFER_16K_MAX_LIMIT      320000
+#define BUFFER_8K_MAX_LIMIT       160000
 
 #if defined(_MSC_VER)
 
@@ -90,6 +91,7 @@ class NlsEventNetWork;
 #define CLOSE_JSON_STRING "{\"channeclClosed\": \"nls request finished.\"}"
 #define TASKFAILED_CONNECT_JSON_STRING "connect failed."
 #define TASKFAILED_PARSE_JSON_STRING "{\"TaskFailed\": \"JSON: Json parse failed.\"}"
+#define TASKFAILED_NEW_NLSEVENT_FAILED "{\"TaskFailed\": \"new NlsEvent failed, memory is not enough.\"}"
 #define TASKFAILED_UTF8_JSON_STRING "{\"TaskFailed\": \"utf8ToGbk failed.\"}"
 #define TASKFAILED_WS_JSON_STRING "{\"TaskFailed\": \"WEBSOCKET: unkown head type.\"}"
 
@@ -124,6 +126,15 @@ enum ConnectStatus {
   NodeInvalid
 };
 
+enum CallbackStatus {
+  CallbackInvalid = 0,
+  CallbackStarted,
+  CallbackCancelled,
+  CallbackFailed,
+  CallbackClosed,
+  CallbackCompleted,
+};
+
 //class ConnectNode : public utility::BaseError {
 class ConnectNode {
 
@@ -155,12 +166,12 @@ class ConnectNode {
   void closeStatusConnectNode();
   void closeConnectNode();
   void disconnectProcess();
-
   bool checkConnectCount();
 
   void handlerEvent(const char* error, int errorCode,
                     NlsEvent::EventType eventType);
-  void handlerTaskFailedEvent(std::string failedInfo);
+  void handlerTaskFailedEvent(
+      std::string failedInfo, int code = DefaultErrorCode);
 
   WorkThread* _eventThread;
   evutil_socket_t _socketFd;
@@ -177,6 +188,13 @@ class ConnectNode {
   ExitStatus getExitStatus();
   std::string getExitStatusString();
   void setExitStatus(ExitStatus status);
+  void setCallbackStatus(CallbackStatus status);
+  CallbackStatus getCallbackStatus();
+
+  std::string getCmdTypeString(int type);
+
+  void setInstance(NlsClient* instance);
+  NlsClient* getInstance();
 
   void resetBufferLimit();
 
@@ -230,6 +248,8 @@ class ConnectNode {
 
   size_t _limitSize;
   struct timeval _connectTv;
+  struct timeval _recvTv;
+  struct timeval _sendTv;
 
   std::string	_nodeErrMsg;
 
@@ -242,21 +262,34 @@ class ConnectNode {
   struct event _readEvent;
   struct event _writeEvent;
 
+#ifdef ENABLE_HIGH_EFFICIENCY
+  struct timeval _connectTimerTv;
+  struct event *_connectTimerEvent;
+  bool _connectTimerFlag;
+#endif
+
   WebSocketTcp _webSocket;
   WebSocketHeaderType _wsType;
 
+  CallbackStatus _callbackStatus;
   ExitStatus _exitStatus;
   size_t _retryConnectCount;
 
   NlsEncoder * _nlsEncoder;
   ENCODER_TYPE _encoder_type;
 
+  bool _isStop;
+
+  NlsClient* _instance;
+
 #if defined(_MSC_VER)
   HANDLE _mtxNode;
   HANDLE _mtxCloseNode;
+  HANDLE _mtxCallbackNode;
 #else
   pthread_mutex_t  _mtxNode;
   pthread_mutex_t  _mtxCloseNode;
+  pthread_mutex_t _mtxCallbackNode;
 #endif
 
 #if defined(__ANDROID__) || defined(__linux__)
@@ -270,15 +303,16 @@ class ConnectNode {
 
   std::string utf8ToGbk(const std::string &strUTF8);
   NlsEvent* convertResult(WebSocketFrame * frame);
+  const char* cmdConvertForLog(char *buf_in, std::string *buf_out);
 
   int parseFrame(WebSocketFrame *wsFrame);
 
   int socketWrite(const uint8_t * buffer, size_t len);
   int socketRead(uint8_t * buffer, size_t len);
 
-  bool _isStop;
+  int getErrorCodeFromMsg(const char* msg);
 };
 
 }
 
-#endif /*NLS_SDK_CONNECT_NODE_H*/
+#endif // NLS_SDK_CONNECT_NODE_H

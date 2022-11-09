@@ -23,12 +23,6 @@
 #include <string>
 #include <stdint.h>
 
-//#include "nlsGlobal.h"
-//#include "nlsEncoder.h"
-//#include "connectNode.h"
-//#include "iNlsRequestParam.h"
-//#include "iNlsRequestListener.h"
-
 namespace AlibabaNls {
 
 class ConnectNode;

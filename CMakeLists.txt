@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 
 #project
 file(STRINGS "${CMAKE_SOURCE_DIR}/version" version)
-project(nlsCppSdk3.x VERSION ${version})
+string(REPLACE "-" ";" NLS_VERSION ${version})
+list(GET NLS_VERSION 0 SDK_VERSION)
+project(nlsCppSdk3.x VERSION ${SDK_VERSION})
 message(STATUS "Project version: ${PROJECT_VERSION}")
+add_definitions(-DSDK_VERSION="\\"${version}\\"")
 
 message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
@@ -107,6 +110,14 @@ endfunction()
 #获取SDK编译选项
 sdkConfigFunc("config/nlsSdkConfig.conf")
 
+#设置Git信息
+exec_program(
+  "git"
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ARGS "log --format='[sha1]:%h [author]:%cn [time]:%ci [commit]:%s [branch]:%d' -1"
+  OUTPUT_VARIABLE VERSION_SHA1 )
+add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
+
 #获取输出类型
 get_property(BUILD_TYPE GLOBAL PROPERTY BUILD_LIB_TYPE)
 
@@ -136,6 +147,7 @@ set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} -Wl,-Bsymbolic")
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 add_definitions(-DENABLE_OGGOPUS)
+add_definitions(-DENABLE_HIGH_EFFICIENCY)
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)

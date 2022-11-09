@@ -56,5 +56,8 @@ namespace nlsCsharpSdk.CPlusPlus
 
         [DllImport(DllExtern, EntryPoint = "FTSetCustomParam", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public extern static void FTSetCustomParam(IntPtr request, string customJsonString);
+
+        [DllImport(DllExtern, EntryPoint = "FTsetOutputFormat", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public extern static void FTsetOutputFormat(IntPtr request, string textFormat);
     }
 }

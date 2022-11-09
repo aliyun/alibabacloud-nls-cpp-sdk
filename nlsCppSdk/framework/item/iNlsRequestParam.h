@@ -72,6 +72,12 @@ class INlsRequestParam {
   inline void setTimeout(int timeout) {
     _timeout = timeout;
   };
+  inline void setRecvTimeout(int timeout) {
+    _recv_timeout = timeout;
+  };
+  inline void setSendTimeout(int timeout) {
+    _send_timeout = timeout;
+  };
 
   inline void setOutputFormat(const char* outputFormat) {
     _outputFormat = outputFormat;
@@ -96,6 +102,8 @@ class INlsRequestParam {
   virtual int setVocabularyId(const char * value);
 
   virtual int getTimeout();
+  virtual int getRecvTimeout();
+  virtual int getSendTimeout();
 
  public:
   int AppendHttpHeader(const char* key, const char* value);
@@ -105,6 +113,9 @@ class INlsRequestParam {
   bool _enableWakeWord;
 
   int _timeout;
+  int _recv_timeout;
+  int _send_timeout;
+
   int _sampleRate;
   NlsRequestType _requestType;
 

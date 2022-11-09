@@ -23,9 +23,11 @@ namespace nlsCsharpSdk
     /// 实时转写
     /// </summary>
     /// 
-
     public class SpeechTranscriberRequest : ISpeechTranscriber
     {
+        /// <summary>
+        /// 实时识别请求的Native指针.
+        /// </summary>
         public IntPtr native_request;
 
         #region Start the request of speech transcriber
@@ -67,6 +69,23 @@ namespace nlsCsharpSdk
         public int Cancel(SpeechTranscriberRequest request)
         {
             return NativeMethods.STcancel(request.native_request);
+        }
+        #endregion
+
+        #region Send Control message into the speech transcriber
+        /// <summary>
+        /// 要求服务端更新识别参数. 异步操作, 失败返回TaskFailed.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="message">
+        ///.
+        /// </param>
+        /// <returns>成功则返回0, 否则返回-1.</returns>
+        public int Control(SpeechTranscriberRequest request, string message)
+        {
+            return -1;
         }
         #endregion
 
@@ -391,6 +410,9 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateTranscriberRequest所建立的request对象.
         /// </param>
+        /// <param name="key">
+        ///
+        /// </param>
         /// <param name="value">
         ///
         /// </param>
@@ -461,6 +483,14 @@ namespace nlsCsharpSdk
                 callback.callback(ref callback.nlsEvent, ref callback.user);
             };
         NlsCallbackDelegate onSentenceEnd =
+            (handler) =>
+            {
+                SpeechParamStruct callback = new SpeechParamStruct();
+                callback = (SpeechParamStruct)Marshal.PtrToStructure(handler, typeof(SpeechParamStruct));
+                int ret = GetNlsEvent(out callback.nlsEvent);
+                callback.callback(ref callback.nlsEvent, ref callback.user);
+            };
+        NlsCallbackDelegate onSentenceSemantics =
             (handler) =>
             {
                 SpeechParamStruct callback = new SpeechParamStruct();
@@ -652,6 +682,32 @@ namespace nlsCsharpSdk
             IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
             Marshal.StructureToPtr(user_param, toCppParam, false);
             NativeMethods.STOnSentenceEnd(request.native_request, onSentenceEnd, (IntPtr)toCppParam);
+            return;
+        }
+
+        /// <summary>
+        /// 设置二次处理结果回调函数, 表示对实时转写的原始结果进行处理后的结果, 开启enable_nlp后返回.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <param name="callback">
+        /// 用户传入的回调函数.
+        /// </param>
+        /// <param name="para">
+        /// 用户对象.
+        /// </param>
+        /// <returns></returns>
+        public void SetOnSentenceSemantics(
+            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+        {
+            SpeechParamStruct user_param = new SpeechParamStruct();
+            user_param.user = para;
+            user_param.callback = callback;
+            user_param.nlsEvent = new NLS_EVENT_STRUCT();
+            IntPtr toCppParam = Marshal.AllocHGlobal(Marshal.SizeOf(user_param));
+            Marshal.StructureToPtr(user_param, toCppParam, false);
+            NativeMethods.STOnSentenceSemantics(request.native_request, onSentenceSemantics, (IntPtr)toCppParam);
             return;
         }
         #endregion

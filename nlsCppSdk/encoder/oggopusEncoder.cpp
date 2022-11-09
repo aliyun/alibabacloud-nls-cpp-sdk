@@ -25,6 +25,7 @@
 #include "oggopusAudioIn.h"
 #include "oggopusHeader.h"
 #include "nlog.h"
+#include "nlsGlobal.h"
 
 namespace AlibabaNls {
 
@@ -34,7 +35,7 @@ int OggOpusDataEncoderPara::InitComment() {
   char *p = reinterpret_cast<char *>(malloc(len));
   if (p == NULL) {
     LOG_ERROR("malloc failed in CommentInit()");
-    return -1;
+    return -(MallocFailed);
   }
   memset(p, 0, len);
   memcpy(p, "OpusTags", 8);
@@ -44,7 +45,7 @@ int OggOpusDataEncoderPara::InitComment() {
   ogg_encode_opt.comments_length = len;
   ogg_encode_opt.comments = p;
 
-  return 0;
+  return Success;
 }
 
 int OggOpusDataEncoderPara::AddComment() {
@@ -59,7 +60,7 @@ int OggOpusDataEncoderPara::AddComment() {
   p = reinterpret_cast<char *>(realloc(p, len));
   if (p == NULL) {
     LOG_ERROR("realloc failed in CommentAdd()");
-    return -1;
+    return -(ReallocFailed);
   }
   /* length of comment */
   writeint(p, ogg_encode_opt.comments_length, tag_len+val_len);
@@ -72,7 +73,7 @@ int OggOpusDataEncoderPara::AddComment() {
   ogg_encode_opt.comments_length = len;
   ogg_encode_opt.comments = p;
 
-  return 0;
+  return Success;
 }
 
 /* 通过回调把数据推送到数据队列中 */

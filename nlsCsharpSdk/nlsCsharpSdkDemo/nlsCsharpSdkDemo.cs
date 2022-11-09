@@ -380,7 +380,7 @@ namespace nlsCsharpSdkDemo
                     tokenPtr.SetKeySecret(tokenPtr, akSecret);
 
                     ret = tokenPtr.ApplyNlsToken(tokenPtr);
-                    if (ret == -1)
+                    if (ret < 0)
                     {
                         System.Diagnostics.Debug.WriteLine("ApplyNlsToken failed");
                         nlsResult.Text = tokenPtr.GetErrorMsg(tokenPtr);
@@ -1307,7 +1307,7 @@ namespace nlsCsharpSdkDemo
             request.SetFileLinkUrl(request, fileLinkUrl);
 
             int ret = request.ApplyFileTrans(request);
-            if (ret == -1)
+            if (ret < 0)
             {
                 string ft_error_msg = request.GetErrorMsg(request);
                 System.Diagnostics.Debug.WriteLine("FileTransfer get error msg = {0}", ft_error_msg);

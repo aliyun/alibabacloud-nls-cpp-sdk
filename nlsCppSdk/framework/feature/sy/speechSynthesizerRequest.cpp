@@ -131,7 +131,7 @@ SpeechSynthesizerRequest::SpeechSynthesizerRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechSynthesizerRequest Done.");
+  LOG_DEBUG("Create SpeechSynthesizerRequest with long Connect flag(%d) Done.", isLongConnection);
 }
 
 SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
@@ -238,6 +238,16 @@ int SpeechSynthesizerRequest::setVoice(const char* value) {
 
 int SpeechSynthesizerRequest::setTimeout(int value) {
   _synthesizerParam->setTimeout(value);
+  return 0;
+}
+
+int SpeechSynthesizerRequest::setRecvTimeout(int value) {
+  _synthesizerParam->setRecvTimeout(value);
+  return 0;
+}
+
+int SpeechSynthesizerRequest::setSendTimeout(int value) {
+  _synthesizerParam->setSendTimeout(value);
   return 0;
 }
 

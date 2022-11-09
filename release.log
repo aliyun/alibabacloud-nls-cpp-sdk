@@ -67,4 +67,19 @@
 7: C#进行多并发重构，完善Demo中多并发相关功能
 8: 增加录音文件识别功能和对应Demo
 9: 解决有些环境下release版本运行崩溃问题
-10:修复向log4cpp传入特殊字符比如 %C 导致崩溃的问题
+
+-----2022/11/09 Version:3.1.14-----
+1: log输入增加过滤，过滤%的占位符
+2: log4cpp中进行代码修改, 修改可能导致崩溃的地方
+3: 将打印log中appkey和TOKEN等账号有关的信息进行了隐藏
+4: startWorkThread中增加git commit id和sdk version的打印
+5: 增加log4cpp的单元测试代码
+6: 增加异步录音文件识别的功能
+7: 修复多并发时, start后马上cancel马上releaseSynthesizerRequest马上releaseInstance时崩溃的问题; 以及release后继续操作导致的崩溃
+8: 修复两次TaskFailed回调
+9: 增加tts语音合成文本字符数计算
+10:README中增加调用流程图
+11:增加更加详细的错误码
+12:降低高并发情况下的CPU占用
+13:增加timeout设置
+14:增强Windows版本兼容性

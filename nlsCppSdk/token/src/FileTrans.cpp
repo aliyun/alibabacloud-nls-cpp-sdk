@@ -16,6 +16,7 @@
 
 #ifdef _MSC_VER
 #include <windows.h>
+#include <process.h>
 #else
 #if defined(__ANDROID__) || defined(__linux__)
 #include <unistd.h>
@@ -23,6 +24,7 @@
 #include <iconv.h>
 #endif
 #endif
+#include <pthread.h>
 #endif
 
 #include <iostream>
@@ -30,6 +32,7 @@
 #include "CommonClient.h"
 #include "json/json.h"
 #include "FileTrans.h"
+#include "text_utils.h"
 #include "nlog.h"
 
 namespace AlibabaNlsCommon {
@@ -41,8 +44,6 @@ FileTrans::FileTrans() {
   accessKeyId_ = "";
   appKey_ = "";
   fileLink_ = "";
-  errorMsg_ = "";
-  result_ = "";
   regionId_ = "";
   endpointName_ = "";
   serverResourcePath_ = "";
@@ -57,6 +58,15 @@ FileTrans::FileTrans() {
 #else
   outputFormat_ = "UTF-8";
 #endif
+
+  eventHandler_ = NULL;
+  paramHandler_ = NULL;
+
+  resultResponse_.statusCode = 0;
+  resultResponse_.taskId = "";
+  resultResponse_.event = TaskUnknown;
+  resultResponse_.errorMsg = "";
+  resultResponse_.result = "";
 }
 
 FileTrans::~FileTrans() {
@@ -64,45 +74,153 @@ FileTrans::~FileTrans() {
 
 int FileTrans::paramCheck() {
   if (accessKeySecret_.empty()) {
-    errorMsg_ = "AccessKeySecret is empty.";
-    return -1;
+    resultResponse_.errorMsg = "AccessKeySecret is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidAkSecret);
   }
 
   if (accessKeyId_.empty()) {
-    errorMsg_ = "AccessKeyId is empty.";
-    return -1;
+    resultResponse_.errorMsg = "AccessKeyId is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidAkId);
   }
 
   if (appKey_.empty()) {
-    errorMsg_ = "AppKey is empty.";
-    return -1;
+    resultResponse_.errorMsg = "AppKey is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidAppKey);
   }
 
   if (fileLink_.empty()) {
-    errorMsg_ = "FileLink is empty.";
-    return -1;
+    resultResponse_.errorMsg = "FileLink is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidFileLink);
   }
 
   if (domain_.empty()) {
-    errorMsg_ = "Domain is empty.";
-    return -1;
+    resultResponse_.errorMsg = "Domain is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidDomain);
   }
 
   if (serverVersion_.empty()) {
-    errorMsg_ = "ServerVersion is empty.";
-    return -1;
+    resultResponse_.errorMsg = "ServerVersion is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidServerVersion);
   }
 
   if (action_.empty()) {
-    errorMsg_ = "Action is empty.";
-    return -1;
+    resultResponse_.errorMsg = "Action is empty.";
+    resultResponse_.event = TaskFailed;
+    return -(InvalidAction);
   }
 
-  return 0;
+  return Success;
 }
 
-int FileTrans::applyFileTrans() {
+#if defined(_MSC_VER)
+unsigned __stdcall applyResultRequestThread(LPVOID arg) {
+#else
+void* applyResultRequestThread(void* arg) {
+#endif
+  FileTrans* async = (FileTrans*)arg;
+  struct resultRequest param = async->getRequestParams();
+  async->applyResultRequest(param);
+  return NULL;
+}
+
+int FileTrans::applyResultRequest(struct resultRequest param) {
   int retCode = 0;
+  std::string errorMsg = "";
+  std::string tmpErrorMsg = "";
+  CommonClient* client = (CommonClient*)param.client;
+  std::string taskId = param.taskId;
+  std::string domain = param.domain;
+  std::string serverVersion = param.serverVersion;
+  std::string result_str = "";
+
+  CommonRequest resultRequest(CommonRequest::FileTransPattern);
+  resultRequest.setDomain(domain);
+  resultRequest.setVersion(serverVersion);
+  resultRequest.setHttpMethod(HttpRequest::Get);
+  resultRequest.setAction("GetTaskResult");
+  resultRequest.setTaskId(taskId);
+
+  resultResponse_.taskId = taskId;
+
+  Json::Value::UInt statusCode;
+  Json::Value resultJson;
+  Json::Reader resultReader;
+  std::string resultString;
+
+  CommonClient::CommonResponseOutcome resultOutcome;
+
+  do {
+    resultOutcome = client->commonResponse(resultRequest);
+    if (!resultOutcome.isSuccess()) {
+      // 异常处理
+      resultResponse_.errorMsg = resultOutcome.error().errorMessage();
+      resultResponse_.event = TaskFailed;
+      retCode = -(ClientRequestFaild);
+      break;
+    }
+
+    resultJson.clear();
+    resultString.clear();
+    resultString = resultOutcome.result().payload();
+
+    if (!resultReader.parse(resultString, resultJson)) {
+      tmpErrorMsg = "Json any failed: ";
+      tmpErrorMsg += resultString;
+      resultResponse_.errorMsg = tmpErrorMsg;
+      resultResponse_.event = TaskFailed;
+      retCode = -(JsonParseFailed);
+      break;
+    }
+
+    if (!resultJson["StatusCode"].isNull()) {
+      statusCode = resultJson["StatusCode"].asUInt();
+      if ((statusCode == 21050001) || (statusCode == 21050002)) {
+#if defined(_MSC_VER)
+        Sleep(100);
+#else
+        usleep(100 * 1000);
+#endif
+      } else if ((statusCode == 21050000) || (statusCode == 21050003)){
+        resultResponse_.result = resultString;
+        resultResponse_.statusCode = statusCode;
+        resultResponse_.event = TaskCompleted;
+        LOG_DEBUG("task id: %s, result: %s",
+            taskId.c_str(), result_str.c_str());
+        break;
+      } else {
+        resultResponse_.errorMsg = resultJson["StatusText"].asCString();
+        resultResponse_.statusCode = statusCode;
+        resultResponse_.event = TaskFailed;
+        retCode = -(ErrorStatusCode);
+        break;
+      }
+    } else {
+      resultResponse_.errorMsg = resultString;
+      resultResponse_.statusCode = statusCode;
+      resultResponse_.event = TaskFailed;
+      retCode = -(ErrorStatusCode);
+      break;
+    }
+    LOG_DEBUG("task id: %s, statusCode: %d", taskId.c_str(), statusCode);
+  } while((statusCode == 21050001) || (statusCode == 21050002));
+
+  if (eventHandler_) {
+    eventHandler_(this, paramHandler_);
+  }
+
+  delete client;
+
+  return retCode;
+}
+
+int FileTrans::applyFileTrans(bool sync) {
+  int retCode = Success;
   std::string tmpErrorMsg;
   Json::Value::UInt statusCode;
   Json::Value root;
@@ -111,17 +229,21 @@ int FileTrans::applyFileTrans() {
   Json::Value::Members members;
   Json::FastWriter writer;
 
-  if (paramCheck() == -1) {
-    return -1;
+  LOG_INFO("NLS(FT) Initialize with version %s", utility::TextUtils::GetVersion().c_str());
+  LOG_INFO("NLS(FT) Git SHA %s", utility::TextUtils::GetGitCommitInfo());
+
+  retCode = paramCheck();
+  if (retCode < 0) {
+    return retCode;
   }
 
   if (!customParam_.empty()) {
     if (!reader.parse(customParam_.c_str(), root)) {
-      return -1;
+      return -(JsonParseFailed);
     }
 
     if (!root.isObject()) {
-      return -1;
+      return -(JsonObjectError);
     }
   }
   root["app_key"] = appKey_.c_str();
@@ -143,7 +265,7 @@ int FileTrans::applyFileTrans() {
   taskRequest.setAction("SubmitTask");
 
   std::string taskContent = writer.write(root);
-  //std::cout << "Output: " << taskContent << std::endl;
+  LOG_DEBUG("taskContent: %s", taskContent.c_str());
 
   taskRequest.setTask(taskContent);
 
@@ -151,129 +273,112 @@ int FileTrans::applyFileTrans() {
       client->commonResponse(taskRequest);
   if (!outcome.isSuccess()) {
     // 异常处理
-    errorMsg_ = outcome.error().errorMessage();
+    resultResponse_.event = TaskFailed;
+    resultResponse_.errorMsg = outcome.error().errorMessage();
     delete client;
-    return -1;
+    return -(ClientRequestFaild);
   }
 
   Json::Value requestJson;
   Json::Reader requestReader;
   std::string requestString = outcome.result().payload();
 
-  //std::cout << "Request:" << requestString << std::endl;
+  // 这里已经有taskId了
+  LOG_DEBUG("Request: %s", requestString.c_str());
 
   if (!requestReader.parse(requestString, requestJson)) {
-    tmpErrorMsg = "Json anly failed: ";
+    tmpErrorMsg = "Json any failed: ";
     tmpErrorMsg += requestString;
-    errorMsg_ = tmpErrorMsg;
+    resultResponse_.errorMsg = tmpErrorMsg;
     delete client;
-    return -1;
+    return -(JsonParseFailed);
   }
 
   if (!requestJson["StatusCode"].isNull()) {
     statusCode = requestJson["StatusCode"].asUInt();
     if ((statusCode != 21050000) && (statusCode != 21050003)) {
-      errorMsg_ = requestJson["StatusText"].asCString();
+      resultResponse_.event = TaskFailed;
+      resultResponse_.statusCode = statusCode;
+      resultResponse_.errorMsg = requestJson["StatusText"].asCString();
       delete client;
-      return -1;
+      return -(ErrorStatusCode);
     }
   } else {
-    errorMsg_ = "Json anly failed.";
+    resultResponse_.errorMsg = "Json anly failed.";
+    resultResponse_.event = TaskFailed;
     delete client;
-    return -1;
+    return -(JsonParseFailed);
   }
+
   std::string taskId = requestJson["TaskId"].asCString();
 
-  CommonRequest resultRequest(CommonRequest::FileTransPattern);
-  resultRequest.setDomain(domain_);
-  resultRequest.setVersion(serverVersion_);
-  resultRequest.setHttpMethod(HttpRequest::Get);
-  resultRequest.setAction("GetTaskResult");
-  resultRequest.setTaskId(taskId);
+  requestParams_.client = (void *)client;
+  requestParams_.taskId = taskId;
+  requestParams_.domain = domain_;
+  requestParams_.serverVersion = serverVersion_;
+  requestParams_.response = &resultResponse_;
 
-  Json::Value resultJson;
-  Json::Reader resultReader;
-  std::string resultString;
+  if (sync) {
+    retCode = applyResultRequest(requestParams_);
 
-  CommonClient::CommonResponseOutcome resultOutcome;
+    /* client will be deleted in applyResultRequest */
+  } else {
+  #if defined(_MSC_VER)
+    unsigned thread_id;
+    HANDLE threadHandle = (HANDLE)_beginthreadex(NULL, 0, applyResultRequestThread, (LPVOID)this, 0, &thread_id);
+    CloseHandle(threadHandle);
+  #else
+    pthread_t thread_id;
+    pthread_create(&thread_id, NULL, applyResultRequestThread, (void*)this);
+    pthread_detach(thread_id);
+  #endif
+    retCode = Success;
 
-  do {
-    resultOutcome = client->commonResponse(resultRequest);
-    if (!resultOutcome.isSuccess()) {
-      // 异常处理
-      errorMsg_ = resultOutcome.error().errorMessage();
-      retCode = -1;
-      break;
-    }
+    /* client will be deleted when TaskFailed or TaskCompleted */
+  }
 
-    resultJson.clear();
-    resultString.clear();
-    resultString = resultOutcome.result().payload();
-
-    //std::cout << "resultString:" << resultString << std::endl;
-
-    if (!resultReader.parse(resultString, resultJson)) {
-      tmpErrorMsg = "Json anly failed: ";
-      tmpErrorMsg += resultString;
-      errorMsg_ = tmpErrorMsg;
-      retCode = -1;
-      break;
-    }
-
-    if (!resultJson["StatusCode"].isNull()) {
-      statusCode = resultJson["StatusCode"].asUInt();
-      if ((statusCode == 21050001) || (statusCode == 21050002)) {
-#if defined(_MSC_VER)
-        Sleep(100);
-#else
-        usleep(100 * 1000);
-#endif
-      } else if ((statusCode == 21050000) || (statusCode == 21050003)){
-        result_ = resultString;
-        break;
-      } else {
-        errorMsg_ = resultJson["StatusText"].asCString();
-        retCode = -1;
-        break;
-      }
-    } else {
-      errorMsg_ = resultString;
-      retCode = -1;
-      break;
-    }
-    //std::cout << "statusCode:" << statusCode << std::endl;
-  } while((statusCode == 21050001) || (statusCode == 21050002));
-
-  delete client;
   return retCode;
 }
 
+int FileTrans::getEvent() {
+  return (int)resultResponse_.event;
+}
+
 const char* FileTrans::getErrorMsg() {
-  if (strnlen(errorMsg_.c_str(), 2048) > 1024) {
-    std::string part_errorMsg(errorMsg_.c_str(), 1024);
+  if (resultResponse_.errorMsg.length() > 2048) {
+    std::string part_errorMsg(resultResponse_.errorMsg.c_str(), 2048);
     LOG_DEBUG("file transfer get part error:%s", part_errorMsg.c_str());
   } else {
-    LOG_DEBUG("file transfer get error:%s", errorMsg_.c_str());
+    LOG_DEBUG("file transfer get error:%s", resultResponse_.errorMsg.c_str());
   }
   if ("GBK" == outputFormat_) {
-    errorMsg_ = utf8ToGbk(errorMsg_);
+    resultResponse_.errorMsg = utf8ToGbk(resultResponse_.errorMsg);
   }
-  return errorMsg_.c_str();
+  return resultResponse_.errorMsg.c_str();
 }
 
 const char* FileTrans::getResult() {
-  if (strnlen(result_.c_str(), 2048) > 217) {
-    /* this LOG_DEBUG, cut off chinese character or special symbol
-       will crash in log4cpp */
-    std::string part_result(result_.c_str(), 217);
+  if (resultResponse_.result.length() > 2048) {
+    std::string part_result(resultResponse_.result.c_str(), 2048);
     LOG_DEBUG("file transfer get part result:%s", part_result.c_str());
   } else {
-    LOG_DEBUG("file transfer get result:%s", result_.c_str());
+    LOG_DEBUG("file transfer get result:%s", resultResponse_.result.c_str());
   }
   if ("GBK" == outputFormat_) {
-    result_ = utf8ToGbk(result_);
+    resultResponse_.result = utf8ToGbk(resultResponse_.result);
   }
-  return result_.c_str();
+  return resultResponse_.result.c_str();
+}
+
+const char* FileTrans::getTaskId() {
+  if (resultResponse_.taskId.length() > 0) {
+    LOG_DEBUG("current request taskId:%s", resultResponse_.taskId.c_str());
+  }
+  return resultResponse_.taskId.c_str();
+}
+
+struct resultRequest FileTrans::getRequestParams() {
+  return requestParams_;
 }
 
 void FileTrans::setKeySecret(const std::string & KeySecret) {
@@ -316,6 +421,12 @@ void FileTrans::setOutputFormat(const std::string & textFormat) {
   outputFormat_ = textFormat;
 }
 
+void FileTrans::setEventListener(
+    FileTransCallbackMethod event, void* param) {
+  eventHandler_ = event;
+  paramHandler_ = param;
+}
+
 #if defined(__ANDROID__) || defined(__linux__)
 int FileTrans::codeConvert(char *from_charset, char *to_charset,
                            char *inbuf, size_t inlen,
@@ -329,17 +440,17 @@ int FileTrans::codeConvert(char *from_charset, char *to_charset,
 
   cd = iconv_open(to_charset, from_charset);
   if (cd == 0) {
-    return -1;
+    return -(IconvOpenFailed);
   }
 
   memset(outbuf, 0, outlen);
   if (iconv(cd, pin, &inlen, pout, &outlen) == (size_t)-1) {
-    return -1;
+    return -(IconvFailed);
   }
 
   iconv_close(cd);
 #endif
-  return 0;
+  return Success;
 }
 #endif
 
@@ -358,8 +469,8 @@ std::string FileTrans::utf8ToGbk(const std::string & strUTF8) {
 
   int res = codeConvert(
       (char *)"UTF-8", (char *)"GBK", inbuf, inputLen, outbuf, outputLen);
-  if (res == -1) {
-    LOG_ERROR("ENCODE: convert to utf8 error.");
+  if (res < 0) {
+    LOG_ERROR("ENCODE: convert to utf8 error :%d .", res);
     return NULL;
   }
 

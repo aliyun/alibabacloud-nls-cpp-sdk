@@ -20,7 +20,7 @@
 
 #if defined(__ANDRIOD__)
 #include <android/log.h>
-#elif defined(_WIN32) || defined(__linux__)
+#elif defined(_MSC_VER) || defined(__linux__)
 #include "log4cpp/Category.hh"
 #include "log4cpp/Appender.hh"
 #include "log4cpp/FileAppender.hh"
@@ -52,6 +52,30 @@ using std::endl;
           vsnprintf(tmpBuffer, LOG_BUFFER_SIZE - 1, f, arg); \
           va_end(arg); \
           _ssnprintf(b, LOG_BUFFER_SIZE, "[ID:%lu][%s:%d]%s", pthreadSelfId(), a, l, tmpBuffer);
+
+#define LOG_WASH(in, str) { \
+          std::string delim = "%"; \
+          std::vector<std::string> str_vector; \
+          std::string tmp_str(in); \
+          int pos1 = 0; \
+          int pos2 = tmp_str.find(delim); \
+          int len = delim.length(); \
+          while (pos2 != string::npos) { \
+            str_vector.push_back(tmp_str.substr(pos1, pos2 - pos1)); \
+            pos1 = pos2 + len; \
+            pos2 = tmp_str.find(delim,pos1); \
+          } \
+          if (pos1 != tmp_str.length()) { \
+            str_vector.push_back(tmp_str.substr(pos1)); \
+          } \
+          std::vector<std::string>::iterator iter; \
+          for (iter = str_vector.begin(); iter != str_vector.end();) { \
+            str += *iter; \
+            if (++iter != str_vector.end()) { \
+              str += "%%"; \
+            } \
+          } \
+        }
 
 #define LOG_PRINT_COMMON(level, message) { \
           time_t tt = time(NULL); \
@@ -215,18 +239,20 @@ void NlsLog::logVerbose(const char* function, int line, const char *format, ...)
   }
 
   char message[LOG_BUFFER_PLUS_SIZE] = {0};
+  std::string str_in = "";
   LOG_FORMAT_STRING(function, line, format, message);
+  LOG_WASH(message, str_in);
 
 #if defined (__ANDRIOD__)
-  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout) {
-    getCategory().debug(message);
+    getCategory().debug(str_in.c_str());
   } else {
-    LOG_PRINT_COMMON("VERBOSE", message);
+    LOG_PRINT_COMMON("VERBOSE", str_in.c_str());
   }
 #else
-  LOG_PRINT_COMMON("VERBOSE", message);
+  LOG_PRINT_COMMON("VERBOSE", str_in.c_str());
 #endif
 }
 
@@ -236,19 +262,21 @@ void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
   }
 
   char message[LOG_BUFFER_PLUS_SIZE] = {0};
+  std::string str_in = "";
   LOG_FORMAT_STRING(function, line, format, message);
+  LOG_WASH(message, str_in);
 
   if (_logLevel >= 4) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
   #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
-      getCategory().debug(message);
+      getCategory().debug(str_in.c_str());
     } else {
-      LOG_PRINT_COMMON("DEBUG", message);
+      LOG_PRINT_COMMON("DEBUG", str_in.c_str());
     }
   #else
-    LOG_PRINT_COMMON("DEBUG", message);
+    LOG_PRINT_COMMON("DEBUG", str_in.c_str());
   #endif
   }
 }
@@ -259,19 +287,21 @@ void NlsLog::logInfo(const char* function, int line, const char * format, ...) {
   }
 
   char message[LOG_BUFFER_PLUS_SIZE] = {0};
+  std::string str_in = "";
   LOG_FORMAT_STRING(function, line, format, message);
+  LOG_WASH(message, str_in);
 
   if (_logLevel >= 3) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
   #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
-      getCategory().info(message);
+      getCategory().info(str_in.c_str());
     } else {
-      LOG_PRINT_COMMON("INFO", message);
+      LOG_PRINT_COMMON("INFO", str_in.c_str());
     }
   #else
-    LOG_PRINT_COMMON("INFO", message);
+    LOG_PRINT_COMMON("INFO", str_in.c_str());
   #endif
   }
 }
@@ -282,19 +312,21 @@ void NlsLog::logWarn(const char* function, int line, const char * format, ...) {
   }
 
   char message[LOG_BUFFER_PLUS_SIZE] = {0};
+  std::string str_in = "";
   LOG_FORMAT_STRING(function, line, format, message);
+  LOG_WASH(message, str_in);
 
-  if (NlsLog::_logLevel >= 2) {
+  if (_logLevel >= 2) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
   #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
-      getCategory().warn(message);
+      getCategory().warn(str_in.c_str());
     } else {
-      LOG_PRINT_COMMON("WARN", message);
+      LOG_PRINT_COMMON("WARN", str_in.c_str());
     }
   #else
-    LOG_PRINT_COMMON("WARN", message);
+    LOG_PRINT_COMMON("WARN", str_in.c_str());
   #endif
   }
 }
@@ -305,19 +337,21 @@ void NlsLog::logError(const char* function, int line, const char * format, ...) 
   }
 
   char message[LOG_BUFFER_PLUS_SIZE] = {0};
+  std::string str_in = "";
   LOG_FORMAT_STRING(function, line, format, message);
+  LOG_WASH(message, str_in);
 
-  if (NlsLog::_logLevel >= 1) {
+  if (_logLevel >= 1) {
   #if defined (__ANDRIOD__)
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
   #elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
-      getCategory().error(message);
+      getCategory().error(str_in.c_str());
     } else {
-      LOG_PRINT_COMMON("ERROR", message);
+      LOG_PRINT_COMMON("ERROR", str_in.c_str());
     }
   #else
-    LOG_PRINT_COMMON("ERROR", message);
+    LOG_PRINT_COMMON("ERROR", str_in.c_str());
   #endif
   }
 }
@@ -329,18 +363,20 @@ void NlsLog::logException(const char* function, int line, const char *format, ..
   }
 
   char message[LOG_BUFFER_PLUS_SIZE] = {0};
+  std::string str_in = "";
   LOG_FORMAT_STRING(function, line, format, message);
+  LOG_WASH(message, str_in);
 
 #if defined (__ANDRIOD__)
-  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", message);
+  __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout) {
-    getCategory().fatal(message);
+    getCategory().fatal(str_in.c_str());
   } else {
-    LOG_PRINT_COMMON("EXCEPTION", message);
+    LOG_PRINT_COMMON("EXCEPTION", str_in.c_str());
   }
 #else
-  LOG_PRINT_COMMON("EXCEPTION", message);
+  LOG_PRINT_COMMON("EXCEPTION", str_in.c_str());
 #endif
 }
 

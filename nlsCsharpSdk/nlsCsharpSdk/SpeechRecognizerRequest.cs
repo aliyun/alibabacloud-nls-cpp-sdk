@@ -26,6 +26,9 @@ namespace nlsCsharpSdk
 
     public class SpeechRecognizerRequest : ISpeechRecognizer
     {
+        /// <summary>
+        /// 一句话识别请求的Native指针.
+        /// </summary>
         public IntPtr native_request;
 
         #region Start the request of speech recognizer
