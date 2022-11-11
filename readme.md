@@ -84,12 +84,29 @@ NlsSdk3.X_LINUX
 注意：
 1. linux环境下，运行环境最低要求：CMake 3.0及以上，Glibc 2.5及以上，GCC4.8.5及以上。   
 2. linux环境下，高并发运行，注意 系统打开文件数限制，可通过ulimit -a查看当前允许的打开文件数限制。比如预设最大并发数1000，建议将open files限制设置大于1000，ulimit -n 2000。否则会出现connect failed错误。  
+3. 使用alibabacloud-nls-cpp-sdk<版本>-master.zip进行编译时，若出现如下CMake报错：
+> fatal: not a git repository
+
+&emsp;&emsp;&emsp;则请修改 CMakeLists.txt 中
+```
+exec_program(
+  "git"
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ARGS "log --format='[sha1]:%h [author]:%cn [time]:%ci [commit]:%s [branch]:%d' -1"
+  OUTPUT_VARIABLE VERSION_SHA1 )
+add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
+```
+&emsp;&emsp;&emsp;改成
+```
+add_definitions(-DGIT_SHA1="\\"no\\"")
+```
+&emsp;&emsp;&emsp;以去掉缺失git导致的CMake报错。    
 
 ### 嵌入式(eg. arm-linux等)平台编译及说明：  
-> 请自行交叉编译... 
+> 请参考Linux的方法，自行修改工具链和CMake进行交叉编译... 
 
 ### Android平台编译及说明：  
-支持arm64-v8a、armeabi、armeabi-v7a、x86、x86_64  
+支持arm64-v8a、armeabi-v7a、x86、x86_64  
 编译指令：  
 > ./scripts/build_android.sh                         默认增量编译，生成arm64-v8a架构Debug版本  
 > ./scripts/build_android.sh all debug arm64-v8a     全量编译，生成arm64-v8a架构Debug版本  
@@ -106,22 +123,26 @@ NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库
  1. 进入scripts目录，使用文本编辑工具分别打开build_windows_64_prebuild.bat和build_windows_64_package.bat，修改解压缩工具WinRAR。  
  例如，您的个人电脑WinRAR.exe所在路径为C:\Program Files (x86)\WinRAR\WinRAR.exe，则修改脚本文件中第三行为 set winRar="C:\Program Files (x86)\WinRAR\WinRAR.exe" 为您的个人电脑中WinRAR路径。
  2. 双击批处理脚本build_windows_64_prebuild.bat，从而解压SDK源码中包含的各第三方库，并把依赖头文件释放到合适位置。
- 3. 使用Visual Studio（VS2015及以上版本）打开nlsCppSdk.sln，直接编译需要的范例工程。  
+ 3. 使用Visual Studio（VS2015及以上版本）打开nlsCppSdk.sln，安装VC-LTL：右键<解决方案>点击<管理解决方案的NuGet程序包>
+    ![image](docs/images/cppSdk_VC-LTL.png)  
+    搜索VC-LTL，并安装5.0.4版本
+    ![image](docs/images/VC-LTL_install.png)  
+ 4. 直接编译需要的范例工程。  
     > 说明  
     > * 需要确认好各项目属性中的目标平台版本和平台工具集，按需选择。例如，您的目标平台版本为10.0.19041.0，平台工具集为Visual Studio 2015(v140)。  
     > * 目前支持Debug_x64，Release_x64，Debug_win32和Release_win32。本文档说明均以x64为例。  
 
     ![image](docs/images/cppSdk01.png)  
 
- 4. 右键单击speechTranscriberDemo项目（以实时语音识别Demo为例），单击生成进行编译。
- 5. 编译Debug_x64和Release_x64。 
+ 5. 右键单击speechTranscriberDemo项目（以实时语音识别Demo为例），单击生成进行编译。
+ 6. 编译Debug_x64和Release_x64。 
     > * Debug生成物路径：{ProjectRoot}\build\build_win64\nlsCppSdk\x64\Debug  
     > * Release生成物路径：{ProjectRoot}\build\build_win64\nlsCppSdk\x64\Release  
 
     各路径包含所有生成的dll和测试exe文件。其中{ProjectRoot}为SDK源码路径。
- 6. 若需要对生成的库文件、测试exe文件、头文件、说明文档等对外披露的文件进行打包，则在scripts目录下双击运行build_windows_64_package.bat，生成{ProjectRoot}\build\install\NlsSdk3.X_win64.zip。其中{ProjectRoot}为SDK源码路径。
+ 7. 若需要对生成的库文件、测试exe文件、头文件、说明文档等对外披露的文件进行打包，则在scripts目录下双击运行build_windows_64_package.bat，生成{ProjectRoot}\build\install\NlsSdk3.X_win64.zip。其中{ProjectRoot}为SDK源码路径。
 
-#### 三、自动化编译方式
+#### 三、自动化编译方式（不推荐）
 此方法可能由于vs版本或windows平台差异问题，无法顺利运行。  
 >  运行 build_windows_64.bat  
 
@@ -134,13 +155,15 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
  1. 使用Visual Studio（VS2015及以上版本）打开nlsCsharpSdk.sln，进行C#工程编译。 
     > 说明  
     > * 需要确认nlsCsharpSdkExtern的平台工具集和目标平台版本，以及nlsCsharpSdkDemo和nlsCsharpSdk的.NET版本。  
- 2. 右键nlsCsharpSdkDemo项目，选择生成，生成所有生成物。  
+ 2. 安装VC-LTL：类似Windows平台Cpp SDK编译的方法，右键<解决方案>点击<管理解决方案的NuGet程序包>，搜索VC-LTL，并安装5.0.4版本
+    ![image](docs/images/VC-LTL_install.png)  
+ 3. 右键nlsCsharpSdkDemo项目，选择生成，生成所有生成物。  
  ![image](docs/images/csharpSdk01.png)  
     > 说明  
     > * nlsCsharpSdk.dll为NLS C# SDK，可进行发布Nupkg。
     > * nlsCsharpSdkExtern.dll为NLS C#与Cpp互操作层。 
     > *  nlsCsharpSdkDemo.exe为NLS C# UI Demo。  
- 3. 以Debug版本为例，运行还需要一些NLS Cpp SDK相关依赖库，需要将依赖库和测试音频文件搬移到nlsCsharpSdkDemo.exe能依赖的路径：{ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug。即分别将下方动态库拷贝至 {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug目录下。
+ 4. 以Debug版本为例，运行还需要一些NLS Cpp SDK相关依赖库，需要将依赖库和测试音频文件搬移到nlsCsharpSdkDemo.exe能依赖的路径：{ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug。即分别将下方动态库拷贝至 {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug目录下。
     > 说明  
     > * 正常情况下在工程编译完成后系统会进行自动搬运，您可跳过此步骤。若目标路径无以下文件，则需要进行手动搬运。  
     > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\nlsCppSdk.dll
@@ -152,15 +175,15 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
     > {ProjectRoot}\build\install\NlsSdk3.X_win64\lib\14.0\x64\Debug\pthreadVC2.dll   
 
     {ProjectRoot}\nlsCsharpSdk\nlsCsharpSdkDemo\bin\Debug\audio_files\ 目录下，需要包含命名为test0.wav、test1.wav、test2.wav、test3.wav的四个音频文件，用于进行语音识别。这些WAV文件可从resource/audio目录拷贝。若缺少这些文件，系统将会在运行语音识别过程中，因找不到文件而退出。
- 4. 双击nlsCsharpSdkDemo.exe，运行如下：
+ 5. 双击nlsCsharpSdkDemo.exe，运行如下：
  ![image](docs/images/csharpSdk02.png)  
- 5. （可选）单击&lt;OpenLog&gt;可开启日志记录。  
- 6. 单击&lt;InitNls&gt; 初始化sdk。  
- 7. 填入Appkey、AkId、AkSecret，然后单击&lt;CreateToken&gt;生成token，合法token会在Token栏显示。  
- 8. 实时转写&lt;CreateTranscriber&gt;创建实时转写请求，点&lt;Start&gt;开始工作，会在最下方实时显示识别结果。&lt;Stop&gt;&lt;ReleaseTranscriber&gt;进行停止、释放。  
- 9. 语音合成&lt;CreateSynthesizer&gt;创建语音合成请求，点&lt;Start&gt;开始工作，会exe当前路径生成保存音频数据的taskId.pcm文件。&lt;Cancel&gt;&lt;ReleaseSynthesizer&gt;进行停止、释放。  
- 10. 一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
- 11. 录音文件识别:填写录音文件的URL,点击&lt;FileTransfer&gt;开始工作, 会在最下方显示结果。此功能只需填写Appkey、AkId、AkSecret。  
+ 6. （可选）单击&lt;OpenLog&gt;可开启日志记录。  
+ 7. 单击&lt;InitNls&gt; 初始化sdk。  
+ 8. 填入Appkey、AkId、AkSecret，然后单击&lt;CreateToken&gt;生成token，合法token会在Token栏显示。  
+ 9. 实时转写&lt;CreateTranscriber&gt;创建实时转写请求，点&lt;Start&gt;开始工作，会在最下方实时显示识别结果。&lt;Stop&gt;&lt;ReleaseTranscriber&gt;进行停止、释放。  
+ 10. 语音合成&lt;CreateSynthesizer&gt;创建语音合成请求，点&lt;Start&gt;开始工作，会exe当前路径生成保存音频数据的taskId.pcm文件。&lt;Cancel&gt;&lt;ReleaseSynthesizer&gt;进行停止、释放。  
+ 11. 一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
+ 12. 录音文件识别:填写录音文件的URL,点击&lt;FileTransfer&gt;开始工作, 会在最下方显示结果。此功能只需填写Appkey、AkId、AkSecret。  
 
 ## 并发性能说明
 测试环境：十六核 Intel(R) Xeon(R) Platinum 8163 CPU @ 2.50GHz  
