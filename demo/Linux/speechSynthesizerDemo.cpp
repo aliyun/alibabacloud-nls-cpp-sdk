@@ -147,6 +147,8 @@ std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
 std::string g_token = "";
+std::string g_domain = "";
+std::string g_api_version = "";
 std::string g_url = "";
 int g_threads = 1;
 int g_cpu = 4;
@@ -321,6 +323,12 @@ int generateToken(std::string akId, std::string akSecret,
   AlibabaNlsCommon::NlsToken nlsTokenRequest;
   nlsTokenRequest.setAccessKeyId(akId);
   nlsTokenRequest.setKeySecret(akSecret);
+  if (!g_domain.empty()) {
+    nlsTokenRequest.setDomain(g_domain);
+  }
+  if (!g_api_version.empty()) {
+    nlsTokenRequest.setServerVersion(g_api_version);
+  }
 
   int retCode = nlsTokenRequest.applyNlsToken();
   /*获取失败原因*/
@@ -753,6 +761,7 @@ void* autoCloseFunc(void* arg) {
  *        进行循环。
  */
 void* pthreadFunc(void* arg) {
+  int testCount = 0;
   bool timedwait_flag = false;
   int chars_cnt = 0;
 
@@ -816,6 +825,8 @@ void* pthreadFunc(void* arg) {
     request->setText(tst->text);
     // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
     request->setVoice("siqi");
+    // 访问个性化音色，访问的Voice必须是个人定制音色
+    //request->setPayloadParam("{\"enable_ptts\":true}");
     // 音量, 范围是0~100, 可选参数, 默认50
     request->setVolume(50);
     // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
@@ -839,15 +850,14 @@ void* pthreadFunc(void* arg) {
     /*
      * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
-    pthread_mutex_lock(&(cbParam.mtxWord));
     std::string ts = timestamp_str();
     std::cout << "start -> pid " << pthread_self() << " " << ts.c_str() << std::endl;
     gettimeofday(&(cbParam.startTv), NULL);
     int ret = request->start();
     ts = timestamp_str();
     run_cnt++;
+    testCount++;
     if (ret < 0) {
-      pthread_mutex_unlock(&(cbParam.mtxWord));
       std::cout << "start failed. pid:" << pthread_self() << std::endl;
       AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request); // start()失败，释放request对象
       break;
@@ -883,17 +893,16 @@ void* pthreadFunc(void* arg) {
        * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
        * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制.
        */
-      gettimeofday(&now, NULL);
       outtime.tv_sec = now.tv_sec + 30;
       outtime.tv_nsec = now.tv_usec * 1000;
       // 等待closed事件后再进行释放, 否则会出现崩溃
+      pthread_mutex_lock(&(cbParam.mtxWord));
       if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam.cvWord), &(cbParam.mtxWord), &outtime)) {
         std::cout << "synthesis timeout." << std::endl;
         timedwait_flag = true;
       }
       pthread_mutex_unlock(&(cbParam.mtxWord));
     } else {
-      pthread_mutex_unlock(&(cbParam.mtxWord));
       std::cout << "ret is " << ret << ", pid " << pthread_self() << std::endl;
     }
     gettimeofday(&now, NULL);
@@ -903,7 +912,7 @@ void* pthreadFunc(void* arg) {
     std::cout << "release Synthesizer success. pid "
         << pthread_self() << std::endl;
 
-    if (loop_count > 0 && run_cnt >= loop_count) {
+    if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
     }
   }  // while global_run
@@ -924,6 +933,7 @@ void* pthreadFunc(void* arg) {
  *                  releaseSynthesizerRequest(request)
  */
 void* pthreadLongConnectionFunc(void* arg) {
+  int testCount = 0;
   struct ParamStatistics params;
   bool timedwait_flag = false;
 
@@ -980,6 +990,8 @@ void* pthreadLongConnectionFunc(void* arg) {
   request->setText(tst->text);
   // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
   request->setVoice("siqi");
+  // 访问个性化音色，访问的Voice必须是个人定制音色
+  //request->setPayloadParam("{\"enable_ptts\":true}");
   // 音量, 范围是0~100, 可选参数, 默认50
   request->setVolume(50);
   // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
@@ -1005,7 +1017,6 @@ void* pthreadLongConnectionFunc(void* arg) {
      * start()为异步操作。
      * 成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
-    pthread_mutex_lock(&(cbParam.mtxWord));
     gettimeofday(&(cbParam.startTv), NULL);
     std::string ts = timestamp_str();
     std::cout << "start -> pid " << pthread_self()
@@ -1013,8 +1024,8 @@ void* pthreadLongConnectionFunc(void* arg) {
     int ret = request->start();
     ts = timestamp_str();
     run_cnt++;
+    testCount++;
     if (ret < 0) {
-      pthread_mutex_unlock(&(cbParam.mtxWord));
       std::cout << "start failed. pid:" << pthread_self() << std::endl;
       break;
     } else {
@@ -1049,17 +1060,16 @@ void* pthreadLongConnectionFunc(void* arg) {
        * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
        * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制.
        */
-      gettimeofday(&now, NULL);
       outtime.tv_sec = now.tv_sec + 30;
       outtime.tv_nsec = now.tv_usec * 1000;
       // 等待closed事件后再进行释放, 否则会出现崩溃
+      pthread_mutex_lock(&(cbParam.mtxWord));
       if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam.cvWord), &(cbParam.mtxWord), &outtime)) {
         std::cout << "synthesis timeout." << std::endl;
         timedwait_flag = true;
       }
       pthread_mutex_unlock(&(cbParam.mtxWord));
     } else {
-      pthread_mutex_unlock(&(cbParam.mtxWord));
       std::cout << "stop ret is " << ret << ", pid "
           << pthread_self() << std::endl;
     }
@@ -1067,7 +1077,7 @@ void* pthreadLongConnectionFunc(void* arg) {
     std::cout << "stop finished. pid " << pthread_self()
         << " tv: " << now.tv_sec << std::endl;
 
-    if (loop_count > 0 && run_cnt >= loop_count) {
+    if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
     }
   } // while global_run
@@ -1101,9 +1111,11 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   }
 
 #ifdef SELF_TESTING_TRIGGER
-  pthread_t p_id;
-  pthread_create(&p_id, NULL, &autoCloseFunc, NULL);
-  pthread_detach(p_id);
+  if (loop_count == 0) {
+    pthread_t p_id;
+    pthread_create(&p_id, NULL, &autoCloseFunc, NULL);
+    pthread_detach(p_id);
+  }
 #endif
 
   const char syAudioFiles[AUDIO_TEXT_NUMS][AUDIO_FILE_NAME_LENGTH] =
@@ -1394,6 +1406,14 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_token = argv[index];
+    } else if (!strcmp(argv[index], "--tokenDomain")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_domain = argv[index];
+    } else if (!strcmp(argv[index], "--tokenApiVersion")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_api_version = argv[index];
     } else if (!strcmp(argv[index], "--url")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1410,6 +1430,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--loop")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      loop_count = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1453,7 +1477,14 @@ int main(int argc, char* argv[]) {
       << "  --akId <AccessKey ID>\n"
       << "  --akSecret <AccessKey Secret>\n"
       << "  --token <Token>\n"
+      << "  --tokenDomain <the domain of token>\n"
+      << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
+      << "  --tokenApiVersion <the ApiVersion of token>\n"
+      << "      mcos:  2022-08-11\n"
       << "  --url <Url>\n"
+      << "      public(default): wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
+      << "      internal: ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
+      << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
       << "  --threads <Thread Numbers, default 1>\n"
       << "  --time <Timeout secs, default 60 seconds>\n"
       << "  --type <audio format pcm opu or opus>\n"
@@ -1474,7 +1505,11 @@ int main(int argc, char* argv[]) {
   std::cout << " appKey: " << g_appkey << std::endl;
   std::cout << " akId: " << g_akId << std::endl;
   std::cout << " akSecret: " << g_akSecret << std::endl;
+  std::cout << " domain for token: " << g_domain << std::endl;
+  std::cout << " apiVersion for token: " << g_api_version << std::endl;
   std::cout << " threads: " << g_threads << std::endl;
+  std::cout << " loop timeout: " << loop_timeout << std::endl;
+  std::cout << " loop count: " << loop_count << std::endl;
   std::cout << "\n" << std::endl;
 
   pthread_mutex_init(&params_mtx, NULL);

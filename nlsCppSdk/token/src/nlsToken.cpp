@@ -84,7 +84,7 @@ int NlsToken::applyNlsToken() {
   //  configuration.setRegionId(regionId_);
   //}
 
-  CommonClient client(accessKeyId_, accessKeySecret_, configuration);
+  CommonClient client(accessKeyId_, accessKeySecret_, "", configuration);
 
   CommonRequest request(CommonRequest::TokenPattern);
   request.setDomain(domain_);

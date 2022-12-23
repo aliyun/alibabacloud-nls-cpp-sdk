@@ -25,19 +25,23 @@ class Credentials{
  public:
   Credentials(const std::string &accessKeyId,
               const std::string &accessKeySecret,
+              const std::string &stsToken="",
               const std::string &sessionToken="");
   ~Credentials();
 
   std::string accessKeyId () const;
   std::string accessKeySecret () const;
+  std::string stsToken () const;
   void setAccessKeyId(const std::string &accessKeyId);
   void setAccessKeySecret(const std::string &accessKeySecret);
+  void setStsToken(const std::string &stsToken);
   void setSessionToken (const std::string &sessionToken);
   std::string sessionToken () const;
 
  private:
   std::string accessKeyId_;
   std::string accessKeySecret_;
+  std::string stsToken_;
   std::string sessionToken_;
 };
 

@@ -33,6 +33,7 @@
 std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
+std::string g_stsToken = "";
 std::string g_fileLinkUrl = "https://gw.alipayobjects.com/os/bmw-prod/0574ee2e-f494-45a5-820f-63aee583045a.wav";
 bool g_sync = true;
 int g_threads = 1;
@@ -67,6 +68,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_akSecret = argv[index];
+    } else if (!strcmp(argv[index], "--stsToken")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_stsToken = argv[index];
     } else if (!strcmp(argv[index], "--fileLinkUrl")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -172,14 +177,49 @@ int fileTransferMultThreads(
   for (int i = 0; i < threads; i++) {
     /*设置文件识别事件回调*/
     request_array[i].setEventListener(fileTransferCallback, requests);
-    /*设置阿里云账号AccessKey Id*/
-    request_array[i].setAccessKeyId(g_akId);
-    /*设置阿里云账号AccessKey Secret*/
-    request_array[i].setKeySecret(g_akSecret);
-    /*设置阿里云AppKey*/
-    request_array[i].setAppKey(g_appkey);
     /*设置音频文件url地址*/
     request_array[i].setFileLinkUrl(g_fileLinkUrl);
+
+    /*设置阿里云AppKey*/
+    request_array[i].setAppKey(g_appkey);
+
+    /*设置STS临时访问凭证说明：
+     *  此处账号AccessKey Id、AccessKey Secret、stsToken为临时账号信息
+     *  如何获取请查看:
+     *  https://help.aliyun.com/document_detail/466615.html#b1c9b9b3702ze
+     */
+    if (!g_stsToken.empty()) {
+      //  设置sts AccessKey Id
+      request_array[i].setAccessKeyId(g_akId);
+      //  设置sts AccessKey Secret
+      request_array[i].setKeySecret(g_akSecret);
+      //  设置sts token
+      request_array[i].setStsToken(g_stsToken);
+    } else {
+    /*设置原阿里云账号访问账号说明：
+     *  此处阿里云账号AccessKey Id和AccessKey Secret
+     *  此方案存在账号泄露的风险，推荐使用STS临时访问方案
+     */
+      //  设置阿里云账号AccessKey Id
+      request_array[i].setAccessKeyId(g_akId);
+      //  设置阿里云账号AccessKey Secret
+      request_array[i].setKeySecret(g_akSecret);
+    }
+
+
+    /*设置闲时版的说明：
+     *  录音文件识别闲时版是针对已经录制完成的录音文件，进行离线识别的服务。
+     *  录音文件识别闲时版是非实时的，识别的文件需要提交基于HTTP可访问的URL地址，不支持提交本地文件。
+     *  与录音文件识别区别在于返回时间不同，闲时版为24小时内返回结果。
+     *  具体说明和设置参数请看https://help.aliyun.com/document_detail/397307.html
+     */
+    //  设置闲时版连接域名,这里默填写的是上海地域,如果要使用其它地域请参考各地域POP调用参数
+    //request_array[i].setDomain("speechfiletranscriberlite.cn-shanghai.aliyuncs.com");
+    //  设置闲时版连接版本
+    //request_array[i].setServerVersion("2021-12-21");
+    //  设置连接地域
+    //request_array[i].setRegionId("cn-shanghai");
+
 
     /*开始文件识别, 成功返回0, 失败返回非0*/
     int ret = request_array[i].applyFileTrans(false);
@@ -203,14 +243,53 @@ int fileTransferSync() {
    */
   AlibabaNlsCommon::FileTrans request;
 
-  /*设置阿里云账号AccessKey Id*/
-  request.setAccessKeyId(g_akId);
   /*设置阿里云账号AccessKey Secret*/
   request.setKeySecret(g_akSecret);
   /*设置阿里云AppKey*/
   request.setAppKey(g_appkey);
   /*设置音频文件url地址*/
   request.setFileLinkUrl(g_fileLinkUrl);
+
+  /*设置阿里云AppKey*/
+  request.setAppKey(g_appkey);
+
+  /*设置STS临时访问凭证说明：
+   *  此处账号AccessKey Id、AccessKey Secret、stsToken为临时账号信息
+   *  如何获取请查看:
+   *  https://help.aliyun.com/document_detail/466615.html#b1c9b9b3702ze
+   */
+  if (!g_stsToken.empty()) {
+    //  设置sts AccessKey Id
+    request.setAccessKeyId(g_akId);
+    //  设置sts AccessKey Secret
+    request.setKeySecret(g_akSecret);
+    //  设置sts token
+    request.setStsToken(g_stsToken);
+  } else {
+  /*设置原阿里云账号访问账号说明：
+   *  此处阿里云账号AccessKey Id和AccessKey Secret
+   *  此方案存在账号泄露的风险，推荐使用STS临时访问方案
+   */
+    //  设置阿里云账号AccessKey Id
+    request.setAccessKeyId(g_akId);
+    //  设置阿里云账号AccessKey Secret
+    request.setKeySecret(g_akSecret);
+  }
+
+
+  /*设置闲时版的说明：
+   *  录音文件识别闲时版是针对已经录制完成的录音文件，进行离线识别的服务。
+   *  录音文件识别闲时版是非实时的，识别的文件需要提交基于HTTP可访问的URL地址，不支持提交本地文件。
+   *  与录音文件识别区别在于返回时间不同，闲时版为24小时内返回结果。
+   *  具体说明和设置参数请看https://help.aliyun.com/document_detail/397307.html
+   */
+  //  设置闲时版连接域名,这里默填写的是上海地域,如果要使用其它地域请参考各地域POP调用参数
+  //request.setDomain("speechfiletranscriberlite.cn-shanghai.aliyuncs.com");
+  //  设置闲时版连接版本
+  //request.setServerVersion("2021-12-21");
+  //  设置连接地域
+  //request.setRegionId("cn-shanghai");
+
 
   /*开始文件识别, 成功返回0, 失败返回负值*/
   int ret = request.applyFileTrans();

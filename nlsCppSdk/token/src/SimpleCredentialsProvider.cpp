@@ -25,8 +25,9 @@ SimpleCredentialsProvider::SimpleCredentialsProvider(
 
 SimpleCredentialsProvider::SimpleCredentialsProvider(
     const std::string & accessKeyId,
-    const std::string & accessKeySecret) : CredentialsProvider(),
-  credentials_(accessKeyId, accessKeySecret) {
+    const std::string & accessKeySecret,
+    const std::string & stsToken) : CredentialsProvider(),
+  credentials_(accessKeyId, accessKeySecret, stsToken) {
 
 }
 

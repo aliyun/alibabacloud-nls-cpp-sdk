@@ -11,6 +11,10 @@ message(STATUS "NlsSdk CMAKE_C_FLAGS_DEBUG: ${CMAKE_C_FLAGS_DEBUG}")
 message(STATUS "NlsSdk CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
 message(STATUS "NlsSdk CMAKE_SHARED_LINKER_FLAGS: ${CMAKE_SHARED_LINKER_FLAGS}")
 message(STATUS "NlsSdk CMAKE_CXX_LINK_FLAGS: ${CMAKE_CXX_LINK_FLAGS}")
+message(STATUS "NlsSdk CMAKE_CXX_STANDARD: ${CMAKE_CXX_STANDARD}")
+message(STATUS "NlsSdk CMAKE_CXX_EXTENSIONS: ${CMAKE_CXX_EXTENSIONS}")
+message(STATUS "NlsSdk CMAKE_CXX_STANDARD_REQUIRED: ${CMAKE_CXX_STANDARD_REQUIRED}")
+message(STATUS "NlsSdk CXX11_ABI: ${CXX11_ABI}")
 
 #编译依赖库设置
 ExternalProject_Get_Property(jsoncpp INSTALL_DIR)
@@ -18,7 +22,7 @@ set(jsoncpp_install_dir ${INSTALL_DIR})
 message(STATUS "jsoncpp install path: ${jsoncpp_install_dir}")
 set(NLS_SDK_HEADER_LIST
     ${NLS_SDK_HEADER_LIST}
-#    ${jsoncpp_install_dir}/include
+    ${jsoncpp_install_dir}/include
     ${jsoncpp_install_dir}/include/jsoncpp
     )
 
@@ -213,6 +217,12 @@ include_directories(${NLS_SDK_HEADER_LIST})
 #编译
 message(STATUS "nlssdk output name: ${NLS_SDK_OUTPUT_NAME}")
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+  if (CXX11_ABI)
+    message(STATUS "NlsCppSdk support std=c++11")
+    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  endif ()
 
   set(NLS_SDK_OUTPUT_PATH
       ${CMAKE_SOURCE_DIR}/build/nlsCppSdk/lib${NLS_SDK_OUTPUT_NAME}.a

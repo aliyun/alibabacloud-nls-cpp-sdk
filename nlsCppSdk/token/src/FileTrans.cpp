@@ -43,6 +43,7 @@ FileTrans::FileTrans() {
   accessKeySecret_ = "";
   accessKeyId_ = "";
   appKey_ = "";
+  stsToken_ = "";
   fileLink_ = "";
   regionId_ = "";
   endpointName_ = "";
@@ -256,7 +257,7 @@ int FileTrans::applyFileTrans(bool sync) {
   }
 
   CommonClient* client = new CommonClient(
-      accessKeyId_, accessKeySecret_, configuration);
+      accessKeyId_, accessKeySecret_, stsToken_, configuration);
 
   CommonRequest taskRequest(CommonRequest::FileTransPattern);
   taskRequest.setDomain(domain_);
@@ -387,6 +388,10 @@ void FileTrans::setKeySecret(const std::string & KeySecret) {
 
 void FileTrans::setAccessKeyId(const std::string & accessKeyId) {
   accessKeyId_ = accessKeyId;
+}
+
+void FileTrans::setStsToken(const std::string & stsToken) {
+  stsToken_ = stsToken;
 }
 
 void FileTrans::setDomain(const std::string & domain) {

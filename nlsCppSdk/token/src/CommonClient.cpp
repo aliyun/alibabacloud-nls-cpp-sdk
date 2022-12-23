@@ -41,10 +41,11 @@ const std::string SERVICE_NAME = "Common";
 
 CommonClient::CommonClient(const std::string & accessKeyId,
                            const std::string & accessKeySecret,
+                           const std::string & stsToken,
                            const ClientConfiguration & configuration) : CoreClient(SERVICE_NAME, configuration) {
 
   credentialsProvider_ = new SimpleCredentialsProvider(
-      accessKeyId, accessKeySecret);
+      accessKeyId, accessKeySecret, stsToken);
 
   signer_ = signer_ = new HmacSha1Signer();
 }
@@ -429,6 +430,9 @@ HttpRequest CommonClient::buildFileTransHttpRequest(const std::string & endpoint
     std::map <std::string, std::string> queryParams;
 
     queryParams["AccessKeyId"] = credentials.accessKeyId();
+    if (!credentials.stsToken().empty()) {
+      queryParams["SecurityToken"] = credentials.stsToken();
+    }
     queryParams["Action"] = msg.action();
     queryParams["Format"] = "JSON";
     queryParams["RegionId"] = configuration().regionId();

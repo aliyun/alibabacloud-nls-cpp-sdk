@@ -39,6 +39,7 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 > ./scripts/build_linux.sh incr debug       增量编译，生成Debug版本  
 > ./scripts/build_linux.sh all release      全量编译，生成Release版本  
 > ./scripts/build_linux.sh incr release     增量编译，生成Release版本  
+> ./scripts/build_linux.sh all debug 1      全量编译，生成Debug版本，支持C++11
 
 生成物NlsSdk3.X_LINUX 目录说明:  
 NlsSdk3.X_LINUX  
@@ -83,8 +84,9 @@ NlsSdk3.X_LINUX
 
 注意：
 1. linux环境下，运行环境最低要求：CMake 3.0及以上，Glibc 2.5及以上，GCC4.8.5及以上。   
-2. linux环境下，高并发运行，注意 系统打开文件数限制，可通过ulimit -a查看当前允许的打开文件数限制。比如预设最大并发数1000，建议将open files限制设置大于1000，ulimit -n 2000。否则会出现connect failed错误。  
-3. 使用alibabacloud-nls-cpp-sdk<版本>-master.zip进行编译时，若出现如下CMake报错：
+2. linux环境下，编译环境无论是x86_64还是aarch64，编译脚本均为scripts/build_linux.sh。   
+3. linux环境下，高并发运行，注意 系统打开文件数限制，可通过ulimit -a查看当前允许的打开文件数限制。比如预设最大并发数1000，建议将open files限制设置大于1000，ulimit -n 2000。否则会出现connect failed错误。  
+4. 使用alibabacloud-nls-cpp-sdk<版本>-master.zip进行编译时，若出现如下CMake报错：
 > fatal: not a git repository
 
 &emsp;&emsp;&emsp;则请修改 CMakeLists.txt 中

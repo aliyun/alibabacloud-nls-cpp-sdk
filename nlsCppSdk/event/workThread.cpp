@@ -639,7 +639,9 @@ void WorkThread::readEventCallBack(
     if (status >= NodeStatusCancelling) {
       LOG_WARN("Node:%p checkNodeExist falied, node is %s, do nothing later...",
           node, node_manager->getNodeStatusString(status).c_str());
-      destroyConnectNode(node);
+      if (status != NodeStatusReleased) {
+        destroyConnectNode(node);
+      }
       return;
     }
   }
@@ -647,7 +649,11 @@ void WorkThread::readEventCallBack(
   // LOG_DEBUG("Node:%p readEventCallBack what:%d.", node, what);
 
   if (what == EV_READ){
-    nodeResponseProcess(node);
+    ret = nodeResponseProcess(node);
+    if (ret == -(InvalidRequest)) {
+      LOG_ERROR("Node:%p has invalid request, skip all operation.", node);
+      return;
+    }
   } else if (what == EV_TIMEOUT){
     snprintf(tmp_msg, 512 - 1,
         "Recv timeout. socket error:%s.",
@@ -1079,7 +1085,7 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
  * Others:
  */
 int WorkThread::nodeResponseProcess(ConnectNode* node) {
-  int ret = 0;
+  int ret = Success;
 
   //LOG_DEBUG("Node:%p nodeResponseProcess begin.", node);
 
@@ -1183,13 +1189,13 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
       LOG_ERROR("Node:%p Response failed, errormsg:%s. But request has released, ignore TaskFailed and Closed event.", node, failedInfo.c_str());
     } else {
       node->handlerTaskFailedEvent(failedInfo);
+      node->closeConnectNode();
     }
-    node->closeConnectNode();
   }
 
   //LOG_DEBUG("Node:%p nodeResponseProcess done.", node);
 
-  return Success;
+  return ret;
 }
 
 void WorkThread::setAddrInFamily(int aiFamily) {

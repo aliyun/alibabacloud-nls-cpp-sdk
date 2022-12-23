@@ -1,19 +1,26 @@
 #!/bin/bash -e
 
 echo "Command:"
-echo "./scripts/build_linux.sh <all or incr> <debug or release>"
-echo "eg: ./scripts/build_linux.sh all debug"
-
+echo "./scripts/build_linux.sh <all or incr> <debug or release> <abi>"
+echo "eg: ./scripts/build_linux.sh all debug 0"
 
 ALL_FLAG=$1
 DEBUG_FLAG=$2
+ABI_FLAG=$3
 if [ $# == 0 ]; then
   ALL_FLAG="incr"
   DEBUG_FLAG="debug"
+  ABI_FLAG=0
 fi
 if [ $# == 1 ]; then
   ALL_FLAG=$1
   DEBUG_FLAG="debug"
+  ABI_FLAG=0
+fi
+if [ $# == 2 ]; then
+  ALL_FLAG=$1
+  DEBUG_FLAG=$2
+  ABI_FLAG=0
 fi
 
 git_root_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
@@ -49,12 +56,13 @@ mkdir -p $demo_folder
 cd $build_folder
 
 #开始编译
+echo "BUILD_CXX11_ABI:" ${ABI_FLAG}
 if [ x${DEBUG_FLAG} == x"release" ];then
   echo "BUILD_TYPE: Release..."
-  cmake -DCMAKE_BUILD_TYPE=Release ..
+  cmake -DCMAKE_BUILD_TYPE=Release -DCXX11_ABI=${ABI_FLAG} ..
 else
   echo "BUILD_TYPE: Debug..."
-  cmake -DCMAKE_BUILD_TYPE=Debug ..
+  cmake -DCMAKE_BUILD_TYPE=Debug -DCXX11_ABI=${ABI_FLAG} ..
 fi
 if [ x${ALL_FLAG} == x"all" ];then
   make clean
@@ -90,8 +98,21 @@ ar x libcurl.a
 
 ar cr ../../../lib/libalibabacloud-idst-speech.a *.o
 ranlib ../../../lib/libalibabacloud-idst-speech.a
+
+my_arch=$( uname -m )
+
 #gcc -shared -Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -o ../../../lib/libalibabacloud-idst-speech.so *.o
-gcc -shared -Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -Wl,--exclude-libs,ALL -Wl,-z,relro,-z,now -Wl,-z,noexecstack -fstack-protector -o ../../../lib/libalibabacloud-idst-speech.so *.o
+CFLAG_PARAMS="-Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -Wl,--exclude-libs,ALL -Wl,-z,relro,-z,now -Wl,-z,noexecstack -fstack-protector"
+LDFALG_PARAMS=""
+if [ $ABI_FLAG == 1 ];then
+  echo "share library with c++11"
+  CFLAG_PARAMS="-std=c++11 $CFLAG_PARAMS"
+fi
+if [ x${my_arch} == x"aarch64" ];then
+  echo "ld library with pthread"
+  LDFALG_PARAMS="-lpthread"
+fi
+gcc -shared $CFLAG_PARAMS -o ../../../lib/libalibabacloud-idst-speech.so *.o $LDFALG_PARAMS
 
 if [ x${DEBUG_FLAG} == x"release" ];then
   strip ../../../lib/libalibabacloud-idst-speech.so
@@ -117,7 +138,7 @@ cp $build_folder/lib/* $sdk_install_folder/lib/
 ### 5
 echo "生成DEMO..."
 cd $demo_folder
-cmake ../../demo/Linux
+cmake -DCXX11_ABI=${ABI_FLAG} ../../demo/Linux
 make
 
 echo "编译结束..."

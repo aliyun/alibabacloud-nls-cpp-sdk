@@ -20,8 +20,10 @@ namespace AlibabaNlsCommon {
 
 Credentials::Credentials(const std::string &accessKeyId,
     const std::string &accessKeySecret,
+    const std::string &stsToken,
     const std::string &sessionToken) : accessKeyId_(accessKeyId),
   accessKeySecret_(accessKeySecret),
+  stsToken_(stsToken),
   sessionToken_(sessionToken) {
 }
 
@@ -36,12 +38,20 @@ std::string Credentials::accessKeySecret () const {
   return accessKeySecret_;
 }
 
+std::string Credentials::stsToken () const {
+  return stsToken_;
+}
+
 void Credentials::setAccessKeyId(const std::string &accessKeyId) {
   accessKeyId_ = accessKeyId;
 }
 
 void Credentials::setAccessKeySecret(const std::string &accessKeySecret) {
   accessKeySecret_ = accessKeySecret;
+}
+
+void Credentials::setStsToken(const std::string &stsToken) {
+  stsToken_ = stsToken;
 }
 
 void Credentials::setSessionToken (const std::string &sessionToken) {

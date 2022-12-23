@@ -111,12 +111,17 @@ endfunction()
 sdkConfigFunc("config/nlsSdkConfig.conf")
 
 #设置Git信息
-exec_program(
-  "git"
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ARGS "log --format='[sha1]:%h [author]:%cn [time]:%ci [commit]:%s [branch]:%d' -1"
-  OUTPUT_VARIABLE VERSION_SHA1 )
-add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
+find_package(Git QUIET)
+if(GIT_FOUND)
+  exec_program(
+    "git"
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ARGS "log --format='[sha1]:%h [author]:%cn [time]:%ci [commit]:%s [branch]:%d' -1"
+    OUTPUT_VARIABLE VERSION_SHA1 )
+  add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
+else()
+  add_definitions(-DGIT_SHA1="\\"no\\"")
+endif()
 
 #获取输出类型
 get_property(BUILD_TYPE GLOBAL PROPERTY BUILD_LIB_TYPE)
@@ -143,18 +148,27 @@ endif ()
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -Wl,-Bsymbolic")
 set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} -Wl,-Bsymbolic")
 
-#forbidden C++11
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+#default forbidden C++11, -D_GLIBCXX_USE_CXX11_ABI=0
+if (NOT DEFINED CXX11_ABI)
+  set(CXX11_ABI 0)
+endif ()
+if (CXX11_ABI)
+  message(STATUS "NlsSdk support std=c++11")
+  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif ()
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI})
 
 add_definitions(-DENABLE_OGGOPUS)
 add_definitions(-DENABLE_HIGH_EFFICIENCY)
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)
-	message(STATUS "Canon't build thirdparty.")
+  message(STATUS "Cannot build thirdparty.")
 else ()
-	add_subdirectory(thirdparty)
-	message(STATUS "Build thirdparty...")
+  add_subdirectory(thirdparty)
+  message(STATUS "Build thirdparty...")
 endif ()
 
 #编译nlsCppSdk主体

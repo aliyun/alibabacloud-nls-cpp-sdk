@@ -34,6 +34,7 @@
 std::string g_akId = "";
 std::string g_akSecret = "";
 std::string g_domain = "";
+std::string g_api_version = "";
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -65,6 +66,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_domain = argv[index];
+    } else if (!strcmp(argv[index], "--apiVersion")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_api_version = argv[index];
     }
     index++;
   }
@@ -82,6 +87,9 @@ int main(int argc, char* argv[]) {
       << "  --akId <AccessKey ID>\n"
       << "  --akSecret <AccessKey Secret>\n"
       << "  --domain <url>\n"
+      << "      mcos:  mcos.cn-shanghai.aliyuncs.com\n"
+      << "  --apiVersion <API VERSION>\n"
+      << "      mcos:  2022-08-11\n"
       << "eg:\n"
       << "  ./gtDemo --akId xxxxxx --akSecret xxxxxx --domain xxxxx\n"
       << std::endl;
@@ -94,6 +102,7 @@ int main(int argc, char* argv[]) {
   std::cout << " akId: " << g_akId << std::endl;
   std::cout << " akSecret: " << g_akSecret << std::endl;
   std::cout << " domain: " << g_domain << std::endl;
+  std::cout << " api_version: " << g_api_version << std::endl;
   std::cout << "\n" << std::endl;
 
   /* 此为启动Log记录, 非必须 */
@@ -112,6 +121,10 @@ int main(int argc, char* argv[]) {
   /*设置Domain*/
   if (!g_domain.empty()) {
     request.setDomain(g_domain);
+  }
+  /*设置接口版本*/
+  if (!g_api_version.empty()) {
+    request.setServerVersion(g_api_version);
   }
 
   /*获取token, 成功返回0, 失败返回负值*/

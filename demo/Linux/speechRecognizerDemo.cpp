@@ -152,6 +152,8 @@ std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
 std::string g_token = "";
+std::string g_domain = "";
+std::string g_api_version = "";
 std::string g_url = "";
 std::string g_audio_path = "";
 int g_threads = 1;
@@ -369,7 +371,12 @@ int generateToken(std::string akId, std::string akSecret,
   AlibabaNlsCommon::NlsToken nlsTokenRequest;
   nlsTokenRequest.setAccessKeyId(akId);
   nlsTokenRequest.setKeySecret(akSecret);
-//  nlsTokenRequest.setDomain("nls-meta-vpc-pre.aliyuncs.com");
+  if (!g_domain.empty()) {
+    nlsTokenRequest.setDomain(g_domain);
+  }
+  if (!g_api_version.empty()) {
+    nlsTokenRequest.setServerVersion(g_api_version);
+  }
 
   int retCode = nlsTokenRequest.applyNlsToken();
   /*获取失败原因*/
@@ -857,6 +864,7 @@ void* autoCloseFunc(void* arg) {
  */
 void* pthreadFunction(void* arg) {
   int sleepMs = 0;
+  int testCount = 0;
   ParamCallBack *cbParam = NULL;
   uint64_t sendAudio_us = 0;
   uint32_t sendAudio_cnt = 0;
@@ -989,6 +997,7 @@ void* pthreadFunction(void* arg) {
     gettimeofday(&(cbParam->startTv), NULL);
     int ret = request->start();
     run_cnt++;
+    testCount++;
     if (ret < 0) {
       std::cout << "start failed(" << ret << ")." << std::endl;
       run_start_failed++;
@@ -1118,7 +1127,7 @@ void* pthreadFunction(void* arg) {
 
     AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
 
-    if (loop_count > 0 && run_cnt >= loop_count) {
+    if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
     }
   }  // while global_run
@@ -1161,6 +1170,7 @@ void* pthreadFunction(void* arg) {
  */
 void* pthreadLongConnectionFunction(void* arg) {
   int sleepMs = 0;
+  int testCount = 0;
   ParamCallBack *cbParam = NULL;
   struct ParamStatistics params;
   uint64_t sendAudio_us = 0;
@@ -1284,6 +1294,7 @@ void* pthreadLongConnectionFunction(void* arg) {
     gettimeofday(&(cbParam->startTv), NULL);
     int ret = request->start();
     run_cnt++;
+    testCount++;
     if (ret < 0) {
       std::cout << "start failed(" << ret << ")." << std::endl;
       run_start_failed++;
@@ -1411,6 +1422,10 @@ void* pthreadLongConnectionFunction(void* arg) {
     } else {
       std::cout << "stop ret is " << ret << std::endl;
     }
+
+    if (loop_count > 0 && testCount >= loop_count) {
+      global_run = false;
+    }
   } // while
 
   AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
@@ -1459,9 +1474,11 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   }
 
 #ifdef SELF_TESTING_TRIGGER
-  pthread_t p_id;
-  pthread_create(&p_id, NULL, &autoCloseFunc, NULL);
-  pthread_detach(p_id);
+  if (loop_count == 0) {
+    pthread_t p_id;
+    pthread_create(&p_id, NULL, &autoCloseFunc, NULL);
+    pthread_detach(p_id);
+  }
 #endif
 
   char audioFileNames[AUDIO_FILE_NUMS][AUDIO_FILE_NAME_LENGTH] =
@@ -1819,6 +1836,14 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_token = argv[index];
+    } else if (!strcmp(argv[index], "--tokenDomain")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_domain = argv[index];
+    } else if (!strcmp(argv[index], "--tokenApiVersion")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_api_version = argv[index];
     } else if (!strcmp(argv[index], "--url")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1835,6 +1860,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--loop")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      loop_count = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--type")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1912,7 +1941,14 @@ int main(int argc, char* argv[]) {
       << "  --akId <AccessKey ID>\n"
       << "  --akSecret <AccessKey Secret>\n"
       << "  --token <Token>\n"
+      << "  --tokenDomain <the domain of token>\n"
+      << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
+      << "  --tokenApiVersion <the ApiVersion of token>\n"
+      << "      mcos:  2022-08-11\n"
       << "  --url <Url>\n"
+      << "      public(default): wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
+      << "      internal: ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
+      << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
       << "  --threads <Thread Numbers, default 1>\n"
       << "  --time <Timeout secs, default 60 seconds>\n"
       << "  --type <audio type, default pcm>\n"
@@ -1921,6 +1957,7 @@ int main(int argc, char* argv[]) {
       << "  --long <long connection: 1, short connection: 0, default 0>\n"
       << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
       << "  --noSleep <use sleep after sendAudio(), default 0>\n"
+      << "  --loop <loop count>\n"
       << "eg:\n"
       << "  ./srDemo --appkey xxxxxx --token xxxxxx\n"
       << "  ./srDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads 4 --time 3600\n"
@@ -1934,11 +1971,14 @@ int main(int argc, char* argv[]) {
   std::cout << " appKey: " << g_appkey << std::endl;
   std::cout << " akId: " << g_akId << std::endl;
   std::cout << " akSecret: " << g_akSecret << std::endl;
+  std::cout << " domain for token: " << g_domain << std::endl;
+  std::cout << " apiVersion for token: " << g_api_version << std::endl;
   std::cout << " threads: " << g_threads << std::endl;
   if (!g_audio_path.empty()) {
     std::cout << " audio files path: " << g_audio_path << std::endl;
   }
   std::cout << " loop timeout: " << loop_timeout << std::endl;
+  std::cout << " loop count: " << loop_count << std::endl;
   std::cout << "\n" << std::endl;
 
   pthread_mutex_init(&params_mtx, NULL);

@@ -34,6 +34,7 @@ class CommonClient : public CoreClient {
 
   CommonClient(const std::string &accessKeyId,
                const std::string &accessKeySecret,
+               const std::string &stsToken,
                const ClientConfiguration &configuration);
   ~CommonClient();
 

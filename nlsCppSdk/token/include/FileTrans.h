@@ -89,18 +89,25 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
   struct resultRequest getRequestParams();
 
   /**
-   * @brief 设置阿里云账号的KeySecret
+   * @brief 设置阿里云账号的KeySecret/stsKeySecret
    * @param KeySecret Secret字符串
    * @return void
    */
   void setKeySecret(const std::string & KeySecret);
 
   /**
-   * @brief 设置阿里云账号的KeyId
+   * @brief 设置阿里云账号的KeyId/stsKeyId
    * @param KeyId Id字符串
    * @return void
    */
   void setAccessKeyId(const std::string & accessKeyId);
+
+  /**
+   * @brief 设置阿里云账号的临时访问凭证stsToken
+   * @param stsToken字符串
+   * @return void
+   */
+  void setStsToken(const std::string & stsToken);
 
   /**
    * @brief 设置APPKEY
@@ -181,6 +188,7 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
  private:
   std::string accessKeySecret_;
   std::string accessKeyId_;
+  std::string stsToken_;
 
   std::string domain_;
   std::string serverVersion_;
