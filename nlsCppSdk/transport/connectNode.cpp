@@ -782,10 +782,7 @@ int ConnectNode::gatewayRequest() {
     return -(RequestEmpty);
   }
 
-  int timeout_ms = _request->getRequestParam()->getRecvTimeout();
-  _recvTv.tv_sec = timeout_ms / 1000;
-  _recvTv.tv_usec = (timeout_ms - _recvTv.tv_sec * 1000) * 1000;
-  event_add(&_readEvent, &_recvTv);
+  event_add(&_readEvent, NULL);
 
   char tmp[NODE_FRAME_SIZE] = {0};
   int tmpLen = _webSocket.requestPackage(
