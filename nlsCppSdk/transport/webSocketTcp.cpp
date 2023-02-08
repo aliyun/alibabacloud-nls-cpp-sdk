@@ -402,10 +402,11 @@ int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
   if (wsType->opCode == WebSocketHeaderType::TEXT_FRAME) {
     // pass
   } else {
-    LOG_DEBUG("Decoder Receive Data: %zu ", receivedData->length);
+    // LOG_DEBUG("Decoder Receive Data: %zu ", receivedData->length);
   };
 
-  //LOG_DEBUG("receivedData->type: %d | %d", receivedData->type, wsType->opCode);
+  LOG_DEBUG("Decoder received data opCode:%d dataType:%d dataLength:%d.",
+      wsType->opCode, receivedData->type, receivedData->length);
   return Success;
 }
 

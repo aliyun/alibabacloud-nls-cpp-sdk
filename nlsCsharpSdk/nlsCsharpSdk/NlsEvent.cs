@@ -41,8 +41,8 @@ namespace nlsCsharpSdk
         /// <summary>
         /// 此次事件的完整信息, json string格式.
         /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string msg;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
+        public byte[] msg;
 
         /// <summary>
         /// 此次事件的类型.
@@ -58,18 +58,18 @@ namespace nlsCsharpSdk
         /// <summary>
         /// 识别内容.
         /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string result;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
+        public byte[] result;
 
         /// <summary>
         /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string displayText;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
+        public byte[] displayText;
 
         /// <summary>
         /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string spokenText;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
+        public byte[] spokenText;
 
         /// <summary>
         /// </summary>
@@ -98,8 +98,9 @@ namespace nlsCsharpSdk
 
         /// <summary>
         /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string wakeWordUserId;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
+        public byte[] wakeWordUserId;
+
         /// <summary>
         /// </summary>
         public int wakeWordGender;
@@ -113,8 +114,8 @@ namespace nlsCsharpSdk
 
         /// <summary>
         /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string stashResultText;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
+        public byte[] stashResultText;
 
         /// <summary>
         /// </summary>
@@ -122,6 +123,15 @@ namespace nlsCsharpSdk
 
         /// <summary>
         /// </summary>
-        public int isValid;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool isValid;
+
+        /// <summary>
+        /// </summary>
+        public IntPtr user;
+
+        /// <summary>
+        /// </summary>
+        public IntPtr eventMtx;
     }
 }

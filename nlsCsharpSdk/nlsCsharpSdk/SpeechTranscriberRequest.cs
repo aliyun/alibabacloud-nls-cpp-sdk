@@ -37,9 +37,13 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateTranscriberRequest所建立的request对象.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Start(SpeechTranscriberRequest request)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STstart(request.native_request);
         }
         #endregion
@@ -51,9 +55,13 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateTranscriberRequest所建立的request对象.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Stop(SpeechTranscriberRequest request)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STstop(request.native_request);
         }
         #endregion
@@ -65,9 +73,13 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateTranscriberRequest所建立的request对象.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Cancel(SpeechTranscriberRequest request)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STcancel(request.native_request);
         }
         #endregion
@@ -82,7 +94,7 @@ namespace nlsCsharpSdk
         /// <param name="message">
         ///.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Control(SpeechTranscriberRequest request, string message)
         {
             return -1;
@@ -108,11 +120,15 @@ namespace nlsCsharpSdk
         /// ENCODER_OPUS 表示以OPUS压缩后进行传递, 只支持20ms, 支持16K16b1c和8K16b1c.
         /// </param>
         /// <returns>
-        /// 成功则返回0, 失败返回-1.
-        /// 由于音频格式不确定, 传入音频字节数和传出音频字节数, 无法通过比较判断成功与否, 故成功返回0.
+        /// 成功则返回>=0, 失败返回负值错误码
+        /// 由于音频格式不确定, 传入音频字节数和传出音频字节数, 无法通过比较判断成功与否, 故成功返回>=0.
         /// </returns>
         public int SendAudio(SpeechTranscriberRequest request, byte[] data, UInt64 dataSize, EncoderType type)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsendAudio(request.native_request, data, dataSize, (int)type);
         }
         #endregion
@@ -127,9 +143,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 服务url字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetUrl(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetUrl(request.native_request, value);
         }
 
@@ -142,9 +162,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// appKey字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetAppKey(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetAppKey(request.native_request, value);
         }
 
@@ -157,9 +181,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 申请的token字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetToken(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetToken(request.native_request, value);
         }
 
@@ -172,9 +200,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 传送的音频数据格式, 目前支持pcm|opus|opu.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetFormat(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetFormat(request.native_request, value);
         }
 
@@ -187,9 +219,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 目前支持16000, 8000. 默认是1600.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetSampleRate(SpeechTranscriberRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetSampleRate(request.native_request, value);
         }
 
@@ -202,9 +238,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 可选参数, 默认false.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetIntermediateResult(SpeechTranscriberRequest request, bool value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetIntermediateResult(request.native_request, value);
         }
 
@@ -217,9 +257,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 可选参数, 默认false.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetPunctuationPrediction(SpeechTranscriberRequest request, bool value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetPunctuationPrediction(request.native_request, value);
         }
 
@@ -232,9 +276,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 可选参数, 默认false.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetInverseTextNormalization(SpeechTranscriberRequest request, bool value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetInverseTextNormalization(request.native_request, value);
         }
 
@@ -247,9 +295,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 可选参数, 默认false.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetSemanticSentenceDetection(SpeechTranscriberRequest request, bool value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetSemanticSentenceDetection(request.native_request, value);
         }
 
@@ -263,9 +315,13 @@ namespace nlsCsharpSdk
         /// vad阀值. 合法参数范围200～2000(ms), 默认值800ms. 
         /// vad断句与语义断句为互斥关系, 不能同时使用. 调用此设置前, 请将语义断句setSemanticSentenceDetection设置为false.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetMaxSentenceSilence(SpeechTranscriberRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetMaxSentenceSilence(request.native_request, value);
         }
 
@@ -278,9 +334,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 定制模型id字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetCustomizationId(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetCustomizationId(request.native_request, value);
         }
 
@@ -293,9 +353,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 定制泛热词id字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetVocabularyId(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetVocabularyId(request.native_request, value);
         }
 
@@ -308,9 +372,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 超时时间.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetTimeout(SpeechTranscriberRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetTimeout(request.native_request, value);
         }
 
@@ -323,9 +391,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 可选参数, 默认false.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetEnableNlp(SpeechTranscriberRequest request, bool value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetEnableNlp(request.native_request, value);
         }
 
@@ -338,9 +410,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// value nlp模型名称字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetNlpModel(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetNlpModel(request.native_request, value);
         }
 
@@ -353,9 +429,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// value session id 字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetSessionId(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetSessionId(request.native_request, value);
         }
 
@@ -368,10 +448,32 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// value 编码格式 UTF-8 or GBK.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetOutputFormat(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetOutputFormat(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 获得设置的输出文本的编码格式.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <returns>成功则返回字符串, 否则返回unknown.</returns>
+        public string GetOutputFormat(SpeechTranscriberRequest request)
+        {
+            IntPtr get = NativeMethods.STgetOutputFormat(request.native_request);
+            string format = "unknown";
+            if (get != IntPtr.Zero)
+            {
+                format = Marshal.PtrToStringAnsi(get);
+            }
+            return format;
         }
 
         /// <summary>
@@ -383,9 +485,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// value json格式字符串, 类似"{\"test1\":\"01\", \"test2\":\"15\"}".
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetPayloadParam(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetPayloadParam(request.native_request, value);
         }
 
@@ -398,9 +504,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// value json格式字符串, 类似"{\"network\":{\"ip\":\"100.101.102.103\"}}".
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetContextParam(SpeechTranscriberRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STsetContextParam(request.native_request, value);
         }
 
@@ -416,9 +526,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         ///
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int AppendHttpHeaderParam(SpeechTranscriberRequest request, string key, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.STappendHttpHeaderParam(request.native_request, key, value);
         }
         #endregion
@@ -511,12 +625,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnTranscriptionStarted(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -538,13 +656,17 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
 
         public void SetOnTaskFailed(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -565,12 +687,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnTranscriptionResultChanged(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -591,12 +717,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnTranscriptionCompleted(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -617,12 +747,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnChannelClosed(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -643,12 +777,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnSentenceBegin(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -669,12 +807,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnSentenceEnd(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -695,12 +837,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnSentenceSemantics(
-            SpeechTranscriberRequest request, CallbackDelegate callback, object para = null)
+            SpeechTranscriberRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;

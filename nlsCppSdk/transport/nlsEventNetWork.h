@@ -37,8 +37,6 @@ class NlsEventNetWork {
   static NlsEventNetWork * _eventClient;
 
   static void DnsLogCb(int w, const char *m);
-  static void tryCreateMutex();
-  static void tryDestroyMutex();
 
   void initEventNetWork(
       NlsClient* instance, int count, char *aiFamily, char *directIp, bool sysGetAddr);
@@ -47,13 +45,14 @@ class NlsEventNetWork {
   int start(INlsRequest *request);
   int sendAudio(INlsRequest *request, const uint8_t * data,
                 size_t dataSize, ENCODER_TYPE type);
-  int stop(INlsRequest *request, int type);
+  int stop(INlsRequest *request);
+  int cancel(INlsRequest *request);
   int stControl(INlsRequest* request, const char* message);
 
   NlsClient* getInstance();
 
  private:
-  int selectThreadNumber();            //循环选择工作线程
+  int selectThreadNumber();     //循环选择工作线程
 
   WorkThread *_workThreadArray; //工作线程数组
   size_t _workThreadsNumber;    //工作线程数量
@@ -68,7 +67,6 @@ class NlsEventNetWork {
 #else
   static pthread_mutex_t _mtxThread;
 #endif
-  static int _opCount;
 };
 
 }  // namespace AlibabaNls

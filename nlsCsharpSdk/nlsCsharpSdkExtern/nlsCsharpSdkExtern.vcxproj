@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props" Condition="Exists('..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props')" />
-  <Import Project="..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props" Condition="Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -33,9 +31,6 @@
   <ItemGroup>
     <ClCompile Include="nlsCppSdkExtern.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -47,36 +42,36 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
-    <SupportLTL>true</SupportLTL>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>false</CLRSupport>
-    <SupportLTL>true</SupportLTL>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
-    <SupportLTL>true</SupportLTL>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>false</CLRSupport>
-    <SupportLTL>true</SupportLTL>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -118,7 +113,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_CONSOLE;WIN32;_DEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
@@ -161,7 +156,7 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
@@ -207,7 +202,7 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
@@ -253,7 +248,7 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
@@ -293,15 +288,5 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets" Condition="Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets')" />
-  </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>这台计算机上缺少此项目引用的 NuGet 程序包。使用“NuGet 程序包还原”可下载这些程序包。有关更多信息，请参见 http://go.microsoft.com/fwlink/?LinkID=322105。缺少的文件是 {0}。</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props')" Text="$([System.String]::Format('$(ErrorText)', '..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props'))" />
-    <Error Condition="!Exists('..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\nlsCsharpSdk\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.targets'))" />
-    <Error Condition="!Exists('..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props')" Text="$([System.String]::Format('$(ErrorText)', '..\nlsCsharpSdk\packages\VC-LTL.5.0.4\build\native\VC-LTL.props'))" />
-  </Target>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

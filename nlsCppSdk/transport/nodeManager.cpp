@@ -269,7 +269,7 @@ int NlsNodeManager::removeRequestFromInfo(void* request, bool wait) {
       this->requestListByNode.erase(iter2);
     }
 
-    LOG_DEBUG("request(%p) node(%p) status(%s) removed.",
+    LOG_INFO("request(%p) node(%p) status(%s) removed.",
         request, info.node, this->getNodeStatusString(info.status).c_str());
 
     infoByRequest.erase(iter);
@@ -611,6 +611,12 @@ std::string NlsNodeManager::getNodeStatusString(int status) {
     case NodeStatusCreated:
       ret_str.assign("NodeStatusCreated");
       break;
+    case NodeStatusInvoking:
+      ret_str.assign("NodeStatusInvoking");
+      break;
+    case NodeStatusInvoked:
+      ret_str.assign("NodeStatusInvoked");
+      break;
     case NodeStatusConnecting:
       ret_str.assign("NodeStatusConnecting");
       break;
@@ -628,6 +634,9 @@ std::string NlsNodeManager::getNodeStatusString(int status) {
       break;
     case NodeStatusCancelling:
       ret_str.assign("NodeStatusCancelling");
+      break;
+    case NodeStatusClosing:
+      ret_str.assign("NodeStatusClosing");
       break;
     case NodeStatusClosed:
       ret_str.assign("NodeStatusClosed");

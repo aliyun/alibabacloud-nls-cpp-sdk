@@ -191,6 +191,15 @@ namespace nlsCsharpSdk
         int SetOutputFormat(SpeechSynthesizerRequest request, string value);
 
         /// <summary>
+        /// 获得设置的输出文本的编码格式.
+        /// </summary>
+        /// <param name="request">
+        /// CreateSynthesizerRequest所建立的request对象.
+        /// </param>
+        /// <returns>成功则返回字符串, 否则返回空.</returns>
+        string GetOutputFormat(SpeechSynthesizerRequest request);
+
+        /// <summary>
         /// 设置Socket接收超时时间.
         /// </summary>
         /// <param name="request">
@@ -272,7 +281,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnTaskFailed(SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnTaskFailed(SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置语音合成结束回调函数, 在语音合成完成时，sdk内部线程该回调上报.
@@ -287,7 +296,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnSynthesisCompleted(SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnSynthesisCompleted(SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置通道关闭回调函数, 语音合成连接通道关闭时，sdk内部线程该回调上报.
@@ -302,7 +311,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnChannelClosed(SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnChannelClosed(SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置语音合成二进制音频数据接收回调函数. 接收到服务端发送的二进制音频数据时，sdk内部线程上报该回调函数.
@@ -317,7 +326,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnBinaryDataReceived(SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnBinaryDataReceived(SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置文本对应的日志信息接收回调函数, 
@@ -333,6 +342,6 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnMetaInfo(SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnMetaInfo(SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null);
     }
 }

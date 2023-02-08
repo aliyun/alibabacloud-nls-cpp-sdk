@@ -17,6 +17,7 @@
 #include <string>
 #include "speechRecognizerParam.h"
 #include "nlsRequestParamInfo.h"
+#include "nlsGlobal.h"
 #include "nlog.h"
 
 namespace AlibabaNls {
@@ -33,34 +34,32 @@ SpeechRecognizerParam::~SpeechRecognizerParam() {}
 
 const char* SpeechRecognizerParam::getStartCommand() {
   _header[D_NAME] = D_CMD_START_RECOGNITION;
-  LOG_DEBUG("SpeechRecognizerParam Start.");
   return INlsRequestParam::getStartCommand();
 }
 
 const char* SpeechRecognizerParam::getStopCommand() {
   _header[D_NAME] = D_CMD_STOP_RECOGNITION;
-  LOG_DEBUG("SpeechRecognizerParam Stop.");
   return INlsRequestParam::getStopCommand();
 }
 
 int SpeechRecognizerParam::setEnableVoiceDetection(bool value) {
   _payload[D_SR_VOICE_DETECTION] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerParam::setMaxStartSilence(int value) {
   _payload[D_SR_MAX_START_SILENCE] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerParam::setMaxEndSilence(int value) {
   _payload[D_SR_MAX_END_SILENCE] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerParam::setAudioAddress(const char* value) {
   _payload[D_SR_AUDIO_ADDRESS] = value;
-  return 0;
+  return Success;
 }
 
 }

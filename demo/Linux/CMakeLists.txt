@@ -37,15 +37,30 @@ target_link_libraries(srDemo
     alibabacloud-idst-speech
     pthread z dl)
 
+add_executable(srMT profile_scan.cpp speechRecognizerMonkeyTest.cpp)
+target_link_libraries(srMT
+    alibabacloud-idst-speech
+    pthread z dl)
+
 # 实时识别
 add_executable(stDemo profile_scan.cpp speechTranscriberDemo.cpp)
 target_link_libraries(stDemo
     alibabacloud-idst-speech
     pthread z dl)
 
+add_executable(stMT profile_scan.cpp speechTranscriberMonkeyTest.cpp)
+target_link_libraries(stMT
+    alibabacloud-idst-speech
+    pthread z dl)
+
 # 转写
 add_executable(syDemo profile_scan.cpp speechSynthesizerDemo.cpp)
 target_link_libraries(syDemo
+    alibabacloud-idst-speech
+    pthread z dl)
+
+add_executable(syMT speechSynthesizerMonkeyTest.cpp)
+target_link_libraries(syMT
     alibabacloud-idst-speech
     pthread z dl)
 

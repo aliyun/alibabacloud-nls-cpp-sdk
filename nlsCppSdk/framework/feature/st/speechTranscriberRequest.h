@@ -39,6 +39,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberCallback {
   void setOnTranscriptionCompleted(NlsCallbackMethod _event, void* para = NULL);
   void setOnChannelClosed(NlsCallbackMethod _event, void* para = NULL);
   void setOnSentenceSemantics(NlsCallbackMethod _event, void* para);
+  void setOnMessage(NlsCallbackMethod _event, void* para = NULL);
 
   NlsCallbackMethod _onSentenceSemantics;
   NlsCallbackMethod _onTaskFailed;
@@ -48,6 +49,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberCallback {
   NlsCallbackMethod _onSentenceEnd;
   NlsCallbackMethod _onTranscriptionCompleted;
   NlsCallbackMethod _onChannelClosed;
+  NlsCallbackMethod _onMessage;
   std::map<NlsEvent::EventType, void*> _paramap;
 };
 
@@ -60,7 +62,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置实时音频流识别服务URL地址
    * @note 必填参数. 默认为公网服务URL地址.
    * @param value 服务url字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setUrl(const char* value);
 
@@ -68,7 +70,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置appKey
    * @note 请参照官网
    * @param value appKey字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setAppKey(const char* value);
 
@@ -76,7 +78,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 口令认证。所有的请求都必须通过SetToken方法认证通过，才可以使用
    * @note token需要申请获取
    * @param value	申请的token字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setToken(const char* value);
 
@@ -84,7 +86,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置音频数据编码格式
    * @note  可选参数，目前支持pcm, opu. 默认是pcm
    * @param value	音频数据编码字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setFormat(const char* value);
 
@@ -92,7 +94,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置音频数据采样率sample_rate
    * @note 可选参数，目前支持16000, 8000. 默认是1600
    * @param value
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSampleRate(int value);
 
@@ -100,7 +102,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置是否返回中间识别结果
    * @note 可选参数. 默认false
    * @param value true 或 false
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setIntermediateResult(bool value);
 
@@ -108,7 +110,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置是否在后处理中添加标点
    * @note 可选参数. 默认false
    * @param value true 或 false
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setPunctuationPrediction(bool value);
 
@@ -116,7 +118,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置是否在后处理中执行数字转换
    * @note 可选参数. 默认false
    * @param value true 或 false
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setInverseTextNormalization(bool value);
 
@@ -125,7 +127,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @note 可选参数. 默认false. 如果使用语义断句, 则vad断句设置不会生效.
    *                            两者为互斥关系.
    * @param value true 或 false
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSemanticSentenceDetection(bool value);
 
@@ -137,56 +139,63 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    *                 调用此设置前,
    *                 请将语义断句setSemanticSentenceDetection设置为false.
    * @param value vad阀值
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setMaxSentenceSilence(int value);
 
   /*
    * @brief 设置定制模型
    * @param value 定制模型id字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setCustomizationId(const char * value);
 
   /*
    * @brief 设置泛热词
    * @param value 定制泛热词id字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setVocabularyId(const char * value);
 
   /**
    * @brief 设置链接超时时间
    * @param value 超时时间(ms), 默认5000ms
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setTimeout(int value);
 
   /**
+   * @brief 设置开启接收超时时间
+   * @param value 默认true, 即默认开启接收超时时间
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setEnableRecvTimeout(bool value);
+
+  /**
    * @brief 设置接收超时时间
    * @param value 超时时间(ms), 默认15000ms
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setRecvTimeout(int value);
 
   /**
    * @brief 设置发送超时时间
    * @param value 超时时间(ms), 默认5000ms
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSendTimeout(int value);
 
   /*
    * @brief 设置是否开启nlp服务
    * @param enable 是否开启nlp服务
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setEnableNlp(bool enable);
 
   /*
    * @brief 设置nlp模型名称，开启NLP服务后必填
    * @param value nlp模型名称字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setNlpModel(const char* value);
 
@@ -194,7 +203,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置session id
    * @note  用于请求异常断开重连时，服务端识别是同一个会话。
    * @param value session id 字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSessionId(const char* value);
 
@@ -202,43 +211,49 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @brief 设置输出文本的编码格式
    * @note 暂不支持, 输出均为UTF-8
    * @param value 编码格式 UTF-8 or GBK
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setOutputFormat(const char* value);
+
+  /*
+   * @brief 获得设置的输出文本的编码格式
+   * @return 返回  UTF-8 or GBK
+   */
+  const char* getOutputFormat();
 
   /*
    * @brief 参数设置
    * @note  暂不对外开放
    * @param value 参数
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setPayloadParam(const char* value);
 
   /*
    * @brief 设置用户自定义参数
    * @param value 参数
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setContextParam(const char* value);
 
   /*
    * @brief 是否开启返回词信息, 默认是False
    * @param enable 是否开启返回词信息
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setEnableWords(bool enable);
 
   /*
    * @brief 是否忽略实时识别中的单句识别超时, 默认是False
    * @param enable 是否忽略实时识别中的单句识别超时
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setEnableIgnoreSentenceTimeout(bool enable);
 
   /*
    * @brief 是否对识别文本进行顺滑(去除语气词,重复说等), 默认是False
    * @param enable 是否对识别文本进行顺滑
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setDisfluency(bool enable);
 
@@ -248,15 +263,22 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @param value 取值越趋于-1, 噪音被判定为语音的概率越大
    *              取值越趋于+1, 语音被判定为噪音的概率越大
    *              该参数属高级参数, 调整需慎重并重点测试
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSpeechNoiseThreshold(float value);
+
+  /**
+   * @brief 设置开启服务器返回消息回调
+   * @param value 默认false, 即默认不开启服务器返回消息回调
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setEnableOnMessage(bool value);
 
   /*
    * @brief 设置用户自定义ws阶段http header参数
    * @param key 参数名称
    * @param value 参数内容
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int AppendHttpHeaderParam(const char* key, const char* value);
 
@@ -379,6 +401,15 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @return void
    */
   void setOnSentenceSemantics(NlsCallbackMethod _event, void* para = NULL);
+
+  /*
+   * @brief 设置服务端response message回调函数
+   * @note 表示返回所有服务端返回的结果
+   * @param _event 回调方法
+   * @param para 用户传入参数, 默认为NULL
+   * @return void
+   */
+  void setOnMessage(NlsCallbackMethod _event, void* para = NULL);
 
  private:
   SpeechTranscriberParam* _transcriberParam;

@@ -35,6 +35,16 @@ NLSAPI(void) NlsSetAddrInFamily(const char* aiFamily)
 	return AlibabaNls::NlsClient::getInstance()->setAddrInFamily(aiFamily);
 }
 
+NLSAPI(void) NlsSetDirectHost(const char* ip)
+{
+  return AlibabaNls::NlsClient::getInstance()->setDirectHost(ip);
+}
+
+NLSAPI(int) NlsCalculateUtf8Chars(const char* text)
+{
+  return AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(text);
+}
+
 NLSAPI(void) NlsStartWorkThread(int threadsNumber)
 {
 	if (stEvent == NULL)

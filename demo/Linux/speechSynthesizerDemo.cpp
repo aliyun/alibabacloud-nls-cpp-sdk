@@ -639,6 +639,17 @@ void OnMetaInfo(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 #endif
 }
 
+/**
+ * @brief 服务端返回的所有信息会通过此回调反馈,
+ * @param cbEvent 回调事件结构, 详见nlsEvent.h
+ * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
+ * @return
+*/
+void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
+  std::cout << "onMessage: All response:"
+      << cbEvent->getAllResponse() << std::endl;
+}
+
 void* autoCloseFunc(void* arg) {
   int timeout = 50;
 
@@ -814,6 +825,10 @@ void* pthreadFunc(void* arg) {
     request->setOnBinaryDataReceived(OnBinaryDataRecved, &cbParam);
     // 设置字幕信息
     request->setOnMetaInfo(OnMetaInfo, &cbParam);
+    // 设置所有服务端返回信息回调函数
+    //request->setOnMessage(onMessage, &cbParam);
+    // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
+    //request->setEnableOnMessage(true);
 
     if (strlen(tst->appkey) > 0) {
       request->setAppKey(tst->appkey);
@@ -846,6 +861,9 @@ void* pthreadFunc(void* arg) {
     if (strlen(tst->url) > 0) {
       request->setUrl(tst->url);
     }
+    // 获取返回文本的编码格式
+    const char* output_format = request->getOutputFormat();
+    std::cout << "text format: " << output_format << std::endl;
 
     /*
      * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
@@ -979,6 +997,10 @@ void* pthreadLongConnectionFunc(void* arg) {
   request->setOnBinaryDataReceived(OnBinaryDataRecved, &cbParam);
   // 设置字幕信息
   request->setOnMetaInfo(OnMetaInfo, &cbParam);
+  // 设置所有服务端返回信息回调函数
+  //request->setOnMessage(onMessage, &cbParam);
+  // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
+  //request->setEnableOnMessage(true);
 
   if (strlen(tst->appkey) > 0) {
     request->setAppKey(tst->appkey);
@@ -1011,6 +1033,9 @@ void* pthreadLongConnectionFunc(void* arg) {
   if (strlen(tst->url) > 0) {
     request->setUrl(tst->url);
   }
+  // 获取返回文本的编码格式
+  const char* output_format = request->getOutputFormat();
+  std::cout << "text format: " << output_format << std::endl;
 
   while (global_run) {
     /*

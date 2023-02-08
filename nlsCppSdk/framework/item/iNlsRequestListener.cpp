@@ -27,7 +27,6 @@ void INlsRequestListener::handlerFrame(std::string errorInfo,
                                        int errorCode,
                                        NlsEvent::EventType type,
                                        std::string taskId) {
-    LOG_DEBUG("Event Type: %d.", type);
     NlsEvent* nlsevent = new NlsEvent(
         errorInfo.c_str(), errorCode, type, taskId);
     handlerFrame(*nlsevent);

@@ -48,11 +48,6 @@ SpeechRecognizerCallback::~SpeechRecognizerCallback() {
 
 void SpeechRecognizerCallback::setOnTaskFailed(
     NlsCallbackMethod event, void* param) {
-  //LOG_DEBUG("setOnTaskFailed callback");
-  if (param == NULL) {
-    LOG_ERROR("setOnTaskFailed NULL");
-  }
-
   this->_onTaskFailed = event;
   if (this->_paramap.find(NlsEvent::TaskFailed) != _paramap.end()) {
     _paramap[NlsEvent::TaskFailed] = param;
@@ -63,11 +58,6 @@ void SpeechRecognizerCallback::setOnTaskFailed(
 
 void SpeechRecognizerCallback::setOnRecognitionStarted(
     NlsCallbackMethod event, void* param) {
-  //LOG_DEBUG("setOnRecognitionStarted callback");
-  if (param == NULL) {
-    LOG_ERROR("setOnRecognitionStarted NULL");
-  }
-
   this->_onRecognitionStarted = event;
   if (this->_paramap.find(NlsEvent::RecognitionStarted) != _paramap.end()) {
     _paramap[NlsEvent::RecognitionStarted] = param;
@@ -76,13 +66,18 @@ void SpeechRecognizerCallback::setOnRecognitionStarted(
   }
 }
 
+void SpeechRecognizerCallback::setOnMessage(
+    NlsCallbackMethod event, void* param) {
+  this->_onMessage = event;
+  if (this->_paramap.find(NlsEvent::Message) != _paramap.end()) {
+    _paramap[NlsEvent::Message] = param;
+  } else {
+    _paramap.insert(std::make_pair(NlsEvent::Message, param));
+  }
+}
+
 void SpeechRecognizerCallback::setOnRecognitionCompleted(
     NlsCallbackMethod event, void* param) {
-  //LOG_DEBUG("setOnRecognitionCompleted callback");
-  if (param == NULL) {
-    LOG_ERROR("setOnRecognitionCompleted NULL");
-  }
-
   this->_onRecognitionCompleted = event;
   if (this->_paramap.find(NlsEvent::RecognitionCompleted) != _paramap.end()) {
     _paramap[NlsEvent::RecognitionCompleted] = param;
@@ -93,11 +88,6 @@ void SpeechRecognizerCallback::setOnRecognitionCompleted(
 
 void SpeechRecognizerCallback::setOnRecognitionResultChanged(
     NlsCallbackMethod event, void* param) {
-  //LOG_DEBUG("setOnRecognitionResultChanged callback");
-  if (param == NULL) {
-    LOG_ERROR("setOnRecognitionResultChanged NULL");
-  }
-
   this->_onRecognitionResultChanged = event;
   if (this->_paramap.find(NlsEvent::RecognitionResultChanged) != _paramap.end()) {
     _paramap[NlsEvent::RecognitionResultChanged] = param;
@@ -108,11 +98,6 @@ void SpeechRecognizerCallback::setOnRecognitionResultChanged(
 
 void SpeechRecognizerCallback::setOnChannelClosed(
     NlsCallbackMethod event, void* param) {
-  //LOG_DEBUG("setOnChannelClosed callback");
-  if (param == NULL) {
-    LOG_ERROR("setOnChannelClosed NULL");
-  }
-
   this->_onChannelClosed = event;
   if (this->_paramap.find(NlsEvent::Close) != _paramap.end()) {
     _paramap[NlsEvent::Close] = param;
@@ -135,13 +120,10 @@ SpeechRecognizerRequest::SpeechRecognizerRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechRecognizerRequest Done.");
+  LOG_DEBUG("Request(%p) create SpeechRecognizerRequest Done.", this);
 }
 
 SpeechRecognizerRequest::~SpeechRecognizerRequest() {
-//  delete _recognizerParam;
-//  _recognizerParam = NULL;
-
   delete _listener;
   _listener = NULL;
 
@@ -154,7 +136,7 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
   delete _recognizerParam;
   _recognizerParam = NULL;
 
-  LOG_DEBUG("Request:%p Destroy SpeechRecognizerRequest Done.", this);
+  LOG_DEBUG("Request(%p) destroy SpeechRecognizerRequest Done.", this);
 }
 
 int SpeechRecognizerRequest::start() {
@@ -162,11 +144,11 @@ int SpeechRecognizerRequest::start() {
 }
 
 int SpeechRecognizerRequest::stop() {
-  return INlsRequest::stop(this, 0);
+  return INlsRequest::stop(this);
 }
 
 int SpeechRecognizerRequest::cancel() {
-  return INlsRequest::stop(this, 1);
+  return INlsRequest::cancel(this);
 }
 
 int SpeechRecognizerRequest::sendAudio(
@@ -187,60 +169,60 @@ int SpeechRecognizerRequest::setContextParam(const char *value) {
 int SpeechRecognizerRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setToken(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setUrl(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setAppKey(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setFormat(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setSampleRate(int value) {
   _recognizerParam->setSampleRate(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setIntermediateResult(bool value) {
   _recognizerParam->setIntermediateResult(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setPunctuationPrediction(bool value) {
   _recognizerParam->setPunctuationPrediction(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setInverseTextNormalization(bool value) {
   _recognizerParam->setTextNormalization(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setEnableVoiceDetection(bool value) {
   _recognizerParam->setEnableVoiceDetection(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setMaxStartSilence(int value) {
   _recognizerParam->setMaxStartSilence(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setMaxEndSilence(int value) {
   _recognizerParam->setMaxEndSilence(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::AppendHttpHeaderParam(
@@ -249,40 +231,57 @@ int SpeechRecognizerRequest::AppendHttpHeaderParam(
 }
 
 int SpeechRecognizerRequest::setCustomizationId(const char * value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _recognizerParam->setCustomizationId(value);
 }
 
 int SpeechRecognizerRequest::setVocabularyId(const char * value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _recognizerParam->setVocabularyId(value);
 }
 
 int SpeechRecognizerRequest::setTimeout(int value) {
   _recognizerParam->setTimeout(value);
-  return 0;
+  return Success;
+}
+
+int SpeechRecognizerRequest::setEnableRecvTimeout(bool value) {
+  _recognizerParam->setEnableRecvTimeout(value);
+  return Success;
 }
 
 int SpeechRecognizerRequest::setRecvTimeout(int value) {
   _recognizerParam->setRecvTimeout(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setSendTimeout(int value) {
   _recognizerParam->setSendTimeout(value);
-  return 0;
+  return Success;
 }
 
 int SpeechRecognizerRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setOutputFormat(value);
-  return 0;
+  return Success;
+}
+
+int SpeechRecognizerRequest::setEnableOnMessage(bool value) {
+  _recognizerParam->setEnableOnMessage(value);
+  return Success;
+}
+
+const char* SpeechRecognizerRequest::getOutputFormat() {
+  return _recognizerParam->getOutputFormat().c_str();
 }
 
 int SpeechRecognizerRequest::setAudioAddress(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _recognizerParam->setAudioAddress(value);
-  return 0;
+  return Success;
 }
 
+/* set callback of SpeechRecognizerRequest */
 void SpeechRecognizerRequest::setOnTaskFailed(
     NlsCallbackMethod event, void* param) {
   _callback->setOnTaskFailed(event, param);
@@ -306,6 +305,11 @@ void SpeechRecognizerRequest::setOnRecognitionResultChanged(
 void SpeechRecognizerRequest::setOnChannelClosed(
     NlsCallbackMethod event, void* param) {
   _callback->setOnChannelClosed(event, param);
+}
+
+void SpeechRecognizerRequest::setOnMessage(
+    NlsCallbackMethod event, void* param) {
+  _callback->setOnMessage(event, param);
 }
 
 }

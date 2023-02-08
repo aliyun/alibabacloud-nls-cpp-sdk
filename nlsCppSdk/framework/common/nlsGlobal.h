@@ -60,11 +60,13 @@ enum NlsRetCode {
   JsonObjectError,              /* 错误的Json对象 */
   MallocFailed,                 /* Malloc失败 */
   ReallocFailed,                /* Realloc失败 */
+  InvalidInputParam,            /* 传入无效的参数 */
 
 
   /* log */
   InvalidLogLevel = 50,         /* 无效日志级别 */
   InvalidLogFileSize,           /* 无效日志文件大小 */
+  InvalidLogFileNum,            /* 无效日志文件数量 */
 
 
   /* encoder */
@@ -82,11 +84,13 @@ enum NlsRetCode {
   InvokeSendAudioFailed,        /* 请求状态机不对, 导致sendAudio失败 */
   InvalidOpusFrameSize,         /* opus帧长无效, 默认为640字节 */
   InvokeStopFailed,             /* 请求状态机不对, 导致stop失败 */
+  InvokeCancelFailed,           /* 请求状态机不对, 导致stop失败 */
   InvokeStControlFailed,        /* 请求状态机不对, 导致stControl失败 */
 
 
   /* nls event */
   NlsEventEmpty = 200,          /* NLS事件为空 */
+  NewNlsEventFailed,            /* 创建NlsEvent失败 */
   NlsEventMsgEmpty,             /* NLS事件中消息为空 */
   InvalidNlsEventMsgType,       /* 无效的NLS事件中消息类型 */
   InvalidNlsEventMsgStatusCode, /* 无效的NLS事件中消息状态码 */
@@ -103,17 +107,20 @@ enum NlsRetCode {
   InvalidRequestParams = 300,   /* 请求的入参无效 */
   RequestEmpty,                 /* 请求是空指针 */
   InvalidRequest,               /* 无效的请求 */
-  SeParamsEmpty,                /* 设置传入的参数为空 */
+  SetParamsEmpty,               /* 设置传入的参数为空 */
 
 
   /* websocket */
   GetHttpHeaderFailed = 350,    /* 获得http头失败 */
   HttpGotBadStatus,             /* http错误的状态 */
   WsResponsePackageFailed,      /* 解析websocket返回包失败 */
+  WsResponsePackageEmpty,       /* 解析websocket返回包为空 */
   WsRequestPackageEmpty,        /* websocket请求包为空 */
+  UnknownWsFrameHeadType,       /* 未知websocket帧头类型 */
   InvalidWsFrameHeaderSize,     /* 无效的websocket帧头大小 */
   InvalidWsFrameHeaderBody,     /* 无效的websocket帧头本体 */
   InvalidWsFrameBody,           /* 无效的websocket帧本体 */
+  WsFrameBodyEmpty,             /* 帧数据为空, 常见为收到了脏数据 */
 
   /* connect node */
   NodeEmpty = 400,              /* node为空指针 */
@@ -121,6 +128,7 @@ enum NlsRetCode {
   GetAddrinfoFailed,            /* 通过dns解析地址识别 */
   ConnectFailed,                /* 联网失败 */
   InvalidDnsSource,             /* 当前设备无DNS */
+  ParseUrlFailed,               /* 无效url */
 
   SslHandshakeFailed,           /* SSL握手失败 */
   SslCtxEmpty,                  /* SSL_CTX未空 */
@@ -143,6 +151,7 @@ enum NlsRetCode {
   NlsSendFailed,                /* NLS发送数据失败 */
   NewOutputBufferFailed,        /* 创建buffer失败 */
   NlsEncodingFailed,            /* 音频编码失败 */
+  EventEmpty,                   /* event为空 */
   EvbufferTooMuch,              /* evbuffer中数据太多 */
   EvutilSocketFalied,           /* evutil设置参数失败 */
   InvalidExitStatus,            /* 无效的退出状态 */
@@ -165,6 +174,8 @@ enum NlsRetCode {
   IconvOpenFailed,              /* 申请转换描述失败 */
   IconvFailed,                  /* 编码转换失败 */
   ClientRequestFaild,           /* 账号客户端请求失败 */
+
+  /* 900 - 998 reserved for C# */
 
   NlsMaxErrorCode = 999,
 };

@@ -229,6 +229,15 @@ namespace nlsCsharpSdk
         int SetOutputFormat(SpeechTranscriberRequest request, string value);
 
         /// <summary>
+        /// 获得设置的输出文本的编码格式.
+        /// </summary>
+        /// <param name="request">
+        /// CreateTranscriberRequest所建立的request对象.
+        /// </param>
+        /// <returns>成功则返回字符串, 否则返回空.</returns>
+        string GetOutputFormat(SpeechTranscriberRequest request);
+
+        /// <summary>
         /// 参数设置
         /// </summary>
         /// <param name="request">
@@ -344,7 +353,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnTaskFailed(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnTaskFailed(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置实时音频流识别开始回调函数. 服务端就绪, 可以开始识别时, sdk内部线程上报该回调.
@@ -359,7 +368,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnTranscriptionStarted(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnTranscriptionStarted(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置一句话开始回调, 检测到一句话的开始时, sdk内部线程上报该回调.
@@ -374,7 +383,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnSentenceBegin(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnSentenceBegin(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置实时识别中间结果回调函数. 设置SetEnableIntermediateResult字段为true, 才会有中间结果.
@@ -389,7 +398,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnTranscriptionResultChanged(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnTranscriptionResultChanged(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置一句话结束回调函数, 检测到了一句话的结束时, sdk内部线程上报该回调.
@@ -404,7 +413,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnSentenceEnd(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnSentenceEnd(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置实时音频流识别结束回调函数, 在语音识别完成时, sdk内部线程上报该回调.
@@ -419,7 +428,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnTranscriptionCompleted(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnTranscriptionCompleted(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置通道关闭回调函数, 在请求过程中通道关闭时, sdk内部线程上报该回调.
@@ -434,7 +443,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnChannelClosed(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnChannelClosed(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置二次处理结果回调函数, 表示对实时转写的原始结果进行处理后的结果, 开启enable_nlp后返回.
@@ -449,6 +458,6 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnSentenceSemantics(SpeechTranscriberRequest request, CallbackDelegate callback, object para = null);
+        void SetOnSentenceSemantics(SpeechTranscriberRequest request, CallbackDelegate callback, string para = null);
     }
 }

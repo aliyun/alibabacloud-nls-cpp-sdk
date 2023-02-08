@@ -29,16 +29,16 @@ namespace AlibabaNls {
 #define D_DEFAULT_VALUE_BOOL_FALSE "false"
 
 /************************common param************************/
-#define D_HEADER "header"
-#define D_PAYLOAD "payload"
-#define D_CONTEXT "context"
-#define D_FORMAT "format"
+#define D_HEADER      "header"
+#define D_PAYLOAD     "payload"
+#define D_CONTEXT     "context"
+#define D_FORMAT      "format"
 #define D_SAMPLE_RATE "sample_rate"
-#define D_APP_KEY "appkey"
-#define D_MESSAGE_ID "message_id"
-#define D_TASK_ID "task_id"
-#define D_NAMESPACE "namespace"
-#define D_NAME "name"
+#define D_APP_KEY     "appkey"
+#define D_MESSAGE_ID  "message_id"
+#define D_TASK_ID     "task_id"
+#define D_NAMESPACE   "namespace"
+#define D_NAME        "name"
 
 /************************speech recognizer************************/
 #define D_SR_VOICE_DETECTION         "enable_voice_detection"
@@ -88,9 +88,9 @@ namespace AlibabaNls {
 #define D_DA_ENABLE_MUTI_GROUP      "enable_multi_group"
 
 /**************************sdk infomation**************************/
-#define D_SDK_CLIENT "sdk"
-#define D_SDK_NAME "name"
-#define D_SDK_VERSION "version"
+#define D_SDK_CLIENT   "sdk"
+#define D_SDK_NAME     "name"
+#define D_SDK_VERSION  "version"
 #define D_SDK_LANGUAGE "language"
 #define D_CUSTOM_PARAM "customParam"
 

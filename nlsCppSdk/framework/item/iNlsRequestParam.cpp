@@ -71,6 +71,8 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mo
   _send_timeout = SEND_TIMEOUT_MS;
 
   _enableWakeWord = false;
+  _enableRecvTimeout = false;
+  _enableOnMessage = false;
 }
 
 INlsRequestParam::~INlsRequestParam() {}
@@ -144,7 +146,7 @@ const char* INlsRequestParam::getStartCommand() {
 
   _task_id = getRandomUuid();
   _header[D_TASK_ID] = _task_id;
-  LOG_DEBUG("TaskId:%s", _task_id.c_str());
+  // LOG_DEBUG("TaskId:%s", _task_id.c_str());
   _header[D_MESSAGE_ID] = getRandomUuid();
 
   root[D_HEADER] = _header;
@@ -164,14 +166,12 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
   std::string logInfo;
 
   if (!reader.parse(message, inputRoot)) {
-    logInfo = "parse json fail: %s";
-    logInfo += message;
-    LOG_ERROR(logInfo.c_str());
+    LOG_ERROR("Parse json(%s) failed!", message);
     return NULL;
   }
 
   if (!inputRoot.isObject()) {
-    LOG_ERROR("value isnot a json object.");
+    LOG_ERROR("Json value isn't a json object.");
     return NULL;
   }
 
@@ -216,21 +216,20 @@ int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Reader reader;
   Json::Value::iterator iter;
   Json::Value::Members members;
-  std::string logInfo;
 
   if (value == NULL) {
-    LOG_ERROR("value is nullptr");
-    return -(SeParamsEmpty);
+    LOG_ERROR("Input value is nullptr");
+    return -(SetParamsEmpty);
   }
 
   std::string tmpValue = value;
   if (!reader.parse(tmpValue, root)) {
-    LOG_ERROR("parse json(%s) failed!", tmpValue.c_str());
+    LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
     return -(JsonParseFailed);
   }
 
   if (!root.isObject()) {
-    LOG_ERROR("value isn't a json object.");
+    LOG_ERROR("Json value isn't a json object.");
     return -(JsonObjectError);
   }
 
@@ -240,11 +239,6 @@ int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Value::Members::iterator it = members.begin();
   for (; it != members.end(); ++it) {
     jsonKey = *it;
-
-    logInfo = "json key:";
-    logInfo += jsonKey;
-    LOG_DEBUG(logInfo.c_str());
-
     _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
   }
 
@@ -257,17 +251,14 @@ int INlsRequestParam::setContextParam(const char* value) {
   Json::Value::iterator iter;
   Json::Value::Members members;
   std::string tmpValue = value;
-  std::string logInfo;
 
   if (!reader.parse(tmpValue, root)) {
-    logInfo = "parse json fail: %s";
-    logInfo += value;
-    LOG_ERROR(logInfo.c_str());
+    LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
     return -(JsonParseFailed);
   }
 
   if (!root.isObject()) {
-    LOG_ERROR("value is n't a json object.");
+    LOG_ERROR("Json value isn't a json object.");
     return -(JsonObjectError);
   }
 
@@ -277,11 +268,6 @@ int INlsRequestParam::setContextParam(const char* value) {
   Json::Value::Members::iterator it = members.begin();
   for (; it != members.end(); ++it) {
     jsonKey = *it;
-
-    logInfo = "json key:";
-    logInfo += jsonKey;
-    LOG_DEBUG(logInfo.c_str());
-
     _context[jsonKey.c_str()] = root[jsonKey.c_str()];
   }
 
@@ -311,17 +297,17 @@ void INlsRequestParam::setTextNormalization(bool value) {
 
 int INlsRequestParam::setCustomizationId(const char * value) {
   if (value == NULL) {
-    return -(SeParamsEmpty);
+    return -(SetParamsEmpty);
   }
 
   _payload[D_SR_CUSTOMIZATION_ID] = value;
 
-  return 0;
+  return Success;
 }
 
 int INlsRequestParam::setVocabularyId(const char * value) {
   if (value == NULL) {
-    return -(SeParamsEmpty);
+    return -(SetParamsEmpty);
   }
 
   _payload[D_SR_VOCABULARY_ID] = value;
@@ -387,12 +373,24 @@ int INlsRequestParam::getTimeout() {
   return _timeout;
 }
 
+bool INlsRequestParam::getEnableRecvTimeout() {
+ return _enableRecvTimeout;
+}
+
+bool INlsRequestParam::getEnableOnMessage() {
+ return _enableOnMessage;
+}
+
 int INlsRequestParam::getRecvTimeout() {
   return _recv_timeout;
 }
 
 int INlsRequestParam::getSendTimeout() {
   return _send_timeout;
+}
+
+std::string INlsRequestParam::getOutputFormat() {
+  return _outputFormat;
 }
 
 }  // namespace AlibabaNls

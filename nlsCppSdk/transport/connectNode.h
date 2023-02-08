@@ -88,14 +88,15 @@ class NlsEventNetWork;
 #define RECV_FAILED_CODE 10000004
 #define CLOSE_CODE 20000000
 
-#define CLOSE_JSON_STRING "{\"channeclClosed\": \"nls request finished.\"}"
+#define CLOSE_JSON_STRING              "{\"channelClosed\": \"nls request finished.\"}"
 #define TASKFAILED_CONNECT_JSON_STRING "connect failed."
-#define TASKFAILED_PARSE_JSON_STRING "{\"TaskFailed\": \"JSON: Json parse failed.\"}"
+#define TASKFAILED_PARSE_JSON_STRING   "{\"TaskFailed\": \"JSON: Json parse failed.\"}"
 #define TASKFAILED_NEW_NLSEVENT_FAILED "{\"TaskFailed\": \"new NlsEvent failed, memory is not enough.\"}"
-#define TASKFAILED_UTF8_JSON_STRING "{\"TaskFailed\": \"utf8ToGbk failed.\"}"
-#define TASKFAILED_WS_JSON_STRING "{\"TaskFailed\": \"WEBSOCKET: unkown head type.\"}"
+#define TASKFAILED_UTF8_JSON_STRING    "{\"TaskFailed\": \"utf8ToGbk failed.\"}"
+#define TASKFAILED_WS_JSON_STRING      "{\"TaskFailed\": \"WEBSOCKET: unkown head type.\"}"
 
-//type
+
+/* EventNetWork发送Node的具体指令 */
 enum CmdType {
   CmdStart = 0,
   CmdStop,
@@ -106,36 +107,33 @@ enum CmdType {
   CmdCancel
 };
 
+/* Node处于的退出状态 */
 enum ExitStatus {
-  ExitInvalid = 0,
-  ExitStopping,
-  ExitStopping2, // stopping第二阶段
-  ExitStopped,
-  ExitCancel,
+  ExitInvalid = 0, /* 构造时, 未处于退出状态 */
+  ExitStopping,    /* 调用stop时设置ExitStopping */
+  ExitCancel,      /* 调用cancel时设置ExitCancel */
 };
 
+/* Node处于的最新运行状态 */
 enum ConnectStatus {
-  NodeInitial = 0,
-  NodeConnecting,
-  NodeConnected,
-  NodeHandshaking,
-  NodeHandshaked,
-  NodeStarting,
-  NodeStarted,
-  NodeWakeWording,
-  NodeInvalid
+  NodeInvalid = 0, /* node处于不可用或者释放状态 */
+  NodeCreated,     /* 构造node */
+  NodeInvoking,    /* 刚调用start的过程, 向notifyEventCallback发送c指令 */
+  NodeInvoked,     /* 调用start的过程, 在notifyEventCallback完成 */
+  NodeConnecting,  /* 正在dns解析 */
+  NodeConnected,   /* socket链接成功 */
+  NodeHandshaking, /* ssl握手中 */
+  NodeHandshaked,  /* 握手成功 */
+  NodeStarting,    /* 握手后收到response, 开始工作 */
+  NodeStarted,     /* 收到started response时 */
+  NodeWakeWording = 10,
+  NodeFailed,
+  NodeCompleted,
+  NodeClosed,
+  NodeReleased
 };
 
-enum CallbackStatus {
-  CallbackInvalid = 0,
-  CallbackStarted,
-  CallbackCancelled,
-  CallbackFailed,
-  CallbackClosed,
-  CallbackCompleted,
-};
 
-//class ConnectNode : public utility::BaseError {
 class ConnectNode {
 
  public:
@@ -168,10 +166,13 @@ class ConnectNode {
   void disconnectProcess();
   bool checkConnectCount();
 
-  void handlerEvent(const char* error, int errorCode,
-                    NlsEvent::EventType eventType);
   void handlerTaskFailedEvent(
       std::string failedInfo, int code = DefaultErrorCode);
+  void handlerEvent(const char* error, int errorCode,
+                    NlsEvent::EventType eventType, bool ignore = false);
+  void handlerMessage(const char* response,
+                      NlsEvent::EventType eventType);
+  int handlerFrame(NlsEvent *frameEvent);
 
   WorkThread* _eventThread;
   evutil_socket_t _socketFd;
@@ -185,18 +186,14 @@ class ConnectNode {
   std::string getConnectNodeStatusString();
   void setConnectNodeStatus(ConnectStatus status);
 
+  ExitStatus _exitStatus;
   ExitStatus getExitStatus();
   std::string getExitStatusString();
   void setExitStatus(ExitStatus status);
-  void setCallbackStatus(CallbackStatus status);
-  CallbackStatus getCallbackStatus();
 
   std::string getCmdTypeString(int type);
 
   void setInstance(NlsClient* instance);
-  NlsClient* getInstance();
-
-  void resetBufferLimit();
 
   bool _isWakeStop;
   bool getWakeStatus();
@@ -208,6 +205,11 @@ class ConnectNode {
   int socketConnect();
     
   void initNlsEncoder();
+
+  void updateParameters();
+
+  void delAllEvents();
+  void waitEventCallback();
 
   inline const char* getErrorMsg() {
     return _nodeErrMsg.c_str();
@@ -222,76 +224,40 @@ class ConnectNode {
   int sendControlDirective();
   void initAllStatus();
 
+  /* design to long connection */
+  bool _isLongConnection;
+  bool _isConnected;
+
+  /* design to native_getaddrinfo */
 #ifndef _MSC_VER
   char * _nodename;
   char * _servname;
 
-  pthread_mutex_t  _mtxDns;
-  pthread_cond_t   _cvDns;
-  pthread_t _dnsThread;
-  pthread_t _timeThread;
-  struct timespec _outtime;
+  pthread_mutex_t _mtxDns;  /*异步dns方案超时锁*/
+  pthread_cond_t  _cvDns;   /*异步dns方案超时信号*/
+  pthread_t _dnsThread;     /*异步dns方案启动线程*/
+  pthread_t _timeThread;    /*异步dns方案超时处理线程*/
+  struct timespec _outtime; /*异步dns方案超时设置*/
 
   struct event _dnsEvent;
   struct evutil_addrinfo * _addrinfo;
   void * _getaddrinfo_cb_handle;
 #endif
 
-  bool _isLongConnection;
-  bool _isConnected;
-
- private:
-  int _connectErrCode;
-  int _aiFamily;
-  struct sockaddr_in _addrV4;
-  struct sockaddr_in6 _addrV6;
-
-  size_t _limitSize;
-  struct timeval _connectTv;
-  struct timeval _recvTv;
-  struct timeval _sendTv;
-
-  std::string	_nodeErrMsg;
-
-  struct evbuffer *_readEvBuffer;
-  struct evbuffer *_binaryEvBuffer;
-  struct evbuffer *_cmdEvBuffer;
-  struct evbuffer *_wwvEvBuffer;
-
-  struct event _connectEvent;
-  struct event _readEvent;
-  struct event _writeEvent;
-
-#ifdef ENABLE_HIGH_EFFICIENCY
-  struct timeval _connectTimerTv;
-  struct event *_connectTimerEvent;
-  bool _connectTimerFlag;
-#endif
-
-  WebSocketTcp _webSocket;
-  WebSocketHeaderType _wsType;
-
-  CallbackStatus _callbackStatus;
-  ExitStatus _exitStatus;
-  size_t _retryConnectCount;
-
-  NlsEncoder * _nlsEncoder;
-  ENCODER_TYPE _encoder_type;
-
-  bool _isStop;
-
-  NlsClient* _instance;
-
+  /* design for thread safe */
 #if defined(_MSC_VER)
   HANDLE _mtxNode;
   HANDLE _mtxCloseNode;
-  HANDLE _mtxCallbackNode;
+  HANDLE _mtxEventCallbackNode;
 #else
-  pthread_mutex_t  _mtxNode;
-  pthread_mutex_t  _mtxCloseNode;
-  pthread_mutex_t _mtxCallbackNode;
+  pthread_mutex_t _mtxNode;
+  pthread_mutex_t _mtxCloseNode;
+  pthread_mutex_t _mtxEventCallbackNode;
+  pthread_cond_t  _cvEventCallbackNode;
 #endif
+  bool _inEventCallbackNode;
 
+ private:
 #if defined(__ANDROID__) || defined(__linux__)
   int codeConvert(char *from_charset,
                   char *to_charset,
@@ -302,15 +268,62 @@ class ConnectNode {
 #endif
 
   std::string utf8ToGbk(const std::string &strUTF8);
-  NlsEvent* convertResult(WebSocketFrame * frame);
+  NlsEvent* convertResult(WebSocketFrame *frame, int *result);
   const char* cmdConvertForLog(char *buf_in, std::string *buf_out);
 
   int parseFrame(WebSocketFrame *wsFrame);
 
-  int socketWrite(const uint8_t * buffer, size_t len);
-  int socketRead(uint8_t * buffer, size_t len);
+  int socketWrite(const uint8_t *buffer, size_t len);
+  int socketRead(uint8_t *buffer, size_t len);
 
-  int getErrorCodeFromMsg(const char* msg);
+  int getErrorCodeFromMsg(const char *msg);
+
+  int _aiFamily;
+  struct sockaddr_in _addrV4;
+  struct sockaddr_in6 _addrV6;
+
+  size_t _limitSize;
+  struct timeval _connectTv;
+  bool _enableRecvTv;
+  bool _enableOnMessage;
+  struct timeval _recvTv;
+  struct timeval _sendTv;
+
+  std::string	_nodeErrMsg;
+
+  struct evbuffer *_readEvBuffer;
+  struct evbuffer *_binaryEvBuffer;
+  struct evbuffer *_cmdEvBuffer;
+  struct evbuffer *_wwvEvBuffer;
+
+  struct event *_connectEvent;
+  struct event *_connectEventBackup;
+  struct event *_readEvent;
+  struct event *_readEventBackup;
+  struct event *_writeEvent;
+  struct event *_writeEventBackup;
+
+#ifdef ENABLE_HIGH_EFFICIENCY
+  struct timeval _connectTimerTv;
+  struct event *_connectTimerEvent;
+  struct event *_connectTimerEventBackup;
+  bool _connectTimerFlag;
+#endif
+
+  struct evdns_getaddrinfo_request *_dnsRequest;
+
+  WebSocketTcp _webSocket;
+  WebSocketHeaderType _wsType;
+
+  size_t _retryConnectCount;
+
+  NlsEncoder * _nlsEncoder;
+  ENCODER_TYPE _encoder_type;
+
+  bool _isStop;
+  bool _isFirstBinaryFrame;
+
+  NlsClient* _instance;
 };
 
 }

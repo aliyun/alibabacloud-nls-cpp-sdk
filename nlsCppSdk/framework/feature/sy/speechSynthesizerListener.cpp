@@ -62,6 +62,11 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
         _callback->_onMetaInfo(&str, _callback->_paramap[NlsEvent::MetaInfo]);
       }
       break;
+    case NlsEvent::Message:
+      if (NULL != _callback->_onMessage) {
+        _callback->_onMessage(&str, _callback->_paramap[NlsEvent::Message]);
+      }
+      break;
     default:
       if (NULL != _callback->_onTaskFailed) {
         _callback->_onTaskFailed(&str, _callback->_paramap[NlsEvent::TaskFailed]);

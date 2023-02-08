@@ -39,9 +39,13 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateSynthesizerRequest所建立的request对象.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Start(SpeechSynthesizerRequest request)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYstart(request.native_request);
         }
         #endregion
@@ -53,9 +57,13 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateSynthesizerRequest所建立的request对象.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Stop(SpeechSynthesizerRequest request)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYstop(request.native_request);
         }
         #endregion
@@ -67,9 +75,13 @@ namespace nlsCsharpSdk
         /// <param name="request">
         /// CreateSynthesizerRequest所建立的request对象.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int Cancel(SpeechSynthesizerRequest request)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYcancel(request.native_request);
         }
         #endregion
@@ -84,9 +96,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 服务url字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetUrl(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetUrl(request.native_request, value);
         }
 
@@ -99,9 +115,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// appKey字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetAppKey(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetAppKey(request.native_request, value);
         }
 
@@ -114,9 +134,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 申请的token字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetToken(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetToken(request.native_request, value);
         }
 
@@ -129,9 +153,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 可选参数, 默认是pcm. 支持的格式pcm, wav, mp3。
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetFormat(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetFormat(request.native_request, value);
         }
 
@@ -144,9 +172,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 目前支持16000, 8000. 默认是1600.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetSampleRate(SpeechSynthesizerRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetSampleRate(request.native_request, value);
         }
 
@@ -159,9 +191,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 待合成文本字符串.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetText(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             byte[] text = Encoding.UTF8.GetBytes(value);
             UInt32 textSize = (UInt32)text.Length;
             return NativeMethods.SYsetText(request.native_request, text, textSize);
@@ -176,9 +212,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 发音人字符串, 包含"xiaoyun", "xiaogang". 可选参数, 默认是xiaoyun.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetVoice(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetVoice(request.native_request, value);
         }
 
@@ -191,9 +231,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 音量, 范围是0~100, 可选参数, 默认50.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetVolume(SpeechSynthesizerRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetVolume(request.native_request, value);
         }
 
@@ -206,9 +250,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 语速, 范围是-500~500, 可选参数, 默认是0.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetSpeechRate(SpeechSynthesizerRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetSpeechRate(request.native_request, value);
         }
 
@@ -221,9 +269,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 语调, 范围是-500~500, 可选参数, 默认是0.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetPitchRate(SpeechSynthesizerRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetPitchRate(request.native_request, value);
         }
 
@@ -238,9 +290,13 @@ namespace nlsCsharpSdk
         /// 0 统计参数合成: 基于统计参数的语音合成, 优点是能适应的韵律特征的范围较宽, 合成器比特率低, 资源占用小, 性能高, 音质适中.
         /// 1 波形拼接合成: 基于高质量音库提取学习合成, 资源占用相对较高, 音质较好, 更加贴近真实发音, 但没有参数合成稳定.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetMethod(SpeechSynthesizerRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetMethod(request.native_request, value);
         }
 
@@ -252,9 +308,13 @@ namespace nlsCsharpSdk
         /// </param>
         /// <param name="value">
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetEnableSubtitle(SpeechSynthesizerRequest request, bool value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetEnableSubtitle(request.native_request, value);
         }
 
@@ -267,9 +327,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 参数.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetPayloadParam(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetPayloadParam(request.native_request, value);
         }
 
@@ -282,10 +346,32 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 编码格式 UTF-8 or GBK.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetOutputFormat(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetOutputFormat(request.native_request, value);
+        }
+
+        /// <summary>
+        /// 获得设置的输出文本的编码格式.
+        /// </summary>
+        /// <param name="request">
+        /// CreateSynthesizerRequest所建立的request对象.
+        /// </param>
+        /// <returns>成功则返回字符串, 否则返回unknown.</returns>
+        public string GetOutputFormat(SpeechSynthesizerRequest request)
+        {
+            IntPtr get = NativeMethods.SYgetOutputFormat(request.native_request);
+            string format = "unknown";
+            if (get != IntPtr.Zero)
+            {
+                format = Marshal.PtrToStringAnsi(get);
+            }
+            return format;
         }
 
         /// <summary>
@@ -297,9 +383,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 超时时间.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetTimeout(SpeechSynthesizerRequest request, int value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetTimeout(request.native_request, value);
         }
 
@@ -312,9 +402,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 参数.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int SetContextParam(SpeechSynthesizerRequest request, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYsetContextParam(request.native_request, value);
         }
 
@@ -330,9 +424,13 @@ namespace nlsCsharpSdk
         /// <param name="value">
         /// 参数内容.
         /// </param>
-        /// <returns>成功则返回0, 否则返回-1.</returns>
+        /// <returns>成功则返回0, 否则返回负值错误码.</returns>
         public int AppendHttpHeaderParam(SpeechSynthesizerRequest request, string key, string value)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return (int)NlsResultCode.NativeRequestEmpty;
+            }
             return NativeMethods.SYappendHttpHeaderParam(request.native_request, key, value);
         }
         #endregion
@@ -402,12 +500,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnTaskFailed(
-            SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
+            SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -428,12 +530,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnBinaryDataReceived(
-            SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
+            SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -454,12 +560,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnSynthesisCompleted(
-            SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
+            SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -480,12 +590,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnChannelClosed(
-            SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
+            SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;
@@ -507,12 +621,16 @@ namespace nlsCsharpSdk
         /// 用户传入的回调函数.
         /// </param>
         /// <param name="para">
-        /// 用户对象.
+        /// 用户信息.
         /// </param>
         /// <returns></returns>
         public void SetOnMetaInfo(
-            SpeechSynthesizerRequest request, CallbackDelegate callback, object para = null)
+            SpeechSynthesizerRequest request, CallbackDelegate callback, string para = null)
         {
+            if (request.native_request == IntPtr.Zero)
+            {
+                return;
+            }
             SpeechParamStruct user_param = new SpeechParamStruct();
             user_param.user = para;
             user_param.callback = callback;

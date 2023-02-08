@@ -47,6 +47,11 @@ void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
             &str, _callback->_paramap[NlsEvent::RecognitionResultChanged]);
       }
       break;
+    case NlsEvent::Message:
+      if (NULL != _callback->_onMessage) {
+        _callback->_onMessage(&str, _callback->_paramap[NlsEvent::Message]);
+      }
+      break;
     case NlsEvent::Close:
       if (NULL != _callback->_onChannelClosed) {
         _callback->_onChannelClosed(

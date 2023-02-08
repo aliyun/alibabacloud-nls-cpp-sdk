@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace nlsCsharpSdk
@@ -91,7 +90,7 @@ namespace nlsCsharpSdk
         /// <summary>
         /// 设置回调时传入的用户参数
         /// </summary>
-        public object user;
+        public string user;
 
         /// <summary>
         /// 设置回调时传入的回调函数
@@ -105,6 +104,29 @@ namespace nlsCsharpSdk
     };
 
     /// <summary>
+    /// 错误码, 负值.
+    /// </summary>
+    public enum NlsResultCode
+    {
+        // 900 - 998 reserved for C#
+
+        /// <summary>
+        /// 最大错误码
+        /// </summary>
+        NlsMaxErrorCode = -999,
+
+        /// <summary>
+        /// C#层请求为空, 请检查是否已经创建或已经释放.
+        /// </summary>
+        NativeRequestEmpty = -990,
+
+        /// <summary>
+        /// 暂时未实现的接口
+        /// </summary>
+        InvalidAPI,
+    };
+
+    /// <summary>
     /// 声明关于从底层收到回调事件的委托
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -114,5 +136,5 @@ namespace nlsCsharpSdk
     /// 声明关于用户回调的委托
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void CallbackDelegate(ref NLS_EVENT_STRUCT e, ref object o);
+    public delegate void CallbackDelegate(ref NLS_EVENT_STRUCT e, ref string s);
 }

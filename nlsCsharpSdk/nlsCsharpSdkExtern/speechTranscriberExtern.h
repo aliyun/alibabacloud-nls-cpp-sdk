@@ -34,7 +34,7 @@ NLSAPI(int) STsendAudio(AlibabaNls::SpeechTranscriberRequest* request, uint8_t* 
 	return request->sendAudio(data, dataSize, (ENCODER_TYPE)type);
 }
 
-// 对外回调
+// 瀵瑰鍥炶皟
 static void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, stEvent);
@@ -136,6 +136,8 @@ static void onSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 
 NLSAPI(int) STGetNlsEvent(NLS_EVENT_STRUCT &event)
 {
+	WaitForSingleObject(event.eventMtx, INFINITE);
+
 	event.statusCode = stEvent->statusCode;
 	memcpy(event.msg, stEvent->msg, 8192);
 	event.msgType = stEvent->msgType;
@@ -160,10 +162,14 @@ NLSAPI(int) STGetNlsEvent(NLS_EVENT_STRUCT &event)
 	event.stashResultCurrentTime = stEvent->stashResultBeginTime;
 	event.isValid = false;
 
+	CleanNlsEvent(stEvent);
+
+	ReleaseMutex(event.eventMtx);
+
 	return 0;
 }
 
-// 设置回调
+// 璁剧疆鍥炶皟
 NLSAPI(int) STOnTranscriptionStarted(
 	AlibabaNls::SpeechTranscriberRequest* request, NlsCallbackDelegate c, void* user)
 {
@@ -234,7 +240,7 @@ NLSAPI(int) STOnSentenceEnd(
 	return 0;
 }
 
-// 设置参数
+// 璁剧疆鍙傛暟
 NLSAPI(int) STsetUrl(AlibabaNls::SpeechTranscriberRequest* request, const char* value)
 {
 	return request->setUrl(value);
@@ -318,6 +324,12 @@ NLSAPI(int) STsetSessionId(AlibabaNls::SpeechTranscriberRequest* request, const 
 NLSAPI(int) STsetOutputFormat(AlibabaNls::SpeechTranscriberRequest* request, const char* value)
 {
 	return request->setOutputFormat(value);
+}
+
+NLSAPI(const char*) STGetOutputFormat(AlibabaNls::SpeechTranscriberRequest* request)
+{
+	const char* format = request->getOutputFormat();
+	return format;
 }
 
 NLSAPI(int) STsetPayloadParam(AlibabaNls::SpeechTranscriberRequest* request, const char* value)

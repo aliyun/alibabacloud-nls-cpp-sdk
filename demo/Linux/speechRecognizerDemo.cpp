@@ -157,7 +157,7 @@ std::string g_api_version = "";
 std::string g_url = "";
 std::string g_audio_path = "";
 int g_threads = 1;
-int g_cpu = 4;
+int g_cpu = 1;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
@@ -533,8 +533,9 @@ void OnRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   if (cbParam) {
     ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
   #if 0
-    std::cout << "resultChanged CbParam: " << tmpParam->userId << ", "
-              << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
+    std::cout << "OnRecognitionResultChanged resultChanged CbParam: "
+        << tmpParam->userId << ", "
+        << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
   #endif
 
     if (tmpParam->tParam->firstFlag == false) {
@@ -575,14 +576,13 @@ void OnRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     } // firstFlag
   }
 
-#if 0
   std::cout << "OnRecognitionResultChanged: "
             << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
             << ", task id: " << cbEvent->getTaskId()    // 当前任务的task id，方便定位问题，建议输出
             << ", result: " << cbEvent->getResult()     // 获取中间识别结果
             << std::endl;
-
-  std::cout << "OnRecognitionResultChanged: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
+#if 0
+  std::cout << "  OnRecognitionResultChanged: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
 #endif
 }
 
@@ -693,6 +693,17 @@ void OnRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     fwrite(outbuf, strlen(outbuf), 1, failed_stream);
     fclose(failed_stream);
   }
+}
+
+/**
+ * @brief 服务端返回的所有信息会通过此回调反馈,
+ * @param cbEvent 回调事件结构, 详见nlsEvent.h
+ * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
+ * @return
+*/
+void onRecognitionMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
+  std::cout << "onRecognitionMessage: All response:"
+      << cbEvent->getAllResponse() << std::endl;
 }
 
 /**
@@ -928,6 +939,9 @@ void* pthreadFunction(void* arg) {
     request->setOnRecognitionResultChanged(OnRecognitionResultChanged, cbParam);
     // 设置识别结束回调函数
     request->setOnRecognitionCompleted(OnRecognitionCompleted, cbParam);
+    // 设置所有服务端返回信息回调函数
+    //request->setOnMessage(onRecognitionMessage, cbParam);
+    //request->setEnableOnMessage(true);
 
     // 设置AppKey, 必填参数, 请参照官网申请
     if (strlen(tst->appkey) > 0) {
@@ -976,6 +990,9 @@ void* pthreadFunction(void* arg) {
       std::cout << "setUrl: " << tst->url << std::endl;
       request->setUrl(tst->url);
     }
+    // 获取返回文本的编码格式
+    const char* output_format = request->getOutputFormat();
+    std::cout << "text format: " << output_format << std::endl;
 
     std::cout << "begin sendAudio. "
       << pthread_self()
@@ -1217,6 +1234,9 @@ void* pthreadLongConnectionFunction(void* arg) {
   request->setOnRecognitionResultChanged(OnRecognitionResultChanged, cbParam);
   // 设置识别结束回调函数
   request->setOnRecognitionCompleted(OnRecognitionCompleted, cbParam);
+  // 设置所有服务端返回信息回调函数
+  //request->setOnMessage(onRecognitionMessage, cbParam);
+  //request->setEnableOnMessage(true);
 
   // 设置AppKey, 必填参数, 请参照官网申请
   if (strlen(tst->appkey) > 0) {
@@ -1261,6 +1281,9 @@ void* pthreadLongConnectionFunction(void* arg) {
     std::cout << "setUrl: " << tst->url << std::endl;
     request->setUrl(tst->url);
   }
+  // 获取返回文本的编码格式
+  const char* output_format = request->getOutputFormat();
+  std::cout << "text format: " << output_format << std::endl;
 
 
   while (global_run) {

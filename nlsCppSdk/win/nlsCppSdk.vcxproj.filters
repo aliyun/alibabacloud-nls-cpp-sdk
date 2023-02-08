@@ -202,7 +202,4 @@
       <Filter>源文件\utils</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
 </Project>

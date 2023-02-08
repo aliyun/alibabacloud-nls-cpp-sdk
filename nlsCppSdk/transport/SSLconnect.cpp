@@ -34,7 +34,7 @@ SSLconnect::SSLconnect() {
 
 SSLconnect::~SSLconnect() {
   sslClose();
-  LOG_DEBUG("destroy SSLconnect done..");
+  LOG_DEBUG("Destroy SSLconnect done.");
 }
 
 int SSLconnect::init() {
@@ -59,7 +59,7 @@ int SSLconnect::init() {
 
 void SSLconnect::destroy() {
   if (_sslCtx) {
-    //LOG_DEBUG("_sslCtx free.");
+    // LOG_DEBUG("free _sslCtx.");
     SSL_CTX_free(_sslCtx);
     _sslCtx = NULL;
   }
@@ -68,8 +68,7 @@ void SSLconnect::destroy() {
 }
 
 int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
-  //LOG_DEBUG("begin sslHandshake.");
-
+  // LOG_DEBUG("Begin sslHandshake.");
   if (_sslCtx == NULL) {
     return -(SslCtxEmpty);
   }
@@ -84,7 +83,7 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       ERR_error_string_n(ERR_get_error(),
                          _errorMsg + strnlen(SSL_new_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("SSL SSL_new failed:%s.", _errorMsg);
+      LOG_ERROR("Invoke SSL_new failed:%s.", _errorMsg);
       return -(SslNewFailed);
     }
 
@@ -96,7 +95,7 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       ERR_error_string_n(ERR_get_error(),
                          _errorMsg + strnlen(SSL_set_fd_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("SSL set_fd failed:%s.", _errorMsg);
+      LOG_ERROR("Invoke SSL_set_fd failed:%s.", _errorMsg);
       return -(SslSetFailed);
     }
 
@@ -106,6 +105,8 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
         SSL_MODE_AUTO_RETRY);
 
     SSL_set_connect_state(_ssl);
+  } else {
+    // LOG_DEBUG("SSL has existed.");
   }
 
   int sslError;
@@ -118,7 +119,7 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
     // sslError == SSL_ERROR_WANT_X509_LOOKUP
     // SSL_ERROR_SYSCALL
     if (sslError == SSL_ERROR_WANT_READ || sslError == SSL_ERROR_WANT_WRITE) {
-      //LOG_DEBUG("sslHandshake continue.");
+      // LOG_DEBUG("sslHandshake continue.");
       return sslError;
     } else if (sslError == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
@@ -145,7 +146,7 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       return -(SslConnectFailed);
     }
   } else {
-    LOG_DEBUG("sslHandshake success.");
+    // LOG_DEBUG("sslHandshake success.");
     return Success;
   }
 }
@@ -197,6 +198,7 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
   int rLen = SSL_read(_ssl, (void *)buffer, (int)len);
   if (rLen <= 0) {
     int eCode = SSL_get_error(_ssl, rLen);
+    int errno_code = utility::getLastErrorCode();
     //LOG_WARN("Read maybe failed, get_error:%d", eCode);
     if (eCode == SSL_ERROR_WANT_READ ||
         eCode == SSL_ERROR_WANT_WRITE ||
@@ -204,7 +206,6 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
       //LOG_DEBUG("Read could not complete. Will be invoked later.");
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
-      int errno_code = utility::getLastErrorCode();
       LOG_INFO("SSL_read error_syscall failed, errno:%d.", errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
@@ -220,7 +221,8 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
         ERR_error_string_n(eCode,
                            _errorMsg + strnlen(SSL_read_ret, 64),
                            MAX_SSL_ERROR_LENGTH);
-        LOG_ERROR("SSL_ERROR_SYSCALL Read failed:%d, %s.", eCode, _errorMsg);
+        LOG_ERROR("SSL_ERROR_SYSCALL Read failed:errno(%d) ecode(%d), %s.",
+            errno_code, eCode, _errorMsg);
         return -(SslReadSysError);
       }
     } else {
@@ -231,7 +233,8 @@ int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
       ERR_error_string_n(ERR_get_error(),
                          _errorMsg + strnlen(SSL_read_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("Read failed:%d, %s.", eCode, _errorMsg);
+      LOG_ERROR("Read failed:errno(%d) ecode(%d), %s.",
+          errno_code, eCode, _errorMsg);
       return -(SslReadFailed);
     }
   } else {

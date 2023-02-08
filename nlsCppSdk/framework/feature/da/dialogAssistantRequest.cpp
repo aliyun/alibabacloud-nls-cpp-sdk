@@ -174,16 +174,16 @@ int DialogAssistantRequest::start() {
 }
 
 int DialogAssistantRequest::stop() {
-  return INlsRequest::stop(this, 0);
+  return INlsRequest::stop(this);
 }
 
 int DialogAssistantRequest::cancel() {
-  return INlsRequest::stop(this, 1);
-  //return INlsRequest::cancel(this);
+  return INlsRequest::cancel(this);
 }
 
 int DialogAssistantRequest::StopWakeWordVerification() {
-  return INlsRequest::stop(this, 2);
+  // return INlsRequest::stop(this, 2);
+  return Success;
 }
 
 int DialogAssistantRequest::queryText() {

@@ -38,6 +38,7 @@ class TextUtils {
   static std::vector<std::string> split(const std::string &s, char delim);
   static int CharsCalculate(const char *text);
 
+  /*
   static std::string ws_to_string(const std::wstring &str) {
     unsigned len = str.size() * 4;
     setlocale(LC_CTYPE, "");
@@ -65,6 +66,8 @@ class TextUtils {
     delete[] p;  // 释放申请的内存
     return str1;
   }
+  */
+
   template <typename T>
   static std::string to_string(const T &n) {
     std::ostringstream stm;

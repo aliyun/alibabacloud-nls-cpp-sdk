@@ -35,7 +35,8 @@ class NLS_SDK_CLIENT_EXPORT INlsRequest {
   virtual~INlsRequest();
 
   int start(INlsRequest*);
-  int stop(INlsRequest*, int);
+  int stop(INlsRequest*);
+  int cancel(INlsRequest*);
   int stControl(INlsRequest*, const char*);
   int sendAudio(INlsRequest*, const uint8_t *, size_t,
                 ENCODER_TYPE type = ENCODER_NONE);

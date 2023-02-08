@@ -57,6 +57,26 @@ namespace nlsCsharpSdk
         void SetAddrInFamily(string aiFamily);
 
         /// <summary>
+        /// 跳过dns域名解析直接设置服务器ip地址, 若调用则需要在StartWorkThread之前.
+        /// </summary>
+        /// <param name="ip">
+        /// ipv4的地址 比如106.15.83.44
+        /// </param>
+        /// <returns></returns>
+        void SetDirectHost(string ip);
+
+        /// <summary>
+        /// 待合成音频文本内容字符数.
+        /// </summary>
+        /// <param name="text">
+        /// 需要传入UTF-8编码的文本内容
+        /// </param>
+        /// <returns>
+        /// 返回字符数
+        /// </returns>
+        int CalculateUtf8Chars(string text);
+
+        /// <summary>
         /// 启动工作线程数量, 同时也是NLS SDK的初始化步骤.
         /// </summary>
         /// <param name="threadsNumber">

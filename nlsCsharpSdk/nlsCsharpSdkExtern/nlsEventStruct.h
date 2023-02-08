@@ -23,12 +23,12 @@ struct NLS_EVENT_STRUCT
 	unsigned char binaryData[16384];
 
 	int statusCode;
-	char msg[8192];
+	unsigned char msg[8192];
 	int msgType;
 	char taskId[128];
-	char result[8192];
-	char displayText[8192];
-	char spokenText[8192];
+	unsigned char result[8192];
+	unsigned char displayText[8192];
+	unsigned char spokenText[8192];
 	int sentenceTimeOutStatus;
 	int sentenceIndex;
 	int sentenceTime;
@@ -36,12 +36,12 @@ struct NLS_EVENT_STRUCT
 	double sentenceConfidence;
 	bool wakeWordAccepted;
 	bool wakeWordKnown;
-	char wakeWordUserId[128];
+	unsigned char wakeWordUserId[128];
 	int wakeWordGender;
 
 	int stashResultSentenceId;
 	int stashResultBeginTime;
-	char stashResultText[8192];
+	unsigned char stashResultText[8192];
 	int stashResultCurrentTime;
 
 	bool isValid;
@@ -59,7 +59,25 @@ static void CleanNlsEvent(NLS_EVENT_STRUCT* e)
 {
 	WaitForSingleObject(e->eventMtx, INFINITE);
 
-	memset(e, 0, sizeof(NLS_EVENT_STRUCT));
+	e->statusCode = 0;
+	e->msgType = 0;
+    memset(e->taskId, 0, 128);
+	memset(e->result, 0, 8192);
+	memset(e->displayText, 0, 8192);
+	memset(e->spokenText, 0, 8192);
+	e->sentenceTimeOutStatus = 0;
+	e->sentenceIndex = 0;
+	e->sentenceTime = 0;
+	e->sentenceBeginTime = 0;
+	e->sentenceConfidence = 0;
+	e->wakeWordAccepted = false;
+    e->binaryDataSize = 0;
+	memset(e->msg, 0, 8192);
+	e->stashResultSentenceId = 0;
+	e->stashResultBeginTime = 0;
+	memset(e->stashResultText, 0, 8192);
+	e->stashResultCurrentTime = 0;
+	e->isValid = false;
 
 	ReleaseMutex(e->eventMtx);
 	return;
@@ -69,12 +87,30 @@ static void ConvertNlsEvent(AlibabaNls::NlsEvent* in, NLS_EVENT_STRUCT* out)
 {
 	WaitForSingleObject(out->eventMtx, INFINITE);
 
+	int str_len = 0;
 	out->statusCode = in->getStatusCode();
 	out->msgType = (int)in->getMsgType();
-	if (in->getTaskId()) strncpy(out->taskId, in->getTaskId(), 128);
-	if (in->getResult()) strncpy(out->result, in->getResult(), 8192);
-	if (in->getDisplayText()) strncpy(out->displayText, in->getDisplayText(), 8192);
-	if (in->getSpokenText()) strncpy(out->spokenText, in->getSpokenText(), 8192);
+
+	const char* getTaskId = in->getTaskId();
+	if (getTaskId) {
+		strncpy(out->taskId, getTaskId, 128);
+	}
+	const char* getResult = in->getResult();
+	if (getResult) {
+		str_len = strnlen(getResult, 8192);
+		memcpy(out->result, getResult, str_len);
+	}
+	const char* getDisplayText = in->getDisplayText();
+	if (getDisplayText) {
+		str_len = strnlen(getDisplayText, 8192);
+		memcpy(out->displayText, getDisplayText, str_len);
+	}
+	const char* getSpokenText = in->getSpokenText();
+	if (getSpokenText) {
+		str_len = strnlen(getSpokenText, 8192);
+		memcpy(out->spokenText, getSpokenText, str_len);
+	}
+
 	out->sentenceTimeOutStatus = in->getSentenceTimeOutStatus();
 	out->sentenceIndex = in->getSentenceIndex();
 	out->sentenceTime = in->getSentenceTime();
@@ -99,13 +135,22 @@ static void ConvertNlsEvent(AlibabaNls::NlsEvent* in, NLS_EVENT_STRUCT* out)
 		//out->binaryDataSize = 0;
 	}
 
-	if (in->getAllResponse()) strncpy(out->msg, in->getAllResponse(), 8192);
+	const char* getAllResponse = in->getAllResponse();
+	if (getAllResponse) {
+		str_len = strnlen(getAllResponse, 8192);
+		memcpy(out->msg, getAllResponse, str_len);
+	}
 
 	out->stashResultSentenceId = in->getStashResultSentenceId();
 	out->stashResultBeginTime = in->getStashResultBeginTime();
-	if (in->getStashResultText()) strncpy(out->stashResultText, in->getStashResultText(), 8192);
-	out->stashResultCurrentTime = in->getStashResultCurrentTime();
 
+	const char* getStashResultText = in->getStashResultText();
+	if (getStashResultText) {
+		str_len = strnlen(getStashResultText, 8192);
+		memcpy(out->stashResultText, getStashResultText, str_len);
+	}
+
+	out->stashResultCurrentTime = in->getStashResultCurrentTime();
 	out->isValid = true;
 
 	ReleaseMutex(out->eventMtx);

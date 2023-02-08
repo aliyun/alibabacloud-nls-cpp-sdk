@@ -125,13 +125,10 @@ NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库
  1. 进入scripts目录，使用文本编辑工具分别打开build_windows_64_prebuild.bat和build_windows_64_package.bat，修改解压缩工具WinRAR。  
  例如，您的个人电脑WinRAR.exe所在路径为C:\Program Files (x86)\WinRAR\WinRAR.exe，则修改脚本文件中第三行为 set winRar="C:\Program Files (x86)\WinRAR\WinRAR.exe" 为您的个人电脑中WinRAR路径。
  2. 双击批处理脚本build_windows_64_prebuild.bat，从而解压SDK源码中包含的各第三方库，并把依赖头文件释放到合适位置。
- 3. 使用Visual Studio（VS2015及以上版本）打开nlsCppSdk.sln，安装VC-LTL：右键<解决方案>点击<管理解决方案的NuGet程序包>
-    ![image](docs/images/cppSdk_VC-LTL.png)  
-    搜索VC-LTL，并安装5.0.4版本
-    ![image](docs/images/VC-LTL_install.png)  
+ 3. 使用Visual Studio（VS2019及以上版本）打开nlsCppSdk.sln。
  4. 直接编译需要的范例工程。  
     > 说明  
-    > * 需要确认好各项目属性中的目标平台版本和平台工具集，按需选择。例如，您的目标平台版本为10.0.19041.0，平台工具集为Visual Studio 2015(v140)。  
+    > * 需要确认好各项目属性中的目标平台版本和平台工具集，按需选择。例如，您的目标平台版本为10.0.19041.0，平台工具集为Visual Studio 2019(v142)。  
     > * 目前支持Debug_x64，Release_x64，Debug_win32和Release_win32。本文档说明均以x64为例。  
 
     ![image](docs/images/cppSdk01.png)  
@@ -154,12 +151,10 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 
 #### 二、自动化编译方式
 必须先完成Windows平台Cpp SDK编译，C#依赖Windows Cpp SDK的库和头文件。完成以上编译后开始进行C#编译。此过程较长，容易出错而导致无法顺利得到最终成果物，建议还是用一方法。  
- 1. 使用Visual Studio（VS2015及以上版本）打开nlsCsharpSdk.sln，进行C#工程编译。 
+ 1. 使用Visual Studio（VS2019及以上版本）打开nlsCsharpSdk.sln，进行C#工程编译。 
     > 说明  
-    > * 需要确认nlsCsharpSdkExtern的平台工具集和目标平台版本，以及nlsCsharpSdkDemo和nlsCsharpSdk的.NET版本。  
- 2. 安装VC-LTL：类似Windows平台Cpp SDK编译的方法，右键<解决方案>点击<管理解决方案的NuGet程序包>，搜索VC-LTL，并安装5.0.4版本
-    ![image](docs/images/VC-LTL_install.png)  
- 3. 右键nlsCsharpSdkDemo项目，选择生成，生成所有生成物。  
+    > * 需要确认nlsCsharpSdkExtern的平台工具集和目标平台版本，以及nlsCsharpSdkDemo和nlsCsharpSdk的.NET版本。   
+ 2. 右键nlsCsharpSdkDemo项目，选择生成，生成所有生成物。  
  ![image](docs/images/csharpSdk01.png)  
     > 说明  
     > * nlsCsharpSdk.dll为NLS C# SDK，可进行发布Nupkg。
@@ -198,7 +193,9 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 | 版本 | 链接模式 | 并发数 | 启用事件池数 | 首包延迟 | 单轮时长 | CPU占用率 | 每分钟完成请求数 |
 |:----:|:------:|:-----:|:----------:|:-------:|:-------:|:--------:|:--------:|
 | 3.1.14 | 短链接 | 100  | 1 | 489ms |  712ms  | 100% / 1600% | 8784 |
+| 3.1.16 | 短链接 | 100  | 1 | 677ms |  1903ms  | 46% / 1600% | 3230 |
 | 3.1.14 | 短链接 | 100  | 4 | 341ms |  507ms  | 266% / 1600% | 12357 |
+| 3.1.16 | 短链接 | 100  | 4 | 570ms |  1833ms  | 78% / 1600% | 3360 |
 | 3.1.14 | 短链接 | 200  | 4 | 530ms |  924ms  | 294% / 1600% | 13921 |
 
 #### 说明
@@ -216,8 +213,11 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 |:----:|:------:|:-----:|:----------:|:-------:|:------:|:------:|:--------:|:-------------:|:--------:|
 | 3.1.14 | 短链接 | 100  | 1 | PCM | 5287ms | 5904ms | 287ms | 65us | 20% / 1600% |
 | 3.1.14 | 短链接 | 200  | 1 | PCM | 5287ms | 6015ms | 297ms | 64us | 38% / 1600% |
+| 3.1.16 | 短链接 | 200  | 1 | PCM | 5287ms | 5867ms | 134ms | 127us | 68% / 1600% |
 | 3.1.14 | 短链接 | 200  | 1 | OPUS | 5287ms | 7283ms | 307ms | 1108us | 758% / 1600% |
+| 3.1.16 | 短链接 | 200  | 1 | OPUS | 5287ms | 6507ms | 145ms | 607us | 467% / 1600% |
 | 3.1.14 | 短链接 | 200  | 4 | OPUS | 5287ms | 6264ms | 295ms | 1199us | 892% / 1600% |
+| 3.1.16 | 短链接 | 200  | 4 | OPUS | 5287ms | 6489ms | 147ms | 621us | 501% / 1600% |
 | 3.1.14 | 短链接 | 400  | 1 | PCM | 5287ms | 6104ms | 327ms | 71us | 72% / 1600% |
 
 #### 说明

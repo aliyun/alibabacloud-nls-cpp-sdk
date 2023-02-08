@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props" Condition="Exists('..\packages\YY.NuGet.Import.Helper.1.0.0.4\build\native\YY.NuGet.Import.Helper.props')" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -29,28 +30,32 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -105,18 +110,18 @@
       <AdditionalDependencies>nlsCppSdk.lib;pthreadVC2.lib;libcrypto-1_1.lib;libssl-1_1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcrypto-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcrypto-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libssl-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libssl-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libeay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libeay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\ssleay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\ssleay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug</Command>
+      <Command>copy $(SolutionDir)libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libcrypto-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libcrypto-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libssl-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libssl-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libcurld.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libcurld.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libeay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\libeay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\ssleay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug
+copy $(SolutionDir)libs_14.0\x86\Debug\ssleay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -138,18 +143,18 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\ssleay32.dll  $(Solut
       <AdditionalDependencies>nlsCppSdk.lib;pthreadVC2.lib;libcrypto-1_1.lib;libssl-1_1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcrypto-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcrypto-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libssl-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libssl-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libeay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libeay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\ssleay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\ssleay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release</Command>
+      <Command>copy $(SolutionDir)libs_14.0\x86\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libcrypto-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libcrypto-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libssl-1_1.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libssl-1_1.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libcurl.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libcurl.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libeay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\libeay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\ssleay32.lib  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release
+copy $(SolutionDir)libs_14.0\x86\Release\ssleay32.dll  $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -167,18 +172,18 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\ssleay32.dll  $(Sol
       <AdditionalDependencies>nlsCppSdk.lib;pthreadVC2.lib;libcrypto-1_1-x64.lib;libssl-1_1-x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcrypto-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcrypto-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libssl-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libssl-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libeay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libeay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\ssleay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\ssleay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug</Command>
+      <Command>copy $(SolutionDir)libs_14.0\x64\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libcrypto-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libcrypto-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libssl-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libssl-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libcurld.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libcurld.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libeay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\libeay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\ssleay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug
+copy $(SolutionDir)libs_14.0\x64\Debug\ssleay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -200,22 +205,25 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\ssleay32.dll  $(Solut
       <AdditionalDependencies>nlsCppSdk.lib;pthreadVC2.lib;libcrypto-1_1-x64.lib;libssl-1_1-x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcrypto-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcrypto-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libssl-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libssl-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libeay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libeay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\ssleay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
-copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\ssleay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release</Command>
+      <Command>copy $(SolutionDir)libs_14.0\x64\pthread\pthreadVC2.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\pthread\pthreadVC2.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libcrypto-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libcrypto-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libssl-1_1-x64.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libssl-1_1-x64.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libcurl.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libcurl.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libeay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\libeay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\ssleay32.lib  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release
+copy $(SolutionDir)libs_14.0\x64\Release\ssleay32.dll  $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\demo\Windows\speechSynthesizerDemo.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -310,9 +310,9 @@ namespace nlsCsharpSdkDemo
             //nlsClient.SetAddrInFamily("AF_INET4");
 
             /*
-             * 启动4个事件池。在多并发(上百并发)情况下，建议选择 4 。若单并发，则建议填写 1 。
+             * 启动1个事件池。在多并发(上百并发)情况下，建议选择 4 。若单并发，则建议填写 1 。
              */
-            nlsClient.StartWorkThread(4);
+            nlsClient.StartWorkThread(1);
             nlsResult.Text = "StartWorkThread and init NLS success.";
             running = true;
             /*
@@ -470,66 +470,66 @@ namespace nlsCsharpSdkDemo
 
         #region TranscriberCallback
         public CallbackDelegate DemoOnTranscriptionStarted =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionStarted msg = {0}", e.msg);
-                cur_st_completed = "msg : " + e.msg;
-                DemoSpeechTranscriberStruct user = (DemoSpeechTranscriberStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionStarted user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionStarted user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionStarted msg = {0}", msg);
+                cur_st_completed = "msg : " + msg;
 
                 RunParams demo_params = new RunParams();
                 demo_params.send_audio_flag = true;
-                demo_params.audio_loop_flag = globalRunParams[user.uuid].audio_loop_flag;
+                demo_params.audio_loop_flag = globalRunParams[uuid].audio_loop_flag;
 
-                globalRunParams.Remove(user.uuid);
-                globalRunParams.Add(user.uuid, demo_params);
+                globalRunParams.Remove(uuid);
+                globalRunParams.Add(uuid, demo_params);
             };
         public CallbackDelegate DemoOnTranscriptionClosed =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                DemoSpeechTranscriberStruct user = (DemoSpeechTranscriberStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionClosed user uuid = {0}", user.uuid);
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionClosed msg = {0}", e.msg);
-                cur_st_closed = "msg : " + e.msg;
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionClosed user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionClosed msg = {0}", msg);
+                cur_st_closed = "msg : " + msg;
             };
         public CallbackDelegate DemoOnTranscriptionTaskFailed =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                DemoSpeechTranscriberStruct user = (DemoSpeechTranscriberStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionTaskFailed user uuid = {0}", user.uuid);
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionTaskFailed msg = {0}", e.msg);
-                cur_st_completed = "msg : " + e.msg;
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionTaskFailed user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionTaskFailed msg = {0}", msg);
+                cur_st_completed = "msg : " + msg;
 
                 RunParams demo_params = new RunParams();
                 demo_params.send_audio_flag = false;
                 demo_params.audio_loop_flag = false;
 
-                globalRunParams.Remove(user.uuid);
-                globalRunParams.Add(user.uuid, demo_params);
+                globalRunParams.Remove(uuid);
+                globalRunParams.Add(uuid, demo_params);
             };
         private CallbackDelegate DemoOnTranscriptionResultChanged =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionResultChanged result = {0}", e.result);
-                cur_st_result = "middle result : " + e.result;
-                DemoSpeechTranscriberStruct user = (DemoSpeechTranscriberStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionResultChanged user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionResultChanged user uuid = {0}", uuid);
+                string result = System.Text.Encoding.Default.GetString(e.result);
+                //System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionResultChanged result = {0}", result);
+                cur_st_result = "middle result : " + result;
             };
         private CallbackDelegate DemoOnSentenceBegin =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSentenceBegin msg = {0}", e.msg);
-                cur_st_completed = "sentenceBegin : " + e.msg;
-                DemoSpeechTranscriberStruct user = (DemoSpeechTranscriberStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnSentenceBegin user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnSentenceBegin user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSentenceBegin msg = {0}", msg);
+                cur_st_completed = "sentenceBegin : " + msg;
             };
         private CallbackDelegate DemoOnSentenceEnd =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSentenceEnd msg = {0}", e.msg);
-                cur_st_completed = "sentenceEnd : " + e.msg;
-                DemoSpeechTranscriberStruct user = (DemoSpeechTranscriberStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnSentenceEnd user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnSentenceEnd user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSentenceEnd msg = {0}", msg);
+                cur_st_completed = "sentenceEnd : " + msg;
             };
         #endregion
 
@@ -628,65 +628,62 @@ namespace nlsCsharpSdkDemo
                     DemoSpeechTranscriberStruct st = stStruct.Value;
                     if (st.stPtr.native_request != IntPtr.Zero)
                     {
-                        if (st.stPtr.native_request != IntPtr.Zero)
+                        if (appKey == null || appKey.Length == 0)
                         {
-                            if (appKey == null || appKey.Length == 0)
+                            appKey = tAppKey.Text;
+                        }
+                        if (token == null || token.Length == 0)
+                        {
+                            token = tToken.Text;
+                        }
+                        if (appKey == null || token == null ||
+                            appKey.Length == 0 || token.Length == 0)
+                        {
+                            nlsResult.Text = "Start failed, token or appkey is empty";
+                            return;
+                        }
+
+                        st.stPtr.SetAppKey(st.stPtr, appKey);
+                        st.stPtr.SetToken(st.stPtr, token);
+                        st.stPtr.SetUrl(st.stPtr, url);
+                        st.stPtr.SetFormat(st.stPtr, "pcm");
+                        st.stPtr.SetSampleRate(st.stPtr, 16000);
+                        st.stPtr.SetIntermediateResult(st.stPtr, true);
+                        st.stPtr.SetPunctuationPrediction(st.stPtr, true);
+                        st.stPtr.SetInverseTextNormalization(st.stPtr, true);
+
+                        // 此处仅仅只是用unix时间戳作为每轮对话的session id
+                        Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                        st.stPtr.SetSessionId(st.stPtr, unixTimestamp.ToString());
+
+                        st.stPtr.SetOnTranscriptionStarted(st.stPtr, DemoOnTranscriptionStarted, st.uuid);
+                        st.stPtr.SetOnChannelClosed(st.stPtr, DemoOnTranscriptionClosed, st.uuid);
+                        st.stPtr.SetOnTaskFailed(st.stPtr, DemoOnTranscriptionTaskFailed, st.uuid);
+                        st.stPtr.SetOnSentenceBegin(st.stPtr, DemoOnSentenceBegin, st.uuid);
+                        st.stPtr.SetOnSentenceEnd(st.stPtr, DemoOnSentenceEnd, st.uuid);
+                        st.stPtr.SetOnTranscriptionResultChanged(st.stPtr, DemoOnTranscriptionResultChanged, st.uuid);
+
+                        ret = st.stPtr.Start(st.stPtr);
+                        if (ret != 0)
+                        {
+                            nlsResult.Text = "Transcriber Start failed";
+                        }
+                        else
+                        {
+                            if (globalRunParams[st.uuid].audio_loop_flag == false)
                             {
-                                appKey = tAppKey.Text;
-                            }
-                            if (token == null || token.Length == 0)
-                            {
-                                token = tToken.Text;
-                            }
-                            if (appKey == null || token == null ||
-                                appKey.Length == 0 || token.Length == 0)
-                            {
-                                nlsResult.Text = "Start failed, token or appkey is empty";
-                                return;
+                                RunParams demo_params = new RunParams();
+                                demo_params.audio_loop_flag = true;
+                                demo_params.send_audio_flag = globalRunParams[st.uuid].send_audio_flag;
+
+                                globalRunParams.Remove(st.uuid);
+                                globalRunParams.Add(st.uuid, demo_params);
+
+                                st.st_send_audio = new Thread(new ParameterizedThreadStart(STAudioLab));
+                                st.st_send_audio.Start((object)st);
                             }
 
-                            st.stPtr.SetAppKey(st.stPtr, appKey);
-                            st.stPtr.SetToken(st.stPtr, token);
-                            st.stPtr.SetUrl(st.stPtr, url);
-                            st.stPtr.SetFormat(st.stPtr, "pcm");
-                            st.stPtr.SetSampleRate(st.stPtr, 16000);
-                            st.stPtr.SetIntermediateResult(st.stPtr, true);
-                            st.stPtr.SetPunctuationPrediction(st.stPtr, true);
-                            st.stPtr.SetInverseTextNormalization(st.stPtr, true);
-
-                            // 此处仅仅只是用unix时间戳作为每轮对话的session id
-                            Int32 unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
-                            st.stPtr.SetSessionId(st.stPtr, unixTimestamp.ToString());
-
-                            st.stPtr.SetOnTranscriptionStarted(st.stPtr, DemoOnTranscriptionStarted, st);
-                            st.stPtr.SetOnChannelClosed(st.stPtr, DemoOnTranscriptionClosed, st);
-                            st.stPtr.SetOnTaskFailed(st.stPtr, DemoOnTranscriptionTaskFailed, st);
-                            st.stPtr.SetOnSentenceBegin(st.stPtr, DemoOnSentenceBegin, st);
-                            st.stPtr.SetOnSentenceEnd(st.stPtr, DemoOnSentenceEnd, st);
-                            st.stPtr.SetOnTranscriptionResultChanged(st.stPtr, DemoOnTranscriptionResultChanged, st);
-
-                            ret = st.stPtr.Start(st.stPtr);
-                            if (ret != 0)
-                            {
-                                nlsResult.Text = "Transcriber Start failed";
-                            }
-                            else
-                            {
-                                if (globalRunParams[st.uuid].audio_loop_flag == false)
-                                {
-                                    RunParams demo_params = new RunParams();
-                                    demo_params.audio_loop_flag = true;
-                                    demo_params.send_audio_flag = globalRunParams[st.uuid].send_audio_flag;
-
-                                    globalRunParams.Remove(st.uuid);
-                                    globalRunParams.Add(st.uuid, demo_params);
-
-                                    st.st_send_audio = new Thread(new ParameterizedThreadStart(STAudioLab));
-                                    st.st_send_audio.Start((object)st);
-                                }
-
-                                nlsResult.Text = "Transcriber Start success";
-                            }
+                            nlsResult.Text = "Transcriber Start success";
                         }
                     }
                     else
@@ -755,19 +752,21 @@ namespace nlsCsharpSdkDemo
 
         #region SynthesizerCallback
         private CallbackDelegate DemoOnBinaryDataReceived =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                //System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived dataSize = {0}", e.binaryDataSize);
-                //System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived taskId = {0}", e.taskId);
+                System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived uuid = {0}", uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived taskId = {0}", e.taskId);
+                System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived dataSize = {0}", e.binaryDataSize);
                 //cur_sy_completed = e.taskId + ", binaryDataSize : " + e.binaryDataSize;
 
                 /*
                  * 特殊注意：此回调频率较高，需要谨慎处理对收到音频数据的转存。
                  * 如下写入音频，容易出现多次回调同一时间同时操作同一个fs的问题。
                  */
-                #if FALSE
+#if FALSE
                 FileStream fs;
-                String filename = e.taskId + ".wav";
+                string filename = e.taskId + ".wav";
+                System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived current filename = {0}", filename);
                 if (File.Exists(filename))
                 {
                     fs = new FileStream(filename, FileMode.Append, FileAccess.Write);
@@ -778,39 +777,39 @@ namespace nlsCsharpSdkDemo
                 }
                 fs.Write(e.binaryData, 0, e.binaryDataSize);
                 fs.Close();
-                #endif
+#endif
             };
         private CallbackDelegate DemoOnSynthesisClosed =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed msg = {0}", e.msg);
-                cur_sy_closed = "msg : " + e.msg;
-                DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed msg = {0}", msg);
+                cur_sy_closed = "msg : " + msg;
             };
         private CallbackDelegate DemoOnSynthesisTaskFailed =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed msg = {0}", e.msg);
-                cur_sy_completed = "msg : " + e.msg;
-                DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed msg = {0}", msg);
+                cur_sy_completed = "msg : " + msg;
             };
         private CallbackDelegate DemoOnSynthesisCompleted =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted msg = {0}", e.msg);
-                cur_sy_completed = "result : " + e.msg;
-                DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted msg = {0}", msg);
+                cur_sy_completed = "result : " + msg;
             };
         private CallbackDelegate DemoOnMetaInfo =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo msg = {0}", e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo msg = {0}", msg);
                 //cur_sy_completed = "metaInfo : " + e.msg;
-                DemoSpeechSynthesizerStruct user = (DemoSpeechSynthesizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo user uuid = {0}", user.uuid);
             };
 #endregion
 
@@ -877,50 +876,48 @@ namespace nlsCsharpSdkDemo
                     DemoSpeechSynthesizerStruct sy = syStruct.Value;
                     if (sy.syPtr.native_request != IntPtr.Zero)
                     {
-                        if (sy.syPtr.native_request != IntPtr.Zero)
+                        if (appKey == null || appKey.Length == 0)
                         {
-                            if (appKey == null || appKey.Length == 0)
-                            {
-                                appKey = tAppKey.Text;
-                            }
-                            if (token == null || token.Length == 0)
-                            {
-                                token = tToken.Text;
-                            }
-                            if (appKey == null || token == null ||
-                                appKey.Length == 0 || token.Length == 0)
-                            {
-                                nlsResult.Text = "Start failed, token or appkey is empty";
-                                return;
-                            }
+                            appKey = tAppKey.Text;
+                        }
+                        if (token == null || token.Length == 0)
+                        {
+                            token = tToken.Text;
+                        }
+                        if (appKey == null || token == null ||
+                            appKey.Length == 0 || token.Length == 0)
+                        {
+                            nlsResult.Text = "Start failed, token or appkey is empty";
+                            return;
+                        }
 
-                            sy.syPtr.SetAppKey(sy.syPtr, appKey);
-                            sy.syPtr.SetToken(sy.syPtr, token);
-                            sy.syPtr.SetUrl(sy.syPtr, url);
-                            sy.syPtr.SetText(sy.syPtr, "今天天气真不错，我想去操场踢足球。");
-                            sy.syPtr.SetVoice(sy.syPtr, "siqi");
-                            sy.syPtr.SetVolume(sy.syPtr, 50);
-                            sy.syPtr.SetFormat(sy.syPtr, "wav");
-                            sy.syPtr.SetSampleRate(sy.syPtr, 16000);
-                            sy.syPtr.SetSpeechRate(sy.syPtr, 0);
-                            sy.syPtr.SetPitchRate(sy.syPtr, 0);
-                            sy.syPtr.SetEnableSubtitle(sy.syPtr, true);
+                        string text = "今天天气真不错，我想去操场踢足球。";
+                        sy.syPtr.SetAppKey(sy.syPtr, appKey);
+                        sy.syPtr.SetToken(sy.syPtr, token);
+                        sy.syPtr.SetUrl(sy.syPtr, url);
+                        sy.syPtr.SetText(sy.syPtr, text);
+                        sy.syPtr.SetVoice(sy.syPtr, "siqi");
+                        sy.syPtr.SetVolume(sy.syPtr, 50);
+                        sy.syPtr.SetFormat(sy.syPtr, "wav");
+                        sy.syPtr.SetSampleRate(sy.syPtr, 16000);
+                        sy.syPtr.SetSpeechRate(sy.syPtr, 0);
+                        sy.syPtr.SetPitchRate(sy.syPtr, 0);
+                        sy.syPtr.SetEnableSubtitle(sy.syPtr, true);
 
-                            sy.syPtr.SetOnSynthesisCompleted(sy.syPtr, DemoOnSynthesisCompleted, sy);
-                            sy.syPtr.SetOnBinaryDataReceived(sy.syPtr, DemoOnBinaryDataReceived, sy);
-                            sy.syPtr.SetOnTaskFailed(sy.syPtr, DemoOnSynthesisTaskFailed, sy);
-                            sy.syPtr.SetOnChannelClosed(sy.syPtr, DemoOnSynthesisClosed, sy);
-                            sy.syPtr.SetOnMetaInfo(sy.syPtr, DemoOnMetaInfo, sy);
+                        sy.syPtr.SetOnSynthesisCompleted(sy.syPtr, DemoOnSynthesisCompleted, sy.uuid);
+                        sy.syPtr.SetOnBinaryDataReceived(sy.syPtr, DemoOnBinaryDataReceived, sy.uuid);
+                        sy.syPtr.SetOnTaskFailed(sy.syPtr, DemoOnSynthesisTaskFailed, sy.uuid);
+                        sy.syPtr.SetOnChannelClosed(sy.syPtr, DemoOnSynthesisClosed, sy.uuid);
+                        sy.syPtr.SetOnMetaInfo(sy.syPtr, DemoOnMetaInfo, sy.uuid);
 
-                            ret = sy.syPtr.Start(sy.syPtr);
-                            if (ret != 0)
-                            {
-                                nlsResult.Text = "Synthesizer Start failed";
-                            }
-                            else
-                            {
-                                nlsResult.Text = "Transcriber Start success";
-                            }
+                        ret = sy.syPtr.Start(sy.syPtr);
+                        if (ret != 0)
+                        {
+                            nlsResult.Text = "Synthesizer Start failed.";
+                        }
+                        else
+                        {
+                            nlsResult.Text = "Transcriber Start success.";
                         }
                     }
                     else
@@ -1018,29 +1015,30 @@ namespace nlsCsharpSdkDemo
 
         #region RecognizerCallback
         private CallbackDelegate DemoOnRecognitionStarted =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionStarted msg = {0}", e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionStarted user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionStarted msg = {0}", msg);
 
-                cur_sr_completed = "msg : " + e.msg;
-                DemoSpeechRecognizerStruct user = (DemoSpeechRecognizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionStarted user uuid = {0}", user.uuid);
+                cur_sr_completed = "msg : " + msg;
 
                 /*
                  * 更新状态机send_audio_flag为true，表示请求成功，可以开始传送音频
                  */
                 RunParams demo_params = new RunParams();
                 demo_params.send_audio_flag = true;
-                demo_params.audio_loop_flag = globalRunParams[user.uuid].audio_loop_flag;
+                demo_params.audio_loop_flag = globalRunParams[uuid].audio_loop_flag;
 
-                globalRunParams.Remove(user.uuid);
-                globalRunParams.Add(user.uuid, demo_params);
+                globalRunParams.Remove(uuid);
+                globalRunParams.Add(uuid, demo_params);
             };
         private CallbackDelegate DemoOnRecognitionClosed =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionClosed = {0}", e.msg);
-                cur_sr_closed = "msg : " + e.msg;
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionClosed = {0}", msg);
+                cur_sr_closed = "msg : " + msg;
 
                 /*
                  * 这里可更新状态机为false，表示请求完成，可以停止传递音频和推出传递音频的线程
@@ -1048,12 +1046,12 @@ namespace nlsCsharpSdkDemo
                  */
             };
         private CallbackDelegate DemoOnRecognitionTaskFailed =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionTaskFailed = {0}", e.msg);
-                cur_sr_completed = "msg : " + e.msg;
-                DemoSpeechRecognizerStruct user = (DemoSpeechRecognizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionTaskFailed user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionTaskFailed user uuid = {0}", uuid);
+                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionTaskFailed = {0}", msg);
+                cur_sr_completed = "msg : " + msg;
 
                 /*
                  * 更新状态机为false，表示请求完成，可以停止传递音频和推出传递音频的线程
@@ -1062,24 +1060,24 @@ namespace nlsCsharpSdkDemo
                 demo_params.send_audio_flag = false;
                 demo_params.audio_loop_flag = false;
 
-                globalRunParams.Remove(user.uuid);
-                globalRunParams.Add(user.uuid, demo_params);
+                globalRunParams.Remove(uuid);
+                globalRunParams.Add(uuid, demo_params);
             };
         private CallbackDelegate DemoOnRecognitionResultChanged =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionResultChanged result = {0}", e.result);
-                cur_sr_result = "middle result : " + e.result;
-                DemoSpeechRecognizerStruct user = (DemoSpeechRecognizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionResultChanged user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionResultChanged user uuid = {0}", uuid);
+                string result = System.Text.Encoding.Default.GetString(e.result);
+                //System.Diagnostics.Debug.WriteLine("DemoOnRecognitionResultChanged result = {0}", result);
+                cur_sr_result = "middle result : " + result;
             };
         private CallbackDelegate DemoOnRecognitionCompleted =
-            (ref NLS_EVENT_STRUCT e, ref object o) =>
+            (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionCompleted result = {0}", e.result);
-                cur_sr_completed = "final result : " + e.result;
-                DemoSpeechRecognizerStruct user = (DemoSpeechRecognizerStruct)o;
-                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionCompleted user uuid = {0}", user.uuid);
+                System.Diagnostics.Debug.WriteLine("DemoOnRecognitionCompleted user uuid = {0}", uuid);
+                string result = System.Text.Encoding.Default.GetString(e.result);
+                //System.Diagnostics.Debug.WriteLine("DemoOnRecognitionCompleted result = {0}", result);
+                cur_sr_completed = "final result : " + result;
             };
 #endregion
 
@@ -1140,60 +1138,57 @@ namespace nlsCsharpSdkDemo
                     DemoSpeechRecognizerStruct sr = srStruct.Value;
                     if (sr.srPtr.native_request != IntPtr.Zero)
                     {
-                        if (sr.srPtr.native_request != IntPtr.Zero)
+                        if (appKey == null || appKey.Length == 0)
                         {
-                            if (appKey == null || appKey.Length == 0)
+                            appKey = tAppKey.Text;
+                        }
+                        if (token == null || token.Length == 0)
+                        {
+                            token = tToken.Text;
+                        }
+                        if (appKey == null || token == null ||
+                            appKey.Length == 0 || token.Length == 0)
+                        {
+                            nlsResult.Text = "Start failed, token or appkey is empty";
+                            return;
+                        }
+
+                        sr.srPtr.SetAppKey(sr.srPtr, appKey);
+                        sr.srPtr.SetToken(sr.srPtr, token);
+                        sr.srPtr.SetUrl(sr.srPtr, url);
+                        sr.srPtr.SetFormat(sr.srPtr, "pcm");
+                        sr.srPtr.SetSampleRate(sr.srPtr, 16000);
+                        sr.srPtr.SetIntermediateResult(sr.srPtr, true);
+                        sr.srPtr.SetPunctuationPrediction(sr.srPtr, true);
+                        sr.srPtr.SetInverseTextNormalization(sr.srPtr, true);
+
+                        sr.srPtr.SetOnRecognitionStarted(sr.srPtr, DemoOnRecognitionStarted, sr.uuid);
+                        sr.srPtr.SetOnChannelClosed(sr.srPtr, DemoOnRecognitionClosed, sr.uuid);
+                        sr.srPtr.SetOnTaskFailed(sr.srPtr, DemoOnRecognitionTaskFailed, sr.uuid);
+                        sr.srPtr.SetOnRecognitionResultChanged(sr.srPtr, DemoOnRecognitionResultChanged, sr.uuid);
+                        sr.srPtr.SetOnRecognitionCompleted(sr.srPtr, DemoOnRecognitionCompleted, sr.uuid);
+
+                        ret = sr.srPtr.Start(sr.srPtr);
+                        if (ret != 0)
+                        {
+                            nlsResult.Text = "recognizer Start failed";
+                        }
+                        else
+                        {
+                            if (globalRunParams[sr.uuid].audio_loop_flag == false)
                             {
-                                appKey = tAppKey.Text;
-                            }
-                            if (token == null || token.Length == 0)
-                            {
-                                token = tToken.Text;
-                            }
-                            if (appKey == null || token == null ||
-                                appKey.Length == 0 || token.Length == 0)
-                            {
-                                nlsResult.Text = "Start failed, token or appkey is empty";
-                                return;
+                                RunParams demo_params = new RunParams();
+                                demo_params.audio_loop_flag = true;
+                                demo_params.send_audio_flag = globalRunParams[sr.uuid].send_audio_flag;
+
+                                globalRunParams.Remove(sr.uuid);
+                                globalRunParams.Add(sr.uuid, demo_params);
+
+                                sr.sr_send_audio = new Thread(new ParameterizedThreadStart(SRAudioLab));
+                                sr.sr_send_audio.Start((object)sr);
                             }
 
-                            sr.srPtr.SetAppKey(sr.srPtr, appKey);
-                            sr.srPtr.SetToken(sr.srPtr, token);
-                            sr.srPtr.SetUrl(sr.srPtr, url);
-                            sr.srPtr.SetFormat(sr.srPtr, "pcm");
-                            sr.srPtr.SetSampleRate(sr.srPtr, 16000);
-                            sr.srPtr.SetIntermediateResult(sr.srPtr, true);
-                            sr.srPtr.SetPunctuationPrediction(sr.srPtr, true);
-                            sr.srPtr.SetInverseTextNormalization(sr.srPtr, true);
-
-                            sr.srPtr.SetOnRecognitionStarted(sr.srPtr, DemoOnRecognitionStarted, sr);
-                            sr.srPtr.SetOnChannelClosed(sr.srPtr, DemoOnRecognitionClosed, sr);
-                            sr.srPtr.SetOnTaskFailed(sr.srPtr, DemoOnRecognitionTaskFailed, sr);
-                            sr.srPtr.SetOnRecognitionResultChanged(sr.srPtr, DemoOnRecognitionResultChanged, sr);
-                            sr.srPtr.SetOnRecognitionCompleted(sr.srPtr, DemoOnRecognitionCompleted, sr);
-
-                            ret = sr.srPtr.Start(sr.srPtr);
-                            if (ret != 0)
-                            {
-                                nlsResult.Text = "recognizer Start failed";
-                            }
-                            else
-                            {
-                                if (globalRunParams[sr.uuid].audio_loop_flag == false)
-                                {
-                                    RunParams demo_params = new RunParams();
-                                    demo_params.audio_loop_flag = true;
-                                    demo_params.send_audio_flag = globalRunParams[sr.uuid].send_audio_flag;
-
-                                    globalRunParams.Remove(sr.uuid);
-                                    globalRunParams.Add(sr.uuid, demo_params);
-
-                                    sr.sr_send_audio = new Thread(new ParameterizedThreadStart(SRAudioLab));
-                                    sr.sr_send_audio.Start((object)sr);
-                                }
-
-                                nlsResult.Text = "Recognizer Start success";
-                            }
+                            nlsResult.Text = "Recognizer Start success";
                         }
                     }
                     else

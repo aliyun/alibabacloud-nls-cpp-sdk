@@ -19,11 +19,11 @@
 
 // version = (major << 16) + (minor << 8) + patch
 #ifndef NLS_SDK_VERSION
-#define NLS_SDK_VERSION ((3 << 16) + (1 << 8) + 15)
+#define NLS_SDK_VERSION ((3 << 16) + (1 << 8) + 16)
 #endif
 
 #ifndef NLS_SDK_VERSION_STR
-#define NLS_SDK_VERSION_STR "3.1.15"
+#define NLS_SDK_VERSION_STR "3.1.16"
 #endif
 
 #endif // NLS_SDK_CONFIG_H

@@ -95,19 +95,6 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   void releaseRecognizerRequest(SpeechRecognizerRequest* request);
 
   /*
-   * @brief 创建一句话同步识别对象
-   * @return 成功返回SpeechRecognizerSyncRequest对象，否则返回NULL
-   */
-  //SpeechRecognizerSyncRequest* createRecognizerSyncRequest();
-
-  /*
-   * @brief 销毁一句话同步识别对象
-   * @param request  createRecognizerSyncRequest所建立的request对象
-   * @return
-   */
-  //void releaseRecognizerSyncRequest(SpeechRecognizerSyncRequest* request);
-
-  /*
    * @brief 创建实时音频流识别对象
    * @param onResultReceivedEvent  事件回调接口
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -122,19 +109,6 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return
    */
   void releaseTranscriberRequest(SpeechTranscriberRequest* request);
-
-  /*
-   * @brief 创建实时音频流同步识别对象
-   * @return 成功返回SpeechTranscriberSyncRequest对象，否则返回NULL
-   */
-  //SpeechTranscriberSyncRequest* createTranscriberSyncRequest();
-
-  /*
-   * @brief 销毁实时音频流同步识别对象
-   * @param request  createTranscriberSyncRequest所建立的request对象
-   * @return
-   */
-  //void releaseTranscriberSyncRequest(SpeechTranscriberSyncRequest* request);
 
   /*
    * @brief 创建语音合成对象
@@ -231,14 +205,14 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   static NlsClient* getInstance(bool sslInitial = true);
 
-  void* getNodeManger();
-
   /*
    * @brief 销毁NlsClient对象实例
    * @note 进程退出时调用, 销毁NlsClient.
    * @return
    */
   static void releaseInstance();
+
+  void* getNodeManger();
 
  private:
   NlsClient();

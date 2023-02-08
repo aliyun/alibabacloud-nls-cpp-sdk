@@ -50,7 +50,8 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
     Binary,
     MetaInfo,
     DialogResultGenerated,
-    Close = 16  /*语音功能通道连接关闭*/
+    Close = 16,  /*语音功能通道连接关闭*/
+    Message
   };
 
   /*
@@ -63,7 +64,7 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @brief NlsEvent构造函数
    * @param msg    Event消息字符串
    * @param code   Event状态编码
-   * @param type    Event类型
+   * @param type   Event类型
    * @param taskId 任务的task id
    */
   NlsEvent(const char * msg, int code, EventType type, std::string & taskId);
@@ -76,9 +77,9 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
 
   /*
    * @brief NlsEvent构造函数
-   * @param data    二进制数据
+   * @param data   二进制数据
    * @param code   Event状态编码
-   * @param type    Event类型
+   * @param type   Event类型
    * @param taskId 任务的task id
    * @return
    */
@@ -92,10 +93,10 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
 
   /*
    * @brief 解析消息字符串
-   * @note SDK内部函数
+   * @param ignore 忽略消息中关键key的校验
    * @return 成功返回0，失败返回负值, 抛出异常
    */
-  int parseJsonMsg();
+  int parseJsonMsg(bool ignore = false);
 
   /*
    * @brief 获取状态码

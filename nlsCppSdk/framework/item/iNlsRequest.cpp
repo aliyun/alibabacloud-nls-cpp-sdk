@@ -24,6 +24,7 @@
 #include "nlsRequestParamInfo.h"
 #include "connectNode.h"
 #include "nlog.h"
+#include "utility.h"
 
 namespace AlibabaNls {
 
@@ -37,82 +38,61 @@ INlsRequest::~INlsRequest() {
 }
 
 int INlsRequest::start(INlsRequest *request) {
-  if (request == NULL) {
-    LOG_ERROR("Input request is empty.");
-    return -(RequestEmpty);
-  } else {
-    LOG_INFO("request:%p start ->", request);
-  }
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  if (NlsEventNetWork::_eventClient == NULL) {
-    LOG_ERROR("eventWork has destroyed");
-    return -(EventClientEmpty);
-  }
-
+  LOG_DEBUG("Request(%p) invoke start ...", request);
   int ret = NlsEventNetWork::_eventClient->start(request);
-  LOG_INFO("request:%p start done", request);
+  LOG_DEBUG("Request(%p) invoke start done, ret:%d.", request, ret);
   return ret;
 }
 
-int INlsRequest::stop(INlsRequest *request, int type) {
-  if (request == NULL) {
-    LOG_ERROR("Input request is empty.");
-    return -(RequestEmpty);
-  } else {
-    LOG_INFO("request:%p stop type:%d ->", request, type);
-  }
+int INlsRequest::stop(INlsRequest *request) {
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  if (NlsEventNetWork::_eventClient == NULL) {
-    LOG_ERROR("eventWork has destroyed");
-    return -(EventClientEmpty);
-  }
+  LOG_DEBUG("Request(%p) invoke stop ...", request);
+  int ret = NlsEventNetWork::_eventClient->stop(request);
+  LOG_DEBUG("Request(%p) invoke stop done, ret:%d.", request, ret);
+  return ret;
+}
 
-  int ret = NlsEventNetWork::_eventClient->stop(request, type);
-  LOG_INFO("request:%p stop type:%d callbackStatus:%d done",
-      request, type, request->getConnectNode()->getCallbackStatus());
+int INlsRequest::cancel(INlsRequest *request) {
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
+
+  LOG_DEBUG("Request(%p) invoke cancel ...", request);
+  int ret = NlsEventNetWork::_eventClient->cancel(request);
+  LOG_DEBUG("Request(%p) invoke cancel done, ret:%d.", request, ret);
   return ret;
 }
 
 int INlsRequest::stControl(INlsRequest *request, const char* message) {
-  if (request == NULL) {
-    LOG_ERROR("Input request is empty.");
-    return -(RequestEmpty);
-  }
-
-  if (NlsEventNetWork::_eventClient == NULL) {
-    LOG_ERROR("eventWork has destroyed");
-    return -(EventClientEmpty);
-  }
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
   return NlsEventNetWork::_eventClient->stControl(request, message);
 }
 
 int INlsRequest::sendAudio(INlsRequest *request, const uint8_t* data,
                            size_t dataSize, ENCODER_TYPE type) {
-  if (request == NULL || data == NULL || dataSize <= 0) {
-    LOG_ERROR("Input arg is empty.");
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
+
+  if (data == NULL || dataSize <= 0) {
+    LOG_ERROR("Input data is empty.");
     return -(InvalidRequestParams);
-  }
-
-//  LOG_DEBUG("Node:%p sendAudio type:%d begin, size(%d)",
-//      request->getConnectNode(), type, dataSize);
-
-  if (NlsEventNetWork::_eventClient == NULL) {
-    LOG_ERROR("eventWork has destroyed");
-    return -(EventClientEmpty);
   }
 
   int ret = NlsEventNetWork::_eventClient->sendAudio(
       request, data, dataSize, type);
 
-//  LOG_DEBUG("Node:%p sendAudio type:%d done, ret(%d).",
-//      request->getConnectNode(), type, ret);
   return ret;
 }
 
 ConnectNode* INlsRequest::getConnectNode() {
   if (_node == NULL) {
-    LOG_WARN("getConnectNode nullptr");
+    LOG_WARN("_node is nullptr.");
     return NULL;
   }
   return _node;
@@ -120,7 +100,7 @@ ConnectNode* INlsRequest::getConnectNode() {
 
 INlsRequestParam* INlsRequest::getRequestParam() {
   if (_requestParam == NULL) {
-    LOG_WARN("getRequestParam nullptr");
+    LOG_WARN("_requestParam is nullptr.");
     return NULL;
   }
   return _requestParam;

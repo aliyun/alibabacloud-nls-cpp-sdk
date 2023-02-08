@@ -35,7 +35,7 @@ NLSAPI(int) SYcancel(AlibabaNls::SpeechSynthesizerRequest* request)
 }
 
 
-// 对外回调
+// 瀵瑰鍥炶皟
 static void onSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, syEvent);
@@ -136,11 +136,13 @@ NLSAPI(int) SYGetNlsEvent(NLS_EVENT_STRUCT& event)
 	event.stashResultCurrentTime = syEvent->stashResultBeginTime;
 	event.isValid = false;
 
+	CleanNlsEvent(syEvent);
+
 	ReleaseMutex(event.eventMtx);
 	return event.binaryDataSize;
 }
 
-// 设置回调
+// 璁剧疆鍥炶皟
 NLSAPI(int) SYOnSynthesisCompleted(
 	AlibabaNls::SpeechSynthesizerRequest* request, NlsCallbackDelegate c, void* user)
 {
@@ -192,7 +194,7 @@ NLSAPI(int) SYOnMetaInfo(
 }
 
 
-// 设置参数
+// 璁剧疆鍙傛暟
 NLSAPI(int) SYsetUrl(AlibabaNls::SpeechSynthesizerRequest* request, const char* value)
 {
 	return request->setUrl(value);
@@ -271,6 +273,12 @@ NLSAPI(int) SYsetTimeout(AlibabaNls::SpeechSynthesizerRequest* request, int valu
 NLSAPI(int) SYsetOutputFormat(AlibabaNls::SpeechSynthesizerRequest* request, const char* value)
 {
 	return request->setOutputFormat(value);
+}
+
+NLSAPI(const char*) SYGetOutputFormat(AlibabaNls::SpeechSynthesizerRequest* request)
+{
+	const char* format = request->getOutputFormat();
+	return format;
 }
 
 NLSAPI(int) SYsetContextParam(AlibabaNls::SpeechSynthesizerRequest* request, const char* value)

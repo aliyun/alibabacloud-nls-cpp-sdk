@@ -25,17 +25,22 @@
 
 namespace AlibabaNls {
 
+/* Node处于的最新运行状态 */
 enum NodeStatus {
   NodeStatusInvalid = 0,
-  NodeStatusCreated,
-  NodeStatusConnecting,
-  NodeStatusConnected,
-  NodeStatusHandshaking,
-  NodeStatusHandshaked,
-  NodeStatusRunning,
-  NodeStatusCancelling,
-  NodeStatusClosed,
-  NodeStatusReleased,
+  NodeStatusCreated,     /* 新建node */
+  NodeStatusInvoking,    /* 刚调用start的过程, 向notifyEventCallback发送c指令 */
+  NodeStatusInvoked,     /* 调用start的过程, 在notifyEventCallback完成 */
+  NodeStatusConnecting,  /* 正在dns解析, 在dnsProcess中设置 */
+  NodeStatusConnected,   /* socket链接成功 */
+  NodeStatusHandshaking, /* ssl握手中 */
+  NodeStatusHandshaked,  /* 握手成功 */
+  NodeStatusRunning,     /* 运行中 */
+  NodeStatusCancelling,  /* 调用cancel, 正在cancel过程中 */
+  NodeStatusClosing,     /* 正在关闭ssl */
+  NodeStatusClosed,      /* 已经调用完closed回调 */
+  NodeStatusReleasing,
+  NodeStatusReleased,    /* 已销毁node */
 };
 
 typedef struct {

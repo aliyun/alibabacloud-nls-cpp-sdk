@@ -205,6 +205,15 @@ namespace nlsCsharpSdk
         int SetOutputFormat(SpeechRecognizerRequest request, string value);
 
         /// <summary>
+        /// 获得设置的输出文本的编码格式.
+        /// </summary>
+        /// <param name="request">
+        /// CreateRecognizerRequest所建立的request对象.
+        /// </param>
+        /// <returns>成功则返回字符串, 否则返回空.</returns>
+        string GetOutputFormat(SpeechRecognizerRequest request);
+
+        /// <summary>
         /// 参数设置.
         /// </summary>
         /// <param name="request">
@@ -309,7 +318,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnTaskFailed(SpeechRecognizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnTaskFailed(SpeechRecognizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置一句话识别开始回调函数. 在语音识别可以开始时, sdk内部线程上报该回调.
@@ -324,7 +333,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnRecognitionStarted(SpeechRecognizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnRecognitionStarted(SpeechRecognizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置一句话识别中间结果回调函数. 设置SetEnableIntermediateResult字段为true, 才会有中间结果.
@@ -339,7 +348,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnRecognitionResultChanged(SpeechRecognizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnRecognitionResultChanged(SpeechRecognizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置一句话识别结束回调函数, 在语音识别完成时, sdk内部线程上报该回调.
@@ -354,7 +363,7 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnRecognitionCompleted(SpeechRecognizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnRecognitionCompleted(SpeechRecognizerRequest request, CallbackDelegate callback, string para = null);
 
         /// <summary>
         /// 设置通道关闭回调函数, 在请求过程中通道关闭时, sdk内部线程上报该回调.
@@ -369,6 +378,6 @@ namespace nlsCsharpSdk
         /// 用户对象.
         /// </param>
         /// <returns></returns>
-        void SetOnChannelClosed(SpeechRecognizerRequest request, CallbackDelegate callback, object para = null);
+        void SetOnChannelClosed(SpeechRecognizerRequest request, CallbackDelegate callback, string para = null);
     }
 }

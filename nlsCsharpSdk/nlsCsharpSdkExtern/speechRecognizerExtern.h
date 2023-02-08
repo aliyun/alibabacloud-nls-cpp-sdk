@@ -34,7 +34,7 @@ NLSAPI(int) SRsendAudio(AlibabaNls::SpeechRecognizerRequest* request, uint8_t* d
 	return request->sendAudio(data, dataSize, (ENCODER_TYPE)type);
 }
 
-// 对外回调
+// 瀵瑰鍥炶皟
 static void onRecognitionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam)
 {
 	ConvertNlsEvent(cbEvent, srEvent);
@@ -108,6 +108,8 @@ static void onRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam
 
 NLSAPI(int) SRGetNlsEvent(NLS_EVENT_STRUCT& event)
 {
+	WaitForSingleObject(event.eventMtx, INFINITE);
+
 	event.statusCode = srEvent->statusCode;
 	memcpy(event.msg, srEvent->msg, 8192);
 	event.msgType = srEvent->msgType;
@@ -131,10 +133,15 @@ NLSAPI(int) SRGetNlsEvent(NLS_EVENT_STRUCT& event)
 	memcpy(event.stashResultText, srEvent->stashResultText, 8192);
 	event.stashResultCurrentTime = srEvent->stashResultBeginTime;
 	event.isValid = false;
+
+	CleanNlsEvent(srEvent);
+
+	ReleaseMutex(event.eventMtx);
+
 	return 0;
 }
 
-// 设置回调
+// 璁剧疆鍥炶皟
 NLSAPI(int) SROnRecognitionStarted(
 	AlibabaNls::SpeechRecognizerRequest* request, NlsCallbackDelegate c, void* user)
 {
@@ -186,7 +193,7 @@ NLSAPI(int) SROnChannelClosed(
 }
 
 
-// 设置参数
+// 璁剧疆鍙傛暟
 NLSAPI(int) SRsetUrl(AlibabaNls::SpeechRecognizerRequest* request, const char* value)
 {
 	return request->setUrl(value);
@@ -260,6 +267,12 @@ NLSAPI(int) SRsetTimeout(AlibabaNls::SpeechRecognizerRequest* request, int value
 NLSAPI(int) SRsetOutputFormat(AlibabaNls::SpeechRecognizerRequest* request, const char* value)
 {
 	return request->setOutputFormat(value);
+}
+
+NLSAPI(const char*) SRGetOutputFormat(AlibabaNls::SpeechRecognizerRequest* request)
+{
+	const char* format = request->getOutputFormat();
+	return format;
 }
 
 NLSAPI(int) SRsetPayloadParam(AlibabaNls::SpeechRecognizerRequest* request, const char* value)

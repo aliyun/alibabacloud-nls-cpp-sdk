@@ -56,7 +56,6 @@ pthread_mutex_t WorkThread::_mtxCpu = PTHREAD_MUTEX_INITIALIZER;
 
 
 WorkThread::WorkThread() {
-  LOG_DEBUG("Create WorkThread.");
 #if defined(_MSC_VER)
   _mtxList = CreateMutex(NULL, FALSE, NULL);
 #else
@@ -65,24 +64,30 @@ WorkThread::WorkThread() {
 
   _workBase = event_base_new();
   if (NULL == _workBase) {
-    LOG_ERROR("event_base_new failed.");
+    LOG_ERROR("WorkThread(%p) invoke event_base_new failed.", this);
     exit(1);
   }
 
   _dnsBase = evdns_base_new(_workBase, 1);
   if (NULL == _dnsBase) {
-    LOG_WARN("evdns_base_new failed.");
+    LOG_WARN("WorkThread(%p) invoke evdns_base_new failed.", this);
     // no need dnsBase if _directIp true
   }
 
   evutil_socket_t pair[2];
   if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == -1) {
-    LOG_ERROR("evutil_socketpair failed.");
+    LOG_ERROR("WorkThread(%p) invoke evutil_socketpair failed.", this);
     exit(1);
   }
 
   _notifyReceiveFd = pair[0];
   _notifySendFd = pair[1];
+
+  // without evutil_make_socket_nonblocking of _notifySendFd, may block when send()
+  if (evutil_make_socket_nonblocking(_notifySendFd) < 0) {
+    LOG_ERROR("WorkThread(%p) invoke evutil_make_socket_nonblocking failed.", this);
+    exit(1);
+  }
 
   if (event_assign(&_notifyEvent,
                    _workBase,
@@ -90,12 +95,12 @@ WorkThread::WorkThread() {
                    EV_READ | EV_PERSIST,
                    notifyEventCallback,
                    (void *)this) == -1) {
-    LOG_ERROR("event_assign failed.");
+    LOG_ERROR("WorkThread(%p) invoke event_assign to set _notifyEvent failed.", this);
     exit(1);
   }
 
   if (event_add(&_notifyEvent, 0) == -1 ) {
-    LOG_ERROR("event_add failed.");
+    LOG_ERROR("WorkThread(%p) invoke event_add failed.", this);
     exit(1);
   }
 
@@ -106,18 +111,22 @@ WorkThread::WorkThread() {
 #else
   _workThreadId = 0;
   pthread_create(&_workThreadId, NULL, loopEventCallback, (void*)this);
-  usleep(100 * 1000);
 #endif
-  LOG_DEBUG("WorkThread start working.");
 }
 
 WorkThread::~WorkThread() {
-  size_t count = 0;
   int try_count = 500;
+  NlsClient* client = _instance;
+  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
 
-  LOG_DEBUG("Begin destroy WorkThread(%p), nodeList size:%d.",
+  LOG_DEBUG("Destroy WorkThread(%p) begin, close all fd and events, nodeList size:%d.",
       this, _nodeList.size());
-  //must check asr is end
+
+  evutil_closesocket(_notifySendFd);
+  evutil_closesocket(_notifyReceiveFd);
+  event_del(&_notifyEvent);
+
+  // must check asr end
   do {
 #ifdef _MSC_VER
     Sleep(10);
@@ -126,8 +135,7 @@ WorkThread::~WorkThread() {
     usleep(10 * 1000);
     pthread_mutex_lock(&_mtxList);
 #endif
-    NlsClient* client = _instance;
-    NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
+
     int ret = Success;
     std::list<INlsRequest*>::iterator itList;
     for (itList = _nodeList.begin(); itList != _nodeList.end();) {
@@ -137,52 +145,54 @@ WorkThread::~WorkThread() {
         continue;
       }
 
+      ConnectNode *node = request->getConnectNode();
+      if (node == NULL) {
+        LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request or relesed instance!");
+        _nodeList.erase(itList++);
+        continue;
+      }
+
+      /* 1. 检查request是否存在于全局管理的node_manager中, request可能已经释放, 需要跳过. */
       int status = NodeStatusInvalid;
       ret = node_manager->checkRequestExist(request, &status);
       if (ret != Success) {
-        LOG_ERROR("Request:%p checkRequestExist failed, ret:%d", request, ret);
+        LOG_ERROR("Request(%p) checkRequestExist failed, ret:%d.", request, ret);
         _nodeList.erase(itList++);
         continue;
       }
 
-      ConnectNode *node = request->getConnectNode();
-      if (node == NULL) {
-        LOG_ERROR("Node is nullptr, you have destroyed request or relesed instance!");
-        _nodeList.erase(itList++);
-        continue;
-      }
+      ConnectStatus node_status = node->getConnectNodeStatus();
+      ExitStatus exit_status = node->getExitStatus();
+      LOG_DEBUG("Request(%p) Node(%p) node status:%s, exit status:%s.",
+          request, node,
+          node->getConnectNodeStatusString().c_str(),
+          node->getExitStatusString().c_str());
 
-      ConnectStatus cStatus = request->getConnectNode()->getConnectNodeStatus();
-      ExitStatus eStatus = request->getConnectNode()->getExitStatus();
-      LOG_DEBUG("Request:%p Node:%p cStatus:%s eStatus:%s",
-          request, request->getConnectNode(),
-          request->getConnectNode()->getConnectNodeStatusString().c_str(),
-          request->getConnectNode()->getExitStatusString().c_str());
-
-      if (cStatus == NodeInvalid || cStatus == NodeInitial ||
-          eStatus == ExitStopped) {
+      /* 2. 删除request并从全局管理的node_manager中移除 */
+      if (node_status == NodeInvalid || node_status == NodeCreated) {
         _nodeList.erase(itList++);
-        node_manager->removeRequestFromInfo(request, false);
         delete request;
+        node_manager->removeRequestFromInfo(request, false);
         request = NULL;
       } else {
-        LOG_WARN("destroy WorkThread(%p) Node(%p) cStatus:%s, eStatus:%s",
-            this, request->getConnectNode(),
-            request->getConnectNode()->getConnectNodeStatusString().c_str(),
-            request->getConnectNode()->getExitStatusString().c_str());
+        LOG_WARN("Destroy WorkThread(%p) node(%p) is invalid, node status:%s, exit status:%s, skip ...",
+            this, node,
+            node->getConnectNodeStatusString().c_str(),
+            node->getExitStatusString().c_str());
         itList++;
       }
     }  // for
 
-    count = _nodeList.size();
-    LOG_DEBUG("destroy WorkThread(%p) count:%d, try_count:%d.", this, count, try_count);
+    LOG_DEBUG("Destroy WorkThread(%p) _nodeList:%d, try_count:%d.",
+        this, _nodeList.size(), try_count);
 
+    /* 3. 超过尝试限制后, 强制销毁所有request, 清空_nodeList. */
     if (try_count-- <= 0) {
       for (itList = _nodeList.begin(); itList != _nodeList.end();) {
         INlsRequest* request = *itList;
         _nodeList.erase(itList++);
-        node_manager->removeRequestFromInfo(request, false);
         delete request;
+        node_manager->removeRequestFromInfo(request, false);
         request = NULL;
       }  // for
     }
@@ -192,19 +202,14 @@ WorkThread::~WorkThread() {
 #else
     pthread_mutex_unlock(&_mtxList);
 #endif
-  } while (count > 0 && try_count-- > 0);  // do while
+  } while (_nodeList.size() > 0 && try_count-- > 0);  // do while
 
-  LOG_DEBUG("destroy WorkThread(%p) deleted all requests", this);
-
-  evutil_closesocket(_notifySendFd);
-  evutil_closesocket(_notifyReceiveFd);
-  event_del(&_notifyEvent);
   event_base_loopbreak(_workBase);
 
 #if defined(_MSC_VER)
   CloseHandle(_mtxList);
 #else
-  LOG_DEBUG("destroy WorkThread(%p) join _workThreadId:%d", this, _workThreadId);
+  LOG_DEBUG("Destroy WorkThread(%p) join _workThreadId:%ld, please waiting ...", this, _workThreadId);
   pthread_join(_workThreadId, NULL);
   pthread_mutex_destroy(&_mtxList);
 #endif
@@ -223,7 +228,8 @@ int WorkThread::insertQueueNode(WorkThread* thread, INlsRequest * request) {
 
   int queue_size = thread->_nodeQueue.size();
   if (queue_size < 0) {
-    LOG_ERROR("WorkThread(%p) _nodeQueue size:%d is invalid.", thread, queue_size);
+    LOG_ERROR("WorkThread(%p) node queue size:%d is invalid, insert request:%p failed.",
+        thread, queue_size, request);
     #if defined(_MSC_VER)
     ReleaseMutex(thread->_mtxList);
     #else
@@ -244,7 +250,6 @@ int WorkThread::insertQueueNode(WorkThread* thread, INlsRequest * request) {
   if (i == queue_size) {
     // cannot find request matched
     thread->_nodeQueue.push(request);
-  } else {
   }
 
 #if defined(_MSC_VER)
@@ -262,8 +267,22 @@ INlsRequest* WorkThread::getQueueNode(WorkThread* thread) {
   pthread_mutex_lock(&(thread->_mtxList));
 #endif
 
+  int queue_size = thread->_nodeQueue.size();
+  if (queue_size <= 0) {
+    LOG_WARN("WorkThread(%p) _nodeQueue is empty, node queue size:%d.", thread, queue_size);
+    #if defined(_MSC_VER)
+    ReleaseMutex(thread->_mtxList);
+    #else
+    pthread_mutex_unlock(&(thread->_mtxList));
+    #endif
+    return NULL;
+  }
+
   INlsRequest *request = thread->_nodeQueue.front();
   thread->_nodeQueue.pop();
+
+  // LOG_DEBUG("WorkThread(%p) node queue size:%d, pop request(%p).",
+  //     thread, queue_size, request);
 
 #if defined(_MSC_VER)
   ReleaseMutex(thread->_mtxList);
@@ -326,7 +345,7 @@ void WorkThread::destroyConnectNode(ConnectNode* node) {
 #endif
 
   if (node == NULL) {
-    LOG_ERROR("Input node is null.");
+    LOG_ERROR("Input node is nullptr.");
   #if defined(_MSC_VER)
     ReleaseMutex(_mtxCpu);
   #else
@@ -335,30 +354,36 @@ void WorkThread::destroyConnectNode(ConnectNode* node) {
     return;
   }
 
-  LOG_INFO("Node:%p destroyConnectNode begin.", node);
+  LOG_INFO("Node:%p destroyConnectNode begin, node status:%s exit status:%s.",
+      node,
+      node->getConnectNodeStatusString().c_str(),
+      node->getExitStatusString().c_str());
 
   NlsClient* client = _instance;
   NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
   int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("Node:%p checkNodeExist failed, ret:%d", node);
-    return;
-  }
-  node_manager->updateNodeStatus(node, NodeStatusReleased);
 
   freeListNode(node->_eventThread, node->_request);
+
   if (node->updateDestroyStatus()) {
-    LOG_INFO("Node:%p destroyConnectNode done.", node);
     INlsRequest* request = node->_request;
     if (request) {
-      node_manager->removeRequestFromInfo(request, false);
-      delete request;
+      LOG_DEBUG("Node(%p) destroy request.", node);
+      int ret = node_manager->checkRequestExist(request, &status);
+      if (ret == Success) {
+        delete request;
+      }
+      if (ret != -(RequestEmpty)) {
+        node_manager->removeRequestFromInfo(request, false);
+      }
       request = NULL;
+    } else {
+      LOG_WARN("The request of node(%p) is nullptr.", node);
     }
+    LOG_INFO("Node(%p) destroyConnectNode done.", node);
   }
 
-  LOG_INFO("Node:%p destroyConnectNode finish.", node);
+  LOG_INFO("Node(%p) destroyConnectNode finish.", node);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxCpu);
@@ -398,9 +423,10 @@ void* WorkThread::loopEventCallback(void* arg) {
   prctl(PR_SET_NAME, "eventThread");
 #endif
 
-  LOG_DEBUG("workThread(%p) create loopEventCallback", arg);
+  LOG_DEBUG("workThread(%p) create loopEventCallback.", arg);
 
   if (eventParam->_workBase) {
+    LOG_DEBUG("workThread(%p) event_base_dispatch ...", arg);
     event_base_dispatch(eventParam->_workBase);
   }
   if (eventParam->_dnsBase) {
@@ -412,8 +438,10 @@ void* WorkThread::loopEventCallback(void* arg) {
     eventParam->_workBase = NULL;
   }
 
+  LOG_DEBUG("workThread(%p) loopEventCallback exit.", arg);
+
 #if defined(_MSC_VER)
-  return 0;
+  return Success;
 #else
   return NULL;
 #endif
@@ -429,38 +457,22 @@ void WorkThread::connectTimerEventCallback(
     evutil_socket_t socketFd , short event, void *arg) {
   int errorCode = 0;
   ConnectNode *node = (ConnectNode*)arg;
+  node->_inEventCallbackNode = true;
 
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
-    return;
-  } else {
-    if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, node is %s, do nothing later...",
-          node, node_manager->getNodeStatusString(status).c_str());
-      destroyConnectNode(node);
-      return;
-    }
-  }
-
-  // LOG_DEBUG("Node:%p connectTimerEventCallback node status:%s ...",
-  //     node, node_manager->getNodeStatusString(status).c_str());
+  LOG_DEBUG("Node(%p) connectTimerEventCallback node status:%s ...",
+      node, node->getConnectNodeStatusString().c_str());
 
   if (event == EV_CLOSED) {
-    LOG_DEBUG("Node:%p connect EV_CLOSED.", node);
-    goto EventProcessFailed;
+    LOG_DEBUG("Node(%p) connect get EV_CLOSED.", node);
+    goto ConnectTimerProcessFailed;
   } else {
     // event == EV_TIMEOUT
     if (node->getConnectNodeStatus() == NodeConnecting) {
       socklen_t len = sizeof(errorCode);
       getsockopt(socketFd, SOL_SOCKET, SO_ERROR, (char *) &errorCode, &len);
       if (!errorCode) {
-        LOG_DEBUG("Node:%p connect return ev_write, check ok, set NodeStatus:NodeConnected.", node);
+        LOG_DEBUG("Node(%p) connect return ev_write, check ok, set NodeStatus:NodeConnected.", node);
         node->setConnectNodeStatus(NodeConnected);
-        node_manager->updateNodeStatus(node, NodeStatusConnected);
 
         #ifndef _MSC_VER
         // get client ip and port from socketFd
@@ -474,53 +486,71 @@ void WorkThread::connectTimerEventCallback(
 
         node->_isConnected = true;
       } else {
+        /* 再次尝试connect(), 并启动下一次connectEventCallback */
         if (node->socketConnect() < 0) {
-          goto EventProcessFailed;
+          /* socket connect 失败 */
+          goto ConnectTimerProcessFailed;
         }
       }
     }
 
+    /* connect成功, 开始握手 */
     if (node->getConnectNodeStatus() == NodeConnected) {
       int ret = node->sslProcess();
       switch (ret) {
         case 0:
-          LOG_DEBUG("Node:%p Begin gateway request process.", node);
+          LOG_DEBUG("Node(%p) begin gateway request process.", node);
+          /* 进入gatewayRequest()的ssl握手阶段 */
           if (nodeRequestProcess(node) < 0) {
             destroyConnectNode(node);
           }
           break;
         case 1:
-          //LOG_DEBUG("wait connect.");
+          /* sslProcess()中已经启动了下一次_connectEvent */
+          // LOG_DEBUG("wait connecting ...");
           break;
         default:
-          goto EventProcessFailed;
+          goto HandshakeTimerProcessFailed;
       }
     }
   }
 
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
   return;
 
-EventProcessFailed:
-  LOG_ERROR("Node:%p Connect failed:%s.",
+HandshakeTimerProcessFailed:
+ConnectTimerProcessFailed:
+  /* connect失败, 或者connect成功但是handshake失败.
+   * 进行断链并重回connecting阶段, 然后再开始dns解析.
+   */
+  LOG_ERROR("Node(%p) connect or handshake failed, socket error mesg:%s.",
       node,
       evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
 
-  //node->closeConnectNode();
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  node_manager->updateNodeStatus(node, NodeStatusConnecting);
 
   if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
-    LOG_ERROR("Node:%p try delete request.", node);
+    LOG_ERROR("Node(%p) try delete request.", node);
     destroyConnectNode(node);
   }
 
+  LOG_DEBUG("Node(%p) connectTimerEventCallback done.", node);
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
   return;
 }
 #endif
 
 /*
- * Description: 
+ * Description: connect()后检查链接状态并开启ssl握手.
  * Return: 
  * Others:
  */
@@ -528,44 +558,27 @@ void WorkThread::connectEventCallback(
     evutil_socket_t socketFd , short event, void *arg) {
   int errorCode = 0;
   ConnectNode *node = (ConnectNode*)arg;
+  node->_inEventCallbackNode = true;
 
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
-    return;
-  } else {
-    if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, node is %s, do nothing later...",
-          node, node_manager->getNodeStatusString(status).c_str());
-      node->disconnectProcess();
-      destroyConnectNode(node);
-      return;
-    }
-  }
-
-  // LOG_DEBUG("Node:%p connectEventCallback node status:%s ...",
+  // LOG_DEBUG("Node(%p) connectEventCallback node status:%s ...",
   //     node, node_manager->getNodeStatusString(status).c_str());
 
   if (event == EV_TIMEOUT) {
-    LOG_DEBUG("Node:%p connect EV_TIMEOUT.", node);
-    goto EventProcessFailed;
+    LOG_ERROR("Node(%p) connect get EV_TIMEOUT.", node);
+    goto ConnectProcessFailed;
   } else if (event == EV_CLOSED) {
-    LOG_DEBUG("Node:%p connect EV_CLOSED.", node);
-    goto EventProcessFailed;
+    LOG_DEBUG("Node(%p) connect get EV_CLOSED.", node);
+    goto ConnectProcessFailed;
   } else {
-    // LOG_DEBUG("Node:%p connect status(%d):%s, event %02x",
-    //     node, node->getConnectNodeStatus(),
-    //     node->getConnectNodeStatusString().c_str(), event);
+    LOG_DEBUG("Node(%p) current connect node status:%s, EV:%02x.",
+        node, node->getConnectNodeStatusString().c_str(), event);
     if (node->getConnectNodeStatus() == NodeConnecting) {
       socklen_t len = sizeof(errorCode);
       getsockopt(socketFd, SOL_SOCKET, SO_ERROR, (char *) &errorCode, &len);
       if (!errorCode) {
-        LOG_DEBUG("Node:%p connect return ev_write, check ok, set NodeStatus:NodeConnected.", node);
+        LOG_DEBUG("Node(%p) connect return ev_write, check ok, set NodeStatus:NodeConnected.", node);
         node->setConnectNodeStatus(NodeConnected);
-        node_manager->updateNodeStatus(node, NodeStatusConnected);
+        node->_isConnected = true;
 
         #ifndef _MSC_VER
         // get client ip and port from socketFd
@@ -574,84 +587,105 @@ void WorkThread::connectEventCallback(
         socklen_t client_len = sizeof(client);
         getsockname(socketFd, (struct sockaddr *)&client, &client_len);
         inet_ntop(AF_INET, &client.sin_addr, client_ip, sizeof(client_ip));
-        LOG_DEBUG("Node:%p local %s:%d", node, client_ip, ntohs(client.sin_port));
+        LOG_DEBUG("Node(%p) local %s:%d.", node, client_ip, ntohs(client.sin_port));
         #endif
 
         node->_isConnected = true;
       } else {
+        /* 再次尝试connect(), 并启动下一次connectEventCallback */
         if (node->socketConnect() < 0) {
-          goto EventProcessFailed;
+          /* socket connect 失败 */
+          goto ConnectProcessFailed;
         }
       }
     }
 
+    /* connect成功, 开始握手 */
     if (node->getConnectNodeStatus() == NodeConnected) {
       int ret = node->sslProcess();
       switch (ret) {
         case 0:
-          LOG_DEBUG("Node:%p Begin gateway request process.", node);
+          LOG_DEBUG("Node(%p) begin gateway request process.", node);
+          /* 进入gatewayRequest()的ssl握手阶段 */
           if (nodeRequestProcess(node) < 0) {
             destroyConnectNode(node);
           }
           break;
         case 1:
-          //LOG_DEBUG("wait connect.");
+          /* sslProcess()中已经启动了下一次_connectEvent */
+          // LOG_DEBUG("wait connecting.");
           break;
         default:
-          goto EventProcessFailed;
+          goto HandshakeProcessFailed;
       }
     }
   }
 
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
   return;
 
-EventProcessFailed:
-  LOG_ERROR("Node:%p Connect failed:%s.",
+HandshakeProcessFailed:
+ConnectProcessFailed:
+  /* connect失败, 或者connect成功但是handshake失败.
+   * 进行断链并重回connecting阶段, 然后再开始dns解析.
+   */
+  LOG_ERROR("Node(%p) connect or handshake failed, socket error mesg:%s.",
       node,
       evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
 
-  //node->closeConnectNode();
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  node_manager->updateNodeStatus(node, NodeStatusConnecting);
 
   if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
-    LOG_ERROR("Node:%p try delete request.", node);
+    LOG_ERROR("Node(%p) try delete request.", node);
     destroyConnectNode(node);
   }
 
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
   return;
 }
 
 void WorkThread::readEventCallBack(
     evutil_socket_t socketFd, short what, void *arg) {
-  ConnectNode *node = (ConnectNode*)arg;
   char tmp_msg[512] = {0};
+  int ret = Success;
+  ConnectNode *node = (ConnectNode*)arg;
+  node->_inEventCallbackNode = true;
 
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
+  // LOG_DEBUG("Node(%p) readEventCallBack begin, current event:%d, node status:%s, exit status:%s.",
+  //     node, what,
+  //     node->getConnectNodeStatusString().c_str(),
+  //     node->getExitStatusString().c_str());
+
+  if (node->getExitStatus() == ExitCancel) {
+    LOG_WARN("Node(%p) skip this operation ...", node);
+    node->closeConnectNode();
+#ifdef _MSC_VER
+    SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+    SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
     return;
-  } else {
-    if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, node is %s, do nothing later...",
-          node, node_manager->getNodeStatusString(status).c_str());
-      if (status != NodeStatusReleased) {
-        destroyConnectNode(node);
-      }
-      return;
-    }
   }
-
-  // LOG_DEBUG("Node:%p readEventCallBack what:%d.", node, what);
 
   if (what == EV_READ){
     ret = nodeResponseProcess(node);
     if (ret == -(InvalidRequest)) {
-      LOG_ERROR("Node:%p has invalid request, skip all operation.", node);
+      LOG_ERROR("Node(%p) has invalid request, skip all operation.", node);
+      node->closeConnectNode();
+    #ifdef _MSC_VER
+      SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+    #else
+      SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+    #endif
       return;
     }
   } else if (what == EV_TIMEOUT){
@@ -659,26 +693,27 @@ void WorkThread::readEventCallBack(
         "Recv timeout. socket error:%s.",
         evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
 
-    LOG_ERROR("Node:%p %s", node, tmp_msg);
+    LOG_ERROR("Node(%p) error msg:%s.", node, tmp_msg);
 
-    node->handlerTaskFailedEvent(tmp_msg, EvRecvTimeout);
     node->closeConnectNode();
+    node->handlerTaskFailedEvent(tmp_msg, EvRecvTimeout);
   } else {
     snprintf(tmp_msg, 512 - 1, "Unknown event:%02x. %s",
         what,
         evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
 
-    LOG_ERROR("Node:%p %s", node, tmp_msg);
+    LOG_ERROR("Node(%p) error msg:%s.", node, tmp_msg);
 
-    node->handlerTaskFailedEvent(tmp_msg, EvUnknownEvent);
     node->closeConnectNode();
+    node->handlerTaskFailedEvent(tmp_msg, EvUnknownEvent);
   }
 
-  if (node->getConnectNodeStatus() == NodeInvalid &&
-      node->getExitStatus() != ExitStopped) {
-    destroyConnectNode(node);
-  }
-
+  // LOG_DEBUG("Node(%p) readEventCallBack done.", node);
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
   return;
 }
 
@@ -686,24 +721,23 @@ void WorkThread::writeEventCallBack(
     evutil_socket_t socketFd, short what, void *arg) {
   char tmp_msg[512] = {0};
   ConnectNode *node = (ConnectNode*)arg;
+  node->_inEventCallbackNode = true;
 
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
+  // LOG_DEBUG("Node(%p) writeEventCallBack current event:%d, node status:%s, exit status:%s.",
+  //     node, what,
+  //     node->getConnectNodeStatusString().c_str(),
+  //     node->getExitStatusString().c_str());
+
+  if (node->getExitStatus() == ExitCancel) {
+    LOG_WARN("Node(%p) skip this operation ...", node);
+    node->closeConnectNode();
+  #ifdef _MSC_VER
+    SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+  #else
+    SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+  #endif
     return;
-  } else {
-    if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, node status is %s, do nothing later...",
-          node, node_manager->getNodeStatusString(status).c_str());
-      destroyConnectNode(node);
-      return;
-    }
   }
-
-  // LOG_DEBUG("Node:%p writeEventCallBack what:%d.", node, what);
 
   if (what == EV_WRITE){
     nodeRequestProcess(node);
@@ -714,50 +748,42 @@ void WorkThread::writeEventCallBack(
 
     LOG_ERROR("Node:%p %s", node, tmp_msg);
 
-    node->handlerTaskFailedEvent(tmp_msg, EvSendTimeout);
     node->closeConnectNode();
+    node->handlerTaskFailedEvent(tmp_msg, EvSendTimeout);
   } else {
     snprintf(tmp_msg, 512 - 1, "Unknown event:%02x. %s",
         what,
         evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
 
-    LOG_ERROR("Node:%p %s", node, tmp_msg);
+    LOG_ERROR("Node(%p) %s.", node, tmp_msg);
 
-    node->handlerTaskFailedEvent(tmp_msg, EvUnknownEvent);
     node->closeConnectNode();
+    node->handlerTaskFailedEvent(tmp_msg, EvUnknownEvent);
   }
 
   if (node->getConnectNodeStatus() == NodeInvalid) {
     destroyConnectNode(node);
   }
+
+  // LOG_DEBUG("Node(%p) writeEventCallBack done.", node);
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
+  return;
 }
 
 void WorkThread::directConnect(void *arg, char *ip) {
   ConnectNode *node = (ConnectNode *)arg;
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
-    return;
-  } else {
-    if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, node status is %s, do nothing later...",
-          node, node_manager->getNodeStatusString(status).c_str());
-      destroyConnectNode(node);
-      return;
-    }
-  }
-
   if (ip) {
-    LOG_DEBUG("Node:%p direct IpV4:%s", node, ip);
+    LOG_DEBUG("Node(%p) direct IpV4:%s.", node, ip);
 
     int ret = node->connectProcess(ip, AF_INET);
     if (ret == 0) {
       ret = node->sslProcess();
-      if (ret == 0) {
-        LOG_DEBUG("Node:%p Begin gateway request process.", node);
+      if (ret == Success) {
+        LOG_DEBUG("Node(%p) begin gateway request process.", node);
         if (nodeRequestProcess(node) < 0) {
           destroyConnectNode(node);
         }
@@ -766,10 +792,11 @@ void WorkThread::directConnect(void *arg, char *ip) {
     }
 
     if (ret == 1) {
+      LOG_DEBUG("Node(%p) connectProcess return 1, will try connect ...", node);
       // connect  EINPROGRESS
       return;
     } else {
-      LOG_DEBUG("Node:%p goto DirectConnectRetry.", node);
+      LOG_DEBUG("Node(%p) goto DirectConnectRetry.", node);
       goto DirectConnectRetry;
     }
   }
@@ -777,7 +804,6 @@ void WorkThread::directConnect(void *arg, char *ip) {
 DirectConnectRetry:
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  node_manager->updateNodeStatus(node, NodeStatusConnecting);
   if (node->dnsProcess(_addrInFamily, ip, _enableSysGetAddr) < 0) {
     destroyConnectNode(node);
   }
@@ -789,24 +815,7 @@ DirectConnectRetry:
 void WorkThread::sysDnsEventCallback(
     evutil_socket_t socketFd, short what, void *arg) {
   ConnectNode *node = (ConnectNode *)arg;
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
-    return;
-  } else {
-    if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, node status is %s, do nothing later...",
-          node, node_manager->getNodeStatusString(status).c_str());
-      destroyConnectNode(node);
-      return;
-    }
-  }
-
   dnsEventCallback(what, node->_addrinfo, arg);
-
   return;
 }
 #endif
@@ -820,11 +829,11 @@ void WorkThread::dnsEventCallback(int errorCode,
   int status = NodeStatusInvalid;
   int ret = node_manager->checkNodeExist(node, &status);
   if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
+    LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
     return;
   } else {
     if (status >= NodeStatusCancelling) {
-      LOG_WARN("Node:%p checkNodeExist falied, status:%s, node status:%s, do nothing later...",
+      LOG_WARN("Node(%p) checkNodeExist failed, status:%s, node status:%s, do nothing later...",
           node, node->getConnectNodeStatusString().c_str(),
           node_manager->getNodeStatusString(status).c_str());
       // maybe mem leak here
@@ -833,19 +842,25 @@ void WorkThread::dnsEventCallback(int errorCode,
     }
   }
 
+  node->_inEventCallbackNode = true;
+
   if (errorCode) {
-    LOG_ERROR("Node:%p %s dns failed: %s.",
+    LOG_ERROR("Node(%p) %s dns failed: %s.",
         node, node->_url._host, evutil_gai_strerror(errorCode));
     node->setConnectNodeStatus(NodeConnecting);
-    node_manager->updateNodeStatus(node, NodeStatusConnecting);
     if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
       destroyConnectNode(node);
     }
+#ifdef _MSC_VER
+    SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+    SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
     return;
   }
 
   if (address->ai_canonname) {
-    LOG_DEBUG("Node:%p ai_canonname: %s", node, address->ai_canonname);
+    LOG_DEBUG("Node(%p) ai_canonname: %s", node, address->ai_canonname);
   }
 
   struct evutil_addrinfo *ai;
@@ -857,26 +872,31 @@ void WorkThread::dnsEventCallback(int errorCode,
       ip = evutil_inet_ntop(AF_INET, &sin->sin_addr, buffer, HOST_SIZE);
 
       if (ip) {
-        LOG_DEBUG("Node:%p IpV4:%s", node, ip);
+        LOG_DEBUG("Node(%p) IpV4:%s.", node, ip);
 
         int ret = node->connectProcess(ip, AF_INET);
         if (ret == 0) {
           ret = node->sslProcess();
           if (ret == 0) {
-            LOG_DEBUG("Node:%p Begin gateway request process.", node);
+            LOG_DEBUG("Node(%p) begin gateway request process.", node);
             if (nodeRequestProcess(node) < 0) {
               destroyConnectNode(node);
             }
-
+          #ifdef _MSC_VER
+            SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+          #else
+            SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+          #endif
             return ;
           }
         }
 
         if (ret == 1) {
-          // connect  EINPROGRESS
+          LOG_DEBUG("Node(%p) connectProcess return 1, will try connect ...", node);
+          // connect EINPROGRESS
           break;
         } else {
-          LOG_DEBUG("Node:%p goto ConnectRetry, ret:%d.", node, ret);
+          LOG_DEBUG("Node(%p) goto ConnectRetry, ret:%d.", node, ret);
           goto ConnectRetry;
         }
       }
@@ -886,25 +906,31 @@ void WorkThread::dnsEventCallback(int errorCode,
       ip = evutil_inet_ntop(AF_INET6, &sin6->sin6_addr, buffer, HOST_SIZE);
 
       if (ip) {
-        LOG_DEBUG("Node:%p IpV6:%s", node, ip);
+        LOG_DEBUG("Node(%p) IpV6:%s.", node, ip);
 
         int ret = node->connectProcess(ip, AF_INET6);
         if (ret == 0) {
-          LOG_DEBUG("Node:%p Begin ssl process.", node);
+          LOG_DEBUG("Node(%p) begin ssl process.", node);
           ret = node->sslProcess();
           if (ret == 0) {
-            LOG_DEBUG("Node:%p Begin gateway request process.", node);
+            LOG_DEBUG("Node(%p) begin gateway request process.", node);
             if (nodeRequestProcess(node) < 0) {
               destroyConnectNode(node);
             }
+          #ifdef _MSC_VER
+            SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+          #else
+            SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+          #endif
             return ;
           }
         }
 
         if (ret == 1) {
+          LOG_DEBUG("Node(%p) connectProcess return 1, will try connect ...", node);
           break;
         } else {
-          LOG_DEBUG("Node:%p goto ConnectRetry.", node);
+          LOG_DEBUG("Node(%p) goto ConnectRetry.", node);
           goto ConnectRetry;
         }
       }
@@ -912,19 +938,27 @@ void WorkThread::dnsEventCallback(int errorCode,
   }
 
   evutil_freeaddrinfo(address);
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
 
   return;
 
 ConnectRetry:
   evutil_freeaddrinfo(address);  
-  // node->closeConnectNode();
   node->disconnectProcess();
   node->setConnectNodeStatus(NodeConnecting);
-  node_manager->updateNodeStatus(node, NodeStatusConnecting);
   if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
     destroyConnectNode(node);
   }
 
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
+#endif
   return;
 }
 
@@ -935,57 +969,61 @@ ConnectRetry:
  */
 void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg) {
   WorkThread *pThread = (WorkThread*)arg;
-  int ret = Success;
   char msgCmd;
+  ConnectNode *node = NULL;
+  INlsRequest *request = NULL;
+  NlsClient* client = _instance;
+  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
+  int status = NodeStatusInvalid;
+  int ret = Success;
+
   if (recv(pThread->_notifyReceiveFd, (char *)&msgCmd, sizeof(char), 0) <= 0) {
-    LOG_ERROR("work Thread recv() failed:%d.", utility::getLastErrorCode());
+    LOG_ERROR("WorkThread(%p) recv() failed, errno:%d.", pThread, utility::getLastErrorCode());
     return;
   }
 
-  LOG_DEBUG("workThread(%p) receive: '%c' from main thread.", pThread, msgCmd);
+  LOG_DEBUG("workThread(%p) receive '%c' from main thread.", pThread, msgCmd);
 
   if (msgCmd == 'c') {
-    INlsRequest *request = getQueueNode(pThread);
+    request = getQueueNode(pThread);
     if (request == NULL) {
-      LOG_ERROR("request is nullptr, you have destroyed request or relesed instance!");
+      LOG_ERROR("Request is nullptr, you have destroyed request or relesed instance!");
+      return;
+    }
+    node = request->getConnectNode();
+    if (NULL == node) {
+      LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request or relesed instance!", request);
       return;
     }
 
-    NlsClient* client = _instance;
-    NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-    int status = NodeStatusInvalid;
-    ret = node_manager->checkRequestExist(request, &status);
-    if (ret != Success) {
-      if (ret == -(RequestEmpty) || ret == -(NodeEmpty)) {
-        LOG_ERROR("request(%p) checkRequestExist failed, ret:%d, do nothing later...", request, ret);
-      } else {
-        LOG_ERROR("request(%p) checkRequestExist failed, ret:%d, chang to CmdCancel.", request, ret);
-        event_base_loopbreak(pThread->_workBase);
-      }
+    if (node->getExitStatus() == ExitCancel) {
+      LOG_WARN("Node(%p) is canceling, current node status:%s, skip here.",
+          node, node->getConnectNodeStatusString().c_str());
+      node->setConnectNodeStatus(NodeInvoked);
       return;
-    } else {
-      if (status >= NodeStatusCancelling) {
-        LOG_WARN("request(%p) node(%p) checkRequestExist falied, node is %s, do nothing later...",
-            request, request->getConnectNode(), node_manager->getNodeStatusString(status).c_str());
-        destroyConnectNode(request->getConnectNode());
-        return;
-      }
     }
 
     insertListNode(pThread, request);
 
-    LOG_DEBUG("workThread(%p) Node:%p begin dnsProcess.", pThread, request->getConnectNode());
+    node->setConnectNodeStatus(NodeInvoked);
+    /* 将request设置的参数传入node */
+    node->updateParameters();
 
-    if (request->getConnectNode()->dnsProcess(
-          _addrInFamily, _directIp, _enableSysGetAddr) < 0) {
-      destroyConnectNode(request->getConnectNode());
+    // LOG_DEBUG("WorkThread(%p) request(%p) node(%p) begin dnsProcess.",
+    //     pThread, request, node);
+
+    if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
+      LOG_WARN("WorkThread(%p) request(%p) node(%p) dnsProcess failed, ready to destroyConnectNode.",
+          pThread, request, node);
+      destroyConnectNode(node);
     }
   } else if (msgCmd == 's') {
     event_base_loopbreak(pThread->_workBase);
   } else {
-    LOG_ERROR("workThread(%p) recv invalid cmd:'%c'.", pThread, msgCmd);
+    LOG_ERROR("WorkThread(%p) receive invalid command:'%c'.", pThread, msgCmd);
   }
 
+  // LOG_DEBUG("workThread(%p) receive command done.", pThread);
   return;
 }
 
@@ -996,31 +1034,13 @@ void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg)
  */
 int WorkThread::nodeRequestProcess(ConnectNode* node) {
   int ret = Success;
-
-  //LOG_DEBUG("Node:%p nodeResquestProcess begin.", node);
-
   if (node == NULL) {
     LOG_ERROR("node is nullptr.");
     return -(NodeEmpty);
   }
 
-  //invoke cancel()
-  if (node->getExitStatus() == ExitCancel) {
-    node->closeConnectNode();
-    return -(CancelledExitStatus);
-  }
-
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
-    return ret;
-  }
-
   ConnectStatus workStatus = node->getConnectNodeStatus();
-  // LOG_DEBUG("Node:%p workStatus %d(%s).",
+  // LOG_DEBUG("Node(%p) workStatus %d(%s).",
   //     node, workStatus, node->getConnectNodeStatusString().c_str());
   switch(workStatus) {
     /*connect to gateWay*/
@@ -1028,7 +1048,6 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
       node->gatewayRequest();
       ret = node->nlsSendFrame(node->getCmdEvBuffer());
       node->setConnectNodeStatus(NodeHandshaked);
-      node_manager->updateNodeStatus(node, NodeStatusHandshaked);
       break;
 
     case NodeHandshaked:
@@ -1060,7 +1079,7 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
   }
 
   if (ret < 0) {
-    LOG_ERROR("Node:%p Send failed, ret:%d.", node, ret);
+    LOG_ERROR("Node(%p) Send failed, ret:%d.", node, ret);
 
     std::string failedInfo = node->getErrorMsg();
     if (failedInfo.empty()) {
@@ -1074,8 +1093,7 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
     return ret;
   }
 
-  //LOG_DEBUG("Node:%p nodeResquestProcess done.", node);
-
+  // LOG_DEBUG("Node(%p) nodeResquestProcess done.", node);
   return Success;
 }
 
@@ -1087,31 +1105,17 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
 int WorkThread::nodeResponseProcess(ConnectNode* node) {
   int ret = Success;
 
-  //LOG_DEBUG("Node:%p nodeResponseProcess begin.", node);
+  // LOG_DEBUG("Node(%p) nodeResponseProcess begin ...", node);
 
   if (node == NULL) {
     LOG_ERROR("node is nullptr.");
     return -(NodeEmpty);
   }
 
-  //invoke cancel()
-  if (node->getExitStatus() == ExitCancel) {
-    node->closeConnectNode();
-    return -(CancelledExitStatus);
-  }
-
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  ret = node_manager->checkNodeExist(node, &status);
-  if (ret != Success) {
-    LOG_ERROR("checkNodeExist failed, ret:%d", ret);
-    return ret;
-  }
-
   ConnectStatus workStatus = node->getConnectNodeStatus();
-  LOG_DEBUG("Node:%p workStatus %d(%s).",
-      node, workStatus, node->getConnectNodeStatusString().c_str());
+  // LOG_DEBUG("Node(%p) current node status:%s.",
+  //     node, node->getConnectNodeStatusString().c_str());
+
   switch(workStatus) {
     /*connect to gateway*/
     case NodeHandshaking:
@@ -1120,7 +1124,6 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
       if (ret == 0) {
         /* ret == 0 mean parsing response successfully */
         node->setConnectNodeStatus(NodeStarting);
-        node_manager->updateNodeStatus(node, NodeStatusRunning);
         if (node->_request->getRequestParam()->_requestType == SpeechTextDialog) {
           node->addCmdDataBuffer(CmdTextDialog);
         } else {
@@ -1128,7 +1131,7 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
         }
         ret = node->nlsSendFrame(node->getCmdEvBuffer());
       } else if (ret == -(NlsReceiveEmpty)) {
-        LOG_WARN("Node:%p nlsReceive empty, try again...", node);
+        LOG_WARN("Node(%p) nlsReceive empty, try again...", node);
         return Success;
       }
       break;
@@ -1158,7 +1161,7 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
          * 在长链接模式下, 可能存在进入NodeConnecting而非NodeStarted状态的情况
          * 以NodeStarted来处理......
          */
-        LOG_WARN("Node:%p NodeConnecting is abnormal", node);
+        LOG_WARN("Node(%p) NodeConnecting is abnormal.", node);
         ret = node->webSocketResponse();
       } else {
         ret = -(InvalidWorkStatus);
@@ -1176,7 +1179,11 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
   }
 
   if (ret < 0) {
-    LOG_ERROR("Node:%p Response failed, ret:%d", node, ret);
+    if (NodeClosed == node->getConnectNodeStatus()) {
+      LOG_WARN("Node(%p) current node status is NodeClosed, please ignore this warn.", node);
+      return Success;
+    }
+    LOG_ERROR("Node(%p) response failed, ret:%d.", node, ret);
 
     std::string failedInfo = node->getErrorMsg();
     if (failedInfo.empty()) {
@@ -1186,14 +1193,14 @@ int WorkThread::nodeResponseProcess(ConnectNode* node) {
       failedInfo.assign(tmp_msg);
     }
     if (ret == -(InvalidRequest)) {
-      LOG_ERROR("Node:%p Response failed, errormsg:%s. But request has released, ignore TaskFailed and Closed event.", node, failedInfo.c_str());
+      LOG_ERROR("Node(%p) Response failed, errormsg:%s. But request has released, ignore TaskFailed and Closed event.", node, failedInfo.c_str());
     } else {
-      node->handlerTaskFailedEvent(failedInfo);
       node->closeConnectNode();
+      node->handlerTaskFailedEvent(failedInfo);
     }
   }
 
-  //LOG_DEBUG("Node:%p nodeResponseProcess done.", node);
+  // LOG_DEBUG("Node(%p) nodeResponseProcess done.", node);
 
   return ret;
 }
