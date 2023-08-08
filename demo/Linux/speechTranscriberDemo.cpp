@@ -2238,6 +2238,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       max_sentence_silence = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--sync_timeout")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_sync_timeout = atoi(argv[index]);
     }
     index++;
   }
