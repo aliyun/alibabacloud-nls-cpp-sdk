@@ -17,74 +17,63 @@
 #ifndef _NLSCPPSDK_TOKEN_EXTERN_H_
 #define _NLSCPPSDK_TOKEN_EXTERN_H_
 
+static char* WCharToByte(const char* in, int* outLen) {
+  int len = MultiByteToWideChar(CP_ACP, 0, in, -1, NULL, 0);
+  wchar_t* wstr = new wchar_t[len + 1];
+  memset(wstr, 0, len + 1);
+  MultiByteToWideChar(CP_ACP, 0, in, -1, wstr, len);
+  len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+  char* str = new char[len + 1];
+  memset(str, 0, len + 1);
+  WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
+  if (wstr) delete[] wstr;
 
-static char* WCharToByte(const char* in, int* outLen)
-{
-	int len = MultiByteToWideChar(CP_ACP, 0, in, -1, NULL, 0);
-	wchar_t* wstr = new wchar_t[len + 1];
-	memset(wstr, 0, len + 1);
-	MultiByteToWideChar(CP_ACP, 0, in, -1, wstr, len);
-	len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-	char* str = new char[len + 1];
-	memset(str, 0, len + 1);
-	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
-	if (wstr) delete[] wstr;
-
-	*outLen = len;
-	return str;
+  *outLen = len;
+  return str;
 }
 
-NLSAPI(int) NlsApplyNlsToken(AlibabaNlsCommon::NlsToken* token)
-{
-	return token->applyNlsToken();
+NLSAPI(int) NlsApplyNlsToken(AlibabaNlsCommon::NlsToken* token) {
+  return token->applyNlsToken();
 }
 
-NLSAPI(const char*) NlsGetToken(AlibabaNlsCommon::NlsToken* token)
-{
-	return token->getToken();
+NLSAPI(const char*) NlsGetToken(AlibabaNlsCommon::NlsToken* token) {
+  return token->getToken();
 }
 
-NLSAPI(const char*) NlsGetErrorMsg(AlibabaNlsCommon::NlsToken* token)
-{
-	return token->getErrorMsg();
+NLSAPI(const char*) NlsGetErrorMsg(AlibabaNlsCommon::NlsToken* token) {
+  return token->getErrorMsg();
 }
 
-NLSAPI(uint64_t) NlsGetExpireTime(AlibabaNlsCommon::NlsToken* token)
-{
-	return token->getExpireTime();
+NLSAPI(uint64_t) NlsGetExpireTime(AlibabaNlsCommon::NlsToken* token) {
+  return token->getExpireTime();
 }
 
-NLSAPI(void) NlsSetAccessKeyId(AlibabaNlsCommon::NlsToken* token, const char* accessKeyId)
-{
-	int len = -1;
-	if (accessKeyId)
-	{
-		char* str = WCharToByte(accessKeyId, &len);
-		if (str)
-		{
-			std::string akId(str);
-			delete[] str;
-			token->setAccessKeyId(akId);
-		}
-	}
-	return;
+NLSAPI(void)
+NlsSetAccessKeyId(AlibabaNlsCommon::NlsToken* token, const char* accessKeyId) {
+  int len = -1;
+  if (accessKeyId) {
+    char* str = WCharToByte(accessKeyId, &len);
+    if (str) {
+      std::string akId(str);
+      delete[] str;
+      token->setAccessKeyId(akId);
+    }
+  }
+  return;
 }
 
-NLSAPI(void) NlsSetKeySecret(AlibabaNlsCommon::NlsToken* token, const char* KeySecret)
-{
-	int len = -1;
-	if (KeySecret)
-	{
-		char* str = WCharToByte(KeySecret, &len);
-		if (str)
-		{
-			std::string akSecret(str);
-			delete[] str;
-			token->setKeySecret(akSecret);
-		}
-	}
-	return;
+NLSAPI(void)
+NlsSetKeySecret(AlibabaNlsCommon::NlsToken* token, const char* KeySecret) {
+  int len = -1;
+  if (KeySecret) {
+    char* str = WCharToByte(KeySecret, &len);
+    if (str) {
+      std::string akSecret(str);
+      delete[] str;
+      token->setKeySecret(akSecret);
+    }
+  }
+  return;
 }
 
-
-#endif // _NLSCPPSDK_TOKEN_EXTERN_H_
+#endif  // _NLSCPPSDK_TOKEN_EXTERN_H_

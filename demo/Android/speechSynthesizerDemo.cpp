@@ -292,11 +292,15 @@ int generateToken(std::string akId, std::string akSecret,
   nlsTokenRequest.setAccessKeyId(akId);
   nlsTokenRequest.setKeySecret(akSecret);
 
-  if (-1 == nlsTokenRequest.applyNlsToken()) {
-    std::cout << "Failed: "
+  int retCode = nlsTokenRequest.applyNlsToken();
+  /*获取失败原因*/
+  if (retCode < 0) {
+    std::cout << "Failed error code: "
+              << retCode
+              << "  error msg: "
               << nlsTokenRequest.getErrorMsg()
-              << std::endl; /*获取失败原因*/
-    return -1;
+              << std::endl;
+    return retCode;
   }
 
   *token = nlsTokenRequest.getToken();
@@ -667,7 +671,7 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   if (g_token.empty()) {
     if (g_expireTime - curTime < 10) {
       std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-      if (-1 == generateToken(g_akId, g_akSecret, &g_token, &g_expireTime)) {
+      if (generateToken(g_akId, g_akSecret, &g_token, &g_expireTime) < 0) {
         return -1;
       }
     }
@@ -934,7 +938,7 @@ int main(int argc, char* argv[]) {
 #ifdef LOG_TRIGGER
   int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
       "log-synthesizer", AlibabaNls::LogDebug, 400, 50);
-  if (-1 == ret) {
+  if (ret < 0) {
     std::cout << "set log failed." << std::endl;
     return -1;
   }

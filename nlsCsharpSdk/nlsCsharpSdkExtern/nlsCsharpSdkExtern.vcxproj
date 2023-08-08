@@ -42,32 +42,36 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>true</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -109,7 +113,7 @@
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_CONSOLE;WIN32;_DEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
@@ -136,6 +140,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.lib  $(Solut
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\Win32\Debug\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\Win32\Debug\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
@@ -150,10 +156,11 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -179,6 +186,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.lib  $(Solu
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x86\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win32\nlsCppSdk\Win32\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\Win32\Release\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\Win32\Release\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
@@ -193,7 +202,7 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
@@ -223,6 +232,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.lib  $(Solut
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Debug\libcurld.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Debug\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\x64\Debug\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
+copy $(SolutionDir)\x64\Debug\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Debug\audio_files
@@ -237,10 +248,11 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;NLSCSHARPSDKEXTERN_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
+      <ConformanceMode>false</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\nlsCppSdk\token\include;$(SolutionDir)..\..\nlsCppSdk\framework\item;$(SolutionDir)..\..\nlsCppSdk\framework\common;$(SolutionDir)..\..\nlsCppSdk\framework\feature\da;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sr;$(SolutionDir)..\..\nlsCppSdk\framework\feature\st;$(SolutionDir)..\..\nlsCppSdk\framework\feature\sy</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -266,6 +278,8 @@ copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.lib  $(Solu
 copy $(SolutionDir)..\..\nlsCppSdk\win\libs_14.0\x64\Release\libcurl.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 copy $(SolutionDir)..\..\build\build_win64\nlsCppSdk\x64\Release\nlsCppSdk.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\x64\Release\nlsCsharpSdkExtern.lib  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
+copy $(SolutionDir)\x64\Release\nlsCsharpSdkExtern.dll  $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release
 md $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test0.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
 copy $(SolutionDir)..\..\resource\audio\test1.wav $(SolutionDir)..\nlsCsharpSdkDemo\bin\Release\audio_files
@@ -274,6 +288,5 @@ copy $(SolutionDir)..\..\resource\audio\test3.wav $(SolutionDir)..\nlsCsharpSdkD
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

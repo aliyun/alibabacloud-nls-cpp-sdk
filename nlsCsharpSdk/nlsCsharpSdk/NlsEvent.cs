@@ -18,55 +18,129 @@ using System.Runtime.InteropServices;
 
 namespace nlsCsharpSdk
 {
-//	[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-	public struct NLS_EVENT_STRUCT
+    static class NlsBufferSize
+    {
+        public const int NlsEventIdSize = 128;
+        public const int NlsEventBinarySize = 16384;
+        public const int NlsEventResponseSize = 34816;
+        public const int NlsEventResultSize = 10240;
+        public const int NlsEventTextSize = 1024;
+    }
+
+    /// <summary>
+    /// Csharp传递的NLS事件信息.
+    /// </summary>
+    public struct NLS_EVENT_STRUCT
 	{
+        /// <summary>
+        /// 语音合成的音频数据长度(字节数).
+        /// </summary>
         public int binaryDataSize;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16384)]
+        /// <summary>
+        /// 语音合成的音频数据.
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventBinarySize)]
         public byte[] binaryData;
 
+        /// <summary>
+        /// 状态码, 正常情况为0或20000000, 失败时对应失败的错误码, 具体请查看官网.
+        /// </summary>
         public int statusCode;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string msg;
+        /// <summary>
+        /// 此次事件的完整信息, json string格式.
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventResponseSize)]
+        public byte[] msg;
 
+        /// <summary>
+        /// 此次事件的类型.
+        /// </summary>
         public int msgType;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        /// <summary>
+        /// 每轮事件对应对应一个独一无二的task id
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = NlsBufferSize.NlsEventIdSize)]
         public string taskId;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string result;
+        /// <summary>
+        /// 识别内容.
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventResultSize)]
+        public byte[] result;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string displayText;
+        /// <summary>
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventTextSize)]
+        public byte[] displayText;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string spokenText;
+        /// <summary>
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventTextSize)]
+        public byte[] spokenText;
 
+        /// <summary>
+        /// </summary>
         public int sentenceTimeOutStatus;
+        /// <summary>
+        /// </summary>
         public int sentenceIndex;
+        /// <summary>
+        /// </summary>
         public int sentenceTime;
+        /// <summary>
+        /// </summary>
         public int sentenceBeginTime;
+        /// <summary>
+        /// </summary>
         public double sentenceConfidence;
 
+        /// <summary>
+        /// </summary>
         [MarshalAs(UnmanagedType.I1)]
         public bool wakeWordAccepted;
+        /// <summary>
+        /// </summary>
         [MarshalAs(UnmanagedType.I1)]
         public bool wakeWordKnown;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string wakeWordUserId;
+        /// <summary>
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventIdSize)]
+        public byte[] wakeWordUserId;
+
+        /// <summary>
+        /// </summary>
         public int wakeWordGender;
 
+        /// <summary>
+        /// </summary>
         public int stashResultSentenceId;
+        /// <summary>
+        /// </summary>
         public int stashResultBeginTime;
 
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 8192)]
-        public string stashResultText;
+        /// <summary>
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventTextSize)]
+        public byte[] stashResultText;
 
+        /// <summary>
+        /// </summary>
         public int stashResultCurrentTime;
 
-        public int isValid;
+        /// <summary>
+        /// </summary>
+        [MarshalAs(UnmanagedType.I1)]
+        public bool isValid;
+
+        /// <summary>
+        /// </summary>
+        public IntPtr user;
+
+        /// <summary>
+        /// </summary>
+        public IntPtr eventMtx;
     }
 }

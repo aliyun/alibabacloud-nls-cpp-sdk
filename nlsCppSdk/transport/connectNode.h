@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,12 +29,13 @@
 #include <queue>
 #include <string>
 #include <stdint.h>
-//#include "nlsEvent.h"
 #include "nlsEncoder.h"
 #include "error.h"
 #include "webSocketTcp.h"
 #include "webSocketFrameHandleBase.h"
 #include "SSLconnect.h"
+#include "nlsClient.h"
+#include "nlsGlobal.h"
 
 #include "event2/util.h"
 #include "event2/dns.h"
@@ -47,12 +48,12 @@ class INlsRequest;
 class WorkThread;
 class NlsEventNetWork;
 
-#define LIMIT_CONNECT_TIMEOUT 2
-#define RETRY_CONNECT_COUNT 4
-#define SAMPLE_RATE_16K 16000
-#define SAMPLE_RATE_8K 8000
-#define BUFFER_16K_MAX_LIMIT 320000
-#define BUFFER_8K_MAX_LIMIT 160000
+#define CONNECT_TIMER_INVERVAL_MS 20
+#define RETRY_CONNECT_COUNT       4
+#define SAMPLE_RATE_16K           16000
+#define SAMPLE_RATE_8K            8000
+#define BUFFER_16K_MAX_LIMIT      320000
+#define BUFFER_8K_MAX_LIMIT       160000
 
 #if defined(_MSC_VER)
 
@@ -87,13 +88,15 @@ class NlsEventNetWork;
 #define RECV_FAILED_CODE 10000004
 #define CLOSE_CODE 20000000
 
-#define CLOSE_JSON_STRING "{\"channeclClosed\": \"nls request finished.\"}"
+#define CLOSE_JSON_STRING              "{\"channelClosed\": \"nls request finished.\"}"
 #define TASKFAILED_CONNECT_JSON_STRING "connect failed."
-#define TASKFAILED_PARSE_JSON_STRING "{\"TaskFailed\": \"JSON: Json parse failed.\"}"
-#define TASKFAILED_UTF8_JSON_STRING "{\"TaskFailed\": \"utf8ToGbk failed.\"}"
-#define TASKFAILED_WS_JSON_STRING "{\"TaskFailed\": \"WEBSOCKET: unkown head type.\"}"
+#define TASKFAILED_PARSE_JSON_STRING   "{\"TaskFailed\": \"JSON: Json parse failed.\"}"
+#define TASKFAILED_NEW_NLSEVENT_FAILED "{\"TaskFailed\": \"new NlsEvent failed, memory is not enough.\"}"
+#define TASKFAILED_UTF8_JSON_STRING    "{\"TaskFailed\": \"utf8ToGbk failed.\"}"
+#define TASKFAILED_WS_JSON_STRING      "{\"TaskFailed\": \"WEBSOCKET: unkown head type.\"}"
 
-//type
+
+/* EventNetWork发送Node的具体指令 */
 enum CmdType {
   CmdStart = 0,
   CmdStop,
@@ -104,27 +107,33 @@ enum CmdType {
   CmdCancel
 };
 
+/* Node处于的退出状态 */
 enum ExitStatus {
-  ExitInvalid = 0,
-  ExitStopping,
-  ExitStopping2, // stopping第二阶段
-  ExitStopped,
-  ExitCancel,
+  ExitInvalid = 0, /* 构造时, 未处于退出状态 */
+  ExitStopping,    /* 调用stop时设置ExitStopping */
+  ExitCancel,      /* 调用cancel时设置ExitCancel */
 };
 
+/* Node处于的最新运行状态 */
 enum ConnectStatus {
-  NodeInitial = 0,
-  NodeConnecting,
-  NodeConnected,
-  NodeHandshaking,
-  NodeHandshaked,
-  NodeStarting,
-  NodeStarted,
-  NodeWakeWording,
-  NodeInvalid
+  NodeInvalid = 0, /* node处于不可用或者释放状态 */
+  NodeCreated,     /* 构造node */
+  NodeInvoking,    /* 刚调用start的过程, 向notifyEventCallback发送c指令 */
+  NodeInvoked,     /* 调用start的过程, 在notifyEventCallback完成 */
+  NodeConnecting,  /* 正在dns解析 */
+  NodeConnected,   /* socket链接成功 */
+  NodeHandshaking, /* ssl握手中 */
+  NodeHandshaked,  /* 握手成功 */
+  NodeStarting,    /* 握手后收到response, 开始工作 */
+  NodeStarted,     /* 收到started response时 */
+  NodeWakeWording = 10,
+  NodeFailed,
+  NodeCompleted,
+  NodeClosed,
+  NodeReleased
 };
 
-//class ConnectNode : public utility::BaseError {
+
 class ConnectNode {
 
  public:
@@ -138,6 +147,8 @@ class ConnectNode {
 
   void addCmdDataBuffer(CmdType type, const char* message = NULL);
   int addAudioDataBuffer(const uint8_t * frame, size_t length);
+  int addSlicedAudioDataBuffer(const uint8_t * frame, size_t length);
+
   int cmdNotify(CmdType type, const char* message);
 
   int nlsSend(const uint8_t * frame, size_t length);
@@ -155,110 +166,122 @@ class ConnectNode {
   void closeStatusConnectNode();
   void closeConnectNode();
   void disconnectProcess();
-
   bool checkConnectCount();
 
+  void handlerTaskFailedEvent(
+      std::string failedInfo, int code = DefaultErrorCode);
   void handlerEvent(const char* error, int errorCode,
-                    NlsEvent::EventType eventType);
-  void handlerTaskFailedEvent(std::string failedInfo);
+                    NlsEvent::EventType eventType, bool ignore = false);
+  void handlerMessage(const char* response,
+                      NlsEvent::EventType eventType);
+  int handlerFrame(NlsEvent *frameEvent);
 
-  WorkThread* _eventThread;
-  evutil_socket_t _socketFd;
-  urlAddress _url;
-  INlsRequest *_request;
-  HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler;
+  /* init encoder about opus&opu */
+  void initNlsEncoder();
+  /* take effect all setting parameters */
+  void updateParameters();
 
-  SSLconnect *_sslHandle;
+  /* setting NlsClient of this node */
+  void setInstance(NlsClient* instance);
+  NlsClient* getInstance();
+  INlsRequest *_request;                                /*setting request of this node*/
+  HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler; /*callback listener*/
+  WorkThread* _eventThread;                             /*setting WorkThread of this node*/
+  unsigned int _syncCallTimeoutMs;
+
+  /* design to record work status */
   ConnectStatus _workStatus;
   ConnectStatus getConnectNodeStatus();
   std::string getConnectNodeStatusString();
   void setConnectNodeStatus(ConnectStatus status);
 
+  /* design to record exit status */
+  ExitStatus _exitStatus;
   ExitStatus getExitStatus();
   std::string getExitStatusString();
   void setExitStatus(ExitStatus status);
 
-  void resetBufferLimit();
-
+  /* design to record wakeup status */
   bool _isWakeStop;
   bool getWakeStatus();
   void setWakeStatus(bool status);
 
+  /* about socket connection */
+  urlAddress _url;
+  evutil_socket_t _socketFd;
+  SSLconnect *_sslHandle;
+  int socketConnect();
+
+  /* about status of node in destroy */
   bool _isDestroy;
   bool updateDestroyStatus();
+  /* about event of callback */
+  void delAllEvents();
+  void waitEventCallback();
 
-  int socketConnect();
-    
-  void initNlsEncoder();
-
+  inline int getErrorCode() {
+    return _nodeErrCode;
+  };
   inline const char* getErrorMsg() {
     return _nodeErrMsg.c_str();
   };
   inline void setErrorMsg(const char* msg) {
     _nodeErrMsg.assign(msg);
   };
+
   inline struct evbuffer *getBinaryEvBuffer() {return _binaryEvBuffer;};
   inline struct evbuffer *getCmdEvBuffer() {return _cmdEvBuffer;};
   inline struct evbuffer *getWwvEvBuffer() {return _wwvEvBuffer;};
 
-  int sendControlDirective();
-  void initAllStatus();
+  /* get event point of launching node */
+  struct event *getLaunchEvent();
 
+  /* design to long connection */
+  bool _isLongConnection;
+  bool _isConnected;
+  void initAllStatus();  /*init all status in longConnection mode*/
+
+  int sendControlDirective();
+  void setSyncCallTimeout(unsigned int timeout_ms);
+  void waitInvokeFinish();
+
+  /* design to native_getaddrinfo */
 #ifndef _MSC_VER
   char * _nodename;
   char * _servname;
 
-  pthread_mutex_t  _mtxDns;
-  pthread_cond_t   _cvDns;
-  pthread_t _dnsThread;
-  pthread_t _timeThread;
-  struct timespec _outtime;
+  pthread_t _dnsThread;     /*异步dns方案启动线程*/
+  bool _dnsThreadExit;
+  struct timespec _outtime; /*异步dns方案超时设置*/
 
+  struct gaicb * _gaicbRequest[1];
   struct event _dnsEvent;
+  int _dnsErrorCode;
   struct evutil_addrinfo * _addrinfo;
-  void * _getaddrinfo_cb_handle;
 #endif
 
-  bool _isLongConnection;
-  bool _isConnected;
-
- private:
-  int _connectErrCode;
-  int _aiFamily;
-  struct sockaddr_in _addrV4;
-  struct sockaddr_in6 _addrV6;
-
-  size_t _limitSize;
-  struct timeval _connectTv;
-
-  std::string	_nodeErrMsg;
-
-  struct evbuffer *_readEvBuffer;
-  struct evbuffer *_binaryEvBuffer;
-  struct evbuffer *_cmdEvBuffer;
-  struct evbuffer *_wwvEvBuffer;
-
-  struct event _connectEvent;
-  struct event _readEvent;
-  struct event _writeEvent;
-
-  WebSocketTcp _webSocket;
-  WebSocketHeaderType _wsType;
-
-  ExitStatus _exitStatus;
-  size_t _retryConnectCount;
-
-  NlsEncoder * _nlsEncoder;
-  ENCODER_TYPE _encoder_type;
-
+  /* design for thread safe */
 #if defined(_MSC_VER)
   HANDLE _mtxNode;
   HANDLE _mtxCloseNode;
+  HANDLE _mtxEventCallbackNode;
 #else
-  pthread_mutex_t  _mtxNode;
-  pthread_mutex_t  _mtxCloseNode;
+  pthread_mutex_t _mtxNode;
+  pthread_mutex_t _mtxCloseNode;
+  pthread_mutex_t _mtxEventCallbackNode;
+  pthread_cond_t  _cvEventCallbackNode;   /*释放过程中等待事件回调结束*/
+#endif
+  bool _inEventCallbackNode;              /*是否处于事件回调中*/
+
+  /* design for sync call */
+#if defined(_MSC_VER)
+  HANDLE _mtxInvokeSyncCallNode;
+#else
+  pthread_mutex_t _mtxInvokeSyncCallNode;
+  pthread_cond_t  _cvInvokeSyncCallNode;   /*调用过程中等待调用结束*/
 #endif
 
+ private:
 #if defined(__ANDROID__) || defined(__linux__)
   int codeConvert(char *from_charset,
                   char *to_charset,
@@ -269,16 +292,69 @@ class ConnectNode {
 #endif
 
   std::string utf8ToGbk(const std::string &strUTF8);
-  NlsEvent* convertResult(WebSocketFrame * frame);
+  NlsEvent* convertResult(WebSocketFrame *frame, int *result);
+  const char* cmdConvertForLog(char *buf_in, std::string *buf_out);
+
+  int addRemainAudioData();
 
   int parseFrame(WebSocketFrame *wsFrame);
 
-  int socketWrite(const uint8_t * buffer, size_t len);
-  int socketRead(uint8_t * buffer, size_t len);
+  int socketWrite(const uint8_t *buffer, size_t len);
+  int socketRead(uint8_t *buffer, size_t len);
+
+  int getErrorCodeFromMsg(const char *msg);
+  std::string getCmdTypeString(int type);
+
+  void sendFinishCondSignal(NlsEvent::EventType eventType);
+
+  /* parameters about network */
+  int _aiFamily;
+  struct sockaddr_in _addrV4;
+  struct sockaddr_in6 _addrV6;
+  WebSocketTcp _webSocket;
+  WebSocketHeaderType _wsType;
+  struct evdns_getaddrinfo_request *_dnsRequest;
+  size_t _retryConnectCount; /*try count of connection*/
+
+  size_t _limitSize;
+  struct timeval _connectTv;
+  bool _enableRecvTv;
+  bool _enableOnMessage;
+  struct timeval _recvTv;
+  struct timeval _sendTv;
+
+  std::string	_nodeErrMsg;
+  int	_nodeErrCode;
+
+  struct evbuffer *_readEvBuffer;
+  struct evbuffer *_binaryEvBuffer;
+  struct evbuffer *_cmdEvBuffer;
+  struct evbuffer *_wwvEvBuffer;
+
+  struct event *_launchEvent;
+  struct event *_connectEvent;
+  struct event *_readEvent;
+  struct event *_writeEvent;
+
+#ifdef ENABLE_HIGH_EFFICIENCY
+  struct timeval _connectTimerTv;
+  struct event *_connectTimerEvent;
+  bool _connectTimerFlag;
+#endif
+
+  /* about audio data encoder */
+  NlsEncoder * _nlsEncoder;
+  ENCODER_TYPE _encoder_type;
+  uint8_t * _audio_data;
+  int _audio_data_size;
+  int _max_data_size;
 
   bool _isStop;
+  bool _isFirstBinaryFrame;
+
+  NlsClient* _instance;
 };
 
 }
 
-#endif /*NLS_SDK_CONNECT_NODE_H*/
+#endif // NLS_SDK_CONNECT_NODE_H

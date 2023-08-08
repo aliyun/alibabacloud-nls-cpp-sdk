@@ -313,7 +313,6 @@ rem x64
 	echo cd %log4cpp_src_folder%
 	cd %log4cpp_src_folder%
 	
-	
 	xcopy %project_folder%thirdparty\log4cpp_win_prj\vs2015 %log4cpp_src_folder%\vs2015 /y/s
 	
 rem build X64	

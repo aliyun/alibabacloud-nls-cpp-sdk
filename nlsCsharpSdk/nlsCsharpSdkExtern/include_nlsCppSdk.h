@@ -17,7 +17,6 @@
 #ifndef _INCLUDE_NLSCPPSDK_H_
 #define _INCLUDE_NLSCPPSDK_H_
 
-
 #include <ctime>
 #include <map>
 #include <string>
@@ -34,4 +33,4 @@
 #include "speechRecognizerRequest.h"
 #include "speechSynthesizerRequest.h"
 
-#endif // _INCLUDE_NLSCPPSDK_H_
+#endif  // _INCLUDE_NLSCPPSDK_H_

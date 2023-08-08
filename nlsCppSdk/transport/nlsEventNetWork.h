@@ -22,7 +22,7 @@
 #else
 #include <pthread.h>
 #endif
-//#include <stdint.h>
+#include "event2/util.h"
 #include "nlsEncoder.h"
 
 namespace AlibabaNls {
@@ -38,34 +38,40 @@ class NlsEventNetWork {
   static NlsEventNetWork * _eventClient;
 
   static void DnsLogCb(int w, const char *m);
-  static void initEventNetWork(
-      int count, char *aiFamily, char *directIp, bool sysGetAddr);
-  static void destroyEventNetWork();
+
+  void initEventNetWork(
+      NlsClient* instance, int count, char *aiFamily, char *directIp,
+      bool sysGetAddr, unsigned int syncCallTimeoutMs);
+  void destroyEventNetWork();
 
   int start(INlsRequest *request);
   int sendAudio(INlsRequest *request, const uint8_t * data,
                 size_t dataSize, ENCODER_TYPE type);
-  int stop(INlsRequest *request, int type);
+  int stop(INlsRequest *request);
+  int cancel(INlsRequest *request);
   int stControl(INlsRequest* request, const char* message);
 
- private:
-  int selectThreadNumber();            //循环选择工作线程
+  NlsClient* getInstance();
 
-  static WorkThread *_workThreadArray; //工作线程数组
-  static size_t _workThreadsNumber;    //工作线程数量
-  static size_t _currentCpuNumber;
-  static int _addrInFamily;
-  static char _directIp[64];
-  static bool _enableSysGetAddr;
+ private:
+  int selectThreadNumber();     //循环选择工作线程
+
+  WorkThread *_workThreadArray; //工作线程数组
+  size_t _workThreadsNumber;    //工作线程数量
+  size_t _currentCpuNumber;
+  int _addrInFamily;
+  char _directIp[64];
+  bool _enableSysGetAddr;          //启用getaddrinfo_a接口进行dns解析, 默认false
+  unsigned int _syncCallTimeoutMs; //启用同步接口, 默认0为不启用同步接口
+  NlsClient* _instance;
 
 #if defined(_MSC_VER)
   static HANDLE _mtxThread;
 #else
   static pthread_mutex_t _mtxThread;
 #endif
-
 };
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_NETWORK_H
+#endif // NLS_SDK_NETWORK_H

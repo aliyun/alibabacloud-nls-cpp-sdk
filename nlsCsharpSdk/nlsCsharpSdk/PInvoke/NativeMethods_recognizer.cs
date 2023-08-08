@@ -67,6 +67,9 @@ namespace nlsCsharpSdk.CPlusPlus
         [DllImport(DllExtern, EntryPoint = "SRsetOutputFormat", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public extern static int SRsetOutputFormat(IntPtr request, string value);
 
+        [DllImport(DllExtern, EntryPoint = "SRgetOutputFormat", CallingConvention = CallingConvention.Cdecl)]
+        public extern static IntPtr SRgetOutputFormat(IntPtr request);
+
         [DllImport(DllExtern, EntryPoint = "SRsetPayloadParam", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public extern static int SRsetPayloadParam(IntPtr request, string value);
 

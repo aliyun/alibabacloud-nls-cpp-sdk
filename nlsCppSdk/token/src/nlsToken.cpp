@@ -36,45 +36,46 @@ NlsToken::~NlsToken() {}
 int NlsToken::paramCheck() {
   if (accessKeySecret_.empty()) {
     errorMsg_ = "AccessKeySecret is empty.";
-    return -1;
+    return -(InvalidAkSecret);
   }
 
   if (accessKeyId_.empty()) {
     errorMsg_ = "AccessKeyId is empty.";
-    return -1;
+    return -(InvalidAkId);
   }
 
   if (domain_.empty()) {
     errorMsg_ = "Domain is empty.";
-    return -1;
+    return -(InvalidDomain);
   }
 
   if (serverVersion_.empty()) {
     errorMsg_ = "ServerVersion is empty.";
-    return -1;
+    return -(InvalidServerVersion);
   }
 
   if (serverResourcePath_.empty()) {
     errorMsg_ = "ServerResourcePath is empty.";
-    return -1;
+    return -(InvalidServerResource);
   }
 
   if (action_.empty()) {
     errorMsg_ = "Action is empty.";
-    return -1;
+    return -(InvalidAction);
   }
 
   if (regionId_.empty()) {
     errorMsg_ = "RegionId is empty.";
-    return -1;
+    return -(InvalidRegionId);
   }
 
-  return 0;
+  return Success;
 }
 
 int NlsToken::applyNlsToken() {
-  if (paramCheck() == -1) {
-    return -1;
+  int retCode = paramCheck();
+  if (retCode < 0) {
+    return retCode;
   }
 
   //ClientConfiguration默认区域id为hangzhou
@@ -83,7 +84,7 @@ int NlsToken::applyNlsToken() {
   //  configuration.setRegionId(regionId_);
   //}
 
-  CommonClient client(accessKeyId_, accessKeySecret_, configuration);
+  CommonClient client(accessKeyId_, accessKeySecret_, "", configuration);
 
   CommonRequest request(CommonRequest::TokenPattern);
   request.setDomain(domain_);
@@ -101,7 +102,7 @@ int NlsToken::applyNlsToken() {
   if (!outcome.isSuccess()) {
     // 异常处理
     errorMsg_ = outcome.error().errorMessage();
-    return -1;
+    return -(ClientRequestFaild);
   }
 
   Json::Value root;
@@ -109,9 +110,9 @@ int NlsToken::applyNlsToken() {
   std::string result = outcome.result().payload();
 
   if (!reader.parse(result, root)) {
-    std::string tt = "json anly failed.";
+    std::string tt = "json any failed.";
     errorMsg_ = tt;
-    return -1;
+    return -(JsonParseFailed);
   }
 
   if (!root["Token"].isNull()) {
@@ -126,7 +127,7 @@ int NlsToken::applyNlsToken() {
     }
   }
 
-  return 0;
+  return Success;
 }
 
 const char* NlsToken::getErrorMsg() {

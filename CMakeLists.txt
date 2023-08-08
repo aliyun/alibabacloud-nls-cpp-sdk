@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 
 #project
 file(STRINGS "${CMAKE_SOURCE_DIR}/version" version)
-project(nlsCppSdk3.x VERSION ${version})
+string(REPLACE "-" ";" NLS_VERSION ${version})
+list(GET NLS_VERSION 0 SDK_VERSION)
+project(nlsCppSdk3.x VERSION ${SDK_VERSION})
 message(STATUS "Project version: ${PROJECT_VERSION}")
+add_definitions(-DSDK_VERSION="\\"${version}\\"")
 
 message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
@@ -107,6 +110,19 @@ endfunction()
 #获取SDK编译选项
 sdkConfigFunc("config/nlsSdkConfig.conf")
 
+#设置Git信息
+find_package(Git QUIET)
+if(GIT_FOUND)
+  exec_program(
+    "git"
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ARGS "log --format='[sha1]:%h [author]:%cn [time]:%ci [commit]:%s [branch]:%d' -1"
+    OUTPUT_VARIABLE VERSION_SHA1 )
+  add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
+else()
+  add_definitions(-DGIT_SHA1="\\"no\\"")
+endif()
+
 #获取输出类型
 get_property(BUILD_TYPE GLOBAL PROPERTY BUILD_LIB_TYPE)
 
@@ -125,6 +141,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fPIC -g -ggdb")
   endif ()
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+  add_definitions(-DENABLE_NLS_DEBUG)
 else ()
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -fPIC")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
@@ -132,17 +149,31 @@ endif ()
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -Wl,-Bsymbolic")
 set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} -Wl,-Bsymbolic")
 
-#forbidden C++11
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+#default forbidden C++11, -D_GLIBCXX_USE_CXX11_ABI=0
+if (NOT DEFINED CXX11_ABI)
+  set(CXX11_ABI 0)
+endif ()
+if (CXX11_ABI)
+  message(STATUS "NlsSdk support std=c++11")
+  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif ()
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI})
 
+#启用OPUS(OPU模式默认已启动)
 add_definitions(-DENABLE_OGGOPUS)
+#启用高效模式, 降低CPU占用率
+add_definitions(-DENABLE_HIGH_EFFICIENCY)
+#启用内存扰乱
+add_definitions(-DENABLE_UNALIGNED_MEM)
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)
-	message(STATUS "Canon't build thirdparty.")
+  message(STATUS "Cannot build thirdparty.")
 else ()
-	add_subdirectory(thirdparty)
-	message(STATUS "Build thirdparty...")
+  add_subdirectory(thirdparty)
+  message(STATUS "Build thirdparty...")
 endif ()
 
 #编译nlsCppSdk主体

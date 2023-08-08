@@ -32,9 +32,9 @@ enum NlsRequestType {
 
 //语音类型
 enum NlsType {
-  TypeAsr = 0,
-  TypeRealTime,
-  TypeTts,
+  TypeAsr = 0,  /* 一句话识别 */
+  TypeRealTime, /* 实时语音识别 */
+  TypeTts,      /* 语音合成 */
   TypeDialog,
   TypeNone
 };
@@ -72,9 +72,22 @@ class INlsRequestParam {
   inline void setTimeout(int timeout) {
     _timeout = timeout;
   };
+  inline void setEnableRecvTimeout(bool enable) {
+    _enableRecvTimeout = enable;
+  };
+  inline void setRecvTimeout(int timeout) {
+    _recv_timeout = timeout;
+  };
+  inline void setSendTimeout(int timeout) {
+    _send_timeout = timeout;
+  };
 
   inline void setOutputFormat(const char* outputFormat) {
     _outputFormat = outputFormat;
+  };
+
+  inline void setEnableOnMessage(bool enable) {
+    _enableOnMessage = enable;
   };
 
   void setIntermediateResult(bool value);
@@ -95,7 +108,13 @@ class INlsRequestParam {
   virtual int setCustomizationId(const char * value);
   virtual int setVocabularyId(const char * value);
 
+  virtual std::string getOutputFormat();
   virtual int getTimeout();
+  virtual bool getEnableRecvTimeout();
+  virtual int getRecvTimeout();
+  virtual int getSendTimeout();
+  virtual bool getEnableOnMessage();
+  virtual std::string getTaskId();
 
  public:
   int AppendHttpHeader(const char* key, const char* value);
@@ -103,8 +122,13 @@ class INlsRequestParam {
 
  public:
   bool _enableWakeWord;
+  bool _enableRecvTimeout;
+  bool _enableOnMessage;
 
   int _timeout;
+  int _recv_timeout;
+  int _send_timeout;
+
   int _sampleRate;
   NlsRequestType _requestType;
 

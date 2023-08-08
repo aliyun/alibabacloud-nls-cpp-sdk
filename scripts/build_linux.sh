@@ -1,19 +1,26 @@
 #!/bin/bash -e
 
 echo "Command:"
-echo "./scripts/build_linux.sh <all or incr> <debug or release>"
-echo "eg: ./scripts/build_linux.sh all debug"
-
+echo "./scripts/build_linux.sh <all or incr> <debug or release> <abi>"
+echo "eg: ./scripts/build_linux.sh all debug 0"
 
 ALL_FLAG=$1
 DEBUG_FLAG=$2
+ABI_FLAG=$3
 if [ $# == 0 ]; then
   ALL_FLAG="incr"
   DEBUG_FLAG="debug"
+  ABI_FLAG=0
 fi
 if [ $# == 1 ]; then
   ALL_FLAG=$1
   DEBUG_FLAG="debug"
+  ABI_FLAG=0
+fi
+if [ $# == 2 ]; then
+  ALL_FLAG=$1
+  DEBUG_FLAG=$2
+  ABI_FLAG=0
 fi
 
 git_root_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
@@ -49,12 +56,13 @@ mkdir -p $demo_folder
 cd $build_folder
 
 #开始编译
+echo "BUILD_CXX11_ABI:" ${ABI_FLAG}
 if [ x${DEBUG_FLAG} == x"release" ];then
   echo "BUILD_TYPE: Release..."
-  cmake -DCMAKE_BUILD_TYPE=Release ..
+  cmake -DCMAKE_BUILD_TYPE=Release -DCXX11_ABI=${ABI_FLAG} ..
 else
   echo "BUILD_TYPE: Debug..."
-  cmake -DCMAKE_BUILD_TYPE=Debug ..
+  cmake -DCMAKE_BUILD_TYPE=Debug -DCXX11_ABI=${ABI_FLAG} ..
 fi
 if [ x${ALL_FLAG} == x"all" ];then
   make clean
@@ -69,7 +77,6 @@ echo "进入install目录:" $PWD
 sdk_install_folder=$install_folder/NlsSdk3.X_LINUX
 
 
-### libcrypto.a和libevent_core.a中有.o文件重名, 释放在同目录会覆盖, 导致编译找不到定义. 比如buffer.o
 ### 2
 cd $sdk_install_folder/tmp/
 echo "生成库libalibabacloud-idst-speech.X ..."
@@ -82,6 +89,7 @@ ar x libopus.a
 ar x libevent_core.a
 ar x libevent_extra.a
 ar x libevent_pthreads.a
+### libcrypto.a和libevent_core.a中有.o文件重名, 释放在同目录会覆盖, 导致编译找不到定义. 比如buffer.o
 mv $sdk_install_folder/tmp/buffer.o $sdk_install_folder/tmp/libevent_buffer.o
 
 ar x libssl.a
@@ -90,8 +98,22 @@ ar x libcurl.a
 
 ar cr ../../../lib/libalibabacloud-idst-speech.a *.o
 ranlib ../../../lib/libalibabacloud-idst-speech.a
+
+my_arch=$( uname -m )
+
+### 3
 #gcc -shared -Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -o ../../../lib/libalibabacloud-idst-speech.so *.o
-gcc -shared -Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -Wl,--exclude-libs,ALL -Wl,-z,relro,-z,now -Wl,-z,noexecstack -fstack-protector -o ../../../lib/libalibabacloud-idst-speech.so *.o
+CFLAG_PARAMS="-Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -Wl,--exclude-libs,ALL -Wl,-z,relro,-z,now -Wl,-z,noexecstack -fstack-protector"
+LDFALG_PARAMS=""
+if [ $ABI_FLAG == 1 ];then
+  echo "share library with c++11"
+  CFLAG_PARAMS="-std=c++11 $CFLAG_PARAMS"
+fi
+if [ x${my_arch} == x"aarch64" ];then
+  echo "ld library with pthread"
+  LDFALG_PARAMS="-lpthread"
+fi
+gcc -shared $CFLAG_PARAMS -o ../../../lib/libalibabacloud-idst-speech.so *.o $LDFALG_PARAMS
 
 if [ x${DEBUG_FLAG} == x"release" ];then
   strip ../../../lib/libalibabacloud-idst-speech.so
@@ -117,7 +139,7 @@ cp $build_folder/lib/* $sdk_install_folder/lib/
 ### 5
 echo "生成DEMO..."
 cd $demo_folder
-cmake ../../demo/Linux
+cmake -DCXX11_ABI=${ABI_FLAG} ../../demo/Linux
 make
 
 echo "编译结束..."
@@ -144,6 +166,3 @@ tar -zcPf $tar_file".tar.gz" NlsSdk3.X_LINUX
 echo "打包结束..."
 
 cp $audio_resource_folder/* $build_folder/demo/
-
-#echo "可以进入demo目录，执行命令[./demo <your appkey> <your AccessKey ID> <your AccessKey Secret>]，运行demo"
-

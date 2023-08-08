@@ -67,3 +67,51 @@
 7: C#进行多并发重构，完善Demo中多并发相关功能
 8: 增加录音文件识别功能和对应Demo
 9: 解决有些环境下release版本运行崩溃问题
+
+-----2022/11/09 Version:3.1.14-----
+1: log输入增加过滤，过滤%的占位符
+2: log4cpp中进行代码修改, 修改可能导致崩溃的地方
+3: 将打印log中appkey和TOKEN等账号有关的信息进行了隐藏
+4: startWorkThread中增加git commit id和sdk version的打印
+5: 增加log4cpp的单元测试代码
+6: 增加异步录音文件识别的功能
+7: 修复多并发时, start后马上cancel马上releaseSynthesizerRequest马上releaseInstance时崩溃的问题; 以及release后继续操作导致的崩溃
+8: 修复两次TaskFailed回调
+9: 增加tts语音合成文本字符数计算
+10:README中增加调用流程图
+11:增加更加详细的错误码
+12:降低高并发情况下的CPU占用
+13:增加timeout设置
+14:增强Windows版本兼容性
+
+-----2022/12/22 Version:3.1.15-----
+1: 增加支持C++11特性和_GLIBCXX_USE_CXX11_ABI=1的编译选项
+2: 录音文件转写支持STS访问方式
+3: 支持Aarch64-Linux编译
+4: 支持mcos调用示例
+5: 支持ptts调用示例
+6: 解决非安全释放时死锁的问题
+
+-----2023/02/08 Version:3.1.16-----
+1: 重构状态机管理, 增强异常调用的稳定性, 通过monkey测试
+2: 增加消息接收超时开关设置, 默认为关闭
+3: 增加OnMessage回调, 所有消息可从这个回调推出, 可开关控制
+4: Windows Cpp编译全部改成MD&MDd模式, 去除VC-LTL
+5: Windows Cpp编译工具链更新为v142, 用于支持虚幻5引擎开发
+6: 修改delegate参数, 以支持Unity3D
+
+-----2023/07/28 Version:3.1.17-----
+1: 增加control()接口可修改header中name
+2: 关闭libevent的dns大小写混合模式
+3: 修复长链接模式下在TaskFailed后重复触发_readEvent
+4: 修复丢失Closed回调的错误
+5: 增加尝试错误当SSL_read失败
+6: 增加接口getTaskId()以主动获得task_id
+7: 增加callback以加日志信息通过回调传递出来
+8: demo CMakeLists.txt中增加参数选择以支持低版本glibc环境下编译
+9: 使用系统接口进行解析时用getaddrinfo_a()替代getaddrinfo(), 以修复长时间运行崩溃的问题
+10:在使用OPUS/OPU音频格式情况下, 去掉音频数据字节数限制
+11:修复长时间运行偶现start()卡死的问题
+12:增加start()/stop()同步调用方式, 方便老版本升级
+13:修复create/release同时操作一个request指针地址时偶现崩溃的问题, 增加防止request地址容易重复的机制
+14:C++到C#结构体msg数组扩大

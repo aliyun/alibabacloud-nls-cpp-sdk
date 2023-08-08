@@ -31,6 +31,13 @@ namespace nlsCsharpSdk.CPlusPlus
         [DllImport(DllExtern, EntryPoint = "NlsSetAddrInFamily", CallingConvention = CallingConvention.Cdecl)]
         public extern static void NlsSetAddrInFamily(string aiFamily);
 
+        [DllImport(DllExtern, EntryPoint = "NlsSetDirectHost", CallingConvention = CallingConvention.Cdecl)]
+        public extern static void NlsSetDirectHost(string ip);
+
+        [DllImport(DllExtern, EntryPoint = "NlsCalculateUtf8Chars", CallingConvention = CallingConvention.Cdecl)]
+        public extern static int NlsCalculateUtf8Chars(string text);
+
+
         [DllImport(DllExtern, EntryPoint = "NlsStartWorkThread", CallingConvention = CallingConvention.Cdecl)]
         public extern static void NlsStartWorkThread(int threadsNumber);
 

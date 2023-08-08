@@ -59,7 +59,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 设置一句话识别服务URL地址
    * @note 必填参数.默认为公网服务URL地址.
    * @param value 服务url字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setUrl(const char* value);
 
@@ -67,7 +67,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 设置appKey
    * @note 必填参数, 请参照官网申请
    * @param value appKey字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setAppKey(const char* value);
 
@@ -75,35 +75,49 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 口令认证。所有的请求都必须通过SetToken方法认证通过，才可以使用
    * @note token需要申请获取, 必填参数
    * @param value	申请的token字符串
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setToken(const char* value);
 
   /**
    * @brief 设置音频数据编码格式字段Format
    * @param value	可选参数, 目前支持pcm|opus|opu. 默认是pcm
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setFormat(const char* value);
 
   /**
    * @brief 设置字段sample_rate
    * @param value 可选参数. 目前支持16000, 8000. 默认是16000
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSampleRate(int value);
 
   /**
-   * @brief 设置Socket接收超时时间
-   * @param value 超时时间
-   * @return 成功则返回0，否则返回-1
+   * @brief 设置链接超时时间
+   * @param value 超时时间(ms), 默认5000ms
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setTimeout(int value);
 
   /**
+   * @brief 设置接收超时时间
+   * @param value 超时时间(ms), 默认15000ms
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setRecvTimeout(int value);
+
+  /**
+   * @brief 设置发送超时时间
+   * @param value 超时时间(ms), 默认5000ms
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setSendTimeout(int value);
+
+  /**
    * @brief 设置输出文本的编码格式
    * @param value 编码格式 UTF-8 or GBK
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setOutputFormat(const char* value);
 
@@ -111,7 +125,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 对话服务的会话ID.
    * @note 必填参数
    * @param sessionId 会话ID
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setSessionId(const char* sessionId);
 
@@ -119,7 +133,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 对话参数.
    * @note 可选参数
    * @param value 待定
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setQueryParams(const char* value);
 
@@ -127,7 +141,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 对话附加信息.
    * @note 可选参数
    * @param value 附加信息
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setQueryContext(const char* value);
 
@@ -135,7 +149,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 对话的输入文本.
    * @note 调用sendExecuteDialog()时必填.调用start()时, 不用填写.
    * @param value 输入文本
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setQuery(const char* value);
 
@@ -143,21 +157,21 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 参数设置
    * @note  暂不对外开放
    * @param value 参数.
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setPayloadParam(const char* value);
 
   /**
    * @brief 设置用户自定义参数
    * @param value 参数
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setContextParam(const char* value);
 
   /**
    * @brief 是否对语音唤醒进行云端确认. 可选, 默认是false.
    * @param value 参数
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int setEnableWakeWordVerification(bool value);
 
@@ -165,7 +179,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 客户端检测到的唤醒词.
    * @note  setEnableWakeWordVerification如果设置为true, 此参数必须设置
    * @param value 参数
-   * @return 成功则返回0, 否则返回-1.
+   * @return 成功则返回0, 否则返回负值错误码.
    */
   int setWakeWord(const char* value);
 
@@ -173,7 +187,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 唤醒词服务的模型名称. 可选.
    * @note  setEnableWakeWordVerification如果设置为true, 此参数必须设置
    * @param value 参数
-   * @return 成功则返回0, 否则返回-1.
+   * @return 成功则返回0, 否则返回负值错误码.
    */
   int setWakeWordModel(const char* value);
 
@@ -181,41 +195,41 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @brief 设置用户自定义ws阶段http header参数
    * @param key 参数名称
    * @param value 参数内容
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int AppendHttpHeaderParam(const char* key, const char* value);
 
   /**
    * @brief 启动DialogAssistantRequest
    * @note 异步操作。成功返回started事件。失败返回TaskFailed事件。
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int start();
 
   /**
    * @brief 会与服务端确认关闭，正常停止DialogAssistantRequest链接操作
    * @note 异步操作。失败返回TaskFailed。
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int stop();
 
   /**
    * @brief 直接关闭DialogAssistantRequest链接.
    * @note 调用cancel之后不会返回任何回调事件。
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int cancel();
 
   /**
    * @brief 会与服务端确认关闭，正常停止DialogAssistantRequest链接操作
    * @note 阻塞操作，等待服务端响应才会返回
-   * @return 成功则返回0，否则返回-1
+   * @return 成功则返回0，否则返回负值错误码
    */
   int StopWakeWordVerification();
 
   /**
    * @brief 启用文本进, 文本出
-   * @return 成功则返回0，失败返回-1
+   * @return 成功则返回0，失败返回负值错误码
    */
   int queryText();
 
@@ -226,9 +240,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @param dataSize 语音数据长度(建议每次100ms左右数据)
    * @param type ENCODER_NONE表示原始音频进行传递;
                  ENCODER_OPU表示以OPUS压缩后进行传递
-   * @return 成功则返回0，失败返回-1。
-             由于音频格式不确定，传入音频字节数和传出音频字节数
-             无法通过比较判断成功与否，故成功返回0。
+   * @return 成功则返回字节数，失败返回负值，查看nlsGlobal.h中错误码详细定位。
    */
   int sendAudio(const uint8_t * data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);

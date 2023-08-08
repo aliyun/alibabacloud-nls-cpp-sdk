@@ -1,0 +1,8 @@
+log4cpp-1.1.3a.tar.gz <相较于> log4cpp-1.1.3.tar.gz
+1. 修复log4cpp中的一个crash
+
+log4cpp-1.1.3b.tar.gz <相较于> log4cpp-1.1.3a.tar.gz
+1. 更新config.guess和config.sub，以支持Aarch64Linux
+
+opus-1.2.1a.tar.gz <相较于> opus-1.2.1.tar.gz
+1. 修复Aarch64Linux的编译问题

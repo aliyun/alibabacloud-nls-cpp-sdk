@@ -30,6 +30,7 @@ SpeechSynthesizerCallback::SpeechSynthesizerCallback() {
   this->_onSynthesisCompleted = NULL;
   this->_onChannelClosed = NULL;
   this->_onBinaryDataReceived = NULL;
+  this->_onMessage = NULL;
 }
 
 SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
@@ -38,6 +39,7 @@ SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
   this->_onSynthesisCompleted = NULL;
   this->_onChannelClosed = NULL;
   this->_onBinaryDataReceived = NULL;
+  this->_onMessage = NULL;
 
   std::map<NlsEvent::EventType, void*>::iterator iter;
   for (iter = _paramap.begin(); iter != _paramap.end();) {
@@ -49,6 +51,7 @@ SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
 void SpeechSynthesizerCallback::setOnTaskFailed(
     NlsCallbackMethod _event, void* para) {
   //LOG_DEBUG("setOnTaskFailed callback");
+
   this->_onTaskFailed = _event;
   if (this->_paramap.find(NlsEvent::TaskFailed) != _paramap.end()) {
     _paramap[NlsEvent::TaskFailed] = para;
@@ -117,6 +120,16 @@ void SpeechSynthesizerCallback::setOnMetaInfo(
   }
 }
 
+void SpeechSynthesizerCallback::setOnMessage(
+    NlsCallbackMethod _event, void* para) {
+  this->_onMessage = _event;
+  if (this->_paramap.find(NlsEvent::Message) != _paramap.end()) {
+    _paramap[NlsEvent::Message] = para;
+  } else {
+    _paramap.insert(std::make_pair(NlsEvent::Message, para));
+  }
+}
+
 SpeechSynthesizerRequest::SpeechSynthesizerRequest(
     int version, const char* sdkName, bool isLongConnection) {
   _callback = new SpeechSynthesizerCallback();
@@ -131,13 +144,11 @@ SpeechSynthesizerRequest::SpeechSynthesizerRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechSynthesizerRequest Done.");
+  LOG_DEBUG("Request(%p) create SpeechSynthesizerRequest with long Connect flag(%d) Done.",
+      this, isLongConnection);
 }
 
 SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
-//  delete _synthesizerParam;
-//  _synthesizerParam = NULL;
-
   delete _listener;
   _listener = NULL;
 
@@ -150,7 +161,7 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
   delete _synthesizerParam;
   _synthesizerParam = NULL;
 
-  LOG_DEBUG("Request:%p Destroy SpeechSynthesizerRequest Done.", this);
+  LOG_DEBUG("Request(%p) destroy SpeechSynthesizerRequest Done.", this);
 }
 
 int SpeechSynthesizerRequest::start() {
@@ -159,13 +170,11 @@ int SpeechSynthesizerRequest::start() {
 }
 
 int SpeechSynthesizerRequest::stop() {
-  //    return INlsRequest::stop(this);
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerRequest::cancel() {
-  return INlsRequest::stop(this, 1);
-  //    return INlsRequest::cancel(this);
+  return INlsRequest::cancel(this);
 }
 
 int SpeechSynthesizerRequest::setPayloadParam(const char* value) {
@@ -181,13 +190,13 @@ int SpeechSynthesizerRequest::setContextParam(const char *value) {
 int SpeechSynthesizerRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _synthesizerParam->setUrl(value);
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _synthesizerParam->setAppKey(value);
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerRequest::setToken(const char* value) {
@@ -199,15 +208,16 @@ int SpeechSynthesizerRequest::setToken(const char* value) {
 int SpeechSynthesizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _synthesizerParam->setFormat(value);
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerRequest::setSampleRate(int value) {
   _synthesizerParam->setSampleRate(value);
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerRequest::setText(const char* value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _synthesizerParam->setText(value);
 }
 
@@ -221,7 +231,7 @@ int SpeechSynthesizerRequest::setPitchRate(int value) {
 
 int SpeechSynthesizerRequest::setEnableSubtitle(bool value) {
   _synthesizerParam->setEnableSubtitle(value);
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerRequest::setSpeechRate(int value) {
@@ -233,18 +243,42 @@ int SpeechSynthesizerRequest::setVolume(int value) {
 }
 
 int SpeechSynthesizerRequest::setVoice(const char* value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _synthesizerParam->setVoice(value);
 }
 
 int SpeechSynthesizerRequest::setTimeout(int value) {
   _synthesizerParam->setTimeout(value);
-  return 0;
+  return Success;
+}
+
+int SpeechSynthesizerRequest::setRecvTimeout(int value) {
+  _synthesizerParam->setRecvTimeout(value);
+  return Success;
+}
+
+int SpeechSynthesizerRequest::setSendTimeout(int value) {
+  _synthesizerParam->setSendTimeout(value);
+  return Success;
 }
 
 int SpeechSynthesizerRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _synthesizerParam->setOutputFormat(value);
-  return 0;
+  return Success;
+}
+
+int SpeechSynthesizerRequest::setEnableOnMessage(bool value) {
+  _synthesizerParam->setEnableOnMessage(value);
+  return Success;
+}
+
+const char* SpeechSynthesizerRequest::getOutputFormat() {
+  return _synthesizerParam->getOutputFormat().c_str();
+}
+
+const char* SpeechSynthesizerRequest::getTaskId() {
+  return _synthesizerParam->getTaskId().c_str();
 }
 
 void SpeechSynthesizerRequest::setOnTaskFailed(
@@ -270,6 +304,11 @@ void SpeechSynthesizerRequest::setOnBinaryDataReceived(
 void SpeechSynthesizerRequest::setOnMetaInfo(
     NlsCallbackMethod _event, void* para) {
   _callback->setOnMetaInfo(_event, para);
+}
+
+void SpeechSynthesizerRequest::setOnMessage(
+    NlsCallbackMethod _event, void* para) {
+  _callback->setOnMessage(_event, para);
 }
 
 int SpeechSynthesizerRequest::AppendHttpHeaderParam(

@@ -55,4 +55,4 @@ enum EncoderRet {
 
 }
 
-#endif //ALIBABA_NLS_ENCODER_COMMON_H
+#endif // ALIBABA_NLS_ENCODER_COMMON_H

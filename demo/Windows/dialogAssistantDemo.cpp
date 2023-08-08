@@ -280,11 +280,15 @@ int generateToken(std::string akId, std::string akSecret,
   nlsTokenRequest.setAccessKeyId(akId);
   nlsTokenRequest.setKeySecret(akSecret);
 
-  if (-1 == nlsTokenRequest.applyNlsToken()) {
-    std::cout << "Failed: "
+  int retCode = nlsTokenRequest.applyNlsToken();
+  /*获取失败原因*/
+  if (retCode < 0) {
+    std::cout << "Failed error code: "
+              << retCode
+              << "  error msg: "
               << nlsTokenRequest.getErrorMsg()
-              << std::endl; /*获取失败原因*/
-    return -1;
+              << std::endl;
+    return retCode;
   }
 
   *token = nlsTokenRequest.getToken();
@@ -765,7 +769,7 @@ int dialogAssistantMultFile(const char* appkey, int threads) {
   std::time_t curTime = std::time(0);
   if (g_expireTime - curTime < 10) {
     std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-    if (-1 == generateToken(g_akId, g_akSecret, &g_token, &g_expireTime)) {
+    if (generateToken(g_akId, g_akSecret, &g_token, &g_expireTime) < 0) {
       return -1;
     }
   }

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "nlsEvent.h"
 #include <sstream>
+#include "nlsEvent.h"
 #include "nlog.h"
 #include "json/json.h"
 
@@ -46,7 +46,7 @@ NlsEvent::NlsEvent(const NlsEvent& ne) {
 
 NlsEvent::NlsEvent(
     const char * msg, int code, EventType type, std::string & taskId) :
-    _statusCode(code),_msg(msg), _msgType(type), _taskId(taskId) {}
+    _statusCode(code), _msg(msg), _msgType(type), _taskId(taskId) {}
 
 NlsEvent::NlsEvent(std::string & msg) : _msg(msg) {
   _statusCode = 0;
@@ -59,15 +59,18 @@ NlsEvent::NlsEvent(std::string & msg) : _msg(msg) {
   _stashResultSentenceId = 0;
   _stashResultBeginTime = 0;
   _stashResultCurrentTime = 0;
+
+  _msgType = Message;
 }
 
 NlsEvent::~NlsEvent() {}
 
-int NlsEvent::parseJsonMsg() {
+int NlsEvent::parseJsonMsg(bool ignore) {
   if (_msg.empty()) {
-    return -1;
+    return -(NlsEventMsgEmpty);
   }
 
+  int retCode = Success;
   Json::Reader reader;
   Json::Value head(Json::objectValue);
   Json::Value payload(Json::objectValue);
@@ -76,7 +79,7 @@ int NlsEvent::parseJsonMsg() {
 
   if (!reader.parse(_msg, root)) {
     LOG_ERROR("_msg:%s", _msg.c_str());
-    return -1;
+    return -(JsonParseFailed);
   }
 
   // parse head
@@ -85,8 +88,14 @@ int NlsEvent::parseJsonMsg() {
     // name
     if (!head["name"].isNull() && head["name"].isString()) {
       std::string name = head["name"].asCString();
-      if (parseMsgType(name) == -1) {
-        return -1;
+      retCode = parseMsgType(name);
+      if (retCode < 0) {
+        if (ignore == false) {
+          if (retCode == -(InvalidNlsEventMsgType)) {
+            LOG_ERROR("Event Msg Type is invalid: %s", _msg.c_str());
+            return retCode;
+          }
+        }
       }
     }
 
@@ -94,7 +103,9 @@ int NlsEvent::parseJsonMsg() {
     if (!head["status"].isNull() && head["status"].isInt()) {
       _statusCode = head["status"].asInt();
     } else {
-      return -1;
+      if (ignore == false) {
+        return -(InvalidNlsEventMsgStatusCode);
+      }
     }
 
     // task_id
@@ -102,7 +113,15 @@ int NlsEvent::parseJsonMsg() {
       _taskId = head["task_id"].asCString();
     }
   } else {
-    return -1;
+    if (!root["channelClosed"].isNull()) {
+      _msgType = Close;
+    } else if (!root["TaskFailed"].isNull()) {
+      _msgType = TaskFailed;
+    } else {
+      if (ignore == false) {
+        return -(InvalidNlsEventMsgHeader);
+      }
+    }
   }
 
   // parse payload
@@ -150,7 +169,7 @@ int NlsEvent::parseJsonMsg() {
         _sentenceTimeOutStatus = payload["status"].asInt();
       }
 
-      //"words":[{"text":"一二三四","startTime":810,"endTime":2460}]
+      // example: "words":[{"text":"一二三四","startTime":810,"endTime":2460}]
       if (!payload["words"].isNull() && payload["words"].isArray()) {
         Json::Value wordArray = payload["words"];
         int iSize = wordArray.size();
@@ -169,14 +188,14 @@ int NlsEvent::parseJsonMsg() {
               wordArray[nIndex]["endTime"].isInt()) {
             wordInfo.endTime = wordArray[nIndex]["endTime"].asInt();
           }
-          LOG_DEBUG("List Push: %s %d %d",
-              wordInfo.text.c_str(), wordInfo.startTime, wordInfo.endTime);
+          // LOG_DEBUG("List Push: %s %d %d",
+          //     wordInfo.text.c_str(), wordInfo.startTime, wordInfo.endTime);
 
           _sentenceWordsList.push_back(wordInfo);
         }  // for
       }
 
-      //WakeWordVerificationCompleted
+      // WakeWordVerificationCompleted
       if (_msgType == NlsEvent::WakeWordVerificationCompleted) {
         if (!payload["accepted"].isNull() && payload["accepted"].isBool()) {
           _wakeWordAccepted = payload["accepted"].asBool();
@@ -192,7 +211,7 @@ int NlsEvent::parseJsonMsg() {
         }
       }
 
-      //stashResult
+      // stashResult
       if (_msgType == NlsEvent::SentenceEnd) {
         if (!payload["stash_result"].isNull() &&
             payload["stash_result"].isObject()) {
@@ -217,7 +236,7 @@ int NlsEvent::parseJsonMsg() {
     }
   }
 
-  return 0;
+  return Success;
 }
 
 int NlsEvent::parseMsgType(std::string name) {
@@ -252,11 +271,11 @@ int NlsEvent::parseMsgType(std::string name) {
   }  else if (name == "MetaInfo") {
     _msgType = NlsEvent::MetaInfo;
   } else {
-    LOG_ERROR("EVENT: type is invalid. [%s].", _msg.c_str());
-    return -1;
+//    LOG_ERROR("EVENT: type is invalid. [%s].", _msg.c_str());
+    return -(InvalidNlsEventMsgType);
   }
 
-  return 0;
+  return Success;
 }
 
 int NlsEvent::getStatusCode() {
@@ -265,7 +284,7 @@ int NlsEvent::getStatusCode() {
 
 const char* NlsEvent::getAllResponse() {
   if (this->getMsgType() == Binary) {
-    LOG_DEBUG("this is Binary data.");
+    // LOG_DEBUG("this is Binary data.");
   }
   return this->_msg.c_str();
 }
@@ -280,6 +299,69 @@ const char* NlsEvent::getErrorMessage() {
 
 NlsEvent::EventType NlsEvent::getMsgType() {
   return _msgType;
+}
+
+std::string NlsEvent::getMsgTypeString() {
+  std::string ret_str = "Unknown";
+
+  switch (_msgType) {
+    case TaskFailed:
+      ret_str.assign("TaskFailed");
+      break;
+    case RecognitionStarted:
+      ret_str.assign("RecognitionStarted");
+      break;
+    case RecognitionCompleted:
+      ret_str.assign("RecognitionCompleted");
+      break;
+    case RecognitionResultChanged:
+      ret_str.assign("RecognitionResultChanged");
+      break;
+    case WakeWordVerificationCompleted:
+      ret_str.assign("WakeWordVerificationCompleted");
+      break;
+    case TranscriptionStarted:
+      ret_str.assign("TranscriptionStarted");
+      break;
+    case SentenceBegin:
+      ret_str.assign("SentenceBegin");
+      break;
+    case TranscriptionResultChanged:
+      ret_str.assign("TranscriptionResultChanged");
+      break;
+    case SentenceEnd:
+      ret_str.assign("SentenceEnd");
+      break;
+    case SentenceSemantics:
+      ret_str.assign("SentenceSemantics");
+      break;
+    case TranscriptionCompleted:
+      ret_str.assign("TranscriptionCompleted");
+      break;
+    case SynthesisStarted:
+      ret_str.assign("SynthesisStarted");
+      break;
+    case SynthesisCompleted:
+      ret_str.assign("SynthesisCompleted");
+      break;
+    case Binary:
+      ret_str.assign("Binary");
+      break;
+    case MetaInfo:
+      ret_str.assign("MetaInfo");
+      break;
+    case DialogResultGenerated:
+      ret_str.assign("DialogResultGenerated");
+      break;
+    case Close:
+      ret_str.assign("Close");
+      break;
+    case Message:
+      ret_str.assign("Message");
+      break;
+  }
+
+  return ret_str;
 }
 
 const char* NlsEvent::getTaskId() {
@@ -308,7 +390,7 @@ int NlsEvent::getSentenceIndex() {
   if (_msgType != SentenceBegin &&
       _msgType != SentenceEnd &&
       _msgType != TranscriptionResultChanged) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _sentenceIndex;
 }
@@ -317,28 +399,28 @@ int NlsEvent::getSentenceTime() {
   if (_msgType != SentenceBegin &&
       _msgType != SentenceEnd &&
       _msgType != TranscriptionResultChanged) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _sentenceTime;
 }
 
 int NlsEvent::getSentenceBeginTime() {
   if (_msgType != SentenceEnd) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _sentenceBeginTime;
 }
 
 double NlsEvent::getSentenceConfidence() {
   if (_msgType != SentenceEnd) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _sentenceConfidence;
 }
 
 int NlsEvent::getSentenceTimeOutStatus() {
   if (_msgType != SentenceEnd) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _sentenceTimeOutStatus;
 }
@@ -357,7 +439,7 @@ NlsEvent::NlsEvent(std::vector<unsigned char> data, int code,
     _msgType(type),
     _taskId(taskId),
     _binaryData(data) {
-  LOG_DEBUG("Binary data event:%d.", data.size());
+  // LOG_DEBUG("Binary data event:%d.", data.size());
   this->_msg = "";
 }
 
@@ -379,21 +461,21 @@ const bool NlsEvent::getWakeWordAccepted() {
 
 const int NlsEvent::getStashResultSentenceId() {
   if (_msgType != SentenceEnd ) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _stashResultSentenceId;
 }
 
 const int NlsEvent::getStashResultBeginTime() {
   if (_msgType != SentenceEnd ) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _stashResultBeginTime;
 }
 
 const int NlsEvent::getStashResultCurrentTime() {
   if (_msgType != SentenceEnd ) {
-    return -1;
+    return -(InvalidNlsEventMsgType);
   }
   return _stashResultCurrentTime;
 }

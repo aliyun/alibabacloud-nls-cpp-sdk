@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef NLS_SDK_OPENSSL_H
-#define NLS_SDK_OPENSSL_H
+#ifndef NLS_SDK_SSL_CONNECT_H
+#define NLS_SDK_SSL_CONNECT_H
 
 #include <stdint.h>
 #include <string>
@@ -23,7 +23,8 @@
 
 namespace AlibabaNls {
 
-#define MAX_SSL_ERROR_LENGTH 256
+#define MAX_SSL_ERROR_LENGTH 512
+#define MAX_SSL_TRY_AGAIN    3
 
 class SSLconnect {
 
@@ -45,9 +46,10 @@ class SSLconnect {
 
  private:
   SSL* _ssl;
+  int _ssl_try_again;
   char _errorMsg[MAX_SSL_ERROR_LENGTH];
 };
 
-} //AlibabaNls
+} // namespace AlibabaNls
 
-#endif //NLS_SDK_SSL_H
+#endif // NLS_SDK_SSL_CONNECT_H

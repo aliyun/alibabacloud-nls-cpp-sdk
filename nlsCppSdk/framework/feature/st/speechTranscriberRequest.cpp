@@ -33,6 +33,7 @@ SpeechTranscriberCallback::SpeechTranscriberCallback() {
   this->_onSentenceEnd = NULL;
   this->_onTranscriptionCompleted = NULL;
   this->_onChannelClosed = NULL;
+  this->_onMessage = NULL;
 }
 
 SpeechTranscriberCallback::~SpeechTranscriberCallback() {
@@ -43,6 +44,7 @@ SpeechTranscriberCallback::~SpeechTranscriberCallback() {
   this->_onSentenceEnd = NULL;
   this->_onTranscriptionCompleted = NULL;
   this->_onChannelClosed = NULL;
+  this->_onMessage = NULL;
 
   std::map<NlsEvent::EventType, void*>::iterator iter;
   for (iter = _paramap.begin(); iter != _paramap.end();) {
@@ -117,6 +119,16 @@ void SpeechTranscriberCallback::setOnSentenceSemantics(
   }
 }
 
+void SpeechTranscriberCallback::setOnMessage(
+    NlsCallbackMethod _event, void* para) {
+  this->_onMessage = _event;
+  if (this->_paramap.find(NlsEvent::Message) != _paramap.end()) {
+    _paramap[NlsEvent::Message] = para;
+  } else {
+    _paramap.insert(std::make_pair(NlsEvent::Message, para));
+  }
+}
+
 void SpeechTranscriberCallback::setOnTranscriptionCompleted(
     NlsCallbackMethod _event, void* para) {
   //LOG_DEBUG("setOnTranscriptionCompleted callback");
@@ -153,13 +165,10 @@ SpeechTranscriberRequest::SpeechTranscriberRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create SpeechTranscriberRequest Done.");
+  LOG_DEBUG("Request(%p) create SpeechTranscriberRequest Done.", this);
 }
 
 SpeechTranscriberRequest::~SpeechTranscriberRequest() {
-//  delete _transcriberParam;
-//  _transcriberParam = NULL;
-
   delete _listener;
   _listener = NULL;
 
@@ -172,23 +181,26 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
   delete _transcriberParam;
   _transcriberParam = NULL;
 
-  LOG_DEBUG("Request:%p Destroy SpeechTranscriberRequest Done.", this);
+  LOG_DEBUG("Request(%p) destroy SpeechTranscriberRequest Done.", this);
 }
 
 int SpeechTranscriberRequest::start() {
   return INlsRequest::start(this);
 }
 
-int SpeechTranscriberRequest::control(const char* message) {
+int SpeechTranscriberRequest::control(const char* message, const char* name) {
+  if (name && _transcriberParam) {
+    _transcriberParam->setControlHeaderName(name);
+  }
   return INlsRequest::stControl(this, message);
 }
 
 int SpeechTranscriberRequest::stop() {
-  return INlsRequest::stop(this, 0);
+  return INlsRequest::stop(this);
 }
 
 int SpeechTranscriberRequest::cancel() {
-  return INlsRequest::stop(this, 1);
+  return INlsRequest::cancel(this);
 }
 
 int SpeechTranscriberRequest::sendAudio(
@@ -209,45 +221,45 @@ int SpeechTranscriberRequest::setContextParam(const char *value) {
 int SpeechTranscriberRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _transcriberParam->setToken(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _transcriberParam->setUrl(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _transcriberParam->setAppKey(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _transcriberParam->setFormat(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setSampleRate(int value) {
   _transcriberParam->setSampleRate(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setIntermediateResult(bool value) {
   _transcriberParam->setIntermediateResult(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setPunctuationPrediction(bool value) {
   _transcriberParam->setPunctuationPrediction(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setInverseTextNormalization(bool value) {
   _transcriberParam->setTextNormalization(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::AppendHttpHeaderParam(
@@ -257,7 +269,7 @@ int SpeechTranscriberRequest::AppendHttpHeaderParam(
 
 int SpeechTranscriberRequest::setSemanticSentenceDetection(bool value) {
   _transcriberParam->setSentenceDetection(value);
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberRequest::setMaxSentenceSilence(int value) {
@@ -265,25 +277,56 @@ int SpeechTranscriberRequest::setMaxSentenceSilence(int value) {
 }
 
 int SpeechTranscriberRequest::setCustomizationId(const char * value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setCustomizationId(value);
 }
 
 int SpeechTranscriberRequest::setVocabularyId(const char * value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setVocabularyId(value);
 }
 
 int SpeechTranscriberRequest::setTimeout(int value) {
   _transcriberParam->setTimeout(value);
-  return 0;
+  return Success;
+}
+
+int SpeechTranscriberRequest::setEnableRecvTimeout(bool value) {
+  _transcriberParam->setEnableRecvTimeout(value);
+  return Success;
+}
+
+int SpeechTranscriberRequest::setRecvTimeout(int value) {
+  _transcriberParam->setRecvTimeout(value);
+  return Success;
+}
+
+int SpeechTranscriberRequest::setSendTimeout(int value) {
+  _transcriberParam->setSendTimeout(value);
+  return Success;
 }
 
 int SpeechTranscriberRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   _transcriberParam->setOutputFormat(value);
-  return 0;
+  return Success;
+}
+
+int SpeechTranscriberRequest::setEnableOnMessage(bool value) {
+  _transcriberParam->setEnableOnMessage(value);
+  return Success;
+}
+
+const char* SpeechTranscriberRequest::getOutputFormat() {
+  return _transcriberParam->getOutputFormat().c_str();
+}
+
+const char* SpeechTranscriberRequest::getTaskId() {
+  return _transcriberParam->getTaskId().c_str();
 }
 
 int SpeechTranscriberRequest::setNlpModel(const char* value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setNlpModel(value);
 }
 
@@ -292,6 +335,7 @@ int SpeechTranscriberRequest::setEnableNlp(bool enable) {
 }
 
 int SpeechTranscriberRequest::setSessionId(const char* value) {
+  INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setSessionId(value);
 }
 
@@ -349,6 +393,11 @@ void SpeechTranscriberRequest::setOnChannelClosed(
 void SpeechTranscriberRequest::setOnSentenceSemantics(
     NlsCallbackMethod _event, void* para) {
   _callback->setOnSentenceSemantics(_event, para);
+}
+
+void SpeechTranscriberRequest::setOnMessage(
+    NlsCallbackMethod _event, void* para) {
+  _callback->setOnMessage(_event, para);
 }
 
 }

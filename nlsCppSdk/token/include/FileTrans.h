@@ -22,6 +22,30 @@
 
 namespace AlibabaNlsCommon {
 
+enum FileTransEvent {
+  TaskUnknown = 0,
+  TaskFailed,
+  TaskCompleted
+};
+
+struct resultResponse {
+  std::string taskId;
+  FileTransEvent event;
+  unsigned int statusCode;
+  std::string errorMsg;
+  std::string result;
+};
+
+struct resultRequest {
+  void *client;
+  std::string taskId;
+  std::string domain;
+  std::string serverVersion;
+  struct resultResponse *response;
+};
+
+typedef void (*FileTransCallbackMethod)(void*, void*);
+
 class NLS_SDK_CLIENT_EXPORT FileTrans {
 
  public:
@@ -32,9 +56,16 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
   /**
    * @brief 调用文件转写.
    * @note 调用之前, 请先设置请求参数.
-   * @return 成功则返回0; 失败返回-1.
+   * @param sync 是否同步
+   * @return 成功则返回0; 失败返回负值.
    */
-  int applyFileTrans();
+  int applyFileTrans(bool sync = true);
+
+  /**
+   * @brief 获取当前请求的事件.
+   * @return 返回当前请求的事件, 详见FileTransEvent.
+   */
+  int getEvent();
 
   /**
    * @brief 获取错误信息.
@@ -45,23 +76,38 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
   /**
    * @brief 获取结果.
    * @note
-   * @return 成功则返回token字符串; 失败返回NULL.
+   * @return 成功则返回json格式字符串; 失败返回NULL.
    */
   const char* getResult();
 
   /**
-   * @brief 设置阿里云账号的KeySecret
+   * @brief 获取当前TaskId.
+   * @return 成功则返回错误信息; 失败返回NULL.
+   */
+  const char* getTaskId();
+
+  struct resultRequest getRequestParams();
+
+  /**
+   * @brief 设置阿里云账号的KeySecret/stsKeySecret
    * @param KeySecret Secret字符串
    * @return void
    */
   void setKeySecret(const std::string & KeySecret);
 
   /**
-   * @brief 设置阿里云账号的KeyId
+   * @brief 设置阿里云账号的KeyId/stsKeyId
    * @param KeyId Id字符串
    * @return void
    */
   void setAccessKeyId(const std::string & accessKeyId);
+
+  /**
+   * @brief 设置阿里云账号的临时访问凭证stsToken
+   * @param stsToken字符串
+   * @return void
+   */
+  void setStsToken(const std::string & stsToken);
 
   /**
    * @brief 设置APPKEY
@@ -78,7 +124,7 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
   void setFileLinkUrl(const std::string & fileLinkUrl);
 
   /**
-   * @brief 设置RegionId
+   * @brief 设置地域ID
    * @param regionId 服务地区
    * @return void
    */
@@ -120,6 +166,10 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
    */
   void setOutputFormat(const std::string & textFormat);
 
+  void setEventListener(FileTransCallbackMethod event, void* param = NULL);
+
+  int applyResultRequest(struct resultRequest param);
+
  private:
 #if defined(__ANDROID__) || defined(__linux__)
   int codeConvert(char *from_charset, char *to_charset, char *inbuf,
@@ -133,9 +183,12 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
    */
   std::string utf8ToGbk(const std::string & strUTF8);
 
+  int paramCheck();
+
  private:
   std::string accessKeySecret_;
   std::string accessKeyId_;
+  std::string stsToken_;
 
   std::string domain_;
   std::string serverVersion_;
@@ -149,12 +202,13 @@ class NLS_SDK_CLIENT_EXPORT FileTrans {
   std::string serverResourcePath_;
   std::string outputFormat_;
 
-  std::string errorMsg_;
-  std::string result_;
-
   std::string customParam_;
 
-  int paramCheck();
+  FileTransCallbackMethod eventHandler_;
+  void * paramHandler_;
+
+  struct resultRequest requestParams_;
+  struct resultResponse resultResponse_;
 };
 
 }

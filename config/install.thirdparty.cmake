@@ -68,9 +68,14 @@ function(installThirdpartySdkFiles)
             DESTINATION
             ${CMAKE_INSTALL_TMP_PREFIX})
     #jsoncpp
+    install(FILES ${jsoncpp_install_dir}/lib64/${CMAKE_LIBRARY_ARCHITECTURE}/libjsoncpp.a
+            DESTINATION
+            ${CMAKE_INSTALL_TMP_PREFIX}
+            OPTIONAL)
     install(FILES ${jsoncpp_install_dir}/lib/${CMAKE_LIBRARY_ARCHITECTURE}/libjsoncpp.a
             DESTINATION
-            ${CMAKE_INSTALL_TMP_PREFIX})
+            ${CMAKE_INSTALL_TMP_PREFIX}
+            OPTIONAL)
     #log4cpp
     install(FILES ${log4cpp_install_dir}/lib/liblog4cpp.a
             DESTINATION

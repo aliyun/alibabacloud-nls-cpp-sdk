@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
 #include "Config.h"
 #include "nlsClient.h"
 #include "nlog.h"
 #include "connectNode.h"
 #include "SSLconnect.h"
 #include "nlsEventNetWork.h"
+#include "nodeManager.h"
+#include "text_utils.h"
 
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
@@ -34,12 +39,16 @@ bool NlsClient::_isInitializeThread = false;
 char NlsClient::_aiFamily[16] = "AF_INET";
 char NlsClient::_direct_host_ip[64] = {0};
 bool NlsClient::_enableSysGetAddr = false;
+unsigned int NlsClient::_syncCallTimeoutMs = 0;
 
 #if defined(_MSC_VER)
 HANDLE NlsClient::_mtx = CreateMutex(NULL, FALSE, NULL);
 #else
 pthread_mutex_t NlsClient::_mtx = PTHREAD_MUTEX_INITIALIZER;
 #endif
+
+NlsClient::NlsClient() {}
+NlsClient::~NlsClient() {}
 
 NlsClient* NlsClient::getInstance(bool sslInitial) {
 #if defined(_MSC_VER)
@@ -59,6 +68,7 @@ NlsClient* NlsClient::getInstance(bool sslInitial) {
 
     //init nlsClient
     _instance = new NlsClient();
+    _instance->_node_manager = new NlsNodeManager();
   }
 
 #if defined(_MSC_VER)
@@ -79,23 +89,39 @@ void NlsClient::releaseInstance() {
 #endif
 
   if (_instance) {
-    LOG_DEBUG("release NlsClient instance:%p.", _instance);
+    LOG_DEBUG("Release NlsClient instance:%p.", _instance);
 
     if (_isInitializeThread) {
-      NlsEventNetWork::destroyEventNetWork();
+      if (NlsEventNetWork::_eventClient != NULL) {
+        NlsEventNetWork::_eventClient->destroyEventNetWork();
+        delete NlsEventNetWork::_eventClient;
+        NlsEventNetWork::_eventClient = NULL;
+      }
       _isInitializeThread = false;
     }
 
     if (_isInitializeSSL) {
-      LOG_DEBUG("delete NlsClient release ssl.");
       SSLconnect::destroy();
       _isInitializeSSL = false;
     }
 
+    /* find _instance in map and erase it */
+    NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+    int ret = node_manager->removeInstanceFromInfo((void*)_instance);
+    if (ret != Success) {
+      LOG_ERROR("removeInstanceFromInfo instance(%p) failed, ret:%d", _instance, ret);
+      return;
+    }
+
+    delete (NlsNodeManager*)_instance->_node_manager;
+    _instance->_node_manager = NULL;
     delete _instance;
     _instance = NULL;
 
+    LOG_INFO("destroy log instance.");
     utility::NlsLog::destroyLogInstance();  // donnot LOG_XXX after here
+  } else {
+    LOG_WARN("Current instance has released.");
   }
 
 #if defined(_MSC_VER)
@@ -105,8 +131,9 @@ void NlsClient::releaseInstance() {
 #endif
 }
 
-NlsClient::NlsClient() {}
-NlsClient::~NlsClient() {}
+void* NlsClient::getNodeManger() {
+  return _instance->_node_manager;
+}
 
 const char* NlsClient::getVersion()	{
   return NLS_SDK_VERSION_STR;
@@ -119,12 +146,16 @@ void NlsClient::setAddrInFamily(const char* aiFamily) {
   pthread_mutex_lock(&_mtx);
 #endif
 
-  if (aiFamily != NULL &&
-      (strncmp(aiFamily, "AF_INET", 16) == 0 ||
-       strncmp(aiFamily, "AF_INET6", 16) == 0 ||
-       strncmp(aiFamily, "AF_UNSPEC", 16) == 0)) {
-    memset(_aiFamily, 0, 16);
-    strncpy(_aiFamily, aiFamily, 16);
+  if (_instance) {
+    if (aiFamily != NULL &&
+        (strncmp(aiFamily, "AF_INET", 16) == 0 ||
+         strncmp(aiFamily, "AF_INET6", 16) == 0 ||
+         strncmp(aiFamily, "AF_UNSPEC", 16) == 0)) {
+      memset(_aiFamily, 0, 16);
+      strncpy(_aiFamily, aiFamily, 16);
+    }
+  } else {
+    LOG_WARN("Current instance has released.");
   }
 
 #if defined(_MSC_VER)
@@ -141,7 +172,31 @@ void NlsClient::setUseSysGetAddrInfo(bool enable) {
   pthread_mutex_lock(&_mtx);
 #endif
 
-  _enableSysGetAddr = enable;
+  if (_instance) {
+    _enableSysGetAddr = enable;
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtx);
+#else
+  pthread_mutex_unlock(&_mtx);
+#endif
+}
+
+void NlsClient::setSyncCallTimeout(unsigned int timeout_ms) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtx, INFINITE);
+#else
+  pthread_mutex_lock(&_mtx);
+#endif
+
+  if (_instance) {
+    _syncCallTimeoutMs = timeout_ms;
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtx);
@@ -158,9 +213,13 @@ void NlsClient::setDirectHost(const char* ip) {
   pthread_mutex_lock(&_mtx);
 #endif
 
-  memset(_direct_host_ip, 0, 64);
-  if (ip) {
-    strncpy(_direct_host_ip, ip, 64);
+  if (_instance) {
+    memset(_direct_host_ip, 0, 64);
+    if (ip) {
+      strncpy(_direct_host_ip, ip, 64);
+    }
+  } else {
+    LOG_WARN("Current instance has released.");
   }
 
 #if defined(_MSC_VER)
@@ -170,6 +229,10 @@ void NlsClient::setDirectHost(const char* ip) {
 #endif
 }
 
+int NlsClient::calculateUtf8Chars(const char* value) {
+  return utility::TextUtils::CharsCalculate(value);
+}
+
 void NlsClient::startWorkThread(int threadsNumber) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtx, INFINITE);
@@ -177,10 +240,22 @@ void NlsClient::startWorkThread(int threadsNumber) {
   pthread_mutex_lock(&_mtx);
 #endif
 
-  if (!_isInitializeThread) {
-    NlsEventNetWork::initEventNetWork(
-        threadsNumber, _aiFamily, _direct_host_ip, _enableSysGetAddr);
-    _isInitializeThread = true;
+  if (NlsEventNetWork::_eventClient == NULL) {
+    NlsEventNetWork::_eventClient = new NlsEventNetWork();
+  }
+
+  if (_instance) {
+    if (!_isInitializeThread) {
+      NlsEventNetWork::_eventClient->initEventNetWork(
+          _instance, threadsNumber, _aiFamily, _direct_host_ip,
+          _enableSysGetAddr, _syncCallTimeoutMs);
+      _isInitializeThread = true;
+
+      LOG_INFO("NLS initialize with version %s", utility::TextUtils::GetVersion().c_str());
+      LOG_INFO("NLS Git SHA %s", utility::TextUtils::GetGitCommitInfo());
+    }
+  } else {
+    LOG_WARN("Current instance has released.");
   }
 
 #if defined(_MSC_VER)
@@ -193,91 +268,164 @@ void NlsClient::startWorkThread(int threadsNumber) {
 int NlsClient::setLogConfig(const char* logOutputFile,
                             const LogLevel logLevel,
                             unsigned int logFileSize,
-                            unsigned int logFileNum) {
-  if ((logLevel < 1) || (logLevel > 4)) {
-    return -1;
+                            unsigned int logFileNum,
+                            LogCallbackMethod logCallback) {
+  if (logLevel < LogError || logLevel > LogDebug) {
+    return -(InvalidLogLevel);
+  }
+  if (logFileNum < 1) {
+    return -(InvalidLogFileNum);
   }
 
-  if (logFileSize < 0) {
-    return -1;
+  if (_instance) {
+    utility::NlsLog::getInstance()->logConfig(
+        logOutputFile, logLevel, logFileSize, logFileNum, logCallback);
+  } else {
+    LOG_WARN("Current instance has released.");
   }
 
-  utility::NlsLog::getInstance()->logConfig(
-      logOutputFile, logLevel, logFileSize, logFileNum);
-
-	return 0;
+  return Success;
 }
 
 void NlsClient::releaseRequest(INlsRequest* request) {
-  LOG_DEBUG("releaseRequest begin. request:%p Node:%p status(%d):%s",
-      request,
-      request->getConnectNode(),
-      request->getConnectNode()->getConnectNodeStatus(),
-      request->getConnectNode()->getConnectNodeStatusString().c_str());
-
-  if (request->getConnectNode()->getConnectNodeStatus() == NodeInitial) {
-    LOG_INFO("released the Request -> 0");
-    delete request;
-    request = NULL;
-    LOG_INFO("released the Request done 0");
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return;
+  }
+  if (request == NULL) {
+    LOG_ERROR("Input request is nullptr, you have destroyed request!");
+    return;
+  }
+  if (request->getConnectNode() == NULL) {
+    LOG_ERROR("The node in request(%p) is nullptr, you have destroyed request!", request);
     return;
   }
 
-  if (request->getConnectNode()->_isLongConnection &&
-      request->getConnectNode()->getConnectNodeStatus() == NodeStarted) {
-    LOG_WARN("work status(NodeStarted) is abnormal, maybe get (err:IDLE_TIMEOUT) after start...");
-    request->getConnectNode()->setConnectNodeStatus(NodeInvalid);
+  NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+  int status = NodeStatusInvalid;
+  int ret = node_manager->checkRequestExist(request, &status);
+  if (ret != Success) {
+    LOG_ERROR("Request(%p) checkRequestExist failed, %d.", request, ret);
+    return;
   }
 
-  if (request->getConnectNode()->updateDestroyStatus()) {
-    if (request->getConnectNode()->getConnectNodeStatus() == NodeInvalid) {
-      LOG_INFO("released the Request -> 1");
-      delete request;
-      request = NULL;
-      LOG_INFO("released the Request done 1");
-      return;
-    }
-  } else {
-    if (request->getConnectNode()->_isLongConnection &&
-        request->getConnectNode()->getConnectNodeStatus() == NodeInvalid) {
-      LOG_INFO("released the Request -> 2");
-      delete request;
-      request = NULL;
-      LOG_INFO("released the Request done 2");
-      return;
-    }
-  }
+  LOG_INFO("Begin release, request(%p) node(%p) node status:%s exit status:%s.",
+      request,
+      request->getConnectNode(),
+      request->getConnectNode()->getConnectNodeStatusString().c_str(),
+      request->getConnectNode()->getExitStatusString().c_str());
 
-  LOG_DEBUG("releaseRequest done.");
+  request->getConnectNode()->delAllEvents();
+  request->getConnectNode()->updateDestroyStatus();
+
+  node_manager->removeRequestFromInfo(request, false);
+  delete request;
+  request = NULL;
+#ifdef ENABLE_UNALIGNED_MEM
+  node_manager->addRandomMemChunk();
+#endif
+
+  return;
 }
 
 SpeechRecognizerRequest* NlsClient::createRecognizerRequest(
     const char* sdkName, bool isLongConnection) {
-  return new SpeechRecognizerRequest(sdkName, isLongConnection);
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return NULL;
+  }
+
+  NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+#ifdef ENABLE_UNALIGNED_MEM
+  node_manager->addRandomMemChunk();
+#endif
+
+  SpeechRecognizerRequest* request = new SpeechRecognizerRequest(sdkName, isLongConnection);
+  if (request) {
+    int ret = node_manager->addRequestIntoInfoWithInstance((void*)request, (void*)_instance);
+    if (ret != Success) {
+      LOG_ERROR("Add request into NodeInfo failed, ret:%d.", ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
 }
 
 void NlsClient::releaseRecognizerRequest(SpeechRecognizerRequest* request) {
-//  LOG_DEBUG("releaseRecognizerRequest ->");
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return;
+  }
+
   if (request) {
-    if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
-      request->stop();
+    int ret = Success;
+    /* check this request belong to this _instance */
+    NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+    ret = node_manager->checkRequestWithInstance((void*)request, _instance);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) checkRequestWithInstance failed.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid && node->getConnectNodeStatus() != NodeClosed) {
+      LOG_DEBUG("Request(%p) Node(%p) invoke cancel by releaseRecognizerRequest.",
+          request, node);
+      request->cancel();
     }
 
     releaseRequest(request);
     request = NULL;
   }
-//  LOG_DEBUG("releaseRecognizerRequest done.");
 }
 
 SpeechTranscriberRequest* NlsClient::createTranscriberRequest(
     const char* sdkName, bool isLongConnection) {
-  return new SpeechTranscriberRequest(sdkName, isLongConnection);
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return NULL;
+  }
+
+  NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+#ifdef ENABLE_UNALIGNED_MEM
+  node_manager->addRandomMemChunk();
+#endif
+
+  SpeechTranscriberRequest* request = new SpeechTranscriberRequest(sdkName, isLongConnection);
+  if (request) {
+    int ret = node_manager->addRequestIntoInfoWithInstance((void*)request, (void*)_instance);
+    if (ret != Success) {
+      LOG_ERROR("Add request into NodeInfo failed, ret:%d.", ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
 }
 
 void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
+  if (_instance == NULL) {
+    LOG_ERROR("Current instance has released.");
+    return;
+  }
   if (request) {
-    if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
-      request->stop();
+    int ret = Success;
+    /* check this request belong to this _instance */
+    NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+    ret = node_manager->checkRequestWithInstance((void*)request, _instance);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) checkRequestWithInstance failed.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid && node->getConnectNodeStatus() != NodeClosed) {
+      LOG_DEBUG("Request(%p) Node(%p) invoke cancel by releaseTranscriberRequest.",
+          request, node);
+      request->cancel();
     }
 
     releaseRequest(request);
@@ -287,13 +435,49 @@ void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest* request) {
 
 SpeechSynthesizerRequest* NlsClient::createSynthesizerRequest(
     TtsVersion version, const char* sdkName, bool isLongConnection){
-  return new SpeechSynthesizerRequest((int)version, sdkName, isLongConnection);
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return NULL;
+  }
+
+  NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+#ifdef ENABLE_UNALIGNED_MEM
+  node_manager->addRandomMemChunk();
+#endif
+
+  SpeechSynthesizerRequest* request = new SpeechSynthesizerRequest((int)version, sdkName, isLongConnection);
+  if (request) {
+    int ret = node_manager->addRequestIntoInfoWithInstance((void*)request, (void*)_instance);
+    if (ret != Success) {
+      LOG_ERROR("Add request into NodeInfo failed, ret:%d.", ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
 }
 
 void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return;
+  }
   if (request) {
-    if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
-      request->stop();
+    int ret = Success;
+    /* check this request belong to this _instance */
+    NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+    ret = node_manager->checkRequestWithInstance((void*)request, _instance);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) is invalid.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid && node->getConnectNodeStatus() != NodeClosed) {
+       LOG_DEBUG("Request(%p) Node(%p) invoke cancel by releaseSynthesizerRequest.",
+          request, node);
+      request->cancel();
     }
 
     releaseRequest(request);
@@ -303,13 +487,47 @@ void NlsClient::releaseSynthesizerRequest(SpeechSynthesizerRequest* request) {
 
 DialogAssistantRequest* NlsClient::createDialogAssistantRequest(
     DaVersion version, const char* sdkName, bool isLongConnection) {
-  return new DialogAssistantRequest((int)version, sdkName, isLongConnection);
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return NULL;
+  }
+
+  DialogAssistantRequest* request = new DialogAssistantRequest((int)version, sdkName, isLongConnection);
+  if (request) {
+    NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+    int ret = node_manager->addRequestIntoInfoWithInstance((void*)request, (void*)_instance);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) checkRequestWithInstance failed.", request);
+      delete request;
+      request = NULL;
+#ifdef ENABLE_UNALIGNED_MEM
+    } else {
+      node_manager->addRandomMemChunk();
+#endif
+    }
+  }
+
+  return request;
 }
 
 void NlsClient::releaseDialogAssistantRequest(DialogAssistantRequest* request) {
+  if (_instance == NULL) {
+    LOG_WARN("Current instance has released.");
+    return;
+  }
   if (request) {
-    if (request->getConnectNode()->getExitStatus() == ExitInvalid) {
-      request->stop();
+    int ret = Success;
+    /* check this request belong to this _instance */
+    NlsNodeManager* node_manager = (NlsNodeManager*)_instance->_node_manager;
+    ret = node_manager->checkRequestWithInstance((void*)request, _instance);
+    if (ret != Success) {
+      LOG_ERROR("request(%p) is invalid.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && request->getConnectNode()->getExitStatus() == ExitInvalid) {
+      request->cancel();
     }
 
     releaseRequest(request);

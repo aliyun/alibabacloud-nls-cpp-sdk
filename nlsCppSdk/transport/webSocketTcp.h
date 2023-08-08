@@ -63,7 +63,7 @@ struct WebSocketFrame {
 };
 
 #define HOST_SIZE 256
-#define TOKEN_SIZE 64
+#define TOKEN_SIZE 512
 
 struct urlAddress {
   char _host[HOST_SIZE];
@@ -111,10 +111,14 @@ class WebSocketTcp {
 
   WebSocketReceiveStatus _rStatus;
   std::string _errorMsg;
+  std::string _secWsKey;
 
   int getTargetLen(std::string line, const char* begin, const char* end);
+  const char* getSecWsKey();
+  const char* getRequestForLog(char *buf_in, std::string *buf_out);
 };
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_WEBSOCKET_TCP_H
+
+#endif // NLS_SDK_WEBSOCKET_TCP_H

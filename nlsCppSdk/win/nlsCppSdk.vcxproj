@@ -29,32 +29,37 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
-    <CLRSupport>true</CLRSupport>
+    <CLRSupport>false</CLRSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
     <CLRSupport>false</CLRSupport>
+    <DisableAdvancedSupport>false</DisableAdvancedSupport>
+    <SupportLTL>false</SupportLTL>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -101,6 +106,7 @@
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;HAVE_STRUCT_TIMESPEC;_DEBUG;_CONSOLE;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\build\build_win32\thirdparty\curl-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\libevent-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\log4cpp-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\jsoncpp-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\openssl-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\opus-prefix\include;$(SolutionDir)..\framework\feature;$(SolutionDir)..\framework\feature\da;$(SolutionDir)..\framework\feature\sy;$(SolutionDir)..\framework\feature\st;$(SolutionDir)..\framework\feature\sr;$(SolutionDir)..\framework\item;$(SolutionDir)..\framework\common;$(SolutionDir)..\token\include\internal;$(SolutionDir)..\token\include;$(SolutionDir)..\utils;$(SolutionDir)..\transport;$(SolutionDir)..\event;$(SolutionDir)..\encoder</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,6 +124,7 @@
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;HAVE_STRUCT_TIMESPEC;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\build\build_win32\thirdparty\curl-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\libevent-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\log4cpp-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\jsoncpp-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\openssl-prefix\include;$(SolutionDir)..\..\build\build_win32\thirdparty\opus-prefix\include;$(SolutionDir)..\framework\feature;$(SolutionDir)..\framework\feature\da;$(SolutionDir)..\framework\feature\sy;$(SolutionDir)..\framework\feature\st;$(SolutionDir)..\framework\feature\sr;$(SolutionDir)..\framework\item;$(SolutionDir)..\framework\common;$(SolutionDir)..\token\include\internal;$(SolutionDir)..\token\include;$(SolutionDir)..\utils;$(SolutionDir)..\transport;$(SolutionDir)..\event;$(SolutionDir)..\encoder</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -125,7 +132,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)libs_14.0\x86\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lib_json.lib;libevent.lib;libcurl.lib;log4cppLIB.lib;opus.lib;libcrypto-1_1.lib;libssl-1_1.lib;Rpcrt4.lib;Crypt32.lib;Iphlpapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib_jsonMD.lib;libevent.lib;libcurl.lib;log4cppLIBMD.lib;opus.lib;libcrypto-1_1.lib;libssl-1_1.lib;Rpcrt4.lib;Crypt32.lib;Iphlpapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -135,6 +142,7 @@
       <PreprocessorDefinitions>_NLS_SDK_SHARED_;WIN32_LEAN_AND_MEAN;_CRT_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;HAVE_STRUCT_TIMESPEC;_WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\build\build_win64\thirdparty\curl-prefix\include;$(SolutionDir)..\..\build\build_win64\thirdparty\libevent-prefix\include;$(SolutionDir)..\..\build\build_win64\thirdparty\log4cpp-prefix\include;$(SolutionDir)..\..\build\build_win64\thirdparty\jsoncpp-prefix\include;$(SolutionDir)..\..\build\build_win64\thirdparty\openssl-prefix\include;$(SolutionDir)..\..\build\build_win64\thirdparty\opus-prefix\include;$(SolutionDir)..\framework\feature;$(SolutionDir)..\framework\feature\da;$(SolutionDir)..\framework\feature\sy;$(SolutionDir)..\framework\feature\st;$(SolutionDir)..\framework\feature\sr;$(SolutionDir)..\framework\item;$(SolutionDir)..\framework\common;$(SolutionDir)..\token\include\internal;$(SolutionDir)..\token\include;$(SolutionDir)..\utils;$(SolutionDir)..\transport;$(SolutionDir)..\event;$(SolutionDir)..\encoder</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -160,7 +168,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(SolutionDir)libs_14.0\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lib_json.lib;libcurl.lib;libevent.lib;log4cpp.lib;opus.lib;libcrypto-1_1-x64.lib;libssl-1_1-x64.lib;Rpcrt4.lib;Crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lib_jsonMD.lib;libcurl.lib;libeventMD.lib;log4cppMD.lib;opus.lib;libcrypto-1_1-x64.lib;libssl-1_1-x64.lib;Rpcrt4.lib;Crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ProjectReference>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
@@ -210,12 +218,13 @@
     <ClCompile Include="..\token\src\Utils.cpp" />
     <ClCompile Include="..\transport\connectNode.cpp" />
     <ClCompile Include="..\transport\nlsEventNetWork.cpp" />
+    <ClCompile Include="..\transport\nodeManager.cpp" />
     <ClCompile Include="..\transport\SSLconnect.cpp" />
     <ClCompile Include="..\transport\webSocketTcp.cpp" />
     <ClCompile Include="..\utils\nlog.cpp" />
+    <ClCompile Include="..\utils\text_utils.cpp" />
     <ClCompile Include="..\utils\utility.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

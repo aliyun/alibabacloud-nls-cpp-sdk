@@ -39,19 +39,10 @@
 #define FRAME_8K_20MS 320
 #define SAMPLE_RATE_8K 8000
 #define SAMPLE_RATE_16K 16000
-#define DEFAULT_STRING_LEN 128
+#define DEFAULT_STRING_LEN 512
 
 #define LOOP_TIMEOUT 60
 
-/**
- * 全局维护一个服务鉴权token和其对应的有效期时间戳，
- * 每次调用服务之前，首先判断token是否已经过期，
- * 如果已经过期，则根据AccessKey ID和AccessKey Secret重新生成一个token，
- * 并更新这个全局的token和其有效期时间戳。
- *
- * 注意：不要每次调用服务之前都重新生成新token，
- * 只需在token即将过期时重新生成即可。所有的服务并发可共用一个token。
- */
 // 自定义线程参数
 struct ParamStruct {
   char fileName[DEFAULT_STRING_LEN];
@@ -60,6 +51,7 @@ struct ParamStruct {
   char url[DEFAULT_STRING_LEN];
 
   uint64_t startedConsumed;   /*started事件完成次数*/
+  uint64_t firstConsumed;     /*首包完成次数*/
   uint64_t completedConsumed; /*completed事件次数*/
   uint64_t closeConsumed;     /*closed事件次数*/
 
@@ -72,6 +64,12 @@ struct ParamStruct {
   uint64_t startAveValue;     /*started完成平均时间*/
   uint64_t startMaxValue;     /*调用start()到收到started事件最大用时*/
   uint64_t startMinValue;     /*调用start()到收到started事件最小用时*/
+
+  uint64_t firstTotalValue;   /*所有收到首包用时总和*/
+  uint64_t firstAveValue;     /*收到首包平均时间*/
+  uint64_t firstMaxValue;     /*调用start()到收到首包最大用时*/
+  uint64_t firstMinValue;     /*调用start()到收到首包最小用时*/
+  bool     firstFlag;         /*是否收到首包的标记*/
 
   uint64_t endTotalValue;     /*start()到completed事件的总用时*/
   uint64_t endAveValue;       /*start()到completed事件的平均用时*/
@@ -119,6 +117,7 @@ struct ParamCallBack {
 
   struct timeval startTv;
   struct timeval startedTv;
+  struct timeval firstTv;
   struct timeval completedTv;
   struct timeval closedTv;
   struct timeval failedTv;
@@ -140,27 +139,47 @@ struct ParamStatistics {
   uint32_t s_cnt;
 };
 
+/**
+ * 全局维护一个服务鉴权token和其对应的有效期时间戳，
+ * 每次调用服务之前，首先判断token是否已经过期，
+ * 如果已经过期，则根据AccessKey ID和AccessKey Secret重新生成一个token，
+ * 并更新这个全局的token和其有效期时间戳。
+ *
+ * 注意：不要每次调用服务之前都重新生成新token，
+ * 只需在token即将过期时重新生成即可。所有的服务并发可共用一个token。
+ */
 std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
 std::string g_token = "";
+std::string g_domain = "";
+std::string g_api_version = "";
 std::string g_url = "";
+std::string g_audio_path = "";
 int g_threads = 1;
-static int loop_timeout =  LOOP_TIMEOUT;
+int g_cpu = 1;
+int g_sync_timeout = 0;
+static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
+static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
 static std::map<unsigned long, struct ParamStatistics *> g_statistics;
-static pthread_mutex_t params_mtx;
+static pthread_mutex_t params_mtx; /*全局统计参数g_statistics的操作锁*/
 static int sample_rate = SAMPLE_RATE_16K;
-//static int frame_size = FRAME_100MS;
-//static int encoder_type = ENCODER_NONE;
-static int frame_size = FRAME_16K_20MS;
+static int frame_size = FRAME_16K_20MS; /*每次推送音频字节数.*/
 static int encoder_type = ENCODER_OPUS;
 static int logLevel = AlibabaNls::LogDebug; /* 0:为关闭log */
 static int run_cnt = 0;
+static int run_start_failed = 0;
+static int run_cancel = 0;
 static int run_success = 0;
 static int run_fail = 0;
+
+static bool global_sys = true;
+static PROFILE_INFO g_ave_percent;
+static PROFILE_INFO g_min_percent;
+static PROFILE_INFO g_max_percent;
 
 static int profile_scan = -1;
 static int cur_profile_scan = -1;
@@ -351,13 +370,22 @@ int generateToken(std::string akId, std::string akSecret,
   AlibabaNlsCommon::NlsToken nlsTokenRequest;
   nlsTokenRequest.setAccessKeyId(akId);
   nlsTokenRequest.setKeySecret(akSecret);
-//  nlsTokenRequest.setDomain("nls-meta-vpc-pre.aliyuncs.com");
+  if (!g_domain.empty()) {
+    nlsTokenRequest.setDomain(g_domain);
+  }
+  if (!g_api_version.empty()) {
+    nlsTokenRequest.setServerVersion(g_api_version);
+  }
 
-  if (-1 == nlsTokenRequest.applyNlsToken()) {
-    std::cout << "Failed: "
+  int retCode = nlsTokenRequest.applyNlsToken();
+  /*获取失败原因*/
+  if (retCode < 0) {
+    std::cout << "Failed error code: "
+              << retCode
+              << "  error msg: "
               << nlsTokenRequest.getErrorMsg()
-              << std::endl;  /*获取失败原因*/
-    return -1;
+              << std::endl;
+    return retCode;
   }
 
   *token = nlsTokenRequest.getToken();
@@ -467,6 +495,9 @@ void OnRecognitionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->startTotalValue / tmpParam->tParam->startedConsumed;
     }
 
+    // first package flag init
+    tmpParam->tParam->firstFlag = false;
+
     // pid, add, run, success
     struct ParamStatistics params;
     params.running = true;
@@ -480,7 +511,7 @@ void OnRecognitionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     pthread_mutex_unlock(&(tmpParam->mtxWord));
   }
 
-  std::cout << "OnRecognitionStarted: "
+  std::cout << "  OnRecognitionStarted: "
             << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
             << ", task id: " << cbEvent->getTaskId()   // 当前任务的task id，方便定位问题，建议输出
             << std::endl;
@@ -501,26 +532,63 @@ void OnRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   if (cbParam) {
     ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
   #if 0
-    std::cout << "resultChanged CbParam: " << tmpParam->userId << ", "
-              << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
+    std::cout << "OnRecognitionResultChanged resultChanged CbParam: "
+        << tmpParam->userId << ", "
+        << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
   #endif
+
+    if (tmpParam->tParam->firstFlag == false) {
+      tmpParam->tParam->firstConsumed++;
+      tmpParam->tParam->firstFlag = true;
+
+      gettimeofday(&(tmpParam->firstTv), NULL);
+
+      unsigned long long timeValue1 =
+          tmpParam->firstTv.tv_sec - tmpParam->startTv.tv_sec;
+      unsigned long long timeValue2 =
+          tmpParam->firstTv.tv_usec - tmpParam->startTv.tv_usec;
+      unsigned long long timeValue = 0;
+      if (timeValue1 > 0) {
+        timeValue = (((timeValue1 * 1000000) + timeValue2) / 1000);
+      } else {
+        timeValue = (timeValue2 / 1000);
+      }
+
+      // max
+      if (timeValue > tmpParam->tParam->firstMaxValue) {
+        tmpParam->tParam->firstMaxValue = timeValue;
+      }
+      // min
+      if (tmpParam->tParam->firstMinValue == 0) {
+        tmpParam->tParam->firstMinValue = timeValue;
+      } else {
+        if (timeValue < tmpParam->tParam->firstMinValue) {
+          tmpParam->tParam->firstMinValue = timeValue;
+        }
+      }
+      // ave
+      tmpParam->tParam->firstTotalValue += timeValue;
+      if (tmpParam->tParam->firstConsumed > 0) {
+        tmpParam->tParam->firstAveValue =
+            tmpParam->tParam->firstTotalValue / tmpParam->tParam->firstConsumed;
+      }
+    } // firstFlag
   }
 
-#if 0
   std::cout << "OnRecognitionResultChanged: "
             << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
             << ", task id: " << cbEvent->getTaskId()    // 当前任务的task id，方便定位问题，建议输出
             << ", result: " << cbEvent->getResult()     // 获取中间识别结果
             << std::endl;
-
-  std::cout << "OnRecognitionResultChanged: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
+#if 0
+  std::cout << "  OnRecognitionResultChanged: All response:" << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
 #endif
 }
 
 /**
  * @brief sdk在接收到云端返回识别结束消息时, sdk内部线程上报Completed事件
  * @note 上报Completed事件之后, SDK内部会关闭识别连接通道. 
- *       此时调用sendAudio会返回-1, 请停止发送.
+ *       此时调用sendAudio会返回负值, 请停止发送.
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
  * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
  * @return
@@ -570,20 +638,20 @@ void OnRecognitionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     vectorSetResult(tmpParam->userId, true);
   }
 
-  std::cout << "OnRecognitionCompleted: "
+  std::cout << "  OnRecognitionCompleted: "
             << "status code: " << cbEvent->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
             << ", task id: " << cbEvent->getTaskId()    // 当前任务的task id，方便定位问题，建议输出
             << ", result: " << cbEvent->getResult()  // 获取中间识别结果
             << std::endl;
 
-  std::cout << "OnRecognitionCompleted: All response:"
+  std::cout << "  OnRecognitionCompleted: All response:"
       << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
 }
 
 /**
  * @brief 识别过程发生异常时, sdk内部线程上报TaskFailed事件
  * @note 上报TaskFailed事件之后, SDK内部会关闭识别连接通道. 
- *       此时调用sendAudio会返回-1, 请停止发送.
+ *       此时调用sendAudio会返回负值, 请停止发送.
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
  * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
  * @return
@@ -592,7 +660,7 @@ void OnRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   run_fail++;
   if (cbParam) {
     ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
-    std::cout << "taskFailed userId: " << tmpParam->userId
+    std::cout << "TaskFailed userId: " << tmpParam->userId
         << ", " << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
 
     tmpParam->tParam->failedConsumed ++;
@@ -601,13 +669,13 @@ void OnRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     vectorSetFailed(tmpParam->userId, true);
   }
 
-  std::cout << "OnRecognitionTaskFailed: "
+  std::cout << "  OnRecognitionTaskFailed: "
             << "status code: " << cbEvent->getStatusCode() // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
             << ", task id: " << cbEvent->getTaskId()    // 当前任务的task id，方便定位问题，建议输出
             << ", error message: " << cbEvent->getErrorMessage()
             << std::endl;
 
-  std::cout << "OnRecognitionTaskFailed: All response:"
+  std::cout << "  OnRecognitionTaskFailed: All response:"
       << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
 
   FILE *failed_stream = fopen("recognitionTaskFailed.log", "a+");
@@ -627,6 +695,17 @@ void OnRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 }
 
 /**
+ * @brief 服务端返回的所有信息会通过此回调反馈,
+ * @param cbEvent 回调事件结构, 详见nlsEvent.h
+ * @param cbParam 回调自定义参数，默认为NULL, 可以根据需求自定义参数
+ * @return
+*/
+void onRecognitionMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
+  std::cout << "onRecognitionMessage: All response:"
+      << cbEvent->getAllResponse() << std::endl;
+}
+
+/**
  * @brief 识别结束或发生异常时，会关闭连接通道,
  *        sdk内部线程上报ChannelCloseed事件
  * @param cbEvent 回调事件结构, 详见nlsEvent.h
@@ -638,7 +717,12 @@ void OnRecognitionChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
   if (cbParam) {
     ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
-    std::cout << "OnRecognitionChannelClosed CbParam: "
+    if (!tmpParam->tParam) {
+      std::cout << "  OnRecognitionChannelClosed tParam is nullptr" << std::endl;
+      return;
+    }
+
+    std::cout << "  OnRecognitionChannelClosed CbParam: "
               << tmpParam->userId << ", "
               << tmpParam->userInfo << std::endl; // 仅表示自定义参数示例
     vectorSetRunning(tmpParam->userId, false);
@@ -724,6 +808,49 @@ void* autoCloseFunc(void* arg) {
         }
       }
     }
+
+    if (global_sys) {
+      PROFILE_INFO cur_sys_info;
+      get_profile_info("srDemo", &cur_sys_info);
+
+      if (g_ave_percent.ave_cpu_percent == 0) {
+        strcpy(g_ave_percent.usr_name, cur_sys_info.usr_name);
+        strcpy(g_min_percent.usr_name, cur_sys_info.usr_name);
+        strcpy(g_max_percent.usr_name, cur_sys_info.usr_name);
+
+        g_ave_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        g_ave_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        g_ave_percent.eAveTime = 0;
+
+        g_min_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        g_min_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        g_min_percent.eAveTime = 0;
+
+        g_max_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        g_max_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        g_max_percent.eAveTime = 0;
+      } else {
+        // record min info
+        if (cur_sys_info.ave_cpu_percent < g_min_percent.ave_cpu_percent) {
+          g_min_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        }
+        if (cur_sys_info.ave_mem_percent < g_min_percent.ave_mem_percent) {
+          g_min_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        }
+        // record max info
+        if (cur_sys_info.ave_cpu_percent > g_max_percent.ave_cpu_percent) {
+          g_max_percent.ave_cpu_percent = cur_sys_info.ave_cpu_percent;
+        }
+        if (cur_sys_info.ave_mem_percent > g_max_percent.ave_mem_percent) {
+          g_max_percent.ave_mem_percent = cur_sys_info.ave_mem_percent;
+        }
+        // record ave info
+        g_ave_percent.ave_cpu_percent =
+            (g_ave_percent.ave_cpu_percent + cur_sys_info.ave_cpu_percent) / 2;
+        g_ave_percent.ave_mem_percent =
+            (g_ave_percent.ave_mem_percent + cur_sys_info.ave_mem_percent) / 2;
+      }
+    }
   }
   global_run = false;
   std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
@@ -746,7 +873,8 @@ void* autoCloseFunc(void* arg) {
  *        进行循环。
  */
 void* pthreadFunction(void* arg) {
-  int sleepMs = 0;
+  int sleepMs = 0; // 根据发送音频数据帧长度计算sleep时间，用于模拟真实录音情景
+  int testCount = 0; // 运行次数计数，用于超过设置的loop次数后退出
   ParamCallBack *cbParam = NULL;
   uint64_t sendAudio_us = 0;
   uint32_t sendAudio_cnt = 0;
@@ -790,7 +918,7 @@ void* pthreadFunction(void* arg) {
 
   while (global_run) {
     /*
-     * 创建一句话识别SpeechRecognizerRequest对象
+     * 1. 创建一句话识别SpeechRecognizerRequest对象
      */
     AlibabaNls::SpeechRecognizerRequest *request =
         AlibabaNls::NlsClient::getInstance()->createRecognizerRequest(
@@ -800,6 +928,9 @@ void* pthreadFunction(void* arg) {
       break;
     }
 
+    /*
+     * 2. 设置用于接收结果的回调
+     */
     // 设置start()成功回调函数
     request->setOnRecognitionStarted(OnRecognitionStarted, cbParam);
     // 设置异常识别回调函数
@@ -810,12 +941,13 @@ void* pthreadFunction(void* arg) {
     request->setOnRecognitionResultChanged(OnRecognitionResultChanged, cbParam);
     // 设置识别结束回调函数
     request->setOnRecognitionCompleted(OnRecognitionCompleted, cbParam);
+    // 设置所有服务端返回信息回调函数
+    //request->setOnMessage(onRecognitionMessage, cbParam);
+    //request->setEnableOnMessage(true);
 
-    // 设置AppKey, 必填参数, 请参照官网申请
-    if (strlen(tst->appkey) > 0) {
-      request->setAppKey(tst->appkey);
-      std::cout << "setAppKey: " << tst->appkey << std::endl;
-    }
+    /*
+     * 3. 设置request的相关参数
+     */
     // 设置音频数据编码格式, 可选参数, 目前支持pcm,opus,opu. 默认是pcm
     if (encoder_type == ENCODER_OPUS) {
       request->setFormat("opus");
@@ -834,18 +966,26 @@ void* pthreadFunction(void* arg) {
     request->setInverseTextNormalization(true);
 
     // 是否启动语音检测, 可选, 默认是False
-    //request->setEnableVoiceDetection(true);
+    // request->setEnableVoiceDetection(true);
+
     // 允许的最大开始静音, 可选, 单位是毫秒, 
     // 超出后服务端将会发送RecognitionCompleted事件, 结束本次识别.
     // 注意: 需要先设置enable_voice_detection为true
-    //request->setMaxStartSilence(800);
+    // request->setMaxStartSilence(800);
+
     // 允许的最大结束静音, 可选, 单位是毫秒, 
     // 超出后服务端将会发送RecognitionCompleted事件, 结束本次识别.
     // 注意: 需要先设置enable_voice_detection为true
-    //request->setMaxEndSilence(800);
-    //request->setCustomizationId("TestId_123"); //定制模型id, 可选.
-    //request->setVocabularyId("TestId_456"); //定制泛热词id, 可选.
+    // request->setMaxEndSilence(800);
 
+    // request->setCustomizationId("TestId_123"); //定制模型id, 可选.
+    // request->setVocabularyId("TestId_456"); //定制泛热词id, 可选.
+
+    // 设置AppKey, 必填参数, 请参照官网申请
+    if (strlen(tst->appkey) > 0) {
+      request->setAppKey(tst->appkey);
+      std::cout << "setAppKey: " << tst->appkey << std::endl;
+    }
     // 设置账号校验token, 必填参数
     if (strlen(tst->token) > 0) {
       request->setToken(tst->token);
@@ -855,6 +995,9 @@ void* pthreadFunction(void* arg) {
       std::cout << "setUrl: " << tst->url << std::endl;
       request->setUrl(tst->url);
     }
+    // 获取返回文本的编码格式
+    const char* output_format = request->getOutputFormat();
+    std::cout << "text format: " << output_format << std::endl;
 
     std::cout << "begin sendAudio. "
       << pthread_self()
@@ -867,7 +1010,13 @@ void* pthreadFunction(void* arg) {
     fs.seekg(0, std::ios::beg);
 
     /*
-     * start()为异步操作。成功返回started事件。失败返回TaskFailed事件。
+     * 4. start()为同步/异步两种操作，默认异步。由于异步模式通过回调判断request是否成功运行有修改门槛，且部分旧版本为同步接口。
+     *    为了能较为平滑的更新升级SDK，提供了同步/异步两种调用方式。
+     *    异步情况：默认未调用setSyncCallTimeout()的时候，start()调用立即返回，
+     *            且返回值并不代表request成功开始工作，需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+     *    同步情况：调用setSyncCallTimeout()设置同步接口的超时时间，并启动同步模式。start()调用后不会立即返回，
+     *            直到内部得到成功(同时也会触发started事件回调)或失败(同时也会触发TaskFailed事件回调)后返回。
+     *            此方法方便旧版本SDK
      */
     vectorStartStore(pthread_self());
     std::cout << "start ->" << std::endl;
@@ -876,34 +1025,53 @@ void* pthreadFunction(void* arg) {
     gettimeofday(&(cbParam->startTv), NULL);
     int ret = request->start();
     run_cnt++;
+    testCount++;
     if (ret < 0) {
       std::cout << "start failed(" << ret << ")." << std::endl;
+      run_start_failed++;
       AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
       break;
     } else {
-      // 等待started事件返回, 在发送
-      std::cout << "wait started callback." << std::endl;
-      /*
-       * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
-       * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制.
-       */
-      gettimeofday(&now, NULL);
-      outtime.tv_sec = now.tv_sec + 5;
-      outtime.tv_nsec = now.tv_usec * 1000;
-      pthread_mutex_lock(&(cbParam->mtxWord));
-      if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
-        std::cout << "start timeout." << std::endl;
-        timedwait_flag = true;
+      if (g_sync_timeout == 0) {
+        /*
+         * 4.1. g_sync_timeout等于0，即默认未调用setSyncCallTimeout()，异步方式调用start()
+         *      需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+         * 
+         * 等待started事件返回表示start()成功, 然后再发送音频数据。
+         * 语音服务器存在来不及处理当前请求的情况, 10s内不返回任何回调的问题,
+         * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制。
+         */
+        std::cout << "    wait started callback." << std::endl;
+        gettimeofday(&now, NULL);
+        outtime.tv_sec = now.tv_sec + 2;
+        outtime.tv_nsec = now.tv_usec * 1000;
+        pthread_mutex_lock(&(cbParam->mtxWord));
+        if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
+          std::cout << "start timeout." << std::endl;
+          std::cout << "current request task_id: " << request->getTaskId() << std::endl;
+          timedwait_flag = true;
+          pthread_mutex_unlock(&(cbParam->mtxWord));
+          request->cancel();
+          run_cancel++;
+          AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
+          break;
+        }
         pthread_mutex_unlock(&(cbParam->mtxWord));
-        request->cancel();
-        AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
-        break;
+        std::cout << "current request task_id:" << request->getTaskId() << " ret:" << ret << std::endl;
+      } else {
+        /*
+         * 4.2. g_sync_timeout大于0，即调用了setSyncCallTimeout()，同步方式调用start()
+         *      返回值0即表示启动成功。
+         */
       }
-      pthread_mutex_unlock(&(cbParam->mtxWord));
     }
 
     sendAudio_us = 0;
     sendAudio_cnt = 0;
+
+    /*
+     * 5. 从文件取音频数据循环发送音频
+     */
     while (!fs.eof()) {
       uint8_t data[frame_size];
       memset(data, 0, frame_size);
@@ -917,11 +1085,11 @@ void* pthreadFunction(void* arg) {
       struct timeval tv0, tv1;
       gettimeofday(&tv0, NULL);
       /*
-       * 发送音频数据: sendAudio为异步操作, 返回负值表示发送失败, 需要停止发送;
-       * 返回0 为成功. 
-       * notice : 返回值非成功发送字节数.
-       * 若希望用省流量的opus格式上传音频数据, 则第三参数传入ENCODER_OPU
-       * ENCODER_OPU/ENCODER_OPUS模式时,nlen必须为640
+       * 5.1. 发送音频数据: sendAudio为异步操作, 返回负值表示发送失败, 需要停止发送;
+       *      返回大于0 为成功. 
+       *      若希望用省流量的opus格式上传音频数据, 则第三参数传入ENCODER_OPU/ENCODER_OPUS
+       *
+       * ENCODER_OPU/ENCODER_OPUS模式时, 会占用一定的CPU进行音频压缩
        */
       ret = request->sendAudio(data, nlen, (ENCODER_TYPE)encoder_type);
       if (ret < 0) {
@@ -941,67 +1109,91 @@ void* pthreadFunction(void* arg) {
          */
       } else {
         /*
-         * 语音数据发送控制：
-         * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
-         * 语音数据来自文件, 发送时需要控制速率,
-         * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
+         * 实际使用中, 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
+         * 此处是用语音数据来自文件的方式进行模拟, 故发送时需要控制速率来模拟真实录音场景.
          */
         // 根据发送数据大小，采样率，数据压缩比来获取sleep时间
         sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
 
         /*
-         * 语音数据发送延时控制
+         * 语音数据发送延时控制, 实际使用中无需sleep.
          */
         if (sleepMs * 1000 > tmp_us) {
           usleep(sleepMs * 1000 - tmp_us);
         }
       }
-    }  // while
+    }  // while - sendAudio
 
-    /*
-     * 通知云端数据发送结束.
-     * stop()为异步操作.失败返回TaskFailed事件
-     */
     tst->sendConsumed += sendAudio_cnt;
     tst->sendTotalValue += sendAudio_us;
     if (sendAudio_cnt > 0) {
       std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt)
                 << "us" << std::endl;
     }
-    std::cout << "stop ->" << std::endl;
-    // stop()后会收到所有回调，若想立即停止则调用cancel()
-    ret = request->stop();
-    std::cout << "stop done" << "\n" << std::endl;
 
     /*
-     * 通知SDK释放request.
+     * 6. 通知云端数据发送结束.
+     *    stop()为同步/异步两种操作，默认异步。由于异步模式通过回调判断request是否成功运行有修改门槛，且部分旧版本为同步接口。
+     *    为了能较为平滑的更新升级SDK，提供了同步/异步两种调用方式。
+     *    异步情况：默认未调用setSyncCallTimeout()的时候，stop()调用立即返回，
+     *            且返回值并不代表request成功结束，需要等待返回closed事件表示结束。
+     *    同步情况：调用setSyncCallTimeout()设置同步接口的超时时间，并启动同步模式。stop()调用后不会立即返回，
+     *            直到内部完成工作，并触发closed事件回调后返回。
+     *            此方法方便旧版本SDK。
      */
-    if (ret == 0) {
-      std::cout << "wait closed callback." << std::endl;
-      /*
-       * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
-       * 然后在10s后返回一个TaskFailed回调, 错误信息为:
-       * "Gateway:IDLE_TIMEOUT:Websocket session is idle for too long time, the last directive is 'StopRecognition'!"
-       * 所以需要设置一个超时机制.
-       */
-      gettimeofday(&now, NULL);
-      outtime.tv_sec = now.tv_sec + 5;
-      outtime.tv_nsec = now.tv_usec * 1000;
-      // 等待closed事件后再进行释放, 否则会出现崩溃
-      pthread_mutex_lock(&(cbParam->mtxWord));
-      if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
-        std::cout << "stop timeout" << std::endl;
-        timedwait_flag = true;
-        pthread_mutex_unlock(&(cbParam->mtxWord));
-        AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
-        break;
-      }
-      pthread_mutex_unlock(&(cbParam->mtxWord));
+    std::cout << "stop ->" << std::endl;
+    ret = request->stop(); // stop()后会收到所有回调，若想立即停止则调用cancel()
+    std::cout << "stop done" << "\n" << std::endl;
+    if (ret < 0) {
+      std::cout << "stop failed(" << ret << ")." << std::endl;
     } else {
-      std::cout << "stop ret is " << ret << std::endl;
+      if (g_sync_timeout == 0) {
+        /*
+         * 6.1. g_sync_timeout等于0，即默认未调用setSyncCallTimeout()，异步方式调用start()
+         *      需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+         * 
+         * 等待started事件返回表示start()成功, 然后再发送音频数据。
+         * 语音服务器存在来不及处理当前请求的情况, 10s内不返回任何回调的问题,
+         * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制。
+         */
+        // 等待closed事件后再进行释放, 否则会出现崩溃
+        // 若调用了setSyncCallTimeout()启动了同步调用模式, 则可以不等待closed事件。
+        std::cout << "wait closed callback." << std::endl;
+        /*
+         * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
+         * 然后在10s后返回一个TaskFailed回调, 错误信息为:
+         * "Gateway:IDLE_TIMEOUT:Websocket session is idle for too long time, the last directive is 'StopRecognition'!"
+         * 所以需要设置一个超时机制.
+         */
+        gettimeofday(&now, NULL);
+        outtime.tv_sec = now.tv_sec + 5;
+        outtime.tv_nsec = now.tv_usec * 1000;
+        pthread_mutex_lock(&(cbParam->mtxWord));
+        if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
+          std::cout << "stop timeout" << std::endl;
+          timedwait_flag = true;
+          pthread_mutex_unlock(&(cbParam->mtxWord));
+          AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
+          break;
+        }
+        pthread_mutex_unlock(&(cbParam->mtxWord));
+      } else {
+        /*
+         * 6.2. g_sync_timeout大于0，即调用了setSyncCallTimeout()，同步方式调用stop()
+         *      返回值0即表示启动成功。
+         */
+      }
     }
 
+    /*
+     * 7. 完成所有工作后释放当前请求。
+     *    请在closed事件(确定完成所有工作)后再释放, 否则容易破坏内部状态机, 会强制卸载正在运行的请求。
+     */
     AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
+
+    if (loop_count > 0 && testCount >= loop_count) {
+      global_run = false;
+    }
   }  // while global_run
 
   pthread_mutex_destroy(&(tst->mtx));
@@ -1041,7 +1233,8 @@ void* pthreadFunction(void* arg) {
  *                  releaseRecognizerRequest(request)
  */
 void* pthreadLongConnectionFunction(void* arg) {
-  int sleepMs = 0;
+  int sleepMs = 0; // 根据发送音频数据帧长度计算sleep时间，用于模拟真实录音情景
+  int testCount = 0; // 运行次数计数，用于超过设置的loop次数后退出
   ParamCallBack *cbParam = NULL;
   struct ParamStatistics params;
   uint64_t sendAudio_us = 0;
@@ -1066,7 +1259,7 @@ void* pthreadLongConnectionFunction(void* arg) {
   pthread_mutex_init(&(tst->mtx), NULL);
 
   /*
-   * 创建一句话识别SpeechRecognizerRequest对象
+   * 1. 创建一句话识别SpeechRecognizerRequest对象
    */
   AlibabaNls::SpeechRecognizerRequest *request =
       AlibabaNls::NlsClient::getInstance()->createRecognizerRequest(
@@ -1078,6 +1271,9 @@ void* pthreadLongConnectionFunction(void* arg) {
     return NULL;
   }
 
+  /*
+   * 2. 设置用于接收结果的回调
+   */
   // 设置start()成功回调函数
   request->setOnRecognitionStarted(OnRecognitionStarted, cbParam);
   // 设置异常识别回调函数
@@ -1088,13 +1284,14 @@ void* pthreadLongConnectionFunction(void* arg) {
   request->setOnRecognitionResultChanged(OnRecognitionResultChanged, cbParam);
   // 设置识别结束回调函数
   request->setOnRecognitionCompleted(OnRecognitionCompleted, cbParam);
+  // 设置所有服务端返回信息回调函数
+  //request->setOnMessage(onRecognitionMessage, cbParam);
+  //request->setEnableOnMessage(true);
 
-  // 设置AppKey, 必填参数, 请参照官网申请
-  if (strlen(tst->appkey) > 0) {
-    request->setAppKey(tst->appkey);
-    std::cout << "setAppKey: " << tst->appkey << std::endl;
-  }
-  // 设置音频数据编码格式, 可选参数, 目前支持pcm,opus,opu. 默认是pcm
+  /*
+   * 3. 设置request的相关参数
+   */
+  // 设置音频数据编码格式, 可选参数, 目前支持pcm,opus,opu. 默认是pcm, 推荐opus
   if (encoder_type == ENCODER_OPUS) {
     request->setFormat("opus");
   } else if (encoder_type == ENCODER_OPU) {
@@ -1123,6 +1320,12 @@ void* pthreadLongConnectionFunction(void* arg) {
   //request->setMaxEndSilence(800);
   //request->setCustomizationId("TestId_123"); //定制模型id, 可选.
   //request->setVocabularyId("TestId_456"); //定制泛热词id, 可选.
+
+  // 设置AppKey, 必填参数, 请参照官网申请
+  if (strlen(tst->appkey) > 0) {
+    request->setAppKey(tst->appkey);
+    std::cout << "setAppKey: " << tst->appkey << std::endl;
+  }
   // 设置账号校验token, 必填参数
   if (strlen(tst->token) > 0) {
     request->setToken(tst->token);
@@ -1132,8 +1335,14 @@ void* pthreadLongConnectionFunction(void* arg) {
     std::cout << "setUrl: " << tst->url << std::endl;
     request->setUrl(tst->url);
   }
+  // 获取返回文本的编码格式
+  const char* output_format = request->getOutputFormat();
+  std::cout << "text format: " << output_format << std::endl;
 
 
+  /*
+   * 4. 循环读音频文件，将音频数据送给request，以模拟真实录音场景。
+   */
   while (global_run) {
     // 打开音频文件, 获取数据
     std::ifstream fs;
@@ -1155,43 +1364,67 @@ void* pthreadLongConnectionFunction(void* arg) {
     fs.clear();
     fs.seekg(0, std::ios::beg);
 
-    /*
-     * start()为异步操作。成功返回started事件。失败返回TaskFailed事件。
-     */
     vectorStartStore(pthread_self());
     std::cout << "start ->" << std::endl;
     struct timespec outtime;
     struct timeval now;
     gettimeofday(&(cbParam->startTv), NULL);
+
+    /*
+     * 4.1. start()为同步/异步两种操作，默认异步。由于异步模式通过回调判断request是否成功运行有修改门槛，且部分旧版本为同步接口。
+     *      为了能较为平滑的更新升级SDK，提供了同步/异步两种调用方式。
+     *      异步情况：默认未调用setSyncCallTimeout()的时候，start()调用立即返回，
+     *              且返回值并不代表request成功开始工作，需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+     *      同步情况：调用setSyncCallTimeout()设置同步接口的超时时间，并启动同步模式。start()调用后不会立即返回，
+     *              直到内部得到成功(同时也会触发started事件回调)或失败(同时也会触发TaskFailed事件回调)后返回。
+     *              此方法方便旧版本SDK
+     */
     int ret = request->start();
     run_cnt++;
+    testCount++;
     if (ret < 0) {
       std::cout << "start failed(" << ret << ")." << std::endl;
+      run_start_failed++;
       break;
     } else {
-      //等待started事件返回, 在发送
-      std::cout << "wait started callback." << std::endl;
-      /*
-       * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
-       * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制.
-       */
-      gettimeofday(&now, NULL);
-      outtime.tv_sec = now.tv_sec + 5;
-      outtime.tv_nsec = now.tv_usec * 1000;
-      pthread_mutex_lock(&(cbParam->mtxWord));
-      if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
-        std::cout << "start timeout" << std::endl;
-        timedwait_flag = true;
+      if (g_sync_timeout == 0) {
+        /*
+         * 4.1.1. g_sync_timeout等于0，即默认未调用setSyncCallTimeout()，异步方式调用start()
+         *        需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+         * 
+         * 等待started事件返回表示start()成功, 然后再发送音频数据。
+         * 语音服务器存在来不及处理当前请求的情况, 10s内不返回任何回调的问题,
+         * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制。
+         */
+        std::cout << "wait started callback." << std::endl;
+        gettimeofday(&now, NULL);
+        outtime.tv_sec = now.tv_sec + 5; // 设置5s超时
+        outtime.tv_nsec = now.tv_usec * 1000;
+        pthread_mutex_lock(&(cbParam->mtxWord));
+        if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
+          std::cout << "start timeout" << std::endl;
+          timedwait_flag = true;
+          pthread_mutex_unlock(&(cbParam->mtxWord));
+          // start()调用超时，cancel()取消当次请求。
+          request->cancel();
+          run_cancel++;
+          break;
+        }
         pthread_mutex_unlock(&(cbParam->mtxWord));
-        request->cancel();
-        break;
+      } else {
+        /*
+         * 4.1.2. g_sync_timeout大于0，即调用了setSyncCallTimeout()，同步方式调用start()
+         *        返回值0即表示启动成功。
+         */
       }
-      pthread_mutex_unlock(&(cbParam->mtxWord));
     }
 
     sendAudio_us = 0;
     sendAudio_cnt = 0;
 
+    /*
+     * 4.2 从文件取音频数据循环发送音频
+     */
     while (!fs.eof()) {
       uint8_t data[frame_size];
       memset(data, 0, frame_size);
@@ -1205,11 +1438,11 @@ void* pthreadLongConnectionFunction(void* arg) {
       struct timeval tv0, tv1;
       gettimeofday(&tv0, NULL);
       /*
-       * 发送音频数据: sendAudio为异步操作, 返回负值表示发送失败, 需要停止发送;
-       * 返回0 为成功.
-       * notice : 返回值非成功发送字节数.
-       * 若希望用省流量的opus格式上传音频数据, 则第三参数传入ENCODER_OPU
-       * ENCODER_OPU/ENCODER_OPUS模式时,nlen必须为640
+       * 4.2.1. 发送音频数据: sendAudio为异步操作, 返回负值表示发送失败, 需要停止发送;
+       *        返回大于0 为成功. 
+       *        若希望用省流量的opus格式上传音频数据, 则第三参数传入ENCODER_OPU/ENCODER_OPUS
+       *
+       * ENCODER_OPU/ENCODER_OPUS模式时, 会占用一定的CPU进行音频压缩
        */
       ret = request->sendAudio(data, nlen, (ENCODER_TYPE)encoder_type);
       if (ret < 0) {
@@ -1229,16 +1462,14 @@ void* pthreadLongConnectionFunction(void* arg) {
          */
       } else {
         /*
-         * 语音数据发送控制：
-         * 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
-         * 语音数据来自文件, 发送时需要控制速率,
-         * 使单位时间内发送的数据大小接近单位时间原始语音数据存储的大小.
+         * 实际使用中, 语音数据是实时的, 不用sleep控制速率, 直接发送即可.
+         * 此处是用语音数据来自文件的方式进行模拟, 故发送时需要控制速率来模拟真实录音场景.
          */
         // 根据发送数据大小，采样率，数据压缩比来获取sleep时间
         sleepMs = getSendAudioSleepTime(nlen, sample_rate, 1);
 
         /*
-         * 语音数据发送延时控制
+         * 语音数据发送延时控制, 实际使用中无需sleep.
          */
         if (sleepMs * 1000 > tmp_us) {
           usleep(sleepMs * 1000 - tmp_us);
@@ -1249,49 +1480,76 @@ void* pthreadLongConnectionFunction(void* arg) {
     // 关闭音频文件
     fs.close();
 
-    /*
-     * 通知云端数据发送结束.
-     * stop()为异步操作.失败返回TaskFailed事件
-     */
     tst->sendConsumed += sendAudio_cnt;
     tst->sendTotalValue += sendAudio_us;
     if (sendAudio_cnt > 0) {
       std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt)
                 << "us" << std::endl;
     }
-    std::cout << "stop ->" << std::endl;
-    // stop()后会收到所有回调，若想立即停止则调用cancel()
-    ret = request->stop();
-    std::cout << "stop done" << "\n" << std::endl;
 
     /*
-     * 通知SDK释放request.
+     * 4.3. 通知云端数据发送结束.
+     *      stop()为同步/异步两种操作，默认异步。由于异步模式通过回调判断request是否成功运行有修改门槛，且部分旧版本为同步接口。
+     *      为了能较为平滑的更新升级SDK，提供了同步/异步两种调用方式。
+     *      异步情况：默认未调用setSyncCallTimeout()的时候，stop()调用立即返回，
+     *              且返回值并不代表request成功结束，需要等待返回closed事件表示结束。
+     *      同步情况：调用setSyncCallTimeout()设置同步接口的超时时间，并启动同步模式。stop()调用后不会立即返回，
+     *              直到内部完成工作，并触发closed事件回调后返回。
+     *              此方法方便旧版本SDK。
      */
-    if (ret == 0) {
-      std::cout << "wait closed callback." << std::endl;
-      /*
-       * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
-       * 然后在10s后返回一个TaskFailed回调, 错误信息为:
-       * "Gateway:IDLE_TIMEOUT:Websocket session is idle for too long time, the last directive is 'StopRecognition'!"
-       * 所以需要设置一个超时机制.
-       */
-      gettimeofday(&now, NULL);
-      outtime.tv_sec = now.tv_sec + 5;
-      outtime.tv_nsec = now.tv_usec * 1000;
-      // 等待closed事件后再进行释放, 否则会出现崩溃
-      pthread_mutex_lock(&(cbParam->mtxWord));
-      if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
-        std::cout << "stop timeout" << std::endl;
-        timedwait_flag = true;
-        pthread_mutex_unlock(&(cbParam->mtxWord));
-        break;
-      }
-      pthread_mutex_unlock(&(cbParam->mtxWord));
+    std::cout << "stop ->" << std::endl; // stop()后会收到所有回调，若想立即停止则调用cancel()
+    ret = request->stop();
+    std::cout << "stop done" << "\n" << std::endl;
+    if (ret < 0) {
+      std::cout << "stop failed(" << ret << ")." << std::endl;
     } else {
-      std::cout << "stop ret is " << ret << std::endl;
+      if (g_sync_timeout == 0) {
+        /*
+         * 4.3.1. g_sync_timeout等于0，即默认未调用setSyncCallTimeout()，异步方式调用start()
+         *        需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+         * 
+         * 等待started事件返回表示start()成功, 然后再发送音频数据。
+         * 语音服务器存在来不及处理当前请求的情况, 10s内不返回任何回调的问题,
+         * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制。
+         */
+        // 等待closed事件后再进行释放, 否则会出现崩溃
+        // 若调用了setSyncCallTimeout()启动了同步调用模式, 则可以不等待closed事件。
+        std::cout << "wait closed callback." << std::endl;
+        /*
+         * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
+         * 然后在10s后返回一个TaskFailed回调, 错误信息为:
+         * "Gateway:IDLE_TIMEOUT:Websocket session is idle for too long time, the last directive is 'StopRecognition'!"
+         * 所以需要设置一个超时机制.
+         */
+        gettimeofday(&now, NULL);
+        outtime.tv_sec = now.tv_sec + 5;
+        outtime.tv_nsec = now.tv_usec * 1000;
+        // 等待closed事件后再进行释放, 否则会出现崩溃
+        pthread_mutex_lock(&(cbParam->mtxWord));
+        if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord), &(cbParam->mtxWord), &outtime)) {
+          std::cout << "stop timeout" << std::endl;
+          timedwait_flag = true;
+          pthread_mutex_unlock(&(cbParam->mtxWord));
+          break;
+        }
+        pthread_mutex_unlock(&(cbParam->mtxWord));
+      } else {
+        /*
+         * 4.3.2. g_sync_timeout大于0，即调用了setSyncCallTimeout()，同步方式调用stop()
+         *        返回值0即表示启动成功。
+         */
+      }
+    }
+
+    if (loop_count > 0 && testCount >= loop_count) {
+      global_run = false;
     }
   } // while
 
+  /*
+   * 5. 完成所有工作后释放当前请求。
+   *    请在closed事件(确定完成所有工作)后再释放, 否则容易破坏内部状态机, 会强制卸载正在运行的请求。
+   */
   AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
   request = NULL;
 
@@ -1331,16 +1589,25 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   if (g_token.empty()) {
     if (g_expireTime - curTime < 10) {
       std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-      if (-1 == generateToken(g_akId, g_akSecret, &g_token, &g_expireTime)) {
+      int ret = generateToken(g_akId, g_akSecret, &g_token, &g_expireTime);
+      if (ret < 0) {
+        std::cout << "generate token failed" << std::endl;
         return -1;
+      } else {
+        if (g_token.empty() || g_expireTime < 0) {
+          std::cout << "generate empty token" << std::endl;
+          return -2;
+        }
       }
     }
   }
 
 #ifdef SELF_TESTING_TRIGGER
-  pthread_t p_id;
-  pthread_create(&p_id, NULL, &autoCloseFunc, NULL);
-  pthread_detach(p_id);
+  if (loop_count == 0) {
+    pthread_t p_id;
+    pthread_create(&p_id, NULL, &autoCloseFunc, NULL);
+    pthread_detach(p_id);
+  }
 #endif
 
   char audioFileNames[AUDIO_FILE_NUMS][AUDIO_FILE_NAME_LENGTH] =
@@ -1360,7 +1627,11 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     memcpy(pa[i].appkey, appkey, strlen(appkey));
 
     memset(pa[i].fileName, 0, DEFAULT_STRING_LEN);
-    memcpy(pa[i].fileName, audioFileNames[num], strlen(audioFileNames[num]));
+    if (g_audio_path.empty()) {
+      strncpy(pa[i].fileName, audioFileNames[num], strlen(audioFileNames[num]));
+    } else {
+      strncpy(pa[i].fileName, g_audio_path.c_str(), DEFAULT_STRING_LEN);
+    }
 
     memset(pa[i].url, 0, DEFAULT_STRING_LEN);
     if (!g_url.empty()) {
@@ -1368,6 +1639,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     }
 
     pa[i].startedConsumed = 0;
+    pa[i].firstConsumed = 0;
     pa[i].completedConsumed = 0;
     pa[i].closeConsumed = 0;
     pa[i].failedConsumed = 0;
@@ -1378,6 +1650,12 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     pa[i].startAveValue = 0;
     pa[i].startMaxValue = 0;
     pa[i].startMinValue = 0;
+
+    pa[i].firstTotalValue = 0;
+    pa[i].firstAveValue = 0;
+    pa[i].firstMaxValue = 0;
+    pa[i].firstMinValue = 0;
+    pa[i].firstFlag = false;
 
     pa[i].endTotalValue = 0;
     pa[i].endAveValue = 0;
@@ -1415,15 +1693,20 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     pthread_join(pthreadId[j], NULL);
   }
 
-  unsigned long long sTotalCount = 0;
-  unsigned long long eTotalCount = 0;
-  unsigned long long fTotalCount = 0;
-  unsigned long long cTotalCount = 0;
-  unsigned long long rTotalCount = 0;
+  unsigned long long sTotalCount = 0; /*started总次数*/
+  unsigned long long iTotalCount = 0; /*首包总次数*/
+  unsigned long long eTotalCount = 0; /*completed总次数*/
+  unsigned long long fTotalCount = 0; /*failed总次数*/
+  unsigned long long cTotalCount = 0; /*closed总次数*/
+  unsigned long long rTotalCount = 0; /*总请求数*/
 
   unsigned long long sMaxTime = 0;
   unsigned long long sMinTime = 0;
   unsigned long long sAveTime = 0;
+
+  unsigned long long fMaxTime = 0; /*首包最大耗时*/
+  unsigned long long fMinTime = 0; /*首包最小耗时*/
+  unsigned long long fAveTime = 0; /*首包平均耗时*/
 
   unsigned long long s50Count = 0;
   unsigned long long s100Count = 0;
@@ -1448,6 +1731,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
 
   for (int i = 0; i < threads; i ++) {
     sTotalCount += pa[i].startedConsumed;
+    iTotalCount += pa[i].firstConsumed;
     eTotalCount += pa[i].completedConsumed;
     fTotalCount += pa[i].failedConsumed;
     cTotalCount += pa[i].closeConsumed;
@@ -1479,6 +1763,21 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
     s500Count += pa[i].s500Value;
     s1000Count += pa[i].s1000Value;
     s2000Count += pa[i].s2000Value;
+
+    // first pack
+    if (pa[i].firstMaxValue > fMaxTime) {
+      fMaxTime = pa[i].firstMaxValue;
+    }
+
+    if (fMinTime == 0) {
+      fMinTime = pa[i].firstMinValue;
+    } else {
+      if (pa[i].firstMinValue < fMinTime) {
+        fMinTime = pa[i].firstMinValue;
+      }
+    }
+
+    fAveTime += pa[i].firstAveValue;
 
     //end
     if (pa[i].endMaxValue > eMaxTime) {
@@ -1514,6 +1813,7 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
   sAveTime /= threads;
   eAveTime /= threads;
   cAveTime /= threads;
+  fAveTime /= threads;
   audioFileAveTimeLen /= threads;
 
   int cur = -1;
@@ -1542,6 +1842,16 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
       << std::endl;
     std::cout << "No." << i
       << " Ave started time: " << pa[i].startAveValue << " ms"
+      << std::endl;
+
+    std::cout << "No." << i
+      << " Max first package time: " << pa[i].firstMaxValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Min first package time: " << pa[i].firstMinValue << " ms"
+      << std::endl;
+    std::cout << "No." << i
+      << " Ave first package time: " << pa[i].firstAveValue << " ms"
       << std::endl;
 
     std::cout << "No." << i
@@ -1586,12 +1896,18 @@ int speechRecognizerMultFile(const char* appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Started time <= 50: " << s50Count << std::endl;
-  std::cout << "Started time <= 100: " << s100Count << std::endl;
-  std::cout << "Started time <= 200: " << s200Count << std::endl;
-  std::cout << "Started time <= 500: " << s500Count << std::endl;
-  std::cout << "Started time <= 1000: " << s1000Count << std::endl;
-  std::cout << "Started time > 1000: " << s2000Count << std::endl;
+  std::cout << "Started time <= 50 ms: " << s50Count << std::endl;
+  std::cout << "Started time <= 100 ms: " << s100Count << std::endl;
+  std::cout << "Started time <= 200 ms: " << s200Count << std::endl;
+  std::cout << "Started time <= 500 ms: " << s500Count << std::endl;
+  std::cout << "Started time <= 1000 ms: " << s1000Count << std::endl;
+  std::cout << "Started time > 1000 ms: " << s2000Count << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  std::cout << "Max first package time: " << fMaxTime << " ms" << std::endl;
+  std::cout << "Min first package time: " << fMinTime << " ms" << std::endl;
+  std::cout << "Ave first package time: " << fAveTime << " ms" << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -1649,6 +1965,14 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_token = argv[index];
+    } else if (!strcmp(argv[index], "--tokenDomain")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_domain = argv[index];
+    } else if (!strcmp(argv[index], "--tokenApiVersion")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_api_version = argv[index];
     } else if (!strcmp(argv[index], "--url")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1657,10 +1981,18 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--cpu")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_cpu = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--time")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--loop")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      loop_count = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--type")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1715,12 +2047,32 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         noSleepFlag = false;
       }
+    } else if (!strcmp(argv[index], "--audioFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_audio_path = argv[index];
+    } else if (!strcmp(argv[index], "--sync_timeout")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_sync_timeout = atoi(argv[index]);
     }
     index++;
   }
+
+  if (g_akId.empty() && getenv("NLS_AK_ENV")) {
+    g_akId.assign(getenv("NLS_AK_ENV"));
+  }
+  if (g_akSecret.empty() && getenv("NLS_SK_ENV")) {
+    g_akSecret.assign(getenv("NLS_SK_ENV"));
+  }
+  if (g_appkey.empty() && getenv("NLS_APPKEY_ENV")) {
+    g_appkey.assign(getenv("NLS_APPKEY_ENV"));
+  }
+
   if ((g_token.empty() && (g_akId.empty() || g_akSecret.empty())) ||
       g_appkey.empty()) {
     std::cout << "short of params..." << std::endl;
+    std::cout << "if ak/sk is empty, please setenv NLS_AK_ENV&NLS_SK_ENV&NLS_APPKEY_ENV" << std::endl;
     return 1;
   }
   return 0;
@@ -1734,7 +2086,14 @@ int main(int argc, char* argv[]) {
       << "  --akId <AccessKey ID>\n"
       << "  --akSecret <AccessKey Secret>\n"
       << "  --token <Token>\n"
+      << "  --tokenDomain <the domain of token>\n"
+      << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
+      << "  --tokenApiVersion <the ApiVersion of token>\n"
+      << "      mcos:  2022-08-11\n"
       << "  --url <Url>\n"
+      << "      public(default): wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
+      << "      internal: ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
+      << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
       << "  --threads <Thread Numbers, default 1>\n"
       << "  --time <Timeout secs, default 60 seconds>\n"
       << "  --type <audio type, default pcm>\n"
@@ -1743,6 +2102,9 @@ int main(int argc, char* argv[]) {
       << "  --long <long connection: 1, short connection: 0, default 0>\n"
       << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
       << "  --noSleep <use sleep after sendAudio(), default 0>\n"
+      << "  --audioFile <the absolute path of audio file>\n"
+      << "  --loop <loop count>\n"
+      << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, invoke is async.>\n"
       << "eg:\n"
       << "  ./srDemo --appkey xxxxxx --token xxxxxx\n"
       << "  ./srDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads 4 --time 3600\n"
@@ -1756,7 +2118,14 @@ int main(int argc, char* argv[]) {
   std::cout << " appKey: " << g_appkey << std::endl;
   std::cout << " akId: " << g_akId << std::endl;
   std::cout << " akSecret: " << g_akSecret << std::endl;
+  std::cout << " domain for token: " << g_domain << std::endl;
+  std::cout << " apiVersion for token: " << g_api_version << std::endl;
   std::cout << " threads: " << g_threads << std::endl;
+  if (!g_audio_path.empty()) {
+    std::cout << " audio files path: " << g_audio_path << std::endl;
+  }
+  std::cout << " loop timeout: " << loop_timeout << std::endl;
+  std::cout << " loop count: " << loop_count << std::endl;
   std::cout << "\n" << std::endl;
 
   pthread_mutex_init(&params_mtx, NULL);
@@ -1764,7 +2133,12 @@ int main(int argc, char* argv[]) {
   if (profile_scan > 0) {
     g_sys_info = new PROFILE_INFO[profile_scan + 1];
     memset(g_sys_info, 0, sizeof(PROFILE_INFO) * (profile_scan + 1));
+
+    // 启动 profile扫描, 同时关闭sys数据打印
+    global_sys = false;
   } else {
+    // 不进行性能扫描时, profile_scan赋为0, cur_profile_scan默认-1,
+    // 即后续只跑一次startWorkThread
     profile_scan = 0;
   }
 
@@ -1780,7 +2154,7 @@ int main(int argc, char* argv[]) {
     if (logLevel > 0) {
       int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
           "log-recognizer", (AlibabaNls::LogLevel)logLevel, 400, 50); //"log-recognizer"
-      if (-1 == ret) {
+      if (ret < 0) {
         std::cout << "set log failed." << std::endl;
         return -1;
       }
@@ -1800,29 +2174,54 @@ int main(int argc, char* argv[]) {
       AlibabaNls::NlsClient::getInstance()->setUseSysGetAddrInfo(true);
     }
 
+    // g_sync_timeout等于0，即默认未调用setSyncCallTimeout()
+    // 异步方式调用
+    //   start(): 需要等待返回started事件表示成功启动，或返回TaskFailed事件表示失败。
+    //   stop(): 需要等待返回closed事件则表示完成此次交互。
+    // 同步方式调用
+    //   start()/stop() 调用返回即表示交互启动/结束。
+    if (g_sync_timeout > 0) {
+      AlibabaNls::NlsClient::getInstance()->setSyncCallTimeout(g_sync_timeout);
+    }
+
+    std::cout << "startWorkThread begin... " << std::endl;
+
     // 启动工作线程, 在创建请求和启动前必须调用此函数
     // 入参为负时, 启动当前系统中可用的核数
-    // 高并发的情况下推荐4, 单请求的情况推荐为1
-    AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);
+    if (cur_profile_scan == -1) {
+      // 高并发的情况下推荐4, 单请求的情况推荐为1
+      // 若高并发CPU占用率较高, 则可填-1启用所有CPU核
+      AlibabaNls::NlsClient::getInstance()->startWorkThread(g_cpu);
+    } else {
+      AlibabaNls::NlsClient::getInstance()->startWorkThread(cur_profile_scan);
+    }
+
+    std::cout << "startWorkThread finish" << std::endl;
 
     // 识别多个音频数据
-    speechRecognizerMultFile(g_appkey.c_str(), g_threads);
+    int ret = speechRecognizerMultFile(g_appkey.c_str(), g_threads);
+    if (ret) {
+      std::cout << "speechRecognizerMultFile failed." << std::endl;
+      AlibabaNls::NlsClient::releaseInstance();
+      break;
+    }
 
     // 所有工作完成，进程退出前，释放nlsClient.
     // 请注意, releaseInstance()非线程安全.
     AlibabaNls::NlsClient::releaseInstance();
 
     int size = g_statistics.size();
-    int run_count = 0;
     int success_count = 0;
     if (size > 0) {
       std::map<unsigned long, struct ParamStatistics *>::iterator it;
       std::cout << "\n" << std::endl;
-      std::cout << "threads run count:" << run_count
-        << " success count:" << success_count << std::endl;
-      std::cout << "requests run count:" << run_cnt
-        << " success count:" << run_success
-        << " fail count:" << run_fail << std::endl;
+
+      std::cout << "Threads count:" << g_threads
+        << ", Requests count:" << run_cnt << std::endl;
+      std::cout << "    success:" << run_success
+        << " cancel:" << run_cancel
+        << " fail:" << run_fail
+        << " start_failed:" << run_start_failed << std::endl;
 
       usleep(3000 * 1000);
 
@@ -1841,6 +2240,7 @@ int main(int argc, char* argv[]) {
     }
 
     run_cnt = 0;
+    run_start_failed = 0;
     run_success = 0;
     run_fail = 0;
     std::cout << "===============================" << std::endl;
@@ -1869,6 +2269,27 @@ int main(int argc, char* argv[]) {
 
     delete[] g_sys_info;
     g_sys_info = NULL;
+  }
+
+  if (global_sys) {
+    std::cout << "WorkThread: " << g_cpu << std::endl;
+    std::cout << "  USER: " << g_ave_percent.usr_name << std::endl;
+    std::cout << "    Min: " << std::endl;
+    std::cout << "      CPU: " << g_min_percent.ave_cpu_percent
+      << " %" << std::endl;
+    std::cout << "      MEM: " << g_min_percent.ave_mem_percent
+      << " %" << std::endl;
+    std::cout << "    Max: " << std::endl;
+    std::cout << "      CPU: " << g_max_percent.ave_cpu_percent
+      << " %" << std::endl;
+    std::cout << "      MEM: " << g_max_percent.ave_mem_percent
+      << " %" << std::endl;
+    std::cout << "    Average: " << std::endl;
+    std::cout << "      CPU: " << g_ave_percent.ave_cpu_percent
+      << " %" << std::endl;
+    std::cout << "      MEM: " << g_ave_percent.ave_mem_percent
+      << " %" << std::endl;
+    std::cout << "===============================" << std::endl;
   }
 
   pthread_mutex_destroy(&params_mtx);

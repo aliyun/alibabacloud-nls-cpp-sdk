@@ -25,37 +25,39 @@
 #include "event2/dns.h"
 
 #include "nlsGlobal.h"
+#include "nlsClient.h"
 #include "iNlsRequest.h"
 #include "nlog.h"
 #include "utility.h"
 #include "connectNode.h"
 #include "workThread.h"
 #include "nlsEventNetWork.h"
+#include "nodeManager.h"
 
 namespace AlibabaNls {
 
-#define DEFAULT_OPUS_FRAME_SIZE 640
+#define MAX_SEND_TRY_AGAIN      50
 
 #ifdef _MSC_VER
 #pragma comment(lib, "ws2_32")
-#endif
 
-WorkThread *NlsEventNetWork::_workThreadArray = NULL;
-size_t NlsEventNetWork::_workThreadsNumber = 0;
-size_t NlsEventNetWork::_currentCpuNumber = 0;
-int NlsEventNetWork::_addrInFamily = AF_INET;
-char NlsEventNetWork::_directIp[64] = {0};
-bool NlsEventNetWork::_enableSysGetAddr = false;
-
-#if defined(_MSC_VER)
-HANDLE NlsEventNetWork::_mtxThread = CreateMutex(NULL, FALSE, NULL);
+HANDLE NlsEventNetWork::_mtxThread = NULL;
 #else
 pthread_mutex_t NlsEventNetWork::_mtxThread = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
-NlsEventNetWork * NlsEventNetWork::_eventClient = new NlsEventNetWork();
+NlsEventNetWork * NlsEventNetWork::_eventClient = NULL;
 
-NlsEventNetWork::NlsEventNetWork() {}
+NlsEventNetWork::NlsEventNetWork() {
+  _workThreadArray = NULL;
+  _workThreadsNumber = 0;
+  _currentCpuNumber = 0;
+  _addrInFamily = 0;
+  _directIp[64] = {0};
+  _enableSysGetAddr = false;
+  _syncCallTimeoutMs = 0;
+}
+
 NlsEventNetWork::~NlsEventNetWork() {}
 
 void NlsEventNetWork::DnsLogCb(int w, const char *m) {
@@ -63,32 +65,36 @@ void NlsEventNetWork::DnsLogCb(int w, const char *m) {
 }
 
 void NlsEventNetWork::initEventNetWork(
-    int count, char *aiFamily, char *directIp, bool sysGetAddr) {
+    NlsClient* instance, int count, char *aiFamily,
+    char *directIp, bool sysGetAddr, unsigned int syncCallTimeoutMs) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxThread, INFINITE);
 #else
   pthread_mutex_lock(&_mtxThread);
 #endif
-
+  int ret = Success;
 #if defined(_MSC_VER)
 #ifdef EVTHREAD_USE_WINDOWS_THREADS_IMPLEMENTED
   LOG_DEBUG("evthread_use_windows_thread.");
-  evthread_use_windows_threads();
-#endif
-#else
-  LOG_DEBUG("evthread_use_pthreads.");
-  evthread_use_pthreads();
+  ret = evthread_use_windows_threads();
 #endif
 
-#if defined(_MSC_VER)
   WORD wVersionRequested;
   WSADATA wsaData;
 
   wVersionRequested = MAKEWORD(2, 2);
 
   (void)WSAStartup(wVersionRequested, &wsaData);
+#else
+  LOG_DEBUG("evthread_use_pthreads.");
+  ret = evthread_use_pthreads();
 #endif
+  if (ret != Success) {
+    LOG_ERROR("Invoke evthread_use_pthreads failed, ret:%d.", ret);
+    exit(1);
+  }
 
+  _instance = instance;
   _addrInFamily = AF_INET;
   if (aiFamily != NULL) {
     if (strncmp(aiFamily, "AF_INET", 16) == 0) {
@@ -98,7 +104,7 @@ void NlsEventNetWork::initEventNetWork(
     } else if (strncmp(aiFamily, "AF_UNSPEC", 16) == 0) {
       _addrInFamily = AF_UNSPEC;
     }
-    LOG_INFO("Set sockaddr_in type: %s", aiFamily);
+    LOG_INFO("Set sockaddr_in type: %s.", aiFamily);
   }
 
   memset(_directIp, 0, 64);
@@ -106,21 +112,29 @@ void NlsEventNetWork::initEventNetWork(
     strncpy(_directIp, directIp, 64);
   }
   _enableSysGetAddr = sysGetAddr;
+  _syncCallTimeoutMs = syncCallTimeoutMs;
 
+  int cpuNumber = 1;
 #if defined(_MSC_VER)
   SYSTEM_INFO sysInfo;
   GetSystemInfo(&sysInfo);
-  WorkThread::_cpuNumber = (int)sysInfo.dwNumberOfProcessors;
+  cpuNumber = (int)sysInfo.dwNumberOfProcessors;
 #elif defined(__linux__) || defined(__ANDROID__)
-  WorkThread::_cpuNumber = (int)sysconf(_SC_NPROCESSORS_ONLN);
+  cpuNumber = (int)sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+
+#if defined(_MSC_VER)
+  WorkThread::_mtxCpu = CreateMutex(NULL, FALSE, NULL);
+#else
+  pthread_mutex_init(&WorkThread::_mtxCpu, NULL);
 #endif
 
   if (count <= 0) {
-    _workThreadsNumber = WorkThread::_cpuNumber;
+    _workThreadsNumber = cpuNumber;
   } else {
     _workThreadsNumber = count;
   }
-  LOG_INFO("Work threads number: %d", _workThreadsNumber);
+  LOG_INFO("Work threads number: %d.", _workThreadsNumber);
 
   _workThreadArray = new WorkThread[_workThreadsNumber];
 
@@ -132,12 +146,12 @@ void NlsEventNetWork::initEventNetWork(
   pthread_mutex_unlock(&_mtxThread);
 #endif
 
-  LOG_DEBUG("Init ClientNetWork done.");
+  LOG_INFO("Init NlsEventNetWork done.");
   return;
 }
 
 void NlsEventNetWork::destroyEventNetWork() {
-  LOG_INFO("destroy NlsEventNetWork begin.");
+  LOG_INFO("Destroy NlsEventNetWork(%p) begin ...", _eventClient);
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxThread, INFINITE);
 #else
@@ -147,11 +161,14 @@ void NlsEventNetWork::destroyEventNetWork() {
   delete [] _workThreadArray;
   _workThreadArray = NULL;
 
+ #if defined(_MSC_VER)
+  CloseHandle(WorkThread::_mtxCpu);
+#else
+  pthread_mutex_destroy(&WorkThread::_mtxCpu);
+#endif
+
   _workThreadsNumber = 0;
   _currentCpuNumber = 0;
-
-  delete _eventClient;
-  _eventClient = NULL;
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
@@ -159,25 +176,30 @@ void NlsEventNetWork::destroyEventNetWork() {
   pthread_mutex_unlock(&_mtxThread);
 #endif
 
-  LOG_INFO("destroy NlsEventNetWork done.");
+  LOG_INFO("Destroy NlsEventNetWork(%p) done.", _eventClient);
   return;
 }
 
+/*
+ * Description: 选择工作进程
+ * Return: 成功则返回工程进程号, 失败则返回负值.
+ * Others:
+ */
 int NlsEventNetWork::selectThreadNumber() {
   int number = 0;
 
   if (_workThreadArray != NULL) {
     number = _currentCpuNumber;
 
-    LOG_DEBUG("Select Thread NO.%d", number);
+    LOG_DEBUG("Select Thread NO:%d.", number);
 
     if (++_currentCpuNumber == _workThreadsNumber) {
       _currentCpuNumber = 0;
     }
-    LOG_DEBUG("Next NO.%d , Total:%d.",
+    LOG_DEBUG("Next NO:%d, Total:%d.",
         _currentCpuNumber, _workThreadsNumber);
   } else {
-    LOG_DEBUG("WorkThread is n't startup.");
+    LOG_ERROR("WorkThread isn't startup. Please invoke startWorkThread() first.");
     number = -1;
   }
 
@@ -191,149 +213,321 @@ int NlsEventNetWork::start(INlsRequest *request) {
   pthread_mutex_lock(&_mtxThread);
 #endif
 
-  ConnectNode *node = request->getConnectNode();
-
-  if (node && (node->getConnectNodeStatus() == NodeInvalid) &&
-      (node->getExitStatus() == ExitStopped)) {
-    // set NodeInitial and ExitInvalid
-    node->initAllStatus();
+  if (_eventClient == NULL) {
+    LOG_ERROR("NlsEventNetWork has destroyed, please invoke startWorkThread() first.");
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(EventClientEmpty);
   }
 
-  if (node && (node->getConnectNodeStatus() == NodeInitial) &&
-      (node->getExitStatus() == ExitInvalid)) {
+  ConnectNode *node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!", request);
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(NodeEmpty);
+  }
+
+  /* 长链接模式下, 若为Completed状态, 则等待其进入Closed后, 再重置状态. */
+  if (node->_isLongConnection) {
+    int try_count = 500;
+    while (try_count-- > 0 && node->getConnectNodeStatus() == NodeCompleted) {
+    #ifdef _MSC_VER
+      Sleep(1);
+    #else
+      usleep(1000);
+    #endif
+    }
+
+    if (node->getConnectNodeStatus() == NodeClosed) {
+      LOG_DEBUG("Node:%p current is NodeClosed and longConnection mode, reset status.", node);
+      node->initAllStatus();
+    }
+  }
+
+  /* invoke start
+   * Node处于刚创建完状态, 且处于非退出状态, 则可进行start操作.
+   */
+  if (node->getConnectNodeStatus() == NodeCreated && node->getExitStatus() == ExitInvalid) {
+
+    node->setConnectNodeStatus(NodeInvoking);
+
     int num = request->getThreadNumber();
     if (num < 0) {
       num = selectThreadNumber();
     }
-    if (num == -1) {
+    if (num < 0) {
+      node->setConnectNodeStatus(NodeCreated);
     #if defined(_MSC_VER)
       ReleaseMutex(_mtxThread);
     #else
       pthread_mutex_unlock(&_mtxThread);
     #endif
-      return -1;
+      return -(SelectThreadFailed);
     } else {
       request->setThreadNumber(num);
     }
 
-    LOG_DEBUG("Node:%p Select NO.%d thread.", node, num);
+    LOG_DEBUG("Request(%p) node(%p) select NO:%d thread.", request, node, num);
 
     node->_eventThread = &_workThreadArray[num];
+    node->_eventThread->setInstance(_instance);
+    node->setInstance(_instance);
     node->_eventThread->setAddrInFamily(_addrInFamily);
     if (_directIp != NULL && strnlen(_directIp, 64) > 0) {
       node->_eventThread->setDirectHost(_directIp);
     }
     node->_eventThread->setUseSysGetAddrInfo(_enableSysGetAddr);
-    WorkThread::insertQueueNode(node->_eventThread, request);
-    node->resetBufferLimit();
+    node->setSyncCallTimeout(_syncCallTimeoutMs);
 
-    char cmd = 'c';
-    int ret = send(node->_eventThread->_notifySendFd,
-                   (char *)&cmd, sizeof(char), 0);
-    if (ret < 1) {
-      LOG_ERROR("Node:%p Start command is failed.", node);
+    event_add(node->getLaunchEvent(), NULL);
+    event_active(node->getLaunchEvent(), EV_READ, 0);
+
+    node->initNlsEncoder();
+
+    if (node->_syncCallTimeoutMs > 0) {
+      node->waitInvokeFinish();
+      int error_code = node->getErrorCode();
+      if (error_code != Success) {
       #if defined(_MSC_VER)
-      ReleaseMutex(_mtxThread);
+        ReleaseMutex(_mtxThread);
       #else
-      pthread_mutex_unlock(&_mtxThread);
+        pthread_mutex_unlock(&_mtxThread);
       #endif
-      return -1;
+        return -(error_code);
+      }
     }
-    node->setConnectNodeStatus(NodeConnecting);
-  } else {
-    LOG_ERROR("Node:%p Invoke start failed:%d(%s), %d(%s).",
-        node,
-        node->getConnectNodeStatus(),
-        node->getConnectNodeStatusString().c_str(),
-        node->getExitStatus(),
-        node->getExitStatusString().c_str());
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxThread);
-    #else
-    pthread_mutex_unlock(&_mtxThread);
-    #endif
-    return -1;
-  }
 
-  node->initNlsEncoder();
+  } else if (node->getExitStatus() == ExitInvalid &&
+      node->getConnectNodeStatus() > NodeCreated &&
+      node->getConnectNodeStatus() < NodeFailed) {
+    LOG_WARN("Request(%p) node(%p) has invoked start, node status:%s, exit status:%s. skip ...",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return Success;
+  } else {
+    LOG_ERROR("Request(%p) node(%p) invoke start failed, current status is invalid. node status:%s, exit status:%s.",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+
+    node->setConnectNodeStatus(NodeCreated);
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(InvokeStartFailed);
+  }
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
 #else
   pthread_mutex_unlock(&_mtxThread);
 #endif
-  return 0;
+
+  return Success;
 }
 
 int NlsEventNetWork::sendAudio(INlsRequest *request, const uint8_t * data,
                                size_t dataSize, ENCODER_TYPE type) {
-  int ret = -1;
+  EVENT_CLIENT_CHECK(_eventClient);
   ConnectNode * node = request->getConnectNode();
-
-  // has no mtx in CppSdk3.0
-//  pthread_mutex_lock(&_mtxThread);
-
-  if ((node->getConnectNodeStatus() == NodeInitial) ||
-      (node->getExitStatus() != ExitInvalid)) {
-    LOG_ERROR("Node:%p Invoke command failed.", node);
-//    pthread_mutex_unlock(&_mtxThread);
-    return -1;
+  if (node == NULL) {
+    LOG_ERROR("The node of request:%p is nullptr, you have destroyed request!", request);
+    return -(NodeEmpty);
   }
 
-//  LOG_DEBUG("Node:%p sendAudio Type:%d, Size %zu.", node, type, dataSize);
-//  LOG_DEBUG("Node:%p sendAudio NodeStatus:%s, ExitStatus:%s",
-//      node,
-//      node->getConnectNodeStatusString(node->getConnectNodeStatus()).c_str(),
-//      node->getExitStatusString(node->getExitStatus()).c_str());
-
-  if (type == ENCODER_OPU) {
-    if (dataSize != DEFAULT_OPUS_FRAME_SIZE) {
-//      pthread_mutex_unlock(&_mtxThread);
-      LOG_ERROR("Node:%p The Opus data size is n't 640.", node);
-      return -1;
-    }
+  /* Node也许处于Starting状态还未到Started状态, 可等待一会. */
+  int try_count = 500;
+  while (try_count-- > 0 && node->getConnectNodeStatus() == NodeStarting) {
+  #ifdef _MSC_VER
+    Sleep(1);
+  #else
+    usleep(1000);
+  #endif
   }
 
-  ret = node->addAudioDataBuffer(data, dataSize);
+  if (node->getConnectNodeStatus() != NodeStarted || node->getExitStatus() != ExitInvalid) {
+    LOG_ERROR("Request(%p) node(%p) invoke sendAudio command failed, current status is invalid. node status:%s, exit status:%s.",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+    return -(InvokeSendAudioFailed);
+  }
 
-//  pthread_mutex_unlock(&_mtxThread);
-  return ret;
+  if (type != ENCODER_NONE) {
+    return node->addSlicedAudioDataBuffer(data, dataSize);
+  } else {
+    return node->addAudioDataBuffer(data, dataSize);
+  }
 }
 
-int NlsEventNetWork::stop(INlsRequest *request, int type) {
+int NlsEventNetWork::stop(INlsRequest *request) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxThread, INFINITE);
 #else
   pthread_mutex_lock(&_mtxThread);
 #endif
 
-  ConnectNode * node = request->getConnectNode();
+  if (_eventClient == NULL) {
+    LOG_ERROR("NlsEventNetWork has destroyed, please invoke startWorkThread() first.");
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(EventClientEmpty);
+  }
 
-  if ((node->getConnectNodeStatus() == NodeInitial) ||
-      (node->getExitStatus() != ExitInvalid)) {
-    LOG_ERROR("Node:%p Invoke command failed. Status:%s and %s",
-        node,
+  ConnectNode * node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!", request);
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(NodeEmpty);
+  }
+
+  /* invoke stop
+   * Node未处于运行状态, 或正处于退出状态, 则当前不可调用stop.
+   */
+  if (node->getExitStatus() == ExitStopping) {
+    LOG_WARN("Request(%p) node(%p) has invoked stop, node status:%s, exit status:%s. skip ...",
+        request, node,
         node->getConnectNodeStatusString().c_str(),
         node->getExitStatusString().c_str());
-#if defined(_MSC_VER)
+  #if defined(_MSC_VER)
     ReleaseMutex(_mtxThread);
-#else
+  #else
     pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return Success;
+  } else if (node->getExitStatus() == ExitCancel) {
+    LOG_WARN("Request(%p) node(%p) has invoked cancel, node status:%s, exit status:%s. skip ...",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return Success;
+  }
+
+  if (node->getConnectNodeStatus() < NodeInvoking ||
+      node->getConnectNodeStatus() >= NodeFailed ||
+      node->getExitStatus() != ExitInvalid) {
+    LOG_ERROR("Request(%p) node(%p) invoke stop command failed, current status is invalid. node status:%s, exit status:%s.",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(InvokeStopFailed);
+  }
+
+  int ret = node->cmdNotify(CmdStop, NULL);
+
+  if (node->_syncCallTimeoutMs > 0) {
+    node->waitInvokeFinish();
+    int error_code = node->getErrorCode();
+    if (error_code != Success) {
+    #if defined(_MSC_VER)
+      ReleaseMutex(_mtxThread);
+    #else
+      pthread_mutex_unlock(&_mtxThread);
+    #endif
+      return -(error_code);
+    }
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxThread);
+#else
+  pthread_mutex_unlock(&_mtxThread);
 #endif
-    return -1;
+
+  return ret;
+}
+
+int NlsEventNetWork::cancel(INlsRequest *request) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxThread, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxThread);
+#endif
+
+  if (_eventClient == NULL) {
+    LOG_ERROR("NlsEventNetWork has destroyed, please invoke startWorkThread() first.");
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(EventClientEmpty);
   }
 
-  LOG_INFO("Node:%p call stop %d.", node, type);
-
-  int ret = -1;
-  if (type == 0) {
-    ret = node->cmdNotify(CmdStop, NULL);
-  } else if (type == 1) {
-    ret = node->cmdNotify(CmdCancel, NULL);
-  } else if (type == 2) {
-    ret = node->cmdNotify(CmdWarkWord, NULL);
-  } else {
+  ConnectNode * node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!", request);
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(NodeEmpty);
   }
+
+  /* invoke cancel
+   * Node未处于运行状态, 或正处于退出状态, 则当前不可调用stop.
+   */
+  if (node->getExitStatus() == ExitCancel) {
+    LOG_WARN("Request(%p) node(%p) has invoked cancel, node status:%s, exit status:%s. skip ...",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return Success;
+  }
+  if (node->getConnectNodeStatus() < NodeInvoking ||
+      node->getConnectNodeStatus() >= NodeClosed) {
+        LOG_ERROR("Request(%p) node(%p) invoke cancel command failed, current status is invalid. node status:%s, exit status:%s.",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(InvokeCancelFailed);
+  }
+
+  int ret = node->cmdNotify(CmdCancel, NULL);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
@@ -350,17 +544,41 @@ int NlsEventNetWork::stControl(INlsRequest *request, const char* message) {
   pthread_mutex_lock(&_mtxThread);
 #endif
 
-  ConnectNode * node = request->getConnectNode();
-
-  if ((node->getConnectNodeStatus() == NodeInitial) ||
-      (node->getExitStatus() != ExitInvalid)) {
-    LOG_ERROR("Node:%p Invoke command failed.", node);
-#if defined(_MSC_VER)
+  if (_eventClient == NULL) {
+    LOG_ERROR("NlsEventNetWork has destroyed, please invoke startWorkThread() first.");
+  #if defined(_MSC_VER)
     ReleaseMutex(_mtxThread);
-#else
+  #else
     pthread_mutex_unlock(&_mtxThread);
-#endif
-    return -1;
+  #endif
+    return -(EventClientEmpty);
+  }
+
+  ConnectNode * node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!", request);
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(NodeEmpty);
+  }
+
+  /* invoke stControl
+   * Node未处于started状态, 或处于退出状态, 则当前不可调用stControl.
+   */
+  if (node->getConnectNodeStatus() != NodeStarted || node->getExitStatus() != ExitInvalid) {
+    LOG_ERROR("Request(%p) node(%p) invoke stControl command failed, current status is invalid. node status:%s, exit status:%s.",
+        request, node,
+        node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+  #endif
+    return -(InvokeStControlFailed);
   }
 
   int ret = node->cmdNotify(CmdStControl, message);
@@ -370,8 +588,11 @@ int NlsEventNetWork::stControl(INlsRequest *request, const char* message) {
 #else
   pthread_mutex_unlock(&_mtxThread);
 #endif
-  LOG_INFO("Node:%p call stConreol.", node);
   return ret;
+}
+
+NlsClient* NlsEventNetWork::getInstance() {
+  return _instance;
 }
 
 }  // namespace AlibabaNls

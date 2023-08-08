@@ -22,7 +22,6 @@
 #else
 #include <pthread.h>
 #endif
-#include <string>
 #include "nlsGlobal.h"
 
 namespace AlibabaNls {
@@ -57,7 +56,7 @@ enum DaVersion {
   DaV2
 };
 
-
+typedef void (*LogCallbackMethod)(const char *, int, const char *);
 
 class NLS_SDK_CLIENT_EXPORT NlsClient {
 
@@ -76,10 +75,12 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    *                    如果日志文件内容的大小超过这个值，
    *                    SDK会自动备份当前的日志文件，超过后会循环覆盖已有文件
    * @param logFileNum  日志文件循环存储最大数，默认10个文件
-   * @return 成功则返回0，失败返回-1
+   * @param logCallback 日志推送的回调
+   * @return 成功则返回0; 失败返回负值, 详见NlsRetCode
    */
   int setLogConfig(const char* logOutputFile, const LogLevel logLevel,
-                   unsigned int logFileSize = 10, unsigned int logFileNum = 10);
+                   unsigned int logFileSize = 10, unsigned int logFileNum = 10,
+                   LogCallbackMethod logCallback = NULL);
 
   /*
    * @brief 创建一句话识别对象
@@ -98,19 +99,6 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   void releaseRecognizerRequest(SpeechRecognizerRequest* request);
 
   /*
-   * @brief 创建一句话同步识别对象
-   * @return 成功返回SpeechRecognizerSyncRequest对象，否则返回NULL
-   */
-  //SpeechRecognizerSyncRequest* createRecognizerSyncRequest();
-
-  /*
-   * @brief 销毁一句话同步识别对象
-   * @param request  createRecognizerSyncRequest所建立的request对象
-   * @return
-   */
-  //void releaseRecognizerSyncRequest(SpeechRecognizerSyncRequest* request);
-
-  /*
    * @brief 创建实时音频流识别对象
    * @param onResultReceivedEvent  事件回调接口
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -125,19 +113,6 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return
    */
   void releaseTranscriberRequest(SpeechTranscriberRequest* request);
-
-  /*
-   * @brief 创建实时音频流同步识别对象
-   * @return 成功返回SpeechTranscriberSyncRequest对象，否则返回NULL
-   */
-  //SpeechTranscriberSyncRequest* createTranscriberSyncRequest();
-
-  /*
-   * @brief 销毁实时音频流同步识别对象
-   * @param request  createTranscriberSyncRequest所建立的request对象
-   * @return
-   */
-  //void releaseTranscriberSyncRequest(SpeechTranscriberSyncRequest* request);
 
   /*
    * @brief 创建语音合成对象
@@ -192,7 +167,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   void setAddrInFamily(const char* aiFamily = "AF_INET");
 
   /*
-   * @brief 跳过dns域名解析直接设置服务器ip地址，若调用则需要在startWorkThread之前
+   * @brief 跳过dns域名解析直接设置服务器ipv4地址，若调用则需要在startWorkThread之前
    * @param ipv4的ip地址 比如106.15.83.44
    * @return
    */
@@ -207,6 +182,27 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return
    */
   void setUseSysGetAddrInfo(bool enable);
+
+  /*
+   * @brief 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
+   *        此模式start()后收到服务端结果再return出去,
+   *        stop()后收到close()回调再return出去.
+   * @param
+   * @return
+   */
+  void setSyncCallTimeout(unsigned int timeout_ms);
+
+  /*
+   * @brief 待合成音频文本内容字符数
+   * @note 必选参数，需要传入UTF-8编码的文本内容
+   *       短文本语音合成模式下(默认), 支持一次性合成300字符以内的文字,
+   *       其中1个汉字、1个英文字母或1个标点均算作1个字符,
+   *       超过300个字符的内容将会报错(或者截断).
+   *       超过300个字符可考虑长文本语音合成, 详见官方文档.
+   * @param value	待合成文本字符串
+   * @return 返回字符数
+   */
+  int calculateUtf8Chars(const char* value);
 
   /*
    * @brief 启动工作线程数量
@@ -229,6 +225,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   static void releaseInstance();
 
+  void* getNodeManger();
+
  private:
   NlsClient();
   ~NlsClient();
@@ -246,9 +244,12 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   static char _aiFamily[16];
   static char _direct_host_ip[64];
   static bool _enableSysGetAddr;
+  static unsigned int _syncCallTimeoutMs;
+
+  void* _node_manager;
 
 }; // class NLS_SDK_CLIENT_EXPORT NlsClient
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_CLIENT_H
+#endif // NLS_SDK_CLIENT_H

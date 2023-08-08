@@ -25,8 +25,12 @@
 #include "oggopusAudioIn.h"
 #include "oggopusHeader.h"
 #include "nlog.h"
+#include "nlsGlobal.h"
 
 namespace AlibabaNls {
+
+/*1600 表示 16K音频100ms数据*/
+#define FRAME_SAMPLE_NUM 1600
 
 int OggOpusDataEncoderPara::InitComment() {
   int opus_version_len = strlen(opus_version);
@@ -34,7 +38,7 @@ int OggOpusDataEncoderPara::InitComment() {
   char *p = reinterpret_cast<char *>(malloc(len));
   if (p == NULL) {
     LOG_ERROR("malloc failed in CommentInit()");
-    return -1;
+    return -(MallocFailed);
   }
   memset(p, 0, len);
   memcpy(p, "OpusTags", 8);
@@ -44,7 +48,7 @@ int OggOpusDataEncoderPara::InitComment() {
   ogg_encode_opt.comments_length = len;
   ogg_encode_opt.comments = p;
 
-  return 0;
+  return Success;
 }
 
 int OggOpusDataEncoderPara::AddComment() {
@@ -59,7 +63,7 @@ int OggOpusDataEncoderPara::AddComment() {
   p = reinterpret_cast<char *>(realloc(p, len));
   if (p == NULL) {
     LOG_ERROR("realloc failed in CommentAdd()");
-    return -1;
+    return -(ReallocFailed);
   }
   /* length of comment */
   writeint(p, ogg_encode_opt.comments_length, tag_len+val_len);
@@ -72,7 +76,7 @@ int OggOpusDataEncoderPara::AddComment() {
   ogg_encode_opt.comments_length = len;
   ogg_encode_opt.comments = p;
 
-  return 0;
+  return Success;
 }
 
 /* 通过回调把数据推送到数据队列中 */
@@ -100,11 +104,16 @@ OggOpusDataEncoder::OggOpusDataEncoder() :
   ogg_opus_para_(NULL),
   is_first_frame_processed_(false),
   sample_rate_(16000),
-  frame_sample_num_(320),
-  frame_sample_bytes_(640),
+  frame_sample_num_(FRAME_SAMPLE_NUM),
+  frame_sample_bytes_(FRAME_SAMPLE_NUM * 2), /*100ms*/
   encoder_bitrate_(16000),
   channel_num_(1),
   encoder_complexity_(8) {
+    LOG_DEBUG("sample_rate: %d", sample_rate_);
+    LOG_DEBUG("frame_sample_num: %d", frame_sample_num_);
+    LOG_DEBUG("frame_sample_bytes_: %d", frame_sample_bytes_);
+    LOG_DEBUG("encoder_bitrate: %d", encoder_bitrate_);
+    LOG_DEBUG("encoder_complexity: %d", encoder_complexity_);
 }
 
 void OggOpusDataEncoder::ResetParameters(
@@ -118,7 +127,7 @@ void OggOpusDataEncoder::ResetParameters(
   ogg_opus_para_->id = -1;
   ogg_opus_para_->last_segments = 0;
   ogg_opus_para_->nbBytes = -1;
-  ogg_opus_para_->max_frame_bytes = 1280;
+  ogg_opus_para_->max_frame_bytes = FRAME_SAMPLE_NUM * 2 * 2; /*200ms*/
   ogg_opus_para_->bitrate = encoder_bitrate_;
   ogg_opus_para_->complexity = encoder_complexity_;
   ogg_opus_para_->max_ogg_delay = 200;
@@ -144,6 +153,12 @@ void OggOpusDataEncoder::ResetParameters(
   ogg_opus_para_->os.body_data = NULL;
   ogg_opus_para_->os.lacing_vals = NULL;
   ogg_opus_para_->os.granule_vals = NULL;
+
+  LOG_DEBUG("opus_version: %s", ogg_opus_para_->opus_version);
+  LOG_DEBUG("max_frame_bytes: %d", ogg_opus_para_->max_frame_bytes);
+  LOG_DEBUG("bitrate: %d", ogg_opus_para_->bitrate);
+  LOG_DEBUG("complexity: %d", ogg_opus_para_->complexity);
+  LOG_DEBUG("max_ogg_delay: %d", ogg_opus_para_->max_ogg_delay);
 }
 
 int OggOpusDataEncoder::OggopusEncoderCreate(
@@ -453,7 +468,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
     }
     return kNlsOpusEncodeFailed;
   }
-  ogg_opus_para_->enc_granulepos += 320 * 3;
+  ogg_opus_para_->enc_granulepos += FRAME_SAMPLE_NUM * 3;
   size_segments = (ogg_opus_para_->nbBytes + 255) / 255;
 
   /*Flush early if adding this packet would make us end up with a
@@ -514,7 +529,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
   /*If the stream is over or we're sure that the delayed flush will fire,
     go ahead and flush now to avoid adding delay.*/
   while ((ogg_opus_para_->op.e_o_s ||
-          (ogg_opus_para_->enc_granulepos + (320 * 3) -
+          (ogg_opus_para_->enc_granulepos + (FRAME_SAMPLE_NUM * 3) -
            ogg_opus_para_->last_granulepos > ogg_opus_para_->max_ogg_delay) ||
           (ogg_opus_para_->last_segments >= 255)) ?
          ogg_stream_flush_fill(&ogg_opus_para_->os, &ogg_opus_para_->og,

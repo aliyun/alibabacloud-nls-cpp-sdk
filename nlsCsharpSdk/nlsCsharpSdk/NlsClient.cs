@@ -81,6 +81,36 @@ namespace nlsCsharpSdk
         }
         #endregion
 
+        #region Set the ipv4 address
+        /// <summary>
+        /// 跳过dns域名解析直接设置服务器ip地址, 若调用则需要在StartWorkThread之前.
+        /// </summary>
+        /// <param name="ip">
+        /// ipv4的地址 比如106.15.83.44
+        /// </param>
+        /// <returns></returns>
+        public void SetDirectHost(string ip)
+        {
+            NativeMethods.NlsSetDirectHost(ip);
+        }
+        #endregion
+
+        #region calculate the text
+        /// <summary>
+        /// 待合成音频文本内容字符数.
+        /// </summary>
+        /// <param name="text">
+        /// 需要传入UTF-8编码的文本内容
+        /// </param>
+        /// <returns>
+        /// 返回字符数
+        /// </returns>
+        public int CalculateUtf8Chars(string text)
+        {
+            return NativeMethods.NlsCalculateUtf8Chars(text);
+        }
+        #endregion
+
         #region Start WorkThread (Init NLS SDK)
         /// <summary>
         /// 启动工作线程数量, 同时也是NLS SDK的初始化步骤.
@@ -134,6 +164,7 @@ namespace nlsCsharpSdk
         public void ReleaseTranscriberRequest(SpeechTranscriberRequest request)
         {
             NativeMethods.NlsReleaseTranscriberRequest(request.native_request);
+            request.native_request = IntPtr.Zero;
             return;
         }
         #endregion
@@ -163,6 +194,7 @@ namespace nlsCsharpSdk
         public void ReleaseRecognizerRequest(SpeechRecognizerRequest request)
         {
             NativeMethods.NlsReleaseRecognizerRequest(request.native_request);
+            request.native_request = IntPtr.Zero;
             return;
         }
         #endregion
@@ -195,6 +227,7 @@ namespace nlsCsharpSdk
         public void ReleaseSynthesizerRequest(SpeechSynthesizerRequest request)
         {
             NativeMethods.NlsReleaseSynthesizerRequest(request.native_request);
+            request.native_request = IntPtr.Zero;
             return;
         }
         #endregion
@@ -224,6 +257,7 @@ namespace nlsCsharpSdk
         public void ReleaseFileTransferRequest(FileTransferRequest request)
         {
             NativeMethods.NlsReleaseFileTransferRequest(request.native_request);
+            request.native_request = IntPtr.Zero;
             return;
         }
         #endregion
@@ -253,6 +287,7 @@ namespace nlsCsharpSdk
         public void ReleaseNlsToken(NlsToken token)
         {
             NativeMethods.NlsReleaseNlsToken(token.native_token);
+            token.native_token = IntPtr.Zero;
             return;
         }
         #endregion

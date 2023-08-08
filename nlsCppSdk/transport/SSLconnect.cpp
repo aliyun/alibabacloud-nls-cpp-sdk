@@ -30,18 +30,25 @@ SSL_CTX* SSLconnect::_sslCtx = NULL;
 
 SSLconnect::SSLconnect() {
   _ssl = NULL;
+  _ssl_try_again = 0;
+
+  LOG_DEBUG("Create SSLconnect:%p.", this);
 }
 
 SSLconnect::~SSLconnect() {
   sslClose();
-  LOG_DEBUG("destroy SSLconnect done..");
+  _ssl_try_again = 0;
+
+  LOG_DEBUG("SSL(%p) Destroy SSLconnect done.", this);
 }
 
 int SSLconnect::init() {
-  _sslCtx = SSL_CTX_new(SSLv23_client_method());
   if (_sslCtx == NULL) {
-    LOG_ERROR("SSL: couldn't create a context!");
-    exit(1);
+    _sslCtx = SSL_CTX_new(SSLv23_client_method());
+    if (_sslCtx == NULL) {
+      LOG_ERROR("SSL: couldn't create a context!");
+      exit(1);
+    }
   }
 
   SSL_CTX_set_verify(_sslCtx, SSL_VERIFY_NONE, NULL);
@@ -52,12 +59,12 @@ int SSLconnect::init() {
       SSL_MODE_AUTO_RETRY);
 
   LOG_DEBUG("SSLconnect::init() done.");
-  return 0;
+  return Success;
 }
 
 void SSLconnect::destroy() {
   if (_sslCtx) {
-    //LOG_DEBUG("_sslCtx free.");
+    // LOG_DEBUG("free _sslCtx.");
     SSL_CTX_free(_sslCtx);
     _sslCtx = NULL;
   }
@@ -66,13 +73,11 @@ void SSLconnect::destroy() {
 }
 
 int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
-  //LOG_DEBUG("begin sslHandshake.");
-
+  // LOG_DEBUG("Begin sslHandshake.");
   if (_sslCtx == NULL) {
-    return -1;
+    LOG_ERROR("SSL(%p) _sslCtx has been released.", this);
+    return -(SslCtxEmpty);
   }
-
-  //LOG_DEBUG("sslHandshake 000.");
 
   int ret;
   if (_ssl == NULL) {
@@ -84,8 +89,8 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       ERR_error_string_n(ERR_get_error(),
                          _errorMsg + strnlen(SSL_new_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("SSL SSL_new failed:%s.", _errorMsg);
-      return -1;
+      LOG_ERROR("SSL(%p) Invoke SSL_new failed:%s.", this, _errorMsg);
+      return -(SslNewFailed);
     }
 
     ret = SSL_set_fd(_ssl, socketFd);
@@ -96,11 +101,9 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       ERR_error_string_n(ERR_get_error(),
                          _errorMsg + strnlen(SSL_set_fd_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("SSL set_fd failed:%s.", _errorMsg);
-      return -1;
+      LOG_ERROR("SSL(%p) Invoke SSL_set_fd failed:%s.", this, _errorMsg);
+      return -(SslSetFailed);
     }
-
-    //LOG_DEBUG("sslHandshake 001.");
 
     SSL_set_mode(_ssl,
         SSL_MODE_ENABLE_PARTIAL_WRITE |
@@ -108,6 +111,8 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
         SSL_MODE_AUTO_RETRY);
 
     SSL_set_connect_state(_ssl);
+  } else {
+    // LOG_DEBUG("SSL has existed.");
   }
 
   int sslError;
@@ -120,16 +125,20 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
     // sslError == SSL_ERROR_WANT_X509_LOOKUP
     // SSL_ERROR_SYSCALL
     if (sslError == SSL_ERROR_WANT_READ || sslError == SSL_ERROR_WANT_WRITE) {
-      //LOG_DEBUG("sslHandshake continue.");
+      // LOG_DEBUG("sslHandshake continue.");
       return sslError;
     } else if (sslError == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
-      LOG_INFO("SSL connect failed:%d.", errno_code);
+      LOG_INFO("SSL(%p) SSL connect error_syscall failed, errno:%d.", this, errno_code);
+
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
         return SSL_ERROR_WANT_READ;
+      } else if (errno_code == 0) {
+        LOG_DEBUG("SSL(%p) SSL connect syscall success.", this);
+        return Success;
       } else {
-        return -1;
+        return -(SslConnectFailed);
       }
     } else {
       memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -138,104 +147,145 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
       ERR_error_string_n(ERR_get_error(),
                          _errorMsg + strnlen(SSL_connect_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("SSL connect failed:%s.", _errorMsg);
+      LOG_ERROR("SSL(%p) SSL connect failed:%s.", this, _errorMsg);
       sslClose();
-      return -1;
+      return -(SslConnectFailed);
     }
   } else {
-    LOG_DEBUG("sslHandshake success.");
-    return 0;
+    // LOG_DEBUG("sslHandshake success.");
+    return Success;
   }
 }
 
 int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
+  if (_ssl == NULL) {
+    LOG_ERROR("SSL(%p) ssl has been closed.", this);
+    return -(SslWriteFailed);
+  }
+
   int wLen = SSL_write(_ssl, (void *)buffer, (int)len);
   if (wLen < 0) {
     int eCode = SSL_get_error(_ssl, wLen);
-    if (eCode == SSL_ERROR_WANT_READ ||
-      eCode == SSL_ERROR_WANT_WRITE) {
-      LOG_DEBUG("Write could not complete. Will be invoked later.");
+    int errno_code = utility::getLastErrorCode();
+    char sslErrMsg[MAX_SSL_ERROR_LENGTH] = {0};
+    if (eCode == SSL_ERROR_WANT_READ || eCode == SSL_ERROR_WANT_WRITE) {
+      LOG_DEBUG("SSL(%p) Write could not complete. Will be invoked later.", this);
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
-      int errno_code = utility::getLastErrorCode();
-      LOG_INFO("SSL_write failed:%d.", errno_code);
+      LOG_INFO("SSL(%p) SSL_write error_syscall failed, errno:%d.", this, errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
+        return 0;
+      } else if (errno_code == 0) {
+        LOG_DEBUG("SSL(%p) SSL_write syscall success.", this);
         return 0;
       } else {
         memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
         const char *SSL_write_ret = "return of SSL_write: ";
-        memcpy(_errorMsg, SSL_write_ret, strnlen(SSL_write_ret, 64));
+        memcpy(sslErrMsg, SSL_write_ret, strnlen(SSL_write_ret, 64));
         ERR_error_string_n(ERR_get_error(),
-                           _errorMsg + strnlen(SSL_write_ret, 64),
+                           sslErrMsg + strnlen(SSL_write_ret, 64),
                            MAX_SSL_ERROR_LENGTH);
-        LOG_ERROR("SSL_ERROR_SYSCALL Ssl write failed:%s.", _errorMsg);
-        return -1;
+        snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
+        LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Write failed: %s.", this, _errorMsg);
+        return -(SslWriteFailed);
       }
     } else {
       memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
       const char *SSL_write_ret = "return of SSL_write: ";
-      memcpy(_errorMsg, SSL_write_ret, strnlen(SSL_write_ret, 64));
+      memcpy(sslErrMsg, SSL_write_ret, strnlen(SSL_write_ret, 64));
       ERR_error_string_n(ERR_get_error(),
-                         _errorMsg + strnlen(SSL_write_ret, 64),
+                         sslErrMsg + strnlen(SSL_write_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("Ssl write failed:%s.", _errorMsg);
-      return -1;
+      if (eCode == SSL_ERROR_ZERO_RETURN && errno_code == 0) {
+        snprintf(
+            _errorMsg, MAX_SSL_ERROR_LENGTH,
+            "%s. errno_code:%d eCode:%d. It's mean this connection was closed or shutdown because of bad network.",
+            sslErrMsg, errno_code, eCode);
+      } else {
+        snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
+      }
+      LOG_ERROR("SSL(%p) SSL_write failed: %s.", this, _errorMsg);
+      return -(SslWriteFailed);
     }
-  } else {
-    return wLen;
   }
+
+  return wLen;
 }
 
-int SSLconnect::sslRead(uint8_t *  buffer, size_t len) {
+int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
+  if (_ssl == NULL) {
+    LOG_ERROR("SSL(%p) ssl has been closed.", this);
+    return -(SslReadFailed);
+  }
+
   int rLen = SSL_read(_ssl, (void *)buffer, (int)len);
   if (rLen <= 0) {
     int eCode = SSL_get_error(_ssl, rLen);
+    int errno_code = utility::getLastErrorCode();
+    char sslErrMsg[MAX_SSL_ERROR_LENGTH] = {0};
     //LOG_WARN("Read maybe failed, get_error:%d", eCode);
     if (eCode == SSL_ERROR_WANT_READ ||
         eCode == SSL_ERROR_WANT_WRITE ||
         eCode == SSL_ERROR_WANT_X509_LOOKUP) {
-      //LOG_DEBUG("Read could not complete. Will be invoked later.");
+      LOG_WARN("SSL(%p) Read could not complete. Will be invoked later.", this);
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
-      int errno_code = utility::getLastErrorCode();
-      LOG_WARN("SSL_read failed:%d.", errno_code);
+      LOG_INFO("SSL(%p) SSL_read error_syscall failed, errno:%d.", this, errno_code);
+
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
+        LOG_WARN("SSL(%p) Retry read...", this);
+        return 0;
+      } else if (errno_code == 0) {
+        LOG_DEBUG("SSL(%p) SSL_write syscall success.", this);
         return 0;
       } else {
         memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
         const char *SSL_read_ret = "return of SSL_read: ";
-        memcpy(_errorMsg, SSL_read_ret, strnlen(SSL_read_ret, 64));
-        ERR_error_string_n(eCode,
-                           _errorMsg + strnlen(SSL_read_ret, 64),
+        memcpy(sslErrMsg, SSL_read_ret, strnlen(SSL_read_ret, 64));
+        ERR_error_string_n(ERR_get_error(),
+                           sslErrMsg + strnlen(SSL_read_ret, 64),
                            MAX_SSL_ERROR_LENGTH);
-        LOG_ERROR("SSL_ERROR_SYSCALL Read failed:%d, %s.", eCode, _errorMsg);
-        return -1;
+        snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
+        LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Read failed:, %s.", this, _errorMsg);
+        return -(SslReadSysError);
       }
     } else {
       memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
-//      ERR_error_string_n(eCode, _errorMsg, MAX_SSL_ERROR_LENGTH);
       const char *SSL_read_ret = "return of SSL_read: ";
-      memcpy(_errorMsg, SSL_read_ret, strnlen(SSL_read_ret, 64));
+      memcpy(sslErrMsg, SSL_read_ret, strnlen(SSL_read_ret, 64));
       ERR_error_string_n(ERR_get_error(),
-                         _errorMsg + strnlen(SSL_read_ret, 64),
+                         sslErrMsg + strnlen(SSL_read_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
-      LOG_ERROR("Read failed:%d, %s.", eCode, _errorMsg);
-      return -1;
+      if (eCode == SSL_ERROR_ZERO_RETURN && errno_code == 0 && ++_ssl_try_again <= MAX_SSL_TRY_AGAIN) {
+        snprintf(
+            _errorMsg, MAX_SSL_ERROR_LENGTH,
+            "%s. errno_code:%d eCode:%d. It's mean this connection was closed or shutdown because of bad network, Try again ...",
+            sslErrMsg, errno_code, eCode);
+        LOG_WARN("SSL(%p) SSL_read failed: %s.", this, _errorMsg);
+        return 0;
+      } else {
+        snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
+      }
+      LOG_ERROR("SSL(%p) SSL_read failed: %s.", this, _errorMsg);
+      return -(SslReadFailed);
     }
-  } else {
-    return rLen;
   }
+
+  _ssl_try_again = 0;
+  return rLen;
 }
 
 /*
- * 关闭TLS/SSL连接
+ * Description: 关闭TLS/SSL连接
+ * Return:
+ * Others:
  */
 void SSLconnect::sslClose() {
   if (_ssl) {
-    LOG_DEBUG("ssl connect close.");
+    LOG_DEBUG("SSL(%p) ssl connect close.", this);
 
     SSL_shutdown(_ssl);
     SSL_free(_ssl);

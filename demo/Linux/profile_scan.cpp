@@ -39,7 +39,7 @@ void get_profile_info (const char *exec, PROFILE_INFO *info) {
 
         if (strstr(buff, "--appkey") != NULL) {
           //      std::cout << "get return: " << buff << std::endl;
-          sscanf(buff, "%s %f %f %f",
+          sscanf(buff, "%s %u %f %f",
               cur_info->usr_name,
               &cur_info->pid,
               &cur_info->ave_cpu_percent,
@@ -55,5 +55,5 @@ void get_profile_info (const char *exec, PROFILE_INFO *info) {
       fclose(fd);  
     }
   }
-  return 0;
+  return;
 }
