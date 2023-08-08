@@ -393,4 +393,8 @@ std::string INlsRequestParam::getOutputFormat() {
   return _outputFormat;
 }
 
+std::string INlsRequestParam::getTaskId() {
+  return _task_id;
+}
+
 }  // namespace AlibabaNls

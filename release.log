@@ -100,3 +100,18 @@
 5: Windows Cpp编译工具链更新为v142, 用于支持虚幻5引擎开发
 6: 修改delegate参数, 以支持Unity3D
 
+-----2023/07/28 Version:3.1.17-----
+1: 增加control()接口可修改header中name
+2: 关闭libevent的dns大小写混合模式
+3: 修复长链接模式下在TaskFailed后重复触发_readEvent
+4: 修复丢失Closed回调的错误
+5: 增加尝试错误当SSL_read失败
+6: 增加接口getTaskId()以主动获得task_id
+7: 增加callback以加日志信息通过回调传递出来
+8: demo CMakeLists.txt中增加参数选择以支持低版本glibc环境下编译
+9: 使用系统接口进行解析时用getaddrinfo_a()替代getaddrinfo(), 以修复长时间运行崩溃的问题
+10:在使用OPUS/OPU音频格式情况下, 去掉音频数据字节数限制
+11:修复长时间运行偶现start()卡死的问题
+12:增加start()/stop()同步调用方式, 方便老版本升级
+13:修复create/release同时操作一个request指针地址时偶现崩溃的问题, 增加防止request地址容易重复的机制
+14:C++到C#结构体msg数组扩大

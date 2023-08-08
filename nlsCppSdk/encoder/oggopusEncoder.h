@@ -99,7 +99,7 @@ class OggOpusDataEncoder {
 
   void SetSampleRate(int sample_rate) {
     sample_rate_ = sample_rate;
-    frame_sample_num_ = sample_rate_ / 50;
+    frame_sample_num_ = sample_rate_ / 10; /*default frame_sample_num_ = 1600*/
     frame_sample_bytes_ = frame_sample_num_ * 2;
   }
 

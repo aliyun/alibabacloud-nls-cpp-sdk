@@ -22,6 +22,7 @@
 #else
 #include <pthread.h>
 #endif
+#include "nlsClient.h"
 
 namespace AlibabaNls {
 namespace utility {
@@ -32,7 +33,8 @@ public:
   static NlsLog* _logInstance;
   static NlsLog* getInstance();
   static void destroyLogInstance();
-  void logConfig(const char* name, int level, size_t fileSize, size_t fileNum);
+  void logConfig(const char* name, int level,
+                 size_t fileSize, size_t fileNum, LogCallbackMethod callback);
 
   void logVerbose(const char* function, int line, const char * format, ...);
   void logDebug(const char* function, int line, const char * format, ...);
@@ -52,6 +54,8 @@ private:
 #else
   static pthread_mutex_t _mtxLog;
 #endif
+
+  LogCallbackMethod _callback;
 
   int _logLevel;
   bool _isStdout;

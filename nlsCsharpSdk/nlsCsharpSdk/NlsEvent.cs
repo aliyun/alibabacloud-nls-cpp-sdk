@@ -18,120 +18,129 @@ using System.Runtime.InteropServices;
 
 namespace nlsCsharpSdk
 {
+static class NlsBufferSize
+{
+    public const int NlsEventIdSize = 128;
+    public const int NlsEventBinarySize = 16384;
+    public const int NlsEventResponseSize = 34816;
+    public const int NlsEventResultSize = 10240;
+    public const int NlsEventTextSize = 1024;
+}
+
+/// <summary>
+/// Csharp传递的NLS事件信息.
+/// </summary>
+public struct NLS_EVENT_STRUCT
+{
     /// <summary>
-    /// Csharp传递的NLS事件信息.
+    /// 语音合成的音频数据长度(字节数).
     /// </summary>
-    public struct NLS_EVENT_STRUCT
-	{
-        /// <summary>
-        /// 语音合成的音频数据长度(字节数).
-        /// </summary>
-        public int binaryDataSize;
-        /// <summary>
-        /// 语音合成的音频数据.
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16384)]
-        public byte[] binaryData;
+    public int binaryDataSize;
+    /// <summary>
+    /// 语音合成的音频数据.
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventBinarySize)]
+    public byte[] binaryData;
 
-        /// <summary>
-        /// 状态码, 正常情况为0或20000000, 失败时对应失败的错误码, 具体请查看官网.
-        /// </summary>
-        public int statusCode;
+    /// <summary>
+    /// 状态码, 正常情况为0或20000000, 失败时对应失败的错误码, 具体请查看官网.
+    /// </summary>
+    public int statusCode;
 
-        /// <summary>
-        /// 此次事件的完整信息, json string格式.
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
-        public byte[] msg;
+    /// <summary>
+    /// 此次事件的完整信息, json string格式.
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventResponseSize)]
+    public byte[] msg;
 
-        /// <summary>
-        /// 此次事件的类型.
-        /// </summary>
-        public int msgType;
+    /// <summary>
+    /// 此次事件的类型.
+    /// </summary>
+    public int msgType;
 
-        /// <summary>
-        /// 每轮事件对应对应一个独一无二的task id
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string taskId;
+    /// <summary>
+    /// 每轮事件对应对应一个独一无二的task id
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = NlsBufferSize.NlsEventIdSize)]
+    public string taskId;
 
-        /// <summary>
-        /// 识别内容.
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
-        public byte[] result;
+    /// <summary>
+    /// 识别内容.
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventResultSize)]
+    public byte[] result;
 
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
-        public byte[] displayText;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventTextSize)]
+    public byte[] displayText;
 
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
-        public byte[] spokenText;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventTextSize)]
+    public byte[] spokenText;
 
-        /// <summary>
-        /// </summary>
-        public int sentenceTimeOutStatus;
-        /// <summary>
-        /// </summary>
-        public int sentenceIndex;
-        /// <summary>
-        /// </summary>
-        public int sentenceTime;
-        /// <summary>
-        /// </summary>
-        public int sentenceBeginTime;
-        /// <summary>
-        /// </summary>
-        public double sentenceConfidence;
+    /// <summary>
+    /// </summary>
+    public int sentenceTimeOutStatus;
+    /// <summary>
+    /// </summary>
+    public int sentenceIndex;
+    /// <summary>
+    /// </summary>
+    public int sentenceTime;
+    /// <summary>
+    /// </summary>
+    public int sentenceBeginTime;
+    /// <summary>
+    /// </summary>
+    public double sentenceConfidence;
 
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.I1)]
-        public bool wakeWordAccepted;
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.I1)]
-        public bool wakeWordKnown;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.I1)]
+    public bool wakeWordAccepted;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.I1)]
+    public bool wakeWordKnown;
 
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-        public byte[] wakeWordUserId;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventIdSize)]
+    public byte[] wakeWordUserId;
 
-        /// <summary>
-        /// </summary>
-        public int wakeWordGender;
+    /// <summary>
+    /// </summary>
+    public int wakeWordGender;
 
-        /// <summary>
-        /// </summary>
-        public int stashResultSentenceId;
-        /// <summary>
-        /// </summary>
-        public int stashResultBeginTime;
+    /// <summary>
+    /// </summary>
+    public int stashResultSentenceId;
+    /// <summary>
+    /// </summary>
+    public int stashResultBeginTime;
 
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8192)]
-        public byte[] stashResultText;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = NlsBufferSize.NlsEventTextSize)]
+    public byte[] stashResultText;
 
-        /// <summary>
-        /// </summary>
-        public int stashResultCurrentTime;
+    /// <summary>
+    /// </summary>
+    public int stashResultCurrentTime;
 
-        /// <summary>
-        /// </summary>
-        [MarshalAs(UnmanagedType.I1)]
-        public bool isValid;
+    /// <summary>
+    /// </summary>
+    [MarshalAs(UnmanagedType.I1)]
+    public bool isValid;
 
-        /// <summary>
-        /// </summary>
-        public IntPtr user;
+    /// <summary>
+    /// </summary>
+    public IntPtr user;
 
-        /// <summary>
-        /// </summary>
-        public IntPtr eventMtx;
-    }
+    /// <summary>
+    /// </summary>
+    public IntPtr eventMtx;
+}
 }

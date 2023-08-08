@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <string.h>
 #include "speechTranscriberParam.h"
 #include "nlsRequestParamInfo.h"
+#include "nlsGlobal.h"
 #include "nlog.h"
-
 
 namespace AlibabaNls {
 
@@ -29,6 +30,7 @@ namespace AlibabaNls {
 SpeechTranscriberParam::SpeechTranscriberParam(const char* sdkName) :
     INlsRequestParam(TypeRealTime, sdkName) {
   _header[D_NAMESPACE] = D_NAMESPACE_TRANSCRIPTION;
+  _controlHeaderName = "";
 }
 
 SpeechTranscriberParam::~SpeechTranscriberParam() {}
@@ -39,7 +41,11 @@ const char* SpeechTranscriberParam::getStartCommand() {
 }
 
 const char* SpeechTranscriberParam::getControlCommand(const char* message) {
-  _header[D_NAME] = D_CMD_CONTROL_TRANSCRIPTION;
+  if (!_controlHeaderName.empty()) {
+    _header[D_NAME] = _controlHeaderName.c_str();
+  } else {
+    _header[D_NAME] = D_CMD_CONTROL_TRANSCRIPTION;
+  }
   return INlsRequestParam::getControlCommand(message);
 }
 
@@ -48,39 +54,48 @@ const char* SpeechTranscriberParam::getStopCommand() {
   return INlsRequestParam::getStopCommand();
 }
 
+int SpeechTranscriberParam::setControlHeaderName(const char* name) {
+  if (name && strlen(name) > 0) {
+    _controlHeaderName.assign(name);
+  } else {
+    _controlHeaderName.clear();
+  }
+  return Success;
+}
+
 int SpeechTranscriberParam::setMaxSentenceSilence(int value) {
   _payload[D_ST_MAX_SENTENCE_SILENCE] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberParam::setEnableNlp(bool enable) {
   _payload[D_ST_ENABLE_NLP] = enable;
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberParam::setNlpModel(const char* value) {
   _payload[D_ST_NLP_MODEL] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberParam::setEnableWords(bool enable) {
   _payload[D_ST_ENABLE_WORDS] = enable;
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberParam::setEnableIgnoreSentenceTimeout(bool enable) {
   _payload[D_ST_IGNORE_SENTENCE_TIMEOUT] = enable;
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberParam::setDisfluency(bool enable) {
   _payload[D_ST_DISFLUENCY] = enable;
-  return 0;
+  return Success;
 }
 
 int SpeechTranscriberParam::setSpeechNoiseThreshold(float value) {
   _payload[D_ST_SPEECH_NOISE_THRESHOLD] = value;
-  return 0;
+  return Success;
 }
 
 }

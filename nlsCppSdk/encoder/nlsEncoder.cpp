@@ -54,6 +54,26 @@ int NlsEncoder::pushbackEncodedData(
 }
 #endif
 
+int NlsEncoder::getFrameSampleBytes() {
+  if (nlsEncoder_ == NULL) {
+    LOG_ERROR("nlsEncoder_ is inexistent, pls create first");
+    return -(EncoderInexistent);
+  }
+
+  int frame_sample_bytes = 0;
+  if (encoder_type_ == ENCODER_OPU) {
+    frame_sample_bytes = DEFAULT_OPUS_FRAME_SIZE;
+  } else if (encoder_type_ == ENCODER_OPUS) {
+#ifdef ENABLE_OGGOPUS
+    frame_sample_bytes = ((OggOpusDataEncoder *)nlsEncoder_)->GetFrameSampleBytes();
+#endif
+  } else {
+    LOG_ERROR("donnot setting encoder type.");
+    return -(InvalidEncoderType);
+  }
+  return frame_sample_bytes;
+}
+
 int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
                                  const int sampleRate, int *errorCode) {
   int ret = Success;
@@ -235,11 +255,11 @@ int NlsEncoder::nlsEncoderSoftRestart() {
     return -(EncoderInexistent);
   }
 
-  if (encoder_type_ == ENCODER_OPUS) {
 #ifdef ENABLE_OGGOPUS
+  if (encoder_type_ == ENCODER_OPUS) {
     ((OggOpusDataEncoder *)nlsEncoder_)->OggopusSoftRestart();
-#endif
   }
+#endif
 }
 
 int NlsEncoder::destroyNlsEncoder() {

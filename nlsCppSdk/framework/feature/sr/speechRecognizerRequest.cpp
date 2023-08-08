@@ -30,6 +30,7 @@ SpeechRecognizerCallback::SpeechRecognizerCallback() {
   this->_onRecognitionCompleted = NULL;
   this->_onRecognitionResultChanged = NULL;
   this->_onChannelClosed = NULL;
+  this->_onMessage = NULL;
 }
 
 SpeechRecognizerCallback::~SpeechRecognizerCallback() {
@@ -38,6 +39,7 @@ SpeechRecognizerCallback::~SpeechRecognizerCallback() {
   this->_onRecognitionCompleted = NULL;
   this->_onRecognitionResultChanged = NULL;
   this->_onChannelClosed = NULL;
+  this->_onMessage = NULL;
 
   std::map<NlsEvent::EventType, void*>::iterator iter;
   for (iter = _paramap.begin(); iter != _paramap.end();) {
@@ -273,6 +275,10 @@ int SpeechRecognizerRequest::setEnableOnMessage(bool value) {
 
 const char* SpeechRecognizerRequest::getOutputFormat() {
   return _recognizerParam->getOutputFormat().c_str();
+}
+
+const char* SpeechRecognizerRequest::getTaskId() {
+  return _recognizerParam->getTaskId().c_str();
 }
 
 int SpeechRecognizerRequest::setAudioAddress(const char* value) {

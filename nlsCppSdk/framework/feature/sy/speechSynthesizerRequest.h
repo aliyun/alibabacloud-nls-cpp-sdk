@@ -204,6 +204,12 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
    */
   const char* getOutputFormat();
 
+  /*
+   * @brief 获得当前请求的task_id
+   * @return 返回当前请求的task_id
+   */
+  const char* getTaskId();
+
   /**
    * @brief 设置用户自定义参数
    * @param value 参数

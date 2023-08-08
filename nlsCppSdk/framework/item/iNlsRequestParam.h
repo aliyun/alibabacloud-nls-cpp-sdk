@@ -32,9 +32,9 @@ enum NlsRequestType {
 
 //语音类型
 enum NlsType {
-  TypeAsr = 0,
-  TypeRealTime,
-  TypeTts,
+  TypeAsr = 0,  /* 一句话识别 */
+  TypeRealTime, /* 实时语音识别 */
+  TypeTts,      /* 语音合成 */
   TypeDialog,
   TypeNone
 };
@@ -114,6 +114,7 @@ class INlsRequestParam {
   virtual int getRecvTimeout();
   virtual int getSendTimeout();
   virtual bool getEnableOnMessage();
+  virtual std::string getTaskId();
 
  public:
   int AppendHttpHeader(const char* key, const char* value);

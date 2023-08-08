@@ -74,6 +74,7 @@ enum NlsRetCode {
   EncoderInexistent,            /* NLS的编码器不存在 */
   OpusEncoderCreateFailed,      /* Opus编码器创建失败 */
   OggOpusEncoderCreateFailed,   /* OggOpus编码器创建失败 */
+  InvalidEncoderType,           /* encoder类型无效 */
 
 
   /* nls client */
@@ -86,6 +87,7 @@ enum NlsRetCode {
   InvokeStopFailed,             /* 请求状态机不对, 导致stop失败 */
   InvokeCancelFailed,           /* 请求状态机不对, 导致stop失败 */
   InvokeStControlFailed,        /* 请求状态机不对, 导致stControl失败 */
+  InvokeTimeout,                /* 调用超时 */
 
 
   /* nls event */

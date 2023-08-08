@@ -63,7 +63,7 @@ struct WebSocketFrame {
 };
 
 #define HOST_SIZE 256
-#define TOKEN_SIZE 64
+#define TOKEN_SIZE 512
 
 struct urlAddress {
   char _host[HOST_SIZE];

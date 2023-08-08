@@ -23,7 +23,8 @@
 
 namespace AlibabaNls {
 
-#define MAX_SSL_ERROR_LENGTH 256
+#define MAX_SSL_ERROR_LENGTH 512
+#define MAX_SSL_TRY_AGAIN    3
 
 class SSLconnect {
 
@@ -45,6 +46,7 @@ class SSLconnect {
 
  private:
   SSL* _ssl;
+  int _ssl_try_again;
   char _errorMsg[MAX_SSL_ERROR_LENGTH];
 };
 

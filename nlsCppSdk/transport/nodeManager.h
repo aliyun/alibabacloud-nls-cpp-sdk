@@ -22,6 +22,7 @@
 #include <pthread.h>
 #endif
 #include <map>
+#include <vector>
 
 namespace AlibabaNls {
 
@@ -59,22 +60,33 @@ class NlsNodeManager {
   int checkRequestWithInstance(void* request, void* instance);
   int removeInstanceFromInfo(void* instance);
   int removeRequestFromInfo(void* request, bool wait);
-  int removeNodeFromInfo(void* node, bool wait);
 
   int checkRequestExist(void* request, int* status);
   int checkNodeExist(void* node, int* status);
   int updateNodeStatus(void* node, int status);
   std::string getNodeStatusString(int status);
 
+#ifdef ENABLE_UNALIGNED_MEM
+  int addRandomMemChunk();
+  int removeAllMemChunk();
+#endif
+
+ private:
 #ifdef _MSC_VER
   HANDLE _mtxNodeManager;
 #else
   pthread_mutex_t _mtxNodeManager;
 #endif
 
-  std::map<void*, void*> requestListByNode;
-  std::map<void*, NodeInfo> infoByRequest;
-  int timeout_ms;
+  std::map<void*, void*> _requestListByNode;
+  std::map<void*, NodeInfo> _infoByRequest;
+  int _timeout_ms;
+
+#ifdef ENABLE_UNALIGNED_MEM
+  std::vector<char*> _unaligned_list;
+  int _max_unaligned_item_size;
+  int _max_unaligned_array_len;
+#endif
 };
 
 } // namespace AlibabaNls

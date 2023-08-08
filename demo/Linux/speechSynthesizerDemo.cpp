@@ -39,7 +39,7 @@
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
 //#define TTS_AUDIO_DUMP
-#define DEFAULT_STRING_LEN 128
+#define DEFAULT_STRING_LEN 512
 #define AUDIO_TEXT_LENGTH 1024
 
 /**
@@ -151,7 +151,7 @@ std::string g_domain = "";
 std::string g_api_version = "";
 std::string g_url = "";
 int g_threads = 1;
-int g_cpu = 4;
+int g_cpu = 1;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
@@ -650,6 +650,13 @@ void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       << cbEvent->getAllResponse() << std::endl;
 }
 
+void onExternalLogCallback(const char* timestamp, int level, const char* message) {
+  std::cout << "onExternalLogCallback timestamp:"
+      << timestamp << std::endl;
+  std::cout << "  log level:" << level << std::endl;
+  std::cout << "  log message:" << message << std::endl;
+}
+
 void* autoCloseFunc(void* arg) {
   int timeout = 50;
 
@@ -772,13 +779,11 @@ void* autoCloseFunc(void* arg) {
  *        进行循环。
  */
 void* pthreadFunc(void* arg) {
-  int testCount = 0;
+  int testCount = 0; // 运行次数计数，用于超过设置的loop次数后退出
   bool timedwait_flag = false;
   int chars_cnt = 0;
 
-  /*
-   * 从自定义线程参数中获取token, 配置文件等参数.
-   */
+  // 从自定义线程参数中获取token, 配置文件等参数.
   ParamStruct* tst = (ParamStruct*)arg;
   if (tst == NULL) {
     std::cout << "arg is not valid." << std::endl;
@@ -794,7 +799,8 @@ void* pthreadFunc(void* arg) {
 
   while (global_run) {
     /*
-     * 创建语音识别SpeechSynthesizerRequest对象.
+     * 1. 创建语音识别SpeechSynthesizerRequest对象.
+     *
      * 默认为实时短文本语音合成请求, 支持一次性合成300字符以内的文字,
      * 其中1个汉字、1个英文字母或1个标点均算作1个字符,
      * 超过300个字符的内容将会报错(或者截断).
@@ -808,13 +814,22 @@ void* pthreadFunc(void* arg) {
       << " this text contains " << chars_cnt << "chars"
       << std::endl;
 
-    AlibabaNls::SpeechSynthesizerRequest* request =
-        AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest();
+    AlibabaNls::SpeechSynthesizerRequest* request = NULL;
+    if (chars_cnt > 300) {
+      // 长文本语音合成
+      request = AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest(AlibabaNls::LongTts);
+    } else {
+      // 短文本语音合成
+      request = AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest();
+    }
     if (request == NULL) {
       std::cout << "createSynthesizerRequest failed." << std::endl;
       break;
     }
 
+    /*
+     * 2. 设置用于接收结果的回调
+     */
     // 设置音频合成结束回调函数
     request->setOnSynthesisCompleted(OnSynthesisCompleted, &cbParam);
     // 设置音频合成通道关闭回调函数
@@ -830,10 +845,9 @@ void* pthreadFunc(void* arg) {
     // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
     //request->setEnableOnMessage(true);
 
-    if (strlen(tst->appkey) > 0) {
-      request->setAppKey(tst->appkey);
-    }
-
+    /*
+     * 3. 设置request的相关参数
+     */
     // 设置待合成文本, 必填参数. 文本内容必须为UTF-8编码
     // 一次性合成超过300字符可考虑长文本语音合成功能.
     // 长文本语音合成文档详见: https://help.aliyun.com/document_detail/130509.html
@@ -854,6 +868,11 @@ void* pthreadFunc(void* arg) {
     request->setPitchRate(0);
     // 开启字幕
     request->setEnableSubtitle(true);
+
+    // 设置AppKey, 必填参数, 请参照官网申请
+    if (strlen(tst->appkey) > 0) {
+      request->setAppKey(tst->appkey);
+    }
     // 设置账号校验token, 必填参数
     if (strlen(tst->token) > 0) {
       request->setToken(tst->token);
@@ -861,12 +880,14 @@ void* pthreadFunc(void* arg) {
     if (strlen(tst->url) > 0) {
       request->setUrl(tst->url);
     }
+    // 设置链接超时500ms
+    request->setTimeout(500);
     // 获取返回文本的编码格式
     const char* output_format = request->getOutputFormat();
     std::cout << "text format: " << output_format << std::endl;
 
     /*
-     * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
+     * 4. start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
     std::string ts = timestamp_str();
     std::cout << "start -> pid " << pthread_self() << " " << ts.c_str() << std::endl;
@@ -891,15 +912,15 @@ void* pthreadFunc(void* arg) {
     }
 
     /*
-     * 通知云端数据发送结束.
-     * stop()为无意义接口，调用与否都会跑完全程.
-     * cancel()立即停止工作, 且不会有回调返回, 失败返回TaskFailed事件。
+     * 5. start成功，开始等待接收完所有合成数据。
+     *    stop()为无意义接口，调用与否都会跑完全程.
+     *    cancel()立即停止工作, 且不会有回调返回, 失败返回TaskFailed事件。
      */
 //    ret = request->cancel();
     ret = request->stop();  // always return 0
 
     /*
-     * 识别结束, 释放request对象
+     * 开始等待接收完所有合成数据。
      */
     struct timeval now;
     struct timespec outtime;
@@ -908,8 +929,8 @@ void* pthreadFunc(void* arg) {
       std::cout << "wait closed callback. pid " << pthread_self()
         << " tv: " << now.tv_sec << std::endl;
       /*
-       * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
-       * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制.
+       * 根据文本长短、接收速度和网络环境，接收完所有合成数据的时间无法确定，
+       * 这里设定30s超时只是展示一种超时机制。
        */
       outtime.tv_sec = now.tv_sec + 30;
       outtime.tv_nsec = now.tv_usec * 1000;
@@ -924,8 +945,14 @@ void* pthreadFunc(void* arg) {
       std::cout << "ret is " << ret << ", pid " << pthread_self() << std::endl;
     }
     gettimeofday(&now, NULL);
+    std::cout << "current request task_id:" << request->getTaskId() << std::endl;
     std::cout << "stop finished. pid " << pthread_self()
-      << " tv: " << now.tv_sec << std::endl;
+        << " tv: " << now.tv_sec << std::endl;
+
+    /*
+     * 6. 完成所有工作后释放当前请求。
+     *    请在closed事件(确定完成所有工作)后再释放, 否则容易破坏内部状态机, 会强制卸载正在运行的请求。
+     */
     AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
     std::cout << "release Synthesizer success. pid "
         << pthread_self() << std::endl;
@@ -951,18 +978,19 @@ void* pthreadFunc(void* arg) {
  *                  releaseSynthesizerRequest(request)
  */
 void* pthreadLongConnectionFunc(void* arg) {
-  int testCount = 0;
+  int testCount = 0; // 运行次数计数，用于超过设置的loop次数后退出
+  int chars_cnt = 0;
   struct ParamStatistics params;
   bool timedwait_flag = false;
 
-  /*
-   * 从自定义线程参数中获取token, 配置文件等参数.
-   */
+  // 从自定义线程参数中获取token, 配置文件等参数.
   ParamStruct* tst = (ParamStruct*)arg;
   if (tst == NULL) {
     std::cout << "arg is not valid." << std::endl;
     return NULL;
   }
+
+  pthread_mutex_init(&(tst->mtx), NULL);
 
   // 初始化自定义回调参数
   ParamCallBack cbParam(tst);
@@ -970,7 +998,8 @@ void* pthreadLongConnectionFunc(void* arg) {
   strcpy(cbParam.userInfo, "User.");
 
   /*
-   * 创建语音识别SpeechSynthesizerRequest对象.
+   * 1. 创建语音识别SpeechSynthesizerRequest对象.
+   *
    * 默认为实时短文本语音合成请求, 支持一次性合成300字符以内的文字,
    * 其中1个汉字、1个英文字母或1个标点均算作1个字符,
    * 超过300个字符的内容将会报错(或者截断).
@@ -979,14 +1008,29 @@ void* pthreadLongConnectionFunc(void* arg) {
    * 实时短文本语音合成文档详见: https://help.aliyun.com/document_detail/84435.html
    * 长文本语音合成文档详见: https://help.aliyun.com/document_detail/130509.html
    */
-  AlibabaNls::SpeechSynthesizerRequest* request =
-      AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest(
-          AlibabaNls::ShortTts, "cpp", longConnection);
+  chars_cnt = AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(tst->text);
+  std::cout << "pid:" << pthread_self()
+    << " this text contains " << chars_cnt << "chars"
+    << std::endl;
+
+  AlibabaNls::SpeechSynthesizerRequest* request = NULL;
+  if (chars_cnt > 300) {
+    // 长文本语音合成
+    request = AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest(
+        AlibabaNls::LongTts, "cpp", longConnection);
+  } else {
+    // 短文本语音合成
+    request = AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest(
+        AlibabaNls::ShortTts, "cpp", longConnection);
+  }
   if (request == NULL) {
     std::cout << "createSynthesizerRequest failed." << std::endl;
     return NULL;
   }
 
+  /*
+   * 2. 设置用于接收结果的回调
+   */
   // 设置音频合成结束回调函数
   request->setOnSynthesisCompleted(OnSynthesisCompleted, &cbParam);
   // 设置音频合成通道关闭回调函数
@@ -1002,10 +1046,9 @@ void* pthreadLongConnectionFunc(void* arg) {
   // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
   //request->setEnableOnMessage(true);
 
-  if (strlen(tst->appkey) > 0) {
-    request->setAppKey(tst->appkey);
-  }
-
+  /*
+   * 3. 设置request的相关参数
+   */
   // 设置待合成文本, 必填参数. 文本内容必须为UTF-8编码
   // 一次性合成超过300字符可考虑长文本语音合成功能.
   // 长文本语音合成文档详见: https://help.aliyun.com/document_detail/130509.html
@@ -1026,6 +1069,14 @@ void* pthreadLongConnectionFunc(void* arg) {
   request->setPitchRate(0);
   // 开启字幕
   request->setEnableSubtitle(true);
+    if (strlen(tst->appkey) > 0) {
+    request->setAppKey(tst->appkey);
+  }
+
+  // 设置AppKey, 必填参数, 请参照官网申请
+  if (strlen(tst->appkey) > 0) {
+    request->setAppKey(tst->appkey);
+  }
   // 设置账号校验token, 必填参数
   if (strlen(tst->token) > 0) {
     request->setToken(tst->token);
@@ -1037,10 +1088,12 @@ void* pthreadLongConnectionFunc(void* arg) {
   const char* output_format = request->getOutputFormat();
   std::cout << "text format: " << output_format << std::endl;
 
+  /*
+   * 4. 当前request循环多轮语音合成
+   */
   while (global_run) {
     /*
-     * start()为异步操作。
-     * 成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
+     * 4.1. start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
     gettimeofday(&(cbParam.startTv), NULL);
     std::string ts = timestamp_str();
@@ -1065,15 +1118,15 @@ void* pthreadLongConnectionFunc(void* arg) {
     }
 
     /*
-     * 通知云端数据发送结束.
-     * stop()为无意义接口，调用与否都会跑完全程.
-     * cancel()立即停止工作, 且不会有回调返回, 失败返回TaskFailed事件。
+     * 4.2 start成功，开始等待接收完所有合成数据。
+     *     stop()为无意义接口，调用与否都会跑完全程.
+     *     cancel()立即停止工作, 且不会有回调返回, 失败返回TaskFailed事件。
      */
     //ret = request->cancel();
     ret = request->stop();  // always return 0
 
     /*
-     * 等待识别结束
+     * 开始等待接收完所有合成数据。
      */
     struct timeval now;
     struct timespec outtime;
@@ -1082,8 +1135,8 @@ void* pthreadLongConnectionFunc(void* arg) {
       std::cout << "wait closed callback. pid " << pthread_self()
           << " tv: " << now.tv_sec << std::endl;
       /*
-       * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
-       * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制.
+       * 根据文本长短、接收速度和网络环境，接收完所有合成数据的时间无法确定，
+       * 这里设定30s超时只是展示一种超时机制。
        */
       outtime.tv_sec = now.tv_sec + 30;
       outtime.tv_nsec = now.tv_usec * 1000;
@@ -1107,9 +1160,15 @@ void* pthreadLongConnectionFunc(void* arg) {
     }
   } // while global_run
 
+  /*
+   * 5. 完成所有工作后释放当前请求。
+   *    请在closed事件(确定完成所有工作)后再释放, 否则容易破坏内部状态机, 会强制卸载正在运行的请求。
+   */
   AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
   request = NULL;
+
   pthread_mutex_destroy(&(tst->mtx));
+
   return NULL;
 }
 
@@ -1129,8 +1188,15 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   if (g_token.empty()) {
     if (g_expireTime - curTime < 10) {
       std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-      if (generateToken(g_akId, g_akSecret, &g_token, &g_expireTime) < 0) {
+      int ret = generateToken(g_akId, g_akSecret, &g_token, &g_expireTime);
+      if (ret < 0) {
+        std::cout << "generate token failed" << std::endl;
         return -1;
+      } else {
+        if (g_token.empty() || g_expireTime < 0) {
+          std::cout << "generate empty token" << std::endl;
+          return -2;
+        }
       }
     }
   }
@@ -1486,9 +1552,21 @@ int parse_argv(int argc, char* argv[]) {
     }
     index++;
   }
+
+  if (g_akId.empty() && getenv("NLS_AK_ENV")) {
+    g_akId.assign(getenv("NLS_AK_ENV"));
+  }
+  if (g_akSecret.empty() && getenv("NLS_SK_ENV")) {
+    g_akSecret.assign(getenv("NLS_SK_ENV"));
+  }
+  if (g_appkey.empty() && getenv("NLS_APPKEY_ENV")) {
+    g_appkey.assign(getenv("NLS_APPKEY_ENV"));
+  }
+
   if ((g_token.empty() && (g_akId.empty() || g_akSecret.empty())) ||
       g_appkey.empty()) {
     std::cout << "short of params..." << std::endl;
+    std::cout << "if ak/sk is empty, please setenv NLS_AK_ENV&NLS_SK_ENV&NLS_APPKEY_ENV" << std::endl;
     return 1;
   }
   return 0;
@@ -1560,9 +1638,10 @@ int main(int argc, char* argv[]) {
     // 根据需要设置SDK输出日志, 可选. 此处表示SDK日志输出至log-Synthesizer.txt,
     // LogDebug表示输出所有级别日志
     // 需要最早调用
+    int ret = 0;
   #ifdef LOG_TRIGGER
-    int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        "log-synthesizer", AlibabaNls::LogDebug, 400, 50);
+    ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
+        "log-synthesizer", AlibabaNls::LogDebug, 400, 50, NULL);
     if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;
@@ -1598,7 +1677,12 @@ int main(int argc, char* argv[]) {
     std::cout << "startWorkThread finish" << std::endl;
 
     // 合成多个文本
-    speechSynthesizerMultFile(g_appkey.c_str(), g_threads);
+    ret = speechSynthesizerMultFile(g_appkey.c_str(), g_threads);
+    if (ret) {
+      std::cout << "speechSynthesizerMultFile failed." << std::endl;
+      AlibabaNls::NlsClient::releaseInstance();
+      break;
+    }
 
     // 所有工作完成，进程退出前，释放nlsClient.
     // 请注意, releaseInstance()非线程安全.

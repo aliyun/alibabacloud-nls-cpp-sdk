@@ -35,6 +35,7 @@ class WorkThread {
   WorkThread();
   virtual ~WorkThread();
 
+  static void launchEventCallback(evutil_socket_t fd, short which, void *arg);
   static void notifyEventCallback(evutil_socket_t fd, short which, void *arg);
   static void connectEventCallback(evutil_socket_t socketFd,
                                    short event, void *arg);
@@ -61,8 +62,6 @@ class WorkThread {
   static int nodeRequestProcess(ConnectNode* node);
   static int nodeResponseProcess(ConnectNode* node);
 
-  static int insertQueueNode(WorkThread* thread, INlsRequest * request);
-  static INlsRequest* getQueueNode(WorkThread* thread);
   static void insertListNode(WorkThread* thread, INlsRequest * request);
   static void freeListNode(WorkThread* thread, INlsRequest * request);
 
@@ -85,11 +84,7 @@ class WorkThread {
 
   struct event_base * _workBase;
   struct evdns_base * _dnsBase;
-  struct event _notifyEvent;
-  evutil_socket_t _notifyReceiveFd;
-  evutil_socket_t _notifySendFd;
 
-  std::queue<INlsRequest*> _nodeQueue;
   std::list<INlsRequest*> _nodeList;
 
  private:

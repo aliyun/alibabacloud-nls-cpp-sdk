@@ -103,7 +103,7 @@ set(CURL_C_FLAGS "-fPIC -fvisibility=hidden -D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI
 set(CURL_EXTERNAL_COMPILER_FLAGS
     URL ${CURL_URL}
     URL_HASH MD5=${CURL_URL_HASH}
-    CONFIGURE_COMMAND ./configure CFLAGS=${CURL_C_FLAGS} enable_debug=yes enable_shared=no enable_static=yes --prefix=<INSTALL_DIR> --with-openssl=<INSTALL_DIR>/../openssl-prefix/
+    CONFIGURE_COMMAND ./configure CFLAGS=${CURL_C_FLAGS} enable_debug=yes enable_shared=no enable_static=yes --prefix=<INSTALL_DIR> --without-nghttp2 --without-libidn2 --without-zstd --without-brotli --with-openssl=<INSTALL_DIR>/../openssl-prefix/
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE}
     )

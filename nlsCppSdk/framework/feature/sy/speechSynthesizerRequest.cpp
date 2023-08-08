@@ -30,6 +30,7 @@ SpeechSynthesizerCallback::SpeechSynthesizerCallback() {
   this->_onSynthesisCompleted = NULL;
   this->_onChannelClosed = NULL;
   this->_onBinaryDataReceived = NULL;
+  this->_onMessage = NULL;
 }
 
 SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
@@ -38,6 +39,7 @@ SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
   this->_onSynthesisCompleted = NULL;
   this->_onChannelClosed = NULL;
   this->_onBinaryDataReceived = NULL;
+  this->_onMessage = NULL;
 
   std::map<NlsEvent::EventType, void*>::iterator iter;
   for (iter = _paramap.begin(); iter != _paramap.end();) {
@@ -273,6 +275,10 @@ int SpeechSynthesizerRequest::setEnableOnMessage(bool value) {
 
 const char* SpeechSynthesizerRequest::getOutputFormat() {
   return _synthesizerParam->getOutputFormat().c_str();
+}
+
+const char* SpeechSynthesizerRequest::getTaskId() {
+  return _synthesizerParam->getTaskId().c_str();
 }
 
 void SpeechSynthesizerRequest::setOnTaskFailed(

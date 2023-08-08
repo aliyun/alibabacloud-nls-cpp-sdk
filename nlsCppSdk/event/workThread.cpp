@@ -72,36 +72,9 @@ WorkThread::WorkThread() {
   if (NULL == _dnsBase) {
     LOG_WARN("WorkThread(%p) invoke evdns_base_new failed.", this);
     // no need dnsBase if _directIp true
-  }
-
-  evutil_socket_t pair[2];
-  if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == -1) {
-    LOG_ERROR("WorkThread(%p) invoke evutil_socketpair failed.", this);
-    exit(1);
-  }
-
-  _notifyReceiveFd = pair[0];
-  _notifySendFd = pair[1];
-
-  // without evutil_make_socket_nonblocking of _notifySendFd, may block when send()
-  if (evutil_make_socket_nonblocking(_notifySendFd) < 0) {
-    LOG_ERROR("WorkThread(%p) invoke evutil_make_socket_nonblocking failed.", this);
-    exit(1);
-  }
-
-  if (event_assign(&_notifyEvent,
-                   _workBase,
-                   _notifyReceiveFd,
-                   EV_READ | EV_PERSIST,
-                   notifyEventCallback,
-                   (void *)this) == -1) {
-    LOG_ERROR("WorkThread(%p) invoke event_assign to set _notifyEvent failed.", this);
-    exit(1);
-  }
-
-  if (event_add(&_notifyEvent, 0) == -1 ) {
-    LOG_ERROR("WorkThread(%p) invoke event_add failed.", this);
-    exit(1);
+  } else {
+    // disable mixed cases
+    evdns_base_set_option(_dnsBase, "randomize-case", "0");
   }
 
 #if defined(_MSC_VER)
@@ -121,10 +94,6 @@ WorkThread::~WorkThread() {
 
   LOG_DEBUG("Destroy WorkThread(%p) begin, close all fd and events, nodeList size:%d.",
       this, _nodeList.size());
-
-  evutil_closesocket(_notifySendFd);
-  evutil_closesocket(_notifyReceiveFd);
-  event_del(&_notifyEvent);
 
   // must check asr end
   do {
@@ -171,8 +140,8 @@ WorkThread::~WorkThread() {
       /* 2. 删除request并从全局管理的node_manager中移除 */
       if (node_status == NodeInvalid || node_status == NodeCreated) {
         _nodeList.erase(itList++);
-        delete request;
         node_manager->removeRequestFromInfo(request, false);
+        delete request;
         request = NULL;
       } else {
         LOG_WARN("Destroy WorkThread(%p) node(%p) is invalid, node status:%s, exit status:%s, skip ...",
@@ -191,8 +160,8 @@ WorkThread::~WorkThread() {
       for (itList = _nodeList.begin(); itList != _nodeList.end();) {
         INlsRequest* request = *itList;
         _nodeList.erase(itList++);
-        delete request;
         node_manager->removeRequestFromInfo(request, false);
+        delete request;
         request = NULL;
       }  // for
     }
@@ -219,81 +188,12 @@ WorkThread::~WorkThread() {
   LOG_DEBUG("Destroy WorkThread(%p) done.", this);
 }
 
-int WorkThread::insertQueueNode(WorkThread* thread, INlsRequest * request) {
-#if defined(_MSC_VER)
-  WaitForSingleObject(thread->_mtxList, INFINITE);
-#else
-  pthread_mutex_lock(&(thread->_mtxList));
-#endif
-
-  int queue_size = thread->_nodeQueue.size();
-  if (queue_size < 0) {
-    LOG_ERROR("WorkThread(%p) node queue size:%d is invalid, insert request:%p failed.",
-        thread, queue_size, request);
-    #if defined(_MSC_VER)
-    ReleaseMutex(thread->_mtxList);
-    #else
-    pthread_mutex_unlock(&(thread->_mtxList));
-    #endif
-    return -(InvalidNodeQueue);
+void WorkThread::insertListNode(WorkThread* thread, INlsRequest* request) {
+  if (thread == NULL || request == NULL) {
+    LOG_ERROR("thread or request is nullptr.");
+    return;
   }
 
-  std::queue<INlsRequest*> queue(thread->_nodeQueue);
-  int i = 0;
-  for (i = 0; i < queue_size; i++) {
-    INlsRequest* get = queue.front();
-    if (get == request) {
-      break;
-    }
-    queue.pop();
-  }
-  if (i == queue_size) {
-    // cannot find request matched
-    thread->_nodeQueue.push(request);
-  }
-
-#if defined(_MSC_VER)
-  ReleaseMutex(thread->_mtxList);
-#else
-  pthread_mutex_unlock(&(thread->_mtxList));
-#endif
-  return Success;
-}
-
-INlsRequest* WorkThread::getQueueNode(WorkThread* thread) {
-#if defined(_MSC_VER)
-  WaitForSingleObject(thread->_mtxList, INFINITE);
-#else
-  pthread_mutex_lock(&(thread->_mtxList));
-#endif
-
-  int queue_size = thread->_nodeQueue.size();
-  if (queue_size <= 0) {
-    LOG_WARN("WorkThread(%p) _nodeQueue is empty, node queue size:%d.", thread, queue_size);
-    #if defined(_MSC_VER)
-    ReleaseMutex(thread->_mtxList);
-    #else
-    pthread_mutex_unlock(&(thread->_mtxList));
-    #endif
-    return NULL;
-  }
-
-  INlsRequest *request = thread->_nodeQueue.front();
-  thread->_nodeQueue.pop();
-
-  // LOG_DEBUG("WorkThread(%p) node queue size:%d, pop request(%p).",
-  //     thread, queue_size, request);
-
-#if defined(_MSC_VER)
-  ReleaseMutex(thread->_mtxList);
-#else
-  pthread_mutex_unlock(&(thread->_mtxList));
-#endif
-
-  return request;
-}
-
-void WorkThread::insertListNode(WorkThread* thread, INlsRequest * request) {
 #if defined(_MSC_VER)
   WaitForSingleObject(thread->_mtxList, INFINITE);
 #else
@@ -317,6 +217,11 @@ void WorkThread::insertListNode(WorkThread* thread, INlsRequest * request) {
 }
 
 void WorkThread::freeListNode(WorkThread* thread, INlsRequest* request) {
+  if (thread == NULL || request == NULL) {
+    LOG_ERROR("thread or request is nullptr.");
+    return;
+  }
+
 #if defined(_MSC_VER)
   WaitForSingleObject(thread->_mtxList, INFINITE);
 #else
@@ -337,6 +242,11 @@ void WorkThread::freeListNode(WorkThread* thread, INlsRequest* request) {
 #endif
 }
 
+/*
+ * Description: 释放request和node
+ * Return:
+ * Others:
+ */
 void WorkThread::destroyConnectNode(ConnectNode* node) {
 #ifdef _MSC_VER
   WaitForSingleObject(_mtxCpu, INFINITE);
@@ -370,13 +280,14 @@ void WorkThread::destroyConnectNode(ConnectNode* node) {
     if (request) {
       LOG_DEBUG("Node(%p) destroy request.", node);
       int ret = node_manager->checkRequestExist(request, &status);
-      if (ret == Success) {
-        delete request;
-      }
       if (ret != -(RequestEmpty)) {
         node_manager->removeRequestFromInfo(request, false);
       }
+      if (ret == Success) {
+        delete request;
+      }
       request = NULL;
+      node->_request = NULL;
     } else {
       LOG_WARN("The request of node(%p) is nullptr.", node);
     }
@@ -520,6 +431,8 @@ void WorkThread::connectTimerEventCallback(
 #else
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
 #endif
+
+  LOG_DEBUG("Node(%p) connectTimerEventCallback done.", node);
   return;
 
 HandshakeTimerProcessFailed:
@@ -539,12 +452,13 @@ ConnectTimerProcessFailed:
     destroyConnectNode(node);
   }
 
-  LOG_DEBUG("Node(%p) connectTimerEventCallback done.", node);
 #ifdef _MSC_VER
   SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
 #else
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
 #endif
+
+  LOG_DEBUG("Node(%p) connectTimerEventCallback done with failure.", node);
   return;
 }
 #endif
@@ -676,7 +590,7 @@ void WorkThread::readEventCallBack(
     return;
   }
 
-  if (what == EV_READ){
+  if (what == EV_READ) {
     ret = nodeResponseProcess(node);
     if (ret == -(InvalidRequest)) {
       LOG_ERROR("Node(%p) has invalid request, skip all operation.", node);
@@ -688,7 +602,7 @@ void WorkThread::readEventCallBack(
     #endif
       return;
     }
-  } else if (what == EV_TIMEOUT){
+  } else if (what == EV_TIMEOUT) {
     snprintf(tmp_msg, 512 - 1,
         "Recv timeout. socket error:%s.",
         evutil_socket_error_to_string(evutil_socket_geterror(node->_socketFd)));
@@ -811,15 +725,69 @@ DirectConnectRetry:
   return;
 }
 
+/*
+ * Description: 启动语音交互请求
+ * Return:
+ * Others:
+ */
+void WorkThread::launchEventCallback(evutil_socket_t fd, short which, void *arg) {
+  ConnectNode *node = (ConnectNode*)arg;
+  INlsRequest *request = node->_request;
+  WorkThread *pThread = node->_eventThread;
+
+  LOG_DEBUG("WorkThread(%p) Node(%p) Request(%p) trigger launchEventCallback.",
+      pThread, node, request);
+
+  if (NULL == node) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request or relesed instance!",
+        request);
+    return;
+  }
+
+  if (node->getExitStatus() == ExitCancel) {
+    LOG_WARN("Node(%p) is canceling, current node status:%s, skip here.",
+        node, node->getConnectNodeStatusString().c_str());
+    node->setConnectNodeStatus(NodeInvoked);
+    return;
+  }
+
+  insertListNode(pThread, request);
+
+  node->setConnectNodeStatus(NodeInvoked);
+  /* 将request设置的参数传入node */
+  node->updateParameters();
+
+  LOG_DEBUG("Node(%p) begin dnsProcess.", node);
+  if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
+    LOG_WARN("Node(%p) dnsProcess failed, ready to destroyConnectNode.", node);
+    destroyConnectNode(node);
+  }
+
+  return;
+}
+
 #ifndef _MSC_VER
 void WorkThread::sysDnsEventCallback(
     evutil_socket_t socketFd, short what, void *arg) {
-  ConnectNode *node = (ConnectNode *)arg;
-  dnsEventCallback(what, node->_addrinfo, arg);
+  if (what == EV_READ) {
+    /* check this node is alive */
+    NlsClient* client = _instance;
+    NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
+    int status = NodeStatusInvalid;
+    ConnectNode *node = (ConnectNode *)arg;
+    int ret = node_manager->checkNodeExist(node, &status);
+    if (ret != Success) {
+      LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
+      return;
+    }
+
+    dnsEventCallback(node->_dnsErrorCode, node->_addrinfo, arg);
+    node->_dnsErrorCode = 0;
+  }
   return;
 }
 #endif
-
+ 
 void WorkThread::dnsEventCallback(int errorCode,
                                   struct evutil_addrinfo *address,
                                   void *arg) {
@@ -959,71 +927,6 @@ ConnectRetry:
 #else
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
 #endif
-  return;
-}
-
-/*
- * Description: libevent收到命令消息进行事件处理的回调
- * Return: 
- * Others:
- */
-void WorkThread::notifyEventCallback(evutil_socket_t fd, short which, void *arg) {
-  WorkThread *pThread = (WorkThread*)arg;
-  char msgCmd;
-  ConnectNode *node = NULL;
-  INlsRequest *request = NULL;
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
-  int status = NodeStatusInvalid;
-  int ret = Success;
-
-  if (recv(pThread->_notifyReceiveFd, (char *)&msgCmd, sizeof(char), 0) <= 0) {
-    LOG_ERROR("WorkThread(%p) recv() failed, errno:%d.", pThread, utility::getLastErrorCode());
-    return;
-  }
-
-  LOG_DEBUG("workThread(%p) receive '%c' from main thread.", pThread, msgCmd);
-
-  if (msgCmd == 'c') {
-    request = getQueueNode(pThread);
-    if (request == NULL) {
-      LOG_ERROR("Request is nullptr, you have destroyed request or relesed instance!");
-      return;
-    }
-    node = request->getConnectNode();
-    if (NULL == node) {
-      LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request or relesed instance!", request);
-      return;
-    }
-
-    if (node->getExitStatus() == ExitCancel) {
-      LOG_WARN("Node(%p) is canceling, current node status:%s, skip here.",
-          node, node->getConnectNodeStatusString().c_str());
-      node->setConnectNodeStatus(NodeInvoked);
-      return;
-    }
-
-    insertListNode(pThread, request);
-
-    node->setConnectNodeStatus(NodeInvoked);
-    /* 将request设置的参数传入node */
-    node->updateParameters();
-
-    // LOG_DEBUG("WorkThread(%p) request(%p) node(%p) begin dnsProcess.",
-    //     pThread, request, node);
-
-    if (node->dnsProcess(_addrInFamily, _directIp, _enableSysGetAddr) < 0) {
-      LOG_WARN("WorkThread(%p) request(%p) node(%p) dnsProcess failed, ready to destroyConnectNode.",
-          pThread, request, node);
-      destroyConnectNode(node);
-    }
-  } else if (msgCmd == 's') {
-    event_base_loopbreak(pThread->_workBase);
-  } else {
-    LOG_ERROR("WorkThread(%p) receive invalid command:'%c'.", pThread, msgCmd);
-  }
-
-  // LOG_DEBUG("workThread(%p) receive command done.", pThread);
   return;
 }
 

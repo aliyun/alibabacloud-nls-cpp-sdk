@@ -86,6 +86,9 @@ ConnectNode::ConnectNode(INlsRequest* request,
 
   _nlsEncoder = NULL; //createNlsEncoder
   _encoder_type = ENCODER_NONE;
+  _audio_data = NULL;
+  _audio_data_size = 0;
+  _max_data_size = 0;
 
   _eventThread = NULL;
 
@@ -101,16 +104,25 @@ ConnectNode::ConnectNode(INlsRequest* request,
   _exitStatus = ExitInvalid;
 
   _instance = NULL;
+  _syncCallTimeoutMs = 0;
 
 #ifndef _MSC_VER
+  _nodename = NULL;
+  _servname = NULL;
   _dnsThread = 0;
-  _timeThread = 0;
+  _dnsThreadExit = false;
+  _dnsErrorCode = 0;
+  _addrinfo = NULL;
 #endif
 
   _sslHandle = new SSLconnect();
   if (_sslHandle == NULL) {
     LOG_ERROR("Node(%p) _sslHandle is nullptr.", this);
+  } else {
+    LOG_DEBUG("Node(%p) new SSLconnect:%p.", this, _sslHandle);
   }
+
+  LOG_INFO("Node(%p) create ConnectNode include webSocketTcp:%p.", this, &_webSocket);
 
   // will update parameters in updateParameters()
   int timeout_ms = request->getRequestParam()->getTimeout();
@@ -128,6 +140,7 @@ ConnectNode::ConnectNode(INlsRequest* request,
 
   _enableOnMessage = request->getRequestParam()->getEnableOnMessage();
 
+  _launchEvent = NULL;
   _connectEvent = NULL;
   _readEvent = NULL;
   _writeEvent = NULL;
@@ -142,14 +155,14 @@ ConnectNode::ConnectNode(INlsRequest* request,
   _mtxNode = CreateMutex(NULL, FALSE, NULL);
   _mtxCloseNode = CreateMutex(NULL, FALSE, NULL);
   _mtxEventCallbackNode = CreateEvent(NULL, FALSE, FALSE, NULL);
+  _mtxInvokeSyncCallNode = CreateEvent(NULL, FALSE, FALSE, NULL);
 #else
   pthread_mutex_init(&_mtxNode, NULL);
   pthread_mutex_init(&_mtxCloseNode, NULL);
   pthread_mutex_init(&_mtxEventCallbackNode, NULL);
+  pthread_mutex_init(&_mtxInvokeSyncCallNode, NULL);
   pthread_cond_init(&_cvEventCallbackNode, NULL);
-
-  pthread_mutex_init(&_mtxDns, NULL);
-  pthread_cond_init(&_cvDns, NULL);
+  pthread_cond_init(&_cvInvokeSyncCallNode, NULL);
 #endif
   _inEventCallbackNode = false;
 
@@ -162,17 +175,23 @@ ConnectNode::~ConnectNode() {
 #ifndef _MSC_VER
   int ret = 0;
   if (_dnsThread) {
+    _dnsThreadExit = true;
     ret = pthread_kill(_dnsThread, 0);
     if (ret == 0) {
-      LOG_WARN("Node(%p) dnsThread still exist.", this);
+      LOG_WARN("Node(%p) dnsThread(%lu) still exist.", this, _dnsThread);
+      if (_gaicbRequest[0]) {
+        gai_cancel(_gaicbRequest[0]);
+      }
       #ifndef __ANDROID__
-      pthread_cancel(_dnsThread);
+      pthread_join(_dnsThread, NULL);
       #endif
+      LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
       _dnsThread = 0;
+      _dnsThreadExit = false;
     } else if (ret == ESRCH) {
-      LOG_DEBUG("Node(%p) dnsThread not exist.", this);
+      LOG_DEBUG("Node(%p) dnsThread(%lu) not exist.", this, _dnsThread);
     } else {
-      LOG_DEBUG("Node(%p) dnsThread ret:%d.", this, ret);
+      LOG_DEBUG("Node(%p) dnsThread(%lu) ret:%d.", this, _dnsThread, ret);
     }
   }
 #endif
@@ -190,29 +209,51 @@ ConnectNode::~ConnectNode() {
 
   _handler = NULL;
 
-  evbuffer_free(_cmdEvBuffer);
-  evbuffer_free(_readEvBuffer);
-  evbuffer_free(_binaryEvBuffer);
-  evbuffer_free(_wwvEvBuffer);
+  if (_cmdEvBuffer) {
+    evbuffer_free(_cmdEvBuffer);
+    _cmdEvBuffer = NULL;
+  }
+  if (_readEvBuffer) {
+    evbuffer_free(_readEvBuffer);
+    _readEvBuffer = NULL;
+  }
+  if (_binaryEvBuffer) {
+    evbuffer_free(_binaryEvBuffer);
+    _binaryEvBuffer = NULL;
+  }
+  if (_wwvEvBuffer) {
+    evbuffer_free(_wwvEvBuffer);
+    _wwvEvBuffer = NULL;
+  }
+  if (_launchEvent) {
+    event_free(_launchEvent);
+    _launchEvent = NULL;
+  }
 
   if (_nlsEncoder) {
     _nlsEncoder->destroyNlsEncoder();
     delete _nlsEncoder;
     _nlsEncoder = NULL;
   }
+  if (_audio_data) {
+    free(_audio_data);
+    _audio_data = NULL;
+    _audio_data_size = 0;
+    _max_data_size = 0;
+  }
 
 #if defined(_MSC_VER)
   CloseHandle(_mtxNode);
   CloseHandle(_mtxCloseNode);
   CloseHandle(_mtxEventCallbackNode);
+  CloseHandle(_mtxInvokeSyncCallNode);
 #else
-  pthread_mutex_destroy(&_mtxDns);
-  pthread_cond_destroy(&_cvDns);
-
   pthread_mutex_destroy(&_mtxNode);
   pthread_mutex_destroy(&_mtxCloseNode);
   pthread_mutex_destroy(&_mtxEventCallbackNode);
+  pthread_mutex_destroy(&_mtxInvokeSyncCallNode);
   pthread_cond_destroy(&_cvEventCallbackNode);
+  pthread_cond_destroy(&_cvInvokeSyncCallNode);
 #endif
   _inEventCallbackNode = false;
 
@@ -241,6 +282,14 @@ void ConnectNode::initAllStatus() {
 #else
   pthread_mutex_unlock(&_mtxNode);
 #endif
+}
+
+struct event * ConnectNode::getLaunchEvent() {
+  if (_launchEvent == NULL) {
+    _launchEvent = event_new(_eventThread->_workBase, -1, EV_READ,
+                             WorkThread::launchEventCallback, this);
+  }
+  return _launchEvent;
 }
 
 ConnectStatus ConnectNode::getConnectNodeStatus() {
@@ -453,31 +502,23 @@ bool ConnectNode::updateDestroyStatus() {
   #ifndef _MSC_VER
     int result = 0;
     if (_dnsThread) {
+      _dnsThreadExit = true;
       result = pthread_kill(_dnsThread, 0);
       if (result == 0) {
-        LOG_WARN("Node(%p) dnsThread still exist.", this);
+        LOG_WARN("Node(%p) dnsThread(%lu) still exist.", this, _dnsThread);
+        if (_gaicbRequest[0]) {
+          gai_cancel(_gaicbRequest[0]);
+        }
         #ifndef __ANDROID__
-        pthread_cancel(_dnsThread);
+        pthread_join(_dnsThread, NULL);
         #endif
+        LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
         _dnsThread = 0;
+        _dnsThreadExit = false;
       } else if (result == ESRCH) {
-        LOG_DEBUG("Node(%p) dnsThread not exist.", this);
+        LOG_DEBUG("Node(%p) dnsThread(%lu) not exist.", this, _dnsThread);
       } else {
-        LOG_DEBUG("Node(%p) dnsThread result:%d.", this, result);
-      }
-    }
-    if (_timeThread) {
-      result = pthread_kill(_timeThread, 0);
-      if (result == 0) {
-        LOG_WARN("Node(%p) timeThread still exist.", this);
-        #ifndef __ANDROID__
-        pthread_cancel(_timeThread);
-        #endif
-        _timeThread = 0;
-      } else if (result == ESRCH) {
-        LOG_DEBUG("Node(%p) timeThread not exist.", this);
-      } else {
-        LOG_DEBUG("Node(%p) timeThread result:%d.", this, result);
+        LOG_DEBUG("Node(%p) dnsThread(%lu) ret:%d.", this, _dnsThread, result);
       }
     }
   #endif
@@ -548,6 +589,7 @@ bool ConnectNode::checkConnectCount() {
     _retryConnectCount = 0;
     // return false : restart connect failed
   }
+  LOG_DEBUG("Node(%p) check connection count: %d.", this, _retryConnectCount);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxNode);
@@ -832,15 +874,17 @@ int ConnectNode::gatewayResponse() {
   int read_len = 0;
   uint8_t *frame = (uint8_t *)calloc(READ_BUFFER_SIZE, sizeof(char));
   if (frame == NULL) {
-    LOG_ERROR("%s %d calloc failed.", __func__, __LINE__);
+    LOG_ERROR("Node(%p) %s %d calloc failed.", this, __func__, __LINE__);
     return -(MallocFailed);
   }
 
   read_len = nlsReceive(frame, READ_BUFFER_SIZE);
   if (read_len < 0) {
+    LOG_ERROR("Node(%p) nlsReceive failed, read_len:%d", this, read_len);
     free(frame);
     return -(NlsReceiveFailed);
   } else if (read_len == 0) {
+    LOG_WARN("Node(%p) nlsReceive empty, read_len:%d", this, read_len);
     free(frame);
     return -(NlsReceiveEmpty);
   }
@@ -849,7 +893,7 @@ int ConnectNode::gatewayResponse() {
   if (frameSize > READ_BUFFER_SIZE) {
     frame = (uint8_t *)realloc(frame, frameSize + 1);
     if (frame == NULL) {
-      LOG_ERROR("%s %d realloc failed.", __func__, __LINE__);
+      LOG_ERROR("Node(%p) %s %d realloc failed.", this, __func__, __LINE__);
       free(frame);
       return -(ReallocFailed);
     }
@@ -876,6 +920,87 @@ int ConnectNode::gatewayResponse() {
 }
 
 /*
+ * Description: 将buffer中剩余音频数据ws封包并发送
+ * Return: 成功发送的字节数, 失败则返回负值.
+ * Others:
+ */
+int ConnectNode::addRemainAudioData() {
+  int ret = 0;
+  if (_audio_data != NULL && _audio_data_size > 0) {
+    ret = addAudioDataBuffer(_audio_data, _audio_data_size);
+    memset(_audio_data, 0, _max_data_size);
+    _audio_data_size = 0;
+  }
+  return ret;
+}
+
+/*
+ * Description: 将音频数据切片后再ws封包并发送
+ * Return: 成功发送的字节数, 失败则返回负值.
+ * Others:
+ */
+int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) {
+  int ret = 0;
+  int filling_ret = 0;
+
+  if (_nlsEncoder && _encoder_type != ENCODER_NONE) {
+    #ifdef ENABLE_NLS_DEBUG
+    LOG_DEBUG("Node(%p) addSlicedAudioDataBuffer input data %d bytes.", this, length);
+    #endif
+    _max_data_size = _nlsEncoder->getFrameSampleBytes();
+    if (_audio_data == NULL) {
+        _audio_data = (unsigned char*)malloc(_max_data_size);
+        if (_audio_data == NULL) {
+          LOG_ERROR("Node(%p) malloc audio_data_buffer failed.", this);
+          return -(MallocFailed);
+        }
+        _audio_data_size = 0;
+    }
+
+    size_t buffer_space_size = 0; /*buffer中空闲空间*/
+    size_t frame_used_size = 0; /*frame已经传入buffer的字节数*/
+    size_t frame_remain_size = length; /*frame未传入buffer的字节数*/
+    do {
+      buffer_space_size = _max_data_size - _audio_data_size;
+      if (frame_remain_size < buffer_space_size) {
+        memcpy(_audio_data + _audio_data_size, frame + frame_used_size, frame_remain_size);
+        filling_ret = frame_remain_size;
+        _audio_data_size += frame_remain_size;
+        frame_used_size += frame_remain_size;
+        frame_remain_size -= frame_remain_size;
+      } else {
+        memcpy(_audio_data + _audio_data_size, frame + frame_used_size, buffer_space_size);
+        filling_ret = buffer_space_size;
+        _audio_data_size += buffer_space_size;
+        frame_used_size += buffer_space_size;
+        frame_remain_size -= buffer_space_size;
+      }
+
+      if (_audio_data_size >= _max_data_size) {
+        ret = addAudioDataBuffer(_audio_data, _max_data_size);
+        memset(_audio_data, 0, _max_data_size);
+        _audio_data_size = 0;
+        #ifdef ENABLE_NLS_DEBUG
+        LOG_DEBUG("Node(%p) ready to push audio data(%d) into nls_buffer, has digest %dbytes, ret:%d.",
+              this, length, frame_used_size, ret);
+        #endif
+        if (ret < 0) {
+          filling_ret = ret;
+          break;
+        }
+      }
+    } while (frame_used_size < length);
+  } else {
+    filling_ret = addAudioDataBuffer(frame, length);
+  }
+
+  #ifdef ENABLE_NLS_DEBUG
+  LOG_DEBUG("Node(%p) pushed audio data(%d) into audio_data_tmp_buffer.", this, filling_ret);
+  #endif
+  return filling_ret;
+}
+
+/*
  * Description: 将音频数据进行ws封包并发送
  * Return: 成功发送的字节数, 失败则返回负值.
  * Others:
@@ -899,7 +1024,8 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
       nSize = _nlsEncoder->nlsEncoding(
           frame, (int)frameSize,
           outputBuffer, (int)frameSize);
-      // LOG_DEBUG("Node(%p) Opus encoder return nSize:%d.", this, nSize);
+      // LOG_DEBUG("Node(%p) Opus encoder(%d) encoding %dbytes data, and return nSize:%d.",
+      //     this, _encoder_type, frameSize, nSize);
       if (nSize < 0) {
         LOG_ERROR("Node(%p) Opus encoder failed:%d.", this, nSize);
         delete [] outputBuffer;
@@ -979,6 +1105,17 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   }
 
   return ret;
+}
+
+/*
+ * Description: 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
+ *              此模式start()后收到服务端结果再return出去,
+ *              stop()后收到close()回调再return出去.
+ * Return:
+ * Others:
+ */
+void ConnectNode::setSyncCallTimeout(unsigned int timeout_ms) {
+  _syncCallTimeoutMs = timeout_ms;
 }
 
 /*
@@ -1088,6 +1225,7 @@ int ConnectNode::cmdNotify(CmdType type, const char* message) {
   LOG_DEBUG("Node(%p) invoke CmdNotify: %s.", this, getCmdTypeString(type).c_str());
 
   if (type == CmdStop) {
+    addRemainAudioData();
     _exitStatus = ExitStopping;
     if (_workStatus == NodeStarted) {
       size_t length = evbuffer_get_length(_binaryEvBuffer);
@@ -1246,9 +1384,11 @@ int ConnectNode::webSocketResponse() {
 
   read_len = nlsReceive(frame, READ_BUFFER_SIZE);
   if (read_len < 0) {
+    LOG_ERROR("Node(%p) nlsReceive failed, read_len:%d", this, read_len);
     free(frame);
     return -(NlsReceiveFailed);
   } else if (read_len == 0) {
+    LOG_WARN("Node(%p) nlsReceive empty, read_len:%d", this, read_len);
     free(frame);
     return 0;
   }
@@ -1272,6 +1412,8 @@ int ConnectNode::webSocketResponse() {
         frame = NULL;
         ret = -(ReallocFailed);
         break;
+      } else {
+        LOG_WARN("Node(%p) websocket frame realloc, new size:%d.", this, frameSize + 1);
       }
     }
 
@@ -1281,7 +1423,7 @@ int ConnectNode::webSocketResponse() {
     WebSocketFrame wsFrame;
     memset(&wsFrame, 0x0, sizeof(struct WebSocketFrame));
     if (_webSocket.receiveFullWebSocketFrame(
-          frame, frameSize, &_wsType, &wsFrame) == 0) {
+          frame, frameSize, &_wsType, &wsFrame) == Success) {
       // LOG_DEBUG("Node(%p) parse websocket frame, len:%zu, frame size:%zu.",
       //     this, wsFrame.length, frameSize);
 
@@ -1300,6 +1442,8 @@ int ConnectNode::webSocketResponse() {
 
     /* 解析成功并还有剩余数据, 则尝试再解析 */
     if (ret > 0 && cur_data_size > 0) {
+      LOG_DEBUG("Node(%p) current data remainder size:%d, ret:%d, receive ws frame continue...",
+          this, cur_data_size, ret);
       eLoop = true;
     } else {
       eLoop = false;
@@ -1398,6 +1542,10 @@ std::string ConnectNode::utf8ToGbk(const std::string &strUTF8) {
 
 void ConnectNode::setInstance(NlsClient* instance) {
   _instance = instance;
+}
+
+NlsClient* ConnectNode::getInstance() {
+  return _instance;
 }
 
 NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
@@ -1615,14 +1763,13 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
   frameEvent = NULL;
 
   if (closeFlag) {
-    if (!_isLongConnection) {
+    if (!_isLongConnection || _workStatus == NodeFailed) {
       closeConnectNode();
     } else {
       closeStatusConnectNode();
     }
     handlerEvent(CLOSE_JSON_STRING, CLOSE_CODE,
                  NlsEvent::Close, _enableOnMessage);
-    return Success;
   }
 
   return Success;
@@ -1644,9 +1791,11 @@ int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
     //     frameEvent->getMsgTypeString().c_str());
     // LOG_DEBUG("Node:%p current response:%s.", this, frameEvent->getAllResponse());
     if (_enableOnMessage) {
+      sendFinishCondSignal(NlsEvent::Message);
       handlerMessage(frameEvent->getAllResponse(),
                      NlsEvent::Message);
     } else {
+      sendFinishCondSignal(frameEvent->getMsgType());
       _handler->handlerFrame(*frameEvent);
     }
   }
@@ -1669,6 +1818,10 @@ void ConnectNode::handlerEvent(const char* error,
     return;
   }
 
+  if (errorCode != CLOSE_CODE) {
+    _nodeErrCode = errorCode;
+  }
+
   NlsEvent* useEvent = NULL;
   useEvent = new NlsEvent(
       error, errorCode, eventType, _request->getRequestParam()->_task_id);
@@ -1688,8 +1841,12 @@ void ConnectNode::handlerEvent(const char* error,
       LOG_WARN("Node(%p) NlsEvent::Close has invoked, skip CloseCallback.", this);
     } else {
       handlerFrame(useEvent);
-      _workStatus = NodeClosed;
-      LOG_DEBUG("Node(%p) callback NlsEvent::Close frame done.", this);
+      if (eventType == NlsEvent::Close) {
+        _workStatus = NodeClosed;
+        LOG_DEBUG("Node(%p) callback NlsEvent::Close frame done.", this);
+      } else {
+        LOG_DEBUG("Node(%p) callback NlsEvent::%s frame done.", this, useEvent->getMsgTypeString().c_str());
+      }
     }
   }
 
@@ -1790,69 +1947,77 @@ void ConnectNode::handlerTaskFailedEvent(std::string failedInfo, int code) {
 static void *async_dns_resolve_thread_fn(void *arg) {
   pthread_detach(pthread_self());
   ConnectNode *node = (ConnectNode *)arg;
-  struct evutil_addrinfo *res = NULL;
-  evdns_getaddrinfo_cb cb = (evdns_getaddrinfo_cb)node->_getaddrinfo_cb_handle;
-  int err = getaddrinfo(node->_nodename, node->_servname, NULL, &res);
-  if (err) {
-    LOG_ERROR("Node(%p) getaddrinfo failed... err:%d.", arg, err);
-  }
 
-  pthread_mutex_lock(&node->_mtxDns);
-  pthread_cond_signal(&node->_cvDns);
-  pthread_mutex_unlock(&node->_mtxDns);
+  node->_gaicbRequest[0] = (struct gaicb *)malloc(sizeof(*node->_gaicbRequest[0]));
+  if (node->_gaicbRequest[0] == NULL) {
+    LOG_ERROR("Node(%p) malloc _gaicbRequest failed.", arg);
+  } else {
+    memset(node->_gaicbRequest[0], 0, sizeof(*node->_gaicbRequest[0]));
+    node->_gaicbRequest[0]->ar_name = node->_nodename;
 
-  event_assign(&node->_dnsEvent, node->_eventThread->_workBase,
-               -1, err, WorkThread::sysDnsEventCallback, node);
-  node->_addrinfo = res;
-  event_add(&node->_dnsEvent, NULL);
-  event_active(&node->_dnsEvent, err, 0);
-
-  node->_dnsThread = 0;
-  pthread_exit(NULL);
-}
-
-static void *async_dns_time_thread_fn(void *arg) {
-  pthread_detach(pthread_self());
-  ConnectNode *node = (ConnectNode *)arg;
-  evdns_getaddrinfo_cb cb = (evdns_getaddrinfo_cb)node->_getaddrinfo_cb_handle;
-
-  pthread_mutex_lock(&node->_mtxDns);
-  if (ETIMEDOUT == pthread_cond_timedwait(
-        &node->_cvDns, &node->_mtxDns, &node->_outtime)) {
-    if (!node->_isDestroy) {
-      INlsRequestParam* requestParam = node->_request->getRequestParam();
-      if (requestParam == NULL) {
-        LOG_ERROR("Node(%p) DNS: resolved timeout, but requestParam is nullptr.",
-            node);
-      } else {
-        LOG_ERROR("Node(%p) DNS: resolved timeout(%dms).",
-            node, node->_request->getRequestParam()->_timeout);
+    int err = getaddrinfo_a(GAI_NOWAIT, node->_gaicbRequest, 1, NULL);
+    if (err) {
+      LOG_ERROR("Node(%p) getaddrinfo_a failed, err:%d(%s).", arg, err, gai_strerror(err));
+    } else {
+      /* check this node is alive. */
+      if (node->_request == NULL) {
+        LOG_ERROR("The request of this node(%p) is nullptr.", node);
+        goto dnsExit;
       }
-      if (node->_dnsThread) {
-        int ret = pthread_kill(node->_dnsThread, 0);
-        if (ret == 0) {
-          LOG_DEBUG("Node(%p) dns timeout, dnsThread exist.", node);
-          #ifndef __ANDROID__
-          pthread_cancel(node->_dnsThread);
-          #endif
-          node->_dnsThread = 0;
-        } else if (ret == ESRCH) {
-          LOG_ERROR("Node(%p) dns timeout, dnsThread not exist.", node);
-        } else {
-          LOG_ERROR("Node(%p) dns timeout, ret:%d.", node, ret);
-        }
+      NlsClient* instance = node->getInstance();
+      NlsNodeManager* node_manager = (NlsNodeManager*)instance->getNodeManger();
+      int status = NodeStatusInvalid;
+      int result = node_manager->checkNodeExist(node, &status);
+      if (result != Success) {
+        LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", node, result);
+        goto dnsExit;
+      }
 
-        event_assign(&node->_dnsEvent, node->_eventThread->_workBase,
-                     -1, EAI_SYSTEM, WorkThread::sysDnsEventCallback, node);
-        node->_addrinfo = NULL;
-        event_add(&node->_dnsEvent, NULL);
-        event_active(&node->_dnsEvent, EAI_SYSTEM, 0);
+      int timeout_ms = node->_request->getRequestParam()->getTimeout();  // ms
+      time_t time_s = timeout_ms / 1000;
+      time_t time_ns = (timeout_ms % 1000) * 1000000;
+      struct timespec outtime = { time_s, time_ns };
+      // LOG_DEBUG("Node(%p) ready to gai_suspend.", arg);
+      err = gai_suspend(node->_gaicbRequest, 1, &outtime);
+      // LOG_DEBUG("Node(%p) gai_suspend finish.", arg);
+      if (node->_dnsThreadExit) {
+        LOG_WARN("Node(%p) ConnectNode is exiting, skip gai.");
+        goto dnsExit;
+      }
+      if (err) {
+        LOG_ERROR("Node(%p) gai_suspend failed, err:%d(%s).", arg, err, gai_strerror(err));
+      } else {
+        /* check this node is alive again after gai_suspend. */
+        result = node_manager->checkNodeExist(node, &status);
+        if (result != Success) {
+          LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", node, result);
+          goto dnsExit;
+        }
+        
+        err = gai_error(node->_gaicbRequest[0]);
+        if (err) {
+          LOG_WARN("Node(%p) cannot get addrinfo, err:%d(%s).", arg, err, gai_strerror(err));
+        } else {
+          node->_addrinfo = node->_gaicbRequest[0]->ar_result;
+        }
       }
     }
-  }
-  pthread_mutex_unlock(&node->_mtxDns);
 
-  node->_timeThread = 0;
+    node->_dnsErrorCode = err;
+    event_assign(&node->_dnsEvent, node->_eventThread->_workBase,
+                 -1, EV_READ, WorkThread::sysDnsEventCallback, node);
+    event_add(&node->_dnsEvent, NULL);
+    event_active(&node->_dnsEvent, EV_READ, 0);
+
+    LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn exit.", arg);
+  }
+
+dnsExit:
+  if (node->_gaicbRequest[0]) {
+    free(node->_gaicbRequest[0]);
+    node->_gaicbRequest[0] = NULL;
+  }
+  node->_dnsThread = 0;
   pthread_exit(NULL);
 }
 
@@ -1867,22 +2032,15 @@ static int native_getaddrinfo(
     evdns_getaddrinfo_cb cb, void *arg) {
   int err = 0;
   ConnectNode *node = (ConnectNode *)arg;
-  int timeout = node->_request->getRequestParam()->getTimeout();  // ms
-  struct timeval now;
-  gettimeofday(&now, NULL);
-  long nanotime = now.tv_usec * 1000 + timeout * 1000000;
-  node->_outtime.tv_sec = now.tv_sec + nanotime / 1000000000;
-  node->_outtime.tv_nsec = nanotime % 1000000000;
-
   node->_nodename = (char*)nodename;
   node->_servname = (char*)servname;
-  node->_getaddrinfo_cb_handle = (void*)cb;
 
-  pthread_create(&node->_dnsThread, NULL,
-                 &async_dns_resolve_thread_fn, arg);
+  if (node->_dnsThread) {
+    pthread_join(node->_dnsThread, NULL);
+  }
+  err = pthread_create(&node->_dnsThread, NULL,
+                       &async_dns_resolve_thread_fn, arg);
 
-  pthread_create(&node->_timeThread, NULL,
-                 &async_dns_time_thread_fn, arg);
   return err;
 }
 #endif
@@ -2063,7 +2221,6 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       LOG_ERROR("Node(%p) new event(_connectEvent) failed.", this);
       return -(EventEmpty);
     }
-    _connectEventBackup = _connectEvent;
   } else {
     event_assign(_connectEvent, _eventThread->_workBase, sockFd,
                  events,
@@ -2080,7 +2237,6 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       LOG_ERROR("Node(%p) new event(_connectTimerEvent) failed.", this);
       return -(EventEmpty);
     }
-    _connectTimerEventBackup = _connectTimerEvent;
   }
 #endif
 
@@ -2099,12 +2255,11 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       LOG_ERROR("Node(%p) new event(_readEvent) failed.", this);
       return -(EventEmpty);
     }
-    _readEventBackup = _readEvent;
   } else {
     event_assign(_readEvent, _eventThread->_workBase, sockFd,
-                events,
-                WorkThread::readEventCallBack,
-                this);
+                 events,
+                 WorkThread::readEventCallBack,
+                 this);
   }
 
   events = EV_WRITE | EV_TIMEOUT | EV_FINALIZE;
@@ -2118,7 +2273,6 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       LOG_ERROR("Node(%p) new event(_writeEvent) failed.", this);
       return -(EventEmpty);
     }
-    _writeEventBackup = _writeEvent;
   } else {
     event_assign(_writeEvent, _eventThread->_workBase, sockFd,
                  events,
@@ -2201,8 +2355,8 @@ int ConnectNode::socketConnect() {
       _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
       event_add(_connectEvent, &_connectTv);
 
-      LOG_DEBUG("Node(%p) will connect later, errno:%d. timeout:%d.%ds.",
-          this, connectErrCode, _connectTv.tv_sec, _connectTv.tv_usec);
+      LOG_DEBUG("Node(%p) will connect later, errno:%d. timeout:%dms.",
+          this, connectErrCode, timeout_ms);
       return 1;
     } else {
       LOG_ERROR("Node(%p) connect failed:%s. retCode:%d connectErrCode:%d. retry ...",
@@ -2469,7 +2623,7 @@ void ConnectNode::delAllEvents() {
 }
 
 /*
- * Description: 等待所有EventCallback退出, 默认5s超时.
+ * Description: 等待所有EventCallback退出, 默认1s超时.
  * Return:
  * Others:
  */
@@ -2488,7 +2642,7 @@ void ConnectNode::waitEventCallback() {
     struct timespec outtime;
     struct timeval now;
     gettimeofday(&now, NULL);
-    outtime.tv_sec = now.tv_sec + 5;
+    outtime.tv_sec = now.tv_sec + 1;
     outtime.tv_nsec = now.tv_usec * 1000;
     pthread_mutex_lock(&_mtxEventCallbackNode);
     if (ETIMEDOUT == pthread_cond_timedwait(&_cvEventCallbackNode, &_mtxEventCallbackNode, &outtime)) {
@@ -2500,6 +2654,59 @@ void ConnectNode::waitEventCallback() {
   }
 
   // LOG_DEBUG("Node(%p) wait all EventCallback exit done.", this);
+}
+
+/*
+ * Description: 等待调用完成, 默认10s超时.
+ * Return:
+ * Others:
+ */
+void ConnectNode::waitInvokeFinish() {
+  if (_syncCallTimeoutMs > 0) {
+    LOG_DEBUG("Node(%p) waiting invoke finish, timeout %dms...", this, _syncCallTimeoutMs);
+
+#if defined(_MSC_VER)
+    WaitForSingleObject(_mtxInvokeSyncCallNode, INFINITE);
+#else
+    struct timespec outtime;
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    uint64_t time_ms = now.tv_sec * 1000 + now.tv_usec / 1000 + _syncCallTimeoutMs;
+    outtime.tv_sec = time_ms / 1000;
+    outtime.tv_nsec = (time_ms % 1000) * 1000000;
+    pthread_mutex_lock(&_mtxInvokeSyncCallNode);
+    if (ETIMEDOUT == pthread_cond_timedwait(&_cvInvokeSyncCallNode, &_mtxInvokeSyncCallNode, &outtime)) {
+      _nodeErrCode = InvokeTimeout;
+      LOG_WARN("Node(%p) waiting invoke timeout.", this);
+    }
+    pthread_mutex_unlock(&_mtxInvokeSyncCallNode);
+#endif
+
+    LOG_DEBUG("Node(%p) waiting invoke done.", this);
+  }
+}
+
+/*
+ * Description: 发送调用完成的信号.
+ * Return:
+ * Others:
+ */
+void ConnectNode::sendFinishCondSignal(NlsEvent::EventType eventType) {
+  if (_syncCallTimeoutMs > 0) {
+    if (eventType == NlsEvent::Close ||
+        eventType == NlsEvent::RecognitionStarted ||
+        eventType == NlsEvent::TranscriptionStarted ||
+        eventType == NlsEvent::SynthesisStarted) {
+      LOG_DEBUG("Node(%p) send finish cond signal, event type:%d.", this, eventType);
+
+      bool useless_flag = false;
+    #ifdef _MSC_VER
+      SET_EVENT(useless_flag, _mtxInvokeSyncCallNode);
+    #else
+      SEND_COND_SIGNAL(_mtxInvokeSyncCallNode, _cvInvokeSyncCallNode, useless_flag);
+    #endif
+    }
+  }
 }
 
 }  // namespace AlibabaNls

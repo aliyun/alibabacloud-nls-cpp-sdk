@@ -771,8 +771,15 @@ int dialogAssistantMultFile(const char* appkey, int threads) {
   std::time_t curTime = std::time(0);
   if (g_expireTime - curTime < 10) {
     std::cout << "the token will be expired, please generate new token by AccessKey-ID and AccessKey-Secret." << std::endl;
-    if (generateToken(g_akId, g_akSecret, &g_token, &g_expireTime) < 0) {
+    int ret = generateToken(g_akId, g_akSecret, &g_token, &g_expireTime);
+    if (ret < 0) {
+      std::cout << "generate token failed" << std::endl;
       return -1;
+    } else {
+      if (g_token.empty() || g_expireTime < 0) {
+        std::cout << "generate empty token" << std::endl;
+        return -2;
+      }
     }
   }
 
@@ -871,9 +878,21 @@ int parse_argv(int argc, char* argv[]) {
     }
     index++;
   }
+
+  if (g_akId.empty() && getenv("NLS_AK_ENV")) {
+    g_akId.assign(getenv("NLS_AK_ENV"));
+  }
+  if (g_akSecret.empty() && getenv("NLS_SK_ENV")) {
+    g_akSecret.assign(getenv("NLS_SK_ENV"));
+  }
+  if (g_appkey.empty() && getenv("NLS_APPKEY_ENV")) {
+    g_appkey.assign(getenv("NLS_APPKEY_ENV"));
+  }
+
   if ((g_token.empty() && (g_akId.empty() || g_akSecret.empty())) ||
       g_appkey.empty()) {
     std::cout << "short of params..." << std::endl;
+    std::cout << "if ak/sk is empty, please setenv NLS_AK_ENV&NLS_SK_ENV&NLS_APPKEY_ENV" << std::endl;
     return 1;
   }
   return 0;
@@ -933,10 +952,16 @@ int main(int argc, char* argv[]) {
   // 启动工作线程, 在创建请求和启动前必须调用此函数
   // 入参为负时, 启动当前系统中可用的核数
   // 高并发的情况下推荐4, 单请求的情况推荐为1
-  AlibabaNls::NlsClient::getInstance()->startWorkThread(-1);
+  AlibabaNls::NlsClient::getInstance()->startWorkThread(1);
 
   // 识别多个音频数据
-  dialogAssistantMultFile(g_appkey.c_str(), g_threads);
+  ret = dialogAssistantMultFile(g_appkey.c_str(), g_threads);
+  if (ret) {
+    std::cout << "dialogAssistantMultFile failed." << std::endl;
+    AlibabaNls::NlsClient::releaseInstance();
+    pthread_mutex_destroy(&params_mtx);
+    return -2;
+  }
 
   // 所有工作完成, 进程退出前, 释放nlsClient.
   AlibabaNls::NlsClient::releaseInstance();

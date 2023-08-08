@@ -164,6 +164,13 @@ int logSystemMultThreads(int threads) {
   return 0;
 }
 
+void onExternalLogCallback(const char* timestamp, int level, const char* message) {
+  std::cout << "onExternalLogCallback timestamp:"
+      << timestamp << std::endl;
+  std::cout << "  log level:" << level << std::endl;
+  std::cout << "  log message:" << message << std::endl;
+}
+
 int invalied_argv(int index, int argc) {
   if (index >= argc) {
     std::cout << "invalid params..." << std::endl;
@@ -225,7 +232,7 @@ int main(int argc, char* argv[]) {
   std::cout << "\n" << std::endl;
 
   AlibabaNls::utility::NlsLog::getInstance()->logConfig(
-      "log4cppUnitTest", AlibabaNls::LogDebug, 400, 5);
+      "log4cppUnitTest", AlibabaNls::LogDebug, 400, 5, onExternalLogCallback);
 
   logSystemMultThreads(g_threads);
 

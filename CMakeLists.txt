@@ -141,6 +141,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fPIC -g -ggdb")
   endif ()
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+  add_definitions(-DENABLE_NLS_DEBUG)
 else ()
   set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -fPIC")
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
@@ -160,8 +161,12 @@ if (CXX11_ABI)
 endif ()
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI})
 
+#启用OPUS(OPU模式默认已启动)
 add_definitions(-DENABLE_OGGOPUS)
+#启用高效模式, 降低CPU占用率
 add_definitions(-DENABLE_HIGH_EFFICIENCY)
+#启用内存扰乱
+add_definitions(-DENABLE_UNALIGNED_MEM)
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)

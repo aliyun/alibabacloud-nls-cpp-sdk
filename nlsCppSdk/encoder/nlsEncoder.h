@@ -22,6 +22,7 @@
 #include "thread_data.h"
 #endif
 
+#define DEFAULT_OPUS_FRAME_SIZE 640
 #define DEFAULT_FRAME_NORMAL_SIZE 640
 #define DEFAULT_FRAME_INTER_SIZE 320
 
@@ -56,6 +57,12 @@ class NlsEncoder {
    * @return 成功返回0，失败返回负值
    */
   int destroyNlsEncoder();
+
+  /*
+   * @brief 获得用于编码的每帧字节长度
+   * @return 成功返回每帧字节长度，失败返回负值
+   */
+  int getFrameSampleBytes();
 
 #ifdef ENABLE_OGGOPUS
   int pushbackEncodedData(const uint8_t *encoded_data, int data_len);

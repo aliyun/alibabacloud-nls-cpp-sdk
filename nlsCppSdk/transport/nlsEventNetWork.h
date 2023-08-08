@@ -22,6 +22,7 @@
 #else
 #include <pthread.h>
 #endif
+#include "event2/util.h"
 #include "nlsEncoder.h"
 
 namespace AlibabaNls {
@@ -39,7 +40,8 @@ class NlsEventNetWork {
   static void DnsLogCb(int w, const char *m);
 
   void initEventNetWork(
-      NlsClient* instance, int count, char *aiFamily, char *directIp, bool sysGetAddr);
+      NlsClient* instance, int count, char *aiFamily, char *directIp,
+      bool sysGetAddr, unsigned int syncCallTimeoutMs);
   void destroyEventNetWork();
 
   int start(INlsRequest *request);
@@ -59,7 +61,8 @@ class NlsEventNetWork {
   size_t _currentCpuNumber;
   int _addrInFamily;
   char _directIp[64];
-  bool _enableSysGetAddr;
+  bool _enableSysGetAddr;          //启用getaddrinfo_a接口进行dns解析, 默认false
+  unsigned int _syncCallTimeoutMs; //启用同步接口, 默认0为不启用同步接口
   NlsClient* _instance;
 
 #if defined(_MSC_VER)

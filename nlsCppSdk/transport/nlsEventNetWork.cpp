@@ -36,7 +36,7 @@
 
 namespace AlibabaNls {
 
-#define DEFAULT_OPUS_FRAME_SIZE 640
+#define MAX_SEND_TRY_AGAIN      50
 
 #ifdef _MSC_VER
 #pragma comment(lib, "ws2_32")
@@ -55,6 +55,7 @@ NlsEventNetWork::NlsEventNetWork() {
   _addrInFamily = 0;
   _directIp[64] = {0};
   _enableSysGetAddr = false;
+  _syncCallTimeoutMs = 0;
 }
 
 NlsEventNetWork::~NlsEventNetWork() {}
@@ -64,7 +65,8 @@ void NlsEventNetWork::DnsLogCb(int w, const char *m) {
 }
 
 void NlsEventNetWork::initEventNetWork(
-    NlsClient* instance, int count, char *aiFamily, char *directIp, bool sysGetAddr) {
+    NlsClient* instance, int count, char *aiFamily,
+    char *directIp, bool sysGetAddr, unsigned int syncCallTimeoutMs) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxThread, INFINITE);
 #else
@@ -110,6 +112,7 @@ void NlsEventNetWork::initEventNetWork(
     strncpy(_directIp, directIp, 64);
   }
   _enableSysGetAddr = sysGetAddr;
+  _syncCallTimeoutMs = syncCallTimeoutMs;
 
   int cpuNumber = 1;
 #if defined(_MSC_VER)
@@ -281,38 +284,26 @@ int NlsEventNetWork::start(INlsRequest *request) {
       node->_eventThread->setDirectHost(_directIp);
     }
     node->_eventThread->setUseSysGetAddrInfo(_enableSysGetAddr);
+    node->setSyncCallTimeout(_syncCallTimeoutMs);
 
-    int ret = WorkThread::insertQueueNode(node->_eventThread, request);
-    if (ret != Success) {
-      LOG_ERROR("Request(%p) node(%p) insertQueueNode failed, ret:%d.",
-          request, node, ret);
+    event_add(node->getLaunchEvent(), NULL);
+    event_active(node->getLaunchEvent(), EV_READ, 0);
 
-      node->setConnectNodeStatus(NodeCreated);
-    #if defined(_MSC_VER)
-      ReleaseMutex(_mtxThread);
-    #else
-      pthread_mutex_unlock(&_mtxThread);
-    #endif
-      return ret;
+    node->initNlsEncoder();
+
+    if (node->_syncCallTimeoutMs > 0) {
+      node->waitInvokeFinish();
+      int error_code = node->getErrorCode();
+      if (error_code != Success) {
+      #if defined(_MSC_VER)
+        ReleaseMutex(_mtxThread);
+      #else
+        pthread_mutex_unlock(&_mtxThread);
+      #endif
+        return -(error_code);
+      }
     }
 
-    LOG_DEBUG("Request(%p) node(%p) send fd:%d.", request, node, node->_eventThread->_notifySendFd);
-
-    char cmd = 'c';
-    ret = send(node->_eventThread->_notifySendFd,
-                   (char *)&cmd, sizeof(char), 0);
-    if (ret < 1) {
-      LOG_ERROR("Request(%p) node(%p) send start command failed, errno:%d ret:%d.",
-          request, node, utility::getLastErrorCode(), ret);
-
-      node->setConnectNodeStatus(NodeCreated);
-    #if defined(_MSC_VER)
-      ReleaseMutex(_mtxThread);
-    #else
-      pthread_mutex_unlock(&_mtxThread);
-    #endif
-      return -(StartCommandFailed);
-    }
   } else if (node->getExitStatus() == ExitInvalid &&
       node->getConnectNodeStatus() > NodeCreated &&
       node->getConnectNodeStatus() < NodeFailed) {
@@ -341,8 +332,6 @@ int NlsEventNetWork::start(INlsRequest *request) {
   #endif
     return -(InvokeStartFailed);
   }
-
-  node->initNlsEncoder();
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
@@ -380,14 +369,11 @@ int NlsEventNetWork::sendAudio(INlsRequest *request, const uint8_t * data,
     return -(InvokeSendAudioFailed);
   }
 
-  if (type == ENCODER_OPU) {
-    if (dataSize != DEFAULT_OPUS_FRAME_SIZE) {
-      LOG_ERROR("Request(%p) node(%p) the data size of OPU isn't 640bytes.", request, node);
-      return -(InvalidOpusFrameSize);
-    }
+  if (type != ENCODER_NONE) {
+    return node->addSlicedAudioDataBuffer(data, dataSize);
+  } else {
+    return node->addAudioDataBuffer(data, dataSize);
   }
-
-  return node->addAudioDataBuffer(data, dataSize);
 }
 
 int NlsEventNetWork::stop(INlsRequest *request) {
@@ -444,6 +430,7 @@ int NlsEventNetWork::stop(INlsRequest *request) {
   #endif
     return Success;
   }
+
   if (node->getConnectNodeStatus() < NodeInvoking ||
       node->getConnectNodeStatus() >= NodeFailed ||
       node->getExitStatus() != ExitInvalid) {
@@ -460,6 +447,19 @@ int NlsEventNetWork::stop(INlsRequest *request) {
   }
 
   int ret = node->cmdNotify(CmdStop, NULL);
+
+  if (node->_syncCallTimeoutMs > 0) {
+    node->waitInvokeFinish();
+    int error_code = node->getErrorCode();
+    if (error_code != Success) {
+    #if defined(_MSC_VER)
+      ReleaseMutex(_mtxThread);
+    #else
+      pthread_mutex_unlock(&_mtxThread);
+    #endif
+      return -(error_code);
+    }
+  }
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);

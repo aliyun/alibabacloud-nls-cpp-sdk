@@ -17,6 +17,7 @@
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
+#include <time.h>
 #include "nlsGlobal.h"
 #include "connectNode.h"
 #include "iNlsRequest.h"
@@ -32,9 +33,18 @@ NlsNodeManager::NlsNodeManager() {
   pthread_mutex_init(&_mtxNodeManager, NULL);
 #endif
 
-  timeout_ms = 2000;
+  _timeout_ms = 2000;
+
+#ifdef ENABLE_UNALIGNED_MEM
+  _max_unaligned_item_size = 256; // bytes
+  _max_unaligned_array_len = 2048;
+#endif
 }
 NlsNodeManager::~NlsNodeManager() {
+#ifdef ENABLE_UNALIGNED_MEM
+  removeAllMemChunk();
+#endif
+
 #if defined(_MSC_VER)
   CloseHandle(_mtxNodeManager);
 #else
@@ -42,6 +52,11 @@ NlsNodeManager::~NlsNodeManager() {
 #endif
 }
 
+/*
+ * Description: 新创建request加入到NodeManager中
+ * Return: Error Code
+ * Others:
+ */
 int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxNodeManager, INFINITE);
@@ -84,8 +99,8 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
   }
 
   std::map<void*, NodeInfo>::iterator iter;
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
+  iter = this->_infoByRequest.find(request);
+  if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
     LOG_WARN("request:%p has added in NodeInfo, status:%s node:%p",
         request, this->getNodeStatusString(info.status).c_str(), info.node);
@@ -118,7 +133,7 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
       info.node = node;
       info.instance = instance;
       info.status = NodeStatusCreated;
-      this->requestListByNode[node] = request;
+      this->_requestListByNode[node] = request;
     }
   } else {
     NodeInfo info;
@@ -126,8 +141,8 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
     info.node = node;
     info.instance = instance;
     info.status = NodeStatusCreated;
-    this->infoByRequest.insert(std::make_pair(request, info));
-    this->requestListByNode.insert(std::make_pair(node, request));
+    this->_infoByRequest.insert(std::make_pair(request, info));
+    this->_requestListByNode.insert(std::make_pair(node, request));
     LOG_DEBUG("add request(%p) node(%p) into NodeInfo", request, node);
   }
 
@@ -140,6 +155,11 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
   return Success;
 }
 
+/*
+ * Description: 检查request是否属于此instance
+ * Return: Error Code
+ * Others:
+ */
 int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxNodeManager, INFINITE);
@@ -169,8 +189,8 @@ int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
   }
 
   std::map<void*, NodeInfo>::iterator iter;
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
+  iter = this->_infoByRequest.find(request);
+  if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
     if (info.instance != instance) {
       LOG_ERROR("the request:%p of instance(%p) isnot in instance(%p)",
@@ -182,6 +202,21 @@ int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
       #endif
 
       return -(InvalidRequest);
+    } else {
+      INlsRequest* nls_request = (INlsRequest*)request;
+      ConnectNode* node = (ConnectNode*)nls_request->getConnectNode();
+      std::map<void*, void*>::iterator node_iter;
+      node_iter = this->_requestListByNode.find(node);
+      if (node_iter == this->_requestListByNode.end()) {
+        LOG_ERROR("node(%p) isn't in NodeInfo, request(%p) is invalid.", node, request);
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxNodeManager);
+        #else
+        pthread_mutex_unlock(&_mtxNodeManager);
+        #endif
+
+        return -(InvalidRequest);
+      }
     }
   } else {
     LOG_ERROR("request:%p isnot in NodeInfo", request);
@@ -202,6 +237,11 @@ int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
   return Success;
 }
 
+/*
+ * Description: request释放后从NodeManager中删除此request
+ * Return: Error Code
+ * Others:
+ */
 int NlsNodeManager::removeRequestFromInfo(void* request, bool wait) {
 #if defined(_MSC_VER)
   WaitForSingleObject(_mtxNodeManager, INFINITE);
@@ -223,11 +263,11 @@ int NlsNodeManager::removeRequestFromInfo(void* request, bool wait) {
   int timeout = 0;
   std::map<void*, NodeInfo>::iterator iter;
   while (wait) {
-    iter = this->infoByRequest.find(request);
-    if (iter != this->infoByRequest.end()) {
+    iter = this->_infoByRequest.find(request);
+    if (iter != this->_infoByRequest.end()) {
       NodeInfo &info = iter->second;
       if (info.status != NodeStatusCreated && info.status < NodeStatusClosed) {
-        if (timeout >= this->timeout_ms) {
+        if (timeout >= this->_timeout_ms) {
           LOG_WARN("request(%p) node(%p) status(%s) is invalid, wait timeout(%dms), remove it by force.",
               request, info.node, this->getNodeStatusString(info.status).c_str(), timeout);
           break;
@@ -259,134 +299,20 @@ int NlsNodeManager::removeRequestFromInfo(void* request, bool wait) {
     }
   } // while
 
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
+  iter = this->_infoByRequest.find(request);
+  if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
     void* node = info.node;
     std::map<void*, void*>::iterator iter2;
-    iter2 = this->requestListByNode.find(node);
-    if (iter2 != this->requestListByNode.end()) {
-      this->requestListByNode.erase(iter2);
+    iter2 = this->_requestListByNode.find(node);
+    if (iter2 != this->_requestListByNode.end()) {
+      this->_requestListByNode.erase(iter2);
     }
 
     LOG_INFO("request(%p) node(%p) status(%s) removed.",
         request, info.node, this->getNodeStatusString(info.status).c_str());
 
-    infoByRequest.erase(iter);
-  } else {
-    LOG_ERROR("request:%p isnot in NodeInfo", request);
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxNodeManager);
-    #else
-    pthread_mutex_unlock(&_mtxNodeManager);
-    #endif
-
-    return -(InvalidRequest);
-  }
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNodeManager);
-#else
-  pthread_mutex_unlock(&_mtxNodeManager);
-#endif
-  return Success;
-}
-
-int NlsNodeManager::removeNodeFromInfo(void* node, bool wait) {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNodeManager, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNodeManager);
-#endif
-
-  if (node == NULL) {
-    LOG_ERROR("node is nullptr.");
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxNodeManager);
-    #else
-    pthread_mutex_unlock(&_mtxNodeManager);
-    #endif
-
-    return -(NodeEmpty);
-  }
-
-  std::map<void*, void*>::iterator iter0;
-  iter0 = this->requestListByNode.find(node);
-  if (iter0 == this->requestListByNode.end()) {
-    LOG_ERROR("node(%p) isn't in NodeInfo.", node);
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxNodeManager);
-    #else
-    pthread_mutex_unlock(&_mtxNodeManager);
-    #endif
-    return -(NodeEmpty);
-  }
-
-  ConnectNode* connect_node = (ConnectNode*)node;
-  INlsRequest* request = (INlsRequest*)connect_node->_request;
-  if (request == NULL) {
-    LOG_ERROR("request is nullptr.");
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxNodeManager);
-    #else
-    pthread_mutex_unlock(&_mtxNodeManager);
-    #endif
-
-    return -(RequestEmpty);
-  }
-
-  int timeout = 0;
-  std::map<void*, NodeInfo>::iterator iter;
-  do {
-    iter = this->infoByRequest.find(request);
-    if (iter != this->infoByRequest.end()) {
-      NodeInfo &info = iter->second;
-      if (info.status != NodeStatusCreated && info.status < NodeStatusClosed) {
-        if (timeout >= this->timeout_ms) {
-          LOG_WARN("request(%p) node(%p) status(%s) is invalid, wait timeout(%dms), remove it by force.",
-              request, info.node, this->getNodeStatusString(info.status).c_str(), timeout);
-          break;
-        }
-        #if defined(_MSC_VER)
-        ReleaseMutex(_mtxNodeManager);
-        Sleep(500);
-        #else
-        pthread_mutex_unlock(&_mtxNodeManager);
-        usleep(500 * 1000);
-        #endif
-
-        timeout += 500;
-
-        #if defined(_MSC_VER)
-        WaitForSingleObject(_mtxNodeManager, INFINITE);
-        #else
-        pthread_mutex_lock(&_mtxNodeManager);
-        #endif
-
-        LOG_DEBUG("request(%p) node(%p) status(%s) is waiting timeout(%dms)...",
-            request, info.node, this->getNodeStatusString(info.status).c_str(), timeout);
-      } else {
-        break;
-      }
-    } else {
-      break;
-    }
-  } while (wait);
-
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
-    NodeInfo &info = iter->second;    
-    void* node = info.node;
-    std::map<void*, void*>::iterator iter2;
-    iter2 = this->requestListByNode.find(node);
-    if (iter2 != this->requestListByNode.end()) {
-      this->requestListByNode.erase(iter2);
-    }
-
-    // LOG_DEBUG("request(%p) node(%p) status(%s) removed.",
-    //     request, info.node, this->getNodeStatusString(info.status).c_str());
-
-    infoByRequest.erase(iter);
+    _infoByRequest.erase(iter);
   } else {
     LOG_ERROR("request:%p isnot in NodeInfo", request);
     #if defined(_MSC_VER)
@@ -429,8 +355,8 @@ int NlsNodeManager::checkRequestExist(void* request, int* status) {
   }
 
   std::map<void*, NodeInfo>::iterator iter;
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
+  iter = this->_infoByRequest.find(request);
+  if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
     if (info.request != request) {
       LOG_ERROR("the request:%p mismatch the request:%p in NodeInfo",
@@ -442,6 +368,21 @@ int NlsNodeManager::checkRequestExist(void* request, int* status) {
       #endif
 
       return -(InvalidRequest);
+    } else {
+      INlsRequest* nls_request = (INlsRequest*)request;
+      ConnectNode* node = (ConnectNode*)nls_request->getConnectNode();
+      std::map<void*, void*>::iterator node_iter;
+      node_iter = this->_requestListByNode.find(node);
+      if (node_iter == this->_requestListByNode.end()) {
+        LOG_ERROR("node(%p) isn't in NodeInfo, request(%p) is invalid.", node, request);
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxNodeManager);
+        #else
+        pthread_mutex_unlock(&_mtxNodeManager);
+        #endif
+
+        return -(InvalidRequest);
+      }
     }
     *status = info.status;
   } else {
@@ -482,8 +423,8 @@ int NlsNodeManager::checkNodeExist(void* node, int* status) {
   }
 
   std::map<void*, void*>::iterator iter0;
-  iter0 = this->requestListByNode.find(node);
-  if (iter0 == this->requestListByNode.end()) {
+  iter0 = this->_requestListByNode.find(node);
+  if (iter0 == this->_requestListByNode.end()) {
     LOG_ERROR("node(%p) isn't in NodeInfo.", node);
     #if defined(_MSC_VER)
     ReleaseMutex(_mtxNodeManager);
@@ -507,8 +448,8 @@ int NlsNodeManager::checkNodeExist(void* node, int* status) {
   }
 
   std::map<void*, NodeInfo>::iterator iter;
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
+  iter = this->_infoByRequest.find(request);
+  if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
     if (info.request != request) {
       LOG_ERROR("the request:%p mismatch the request:%p in NodeInfo",
@@ -560,8 +501,8 @@ int NlsNodeManager::updateNodeStatus(void* node, int status) {
   }
 
   std::map<void*, void*>::iterator iter0;
-  iter0 = this->requestListByNode.find(node);
-  if (iter0 == this->requestListByNode.end()) {
+  iter0 = this->_requestListByNode.find(node);
+  if (iter0 == this->_requestListByNode.end()) {
     LOG_ERROR("node(%p) isn't in NodeInfo.", node);
     #if defined(_MSC_VER)
     ReleaseMutex(_mtxNodeManager);
@@ -575,8 +516,8 @@ int NlsNodeManager::updateNodeStatus(void* node, int status) {
   INlsRequest* request = (INlsRequest*)connect_node->_request;
 
   std::map<void*, NodeInfo>::iterator iter;
-  iter = this->infoByRequest.find(request);
-  if (iter != this->infoByRequest.end()) {
+  iter = this->_infoByRequest.find(request);
+  if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
     LOG_DEBUG("Node:%p set node status from %s to %s.",
         info.node,
@@ -599,7 +540,7 @@ int NlsNodeManager::updateNodeStatus(void* node, int status) {
 #else
   pthread_mutex_unlock(&_mtxNodeManager);
 #endif
-  return Success;    
+  return Success;
 }
 
 std::string NlsNodeManager::getNodeStatusString(int status) {
@@ -651,5 +592,67 @@ std::string NlsNodeManager::getNodeStatusString(int status) {
 
   return ret_str;
 }
+
+#ifdef ENABLE_UNALIGNED_MEM
+int NlsNodeManager::addRandomMemChunk() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNodeManager, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxNodeManager);
+#endif
+
+  struct timeval t;
+  int array_len = _unaligned_list.size();
+  if (array_len >= _max_unaligned_array_len) {
+    int remove_count = _max_unaligned_array_len / 2;
+    for (int i = 0; i < remove_count; i++) {
+      array_len = _unaligned_list.size();
+      gettimeofday(&t, NULL);
+      srand(t.tv_usec);
+      int index = rand() % array_len;
+      std::vector<char*>::iterator iter = _unaligned_list.begin() + index;
+      char* p = *iter;
+      delete[] p;
+      _unaligned_list.erase(iter);
+    }
+  }
+
+  gettimeofday(&t, NULL);
+  srand(t.tv_usec);
+  int size = rand() % _max_unaligned_item_size + 1;
+  char* n = new char[size];
+  // LOG_DEBUG("Add random mem(%dbytes) in %p.", size, n);
+  _unaligned_list.push_back(n);
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNodeManager);
+#else
+  pthread_mutex_unlock(&_mtxNodeManager);
+#endif
+  return Success;
+}
+
+int NlsNodeManager::removeAllMemChunk() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNodeManager, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxNodeManager);
+#endif
+
+  for (std::vector<char*>::iterator iter = _unaligned_list.begin(); iter != _unaligned_list.end();) {
+    char* p = *iter;
+    // LOG_DEBUG("delete mem in %p.", p);
+    delete[] p;
+    _unaligned_list.erase(iter);
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxNodeManager);
+#else
+  pthread_mutex_unlock(&_mtxNodeManager);
+#endif
+  return Success;
+}
+#endif
 
 } // namespace AlibabaNls

@@ -147,6 +147,8 @@ class ConnectNode {
 
   void addCmdDataBuffer(CmdType type, const char* message = NULL);
   int addAudioDataBuffer(const uint8_t * frame, size_t length);
+  int addSlicedAudioDataBuffer(const uint8_t * frame, size_t length);
+
   int cmdNotify(CmdType type, const char* message);
 
   int nlsSend(const uint8_t * frame, size_t length);
@@ -174,74 +176,88 @@ class ConnectNode {
                       NlsEvent::EventType eventType);
   int handlerFrame(NlsEvent *frameEvent);
 
-  WorkThread* _eventThread;
-  evutil_socket_t _socketFd;
-  urlAddress _url;
-  INlsRequest *_request;
-  HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler;
+  /* init encoder about opus&opu */
+  void initNlsEncoder();
+  /* take effect all setting parameters */
+  void updateParameters();
 
-  SSLconnect *_sslHandle;
+  /* setting NlsClient of this node */
+  void setInstance(NlsClient* instance);
+  NlsClient* getInstance();
+  INlsRequest *_request;                                /*setting request of this node*/
+  HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler; /*callback listener*/
+  WorkThread* _eventThread;                             /*setting WorkThread of this node*/
+  unsigned int _syncCallTimeoutMs;
+
+  /* design to record work status */
   ConnectStatus _workStatus;
   ConnectStatus getConnectNodeStatus();
   std::string getConnectNodeStatusString();
   void setConnectNodeStatus(ConnectStatus status);
 
+  /* design to record exit status */
   ExitStatus _exitStatus;
   ExitStatus getExitStatus();
   std::string getExitStatusString();
   void setExitStatus(ExitStatus status);
 
-  std::string getCmdTypeString(int type);
-
-  void setInstance(NlsClient* instance);
-
+  /* design to record wakeup status */
   bool _isWakeStop;
   bool getWakeStatus();
   void setWakeStatus(bool status);
 
+  /* about socket connection */
+  urlAddress _url;
+  evutil_socket_t _socketFd;
+  SSLconnect *_sslHandle;
+  int socketConnect();
+
+  /* about status of node in destroy */
   bool _isDestroy;
   bool updateDestroyStatus();
-
-  int socketConnect();
-    
-  void initNlsEncoder();
-
-  void updateParameters();
-
+  /* about event of callback */
   void delAllEvents();
   void waitEventCallback();
 
+  inline int getErrorCode() {
+    return _nodeErrCode;
+  };
   inline const char* getErrorMsg() {
     return _nodeErrMsg.c_str();
   };
   inline void setErrorMsg(const char* msg) {
     _nodeErrMsg.assign(msg);
   };
+
   inline struct evbuffer *getBinaryEvBuffer() {return _binaryEvBuffer;};
   inline struct evbuffer *getCmdEvBuffer() {return _cmdEvBuffer;};
   inline struct evbuffer *getWwvEvBuffer() {return _wwvEvBuffer;};
 
-  int sendControlDirective();
-  void initAllStatus();
+  /* get event point of launching node */
+  struct event *getLaunchEvent();
 
   /* design to long connection */
   bool _isLongConnection;
   bool _isConnected;
+  void initAllStatus();  /*init all status in longConnection mode*/
+
+  int sendControlDirective();
+  void setSyncCallTimeout(unsigned int timeout_ms);
+  void waitInvokeFinish();
 
   /* design to native_getaddrinfo */
 #ifndef _MSC_VER
   char * _nodename;
   char * _servname;
 
-  pthread_mutex_t _mtxDns;  /*异步dns方案超时锁*/
-  pthread_cond_t  _cvDns;   /*异步dns方案超时信号*/
   pthread_t _dnsThread;     /*异步dns方案启动线程*/
-  pthread_t _timeThread;    /*异步dns方案超时处理线程*/
+  bool _dnsThreadExit;
   struct timespec _outtime; /*异步dns方案超时设置*/
 
+  struct gaicb * _gaicbRequest[1];
   struct event _dnsEvent;
+  int _dnsErrorCode;
   struct evutil_addrinfo * _addrinfo;
-  void * _getaddrinfo_cb_handle;
 #endif
 
   /* design for thread safe */
@@ -253,9 +269,17 @@ class ConnectNode {
   pthread_mutex_t _mtxNode;
   pthread_mutex_t _mtxCloseNode;
   pthread_mutex_t _mtxEventCallbackNode;
-  pthread_cond_t  _cvEventCallbackNode;
+  pthread_cond_t  _cvEventCallbackNode;   /*释放过程中等待事件回调结束*/
 #endif
-  bool _inEventCallbackNode;
+  bool _inEventCallbackNode;              /*是否处于事件回调中*/
+
+  /* design for sync call */
+#if defined(_MSC_VER)
+  HANDLE _mtxInvokeSyncCallNode;
+#else
+  pthread_mutex_t _mtxInvokeSyncCallNode;
+  pthread_cond_t  _cvInvokeSyncCallNode;   /*调用过程中等待调用结束*/
+#endif
 
  private:
 #if defined(__ANDROID__) || defined(__linux__)
@@ -271,16 +295,26 @@ class ConnectNode {
   NlsEvent* convertResult(WebSocketFrame *frame, int *result);
   const char* cmdConvertForLog(char *buf_in, std::string *buf_out);
 
+  int addRemainAudioData();
+
   int parseFrame(WebSocketFrame *wsFrame);
 
   int socketWrite(const uint8_t *buffer, size_t len);
   int socketRead(uint8_t *buffer, size_t len);
 
   int getErrorCodeFromMsg(const char *msg);
+  std::string getCmdTypeString(int type);
 
+  void sendFinishCondSignal(NlsEvent::EventType eventType);
+
+  /* parameters about network */
   int _aiFamily;
   struct sockaddr_in _addrV4;
   struct sockaddr_in6 _addrV6;
+  WebSocketTcp _webSocket;
+  WebSocketHeaderType _wsType;
+  struct evdns_getaddrinfo_request *_dnsRequest;
+  size_t _retryConnectCount; /*try count of connection*/
 
   size_t _limitSize;
   struct timeval _connectTv;
@@ -290,35 +324,30 @@ class ConnectNode {
   struct timeval _sendTv;
 
   std::string	_nodeErrMsg;
+  int	_nodeErrCode;
 
   struct evbuffer *_readEvBuffer;
   struct evbuffer *_binaryEvBuffer;
   struct evbuffer *_cmdEvBuffer;
   struct evbuffer *_wwvEvBuffer;
 
+  struct event *_launchEvent;
   struct event *_connectEvent;
-  struct event *_connectEventBackup;
   struct event *_readEvent;
-  struct event *_readEventBackup;
   struct event *_writeEvent;
-  struct event *_writeEventBackup;
 
 #ifdef ENABLE_HIGH_EFFICIENCY
   struct timeval _connectTimerTv;
   struct event *_connectTimerEvent;
-  struct event *_connectTimerEventBackup;
   bool _connectTimerFlag;
 #endif
 
-  struct evdns_getaddrinfo_request *_dnsRequest;
-
-  WebSocketTcp _webSocket;
-  WebSocketHeaderType _wsType;
-
-  size_t _retryConnectCount;
-
+  /* about audio data encoder */
   NlsEncoder * _nlsEncoder;
   ENCODER_TYPE _encoder_type;
+  uint8_t * _audio_data;
+  int _audio_data_size;
+  int _max_data_size;
 
   bool _isStop;
   bool _isFirstBinaryFrame;

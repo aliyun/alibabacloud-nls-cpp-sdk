@@ -240,9 +240,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @param dataSize 语音数据长度(建议每次100ms左右数据)
    * @param type ENCODER_NONE表示原始音频进行传递;
                  ENCODER_OPU表示以OPUS压缩后进行传递
-   * @return 成功则返回>=0，失败返回负值错误码。
-             由于音频格式不确定，传入音频字节数和传出音频字节数
-             无法通过比较判断成功与否，故成功返回>=0。
+   * @return 成功则返回字节数，失败返回负值，查看nlsGlobal.h中错误码详细定位。
    */
   int sendAudio(const uint8_t * data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);

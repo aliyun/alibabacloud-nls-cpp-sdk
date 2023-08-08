@@ -49,7 +49,6 @@ NlsSdk3.X_LINUX
 │   │── ftDemo         录音文件识别Demo binary文件  
 │   │── srDemo         一句话识别Demo binary文件  
 │   │── stDemo         实时识别Demo binary文件  
-│   │── slyDemo        长文本语音合成Demo binary文件  
 │   └── syDemo         语音合成Demo binary文件  
 │── demo  
 │   │── build_linux_demo.sh           一键编译当前Demo  
@@ -57,7 +56,6 @@ NlsSdk3.X_LINUX
 │   │── dialogAssistantDemo.cpp       对话Demo源码  
 │   │── speechRecognizerDemo.cpp      一句话识别Demo源码  
 │   │── speechSynthesizerDemo.cpp     语音合成Demo源码  
-│   │── speechLongSynthesizerDemo.cpp 长文本语音合成Demo源码  
 │   │── speechTranscriberDemo.cpp     实时识别Demo源码  
 │   └── fileTransferDemo.cpp          录音文件转写Demo源码  
 │   │── resource            测试资源（测试音频文件）  
@@ -116,7 +114,7 @@ add_definitions(-DGIT_SHA1="\\"no\\"")
 > ./scripts/build_android.sh all release arm64-v8a   全量编译，生成arm64-v8a架构Release版本  
 > ./scripts/build_android.sh incr release arm64-v8a  增量编译，生成arm64-v8a架构Release版本   
 
-### Windows Cpp 平台编译及说明：  
+### Windows C++ 平台编译及说明：  
 #### 一、简单使用（推荐）
 NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库文件，建议直接拿库文件进行试用和集成。
 
@@ -124,6 +122,8 @@ NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库
 此方式使用已经编译好的第三方库进行编译，但过程较长，容易出错而导致无法顺利得到最终成果物，建议还是用一方法。  
  1. 进入scripts目录，使用文本编辑工具分别打开build_windows_64_prebuild.bat和build_windows_64_package.bat，修改解压缩工具WinRAR。  
  例如，您的个人电脑WinRAR.exe所在路径为C:\Program Files (x86)\WinRAR\WinRAR.exe，则修改脚本文件中第三行为 set winRar="C:\Program Files (x86)\WinRAR\WinRAR.exe" 为您的个人电脑中WinRAR路径。
+      ![image](docs/images/cpp_64_prebuild.jpg)  
+
  2. 双击批处理脚本build_windows_64_prebuild.bat，从而解压SDK源码中包含的各第三方库，并把依赖头文件释放到合适位置。
  3. 使用Visual Studio（VS2019及以上版本）打开nlsCppSdk.sln。
  4. 直接编译需要的范例工程。  
@@ -131,11 +131,11 @@ NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库
     > * 需要确认好各项目属性中的目标平台版本和平台工具集，按需选择。例如，您的目标平台版本为10.0.19041.0，平台工具集为Visual Studio 2019(v142)。  
     > * 目前支持Debug_x64，Release_x64，Debug_win32和Release_win32。本文档说明均以x64为例。  
 
-    ![image](docs/images/cppSdk01.png)  
-
  5. 右键单击speechTranscriberDemo项目（以实时语音识别Demo为例），单击生成进行编译。
+     ![image](docs/images/cppSdk01.png)  
+
  6. 编译Debug_x64和Release_x64。 
-    > * Debug生成物路径：{ProjectRoot}\build\build_win64\nlsCppSdk\x64\Debug  
+    > * Debug生成物路径：{ProjectRoot}317\build\build_win64\nlsCppSdk\x64\Debug  
     > * Release生成物路径：{ProjectRoot}\build\build_win64\nlsCppSdk\x64\Release  
 
     各路径包含所有生成的dll和测试exe文件。其中{ProjectRoot}为SDK源码路径。
@@ -146,14 +146,15 @@ NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库
 >  运行 build_windows_64.bat  
 
 ### Windows C# 平台编译及说明：  
+&emsp;此C# SDK是对Windows C++ SDK的包装，所以并不具有跨平台的能力，仅可运行在Windows平台。
 #### 一、简单使用（推荐）
-NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库文件，建议直接拿库文件进行试用和集成。
+NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的库文件，建议直接拿库文件进行试用和集成。  
 
 #### 二、自动化编译方式
 必须先完成Windows平台Cpp SDK编译，C#依赖Windows Cpp SDK的库和头文件。完成以上编译后开始进行C#编译。此过程较长，容易出错而导致无法顺利得到最终成果物，建议还是用一方法。  
  1. 使用Visual Studio（VS2019及以上版本）打开nlsCsharpSdk.sln，进行C#工程编译。 
     > 说明  
-    > * 需要确认nlsCsharpSdkExtern的平台工具集和目标平台版本，以及nlsCsharpSdkDemo和nlsCsharpSdk的.NET版本。   
+    > * 需要确认nlsCsharpSdkExtern的平台工具集和目标平台版本，以及nlsCsharpSdkDemo和nlsCsharpSdk的.NET版本。此处目标框架为 .NET Framework 4.7.2   
  2. 右键nlsCsharpSdkDemo项目，选择生成，生成所有生成物。  
  ![image](docs/images/csharpSdk01.png)  
     > 说明  
@@ -176,7 +177,7 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
  ![image](docs/images/csharpSdk02.png)  
  6. （可选）单击&lt;OpenLog&gt;可开启日志记录。  
  7. 单击&lt;InitNls&gt; 初始化sdk。  
- 8. 填入Appkey、AkId、AkSecret，然后单击&lt;CreateToken&gt;生成token，合法token会在Token栏显示。  
+ 8. 填入Appkey、AkId、AkSecret，然后单击&lt;CreateToken&gt;生成token，合法token会在Token栏显示。若已经有Token，则可直接填Appkey和Token，无需点击&lt;CreateToken&gt;。  
  9. 实时转写&lt;CreateTranscriber&gt;创建实时转写请求，点&lt;Start&gt;开始工作，会在最下方实时显示识别结果。&lt;Stop&gt;&lt;ReleaseTranscriber&gt;进行停止、释放。  
  10. 语音合成&lt;CreateSynthesizer&gt;创建语音合成请求，点&lt;Start&gt;开始工作，会exe当前路径生成保存音频数据的taskId.pcm文件。&lt;Cancel&gt;&lt;ReleaseSynthesizer&gt;进行停止、释放。  
  11. 一句话识别&lt;CreateRecognizer&gt;创建一句话识别请求，点&lt;Start&gt;开始工作，会在最下方显示识别结果。&lt;Stop&gt;&lt;ReleaseRecognizer&gt;进行停止、释放。  
@@ -194,6 +195,7 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 |:----:|:------:|:-----:|:----------:|:-------:|:-------:|:--------:|:--------:|
 | 3.1.14 | 短链接 | 100  | 1 | 489ms |  712ms  | 100% / 1600% | 8784 |
 | 3.1.16 | 短链接 | 100  | 1 | 677ms |  1903ms  | 46% / 1600% | 3230 |
+| 3.1.17 | 短链接 | 100  | 1 | 407ms |  634ms  | 59% / 1600% | 9723 |
 | 3.1.14 | 短链接 | 100  | 4 | 341ms |  507ms  | 266% / 1600% | 12357 |
 | 3.1.16 | 短链接 | 100  | 4 | 570ms |  1833ms  | 78% / 1600% | 3360 |
 | 3.1.14 | 短链接 | 200  | 4 | 530ms |  924ms  | 294% / 1600% | 13921 |
@@ -212,6 +214,7 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 | 版本 | 链接模式 | 并发数 | 启用事件池数 | 音频格式 | 音频时长 | 单轮时长 | start耗时 | sendAudio耗时 | CPU占用率 |
 |:----:|:------:|:-----:|:----------:|:-------:|:------:|:------:|:--------:|:-------------:|:--------:|
 | 3.1.14 | 短链接 | 100  | 1 | PCM | 5287ms | 5904ms | 287ms | 65us | 20% / 1600% |
+| 3.1.17 | 短链接 | 100  | 1 | PCM | 5287ms | 5635ms | 249ms | 28us | 25% / 1600% |
 | 3.1.14 | 短链接 | 200  | 1 | PCM | 5287ms | 6015ms | 297ms | 64us | 38% / 1600% |
 | 3.1.16 | 短链接 | 200  | 1 | PCM | 5287ms | 5867ms | 134ms | 127us | 68% / 1600% |
 | 3.1.14 | 短链接 | 200  | 1 | OPUS | 5287ms | 7283ms | 307ms | 1108us | 758% / 1600% |

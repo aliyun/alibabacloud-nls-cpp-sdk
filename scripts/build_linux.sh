@@ -77,7 +77,6 @@ echo "进入install目录:" $PWD
 sdk_install_folder=$install_folder/NlsSdk3.X_LINUX
 
 
-### libcrypto.a和libevent_core.a中有.o文件重名, 释放在同目录会覆盖, 导致编译找不到定义. 比如buffer.o
 ### 2
 cd $sdk_install_folder/tmp/
 echo "生成库libalibabacloud-idst-speech.X ..."
@@ -90,6 +89,7 @@ ar x libopus.a
 ar x libevent_core.a
 ar x libevent_extra.a
 ar x libevent_pthreads.a
+### libcrypto.a和libevent_core.a中有.o文件重名, 释放在同目录会覆盖, 导致编译找不到定义. 比如buffer.o
 mv $sdk_install_folder/tmp/buffer.o $sdk_install_folder/tmp/libevent_buffer.o
 
 ar x libssl.a
@@ -101,6 +101,7 @@ ranlib ../../../lib/libalibabacloud-idst-speech.a
 
 my_arch=$( uname -m )
 
+### 3
 #gcc -shared -Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -o ../../../lib/libalibabacloud-idst-speech.so *.o
 CFLAG_PARAMS="-Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -Wl,--exclude-libs,ALL -Wl,-z,relro,-z,now -Wl,-z,noexecstack -fstack-protector"
 LDFALG_PARAMS=""
@@ -165,6 +166,3 @@ tar -zcPf $tar_file".tar.gz" NlsSdk3.X_LINUX
 echo "打包结束..."
 
 cp $audio_resource_folder/* $build_folder/demo/
-
-#echo "可以进入demo目录，执行命令[./demo <your appkey> <your AccessKey ID> <your AccessKey Secret>]，运行demo"
-

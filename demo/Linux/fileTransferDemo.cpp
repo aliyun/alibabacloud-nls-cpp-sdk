@@ -91,9 +91,21 @@ int parse_argv(int argc, char* argv[]) {
     }
     index++;
   }
+
+  if (g_akId.empty() && getenv("NLS_AK_ENV")) {
+    g_akId.assign(getenv("NLS_AK_ENV"));
+  }
+  if (g_akSecret.empty() && getenv("NLS_SK_ENV")) {
+    g_akSecret.assign(getenv("NLS_SK_ENV"));
+  }
+  if (g_appkey.empty() && getenv("NLS_APPKEY_ENV")) {
+    g_appkey.assign(getenv("NLS_APPKEY_ENV"));
+  }
+
   if ((g_fileLinkUrl.empty() && (g_akId.empty() || g_akSecret.empty())) ||
       g_appkey.empty()) {
     std::cout << "short of params..." << std::endl;
+    std::cout << "if ak/sk is empty, please setenv NLS_AK_ENV&NLS_SK_ENV&NLS_APPKEY_ENV" << std::endl;
     return 1;
   }
   return 0;

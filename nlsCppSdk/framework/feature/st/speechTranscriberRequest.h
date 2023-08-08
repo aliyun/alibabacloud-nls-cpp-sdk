@@ -222,6 +222,12 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
   const char* getOutputFormat();
 
   /*
+   * @brief 获得当前请求的task_id
+   * @return 返回当前请求的task_id
+   */
+  const char* getTaskId();
+
+  /*
    * @brief 参数设置
    * @note  暂不对外开放
    * @param value 参数
@@ -292,9 +298,11 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
   /*
    * @brief 要求服务端更新识别参数
    * @note 异步操作。失败返回TaskFailed。
+   * @param message 具体payload和context消息内容, 例如"payload":{内容}, "context":{内容}
+   * @param name 需要设置的header name, 设置"header":{"name":name}, 空则用默认name
    * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
    */
-  int control(const char* message);
+  int control(const char* message, const char* name = "");
 
   /*
    * @brief 会与服务端确认关闭，正常停止实时音频流识别操作
@@ -318,12 +326,10 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @param type ENCODER_NONE 表示原始音频进行传递,
                               建议每次100ms音频数据,支持16K和8K;
                  ENCODER_OPU 表示以定制OPUS压缩后进行传递,
-                             只支持20ms 16K16b1c
-                 ENCODER_OPUS 表示以OPUS压缩后进行传递,
-                              只支持20ms, 支持16K16b1c和8K16b1c
-   * @return 成功则返回>=0，失败返回负值，查看nlsGlobal.h中错误码详细定位。
-             由于音频格式不确定，传入音频字节数和传出音频字节数
-             无法通过比较判断成功与否，故成功返回>=0。
+                             建议每次20ms 16K16b1c
+                 ENCODER_OPUS 表示以OPUS压缩后进行传递, 强烈建议使用此类型,
+                              建议每次20ms, 支持16K16b1c和8K16b1c
+   * @return 成功则返回字节数，失败返回负值，查看nlsGlobal.h中错误码详细定位。
    */
   int sendAudio(const uint8_t * data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);

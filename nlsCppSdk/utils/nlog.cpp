@@ -15,6 +15,7 @@
  */
 
 #include <stdarg.h>
+#include <stdio.h>
 #include <iostream>
 #include <ctime>
 
@@ -92,6 +93,30 @@ using std::endl;
           message); \
         }
 
+#define LOG_PRINT_CALLBACK(level, message, callback) { \
+          if (callback) { \
+            time_t ttc = time(NULL); \
+            struct tm* ptmc = localtime(&ttc); \
+            char timestamp[128] = {0}; \
+            char log_mesg[LOG_BUFFER_PLUS_SIZE] = {0}; \
+            snprintf(timestamp, 128, \
+              "%4d-%02d-%02d %02d:%02d:%02d", \
+              (int)ptmc->tm_year + 1900, \
+              (int)ptmc->tm_mon + 1, \
+              (int)ptmc->tm_mday, \
+              (int)ptmc->tm_hour, \
+              (int)ptmc->tm_min, \
+              (int)ptmc->tm_sec \
+            ); \
+            snprintf(log_mesg, LOG_BUFFER_PLUS_SIZE, \
+              "[%s] %s", \
+              LOG_TAG, \
+              message \
+            ); \
+            callback(timestamp, level, log_mesg); \
+          } \
+        }
+
 #if defined(_MSC_VER)
 HANDLE NlsLog::_mtxLog = CreateMutex(NULL, FALSE, NULL);
 #else
@@ -101,6 +126,7 @@ pthread_mutex_t NlsLog::_mtxLog = PTHREAD_MUTEX_INITIALIZER;
 NlsLog* NlsLog::_logInstance = new NlsLog();
 
 NlsLog::NlsLog() {
+  _callback = NULL;
   _logLevel = 1;
   _isStdout = true;
   _isConfig = false;
@@ -117,6 +143,7 @@ NlsLog::~NlsLog() {
 
   _isStdout = true;
   _isConfig = false;
+  _callback = NULL;
 }
 
 unsigned long NlsLog::pthreadSelfId() {
@@ -154,7 +181,8 @@ static log4cpp::Category& getCategory() {
 #endif
 
 void NlsLog::logConfig(const char* name, int level,
-                       size_t fileSize, size_t fileNum) {
+                       size_t fileSize, size_t fileNum,
+                       LogCallbackMethod callback) {
   if (name) {
     cout << "Begin LogConfig: "
          << _isConfig << " , "
@@ -171,7 +199,9 @@ void NlsLog::logConfig(const char* name, int level,
   if (fileNum < 1) {
     fileNum = LOG_FILES_NUMBER;
   }
-   
+
+  _callback = callback;
+
 #ifdef _MSC_VER
   WaitForSingleObject(_mtxLog, INFINITE);
 #else
@@ -254,6 +284,7 @@ void NlsLog::logVerbose(const char* function, int line, const char *format, ...)
 #else
   LOG_PRINT_COMMON("VERBOSE", str_in.c_str());
 #endif
+  LOG_PRINT_CALLBACK(AlibabaNls::LogDebug, str_in.c_str(), _callback);
 }
 
 void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
@@ -278,6 +309,7 @@ void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
   #else
     LOG_PRINT_COMMON("DEBUG", str_in.c_str());
   #endif
+    LOG_PRINT_CALLBACK(AlibabaNls::LogDebug, str_in.c_str(), _callback);
   }
 }
 
@@ -303,6 +335,7 @@ void NlsLog::logInfo(const char* function, int line, const char * format, ...) {
   #else
     LOG_PRINT_COMMON("INFO", str_in.c_str());
   #endif
+    LOG_PRINT_CALLBACK(AlibabaNls::LogInfo, str_in.c_str(), _callback);
   }
 }
 
@@ -328,6 +361,7 @@ void NlsLog::logWarn(const char* function, int line, const char * format, ...) {
   #else
     LOG_PRINT_COMMON("WARN", str_in.c_str());
   #endif
+    LOG_PRINT_CALLBACK(AlibabaNls::LogWarning, str_in.c_str(), _callback);
   }
 }
 
@@ -353,6 +387,7 @@ void NlsLog::logError(const char* function, int line, const char * format, ...) 
   #else
     LOG_PRINT_COMMON("ERROR", str_in.c_str());
   #endif
+    LOG_PRINT_CALLBACK(AlibabaNls::LogError, str_in.c_str(), _callback);
   }
 }
 
@@ -378,6 +413,7 @@ void NlsLog::logException(const char* function, int line, const char *format, ..
 #else
   LOG_PRINT_COMMON("EXCEPTION", str_in.c_str());
 #endif
+  LOG_PRINT_CALLBACK(AlibabaNls::LogError, str_in.c_str(), _callback);
 }
 
 }  // utility

@@ -33,6 +33,7 @@ SpeechTranscriberCallback::SpeechTranscriberCallback() {
   this->_onSentenceEnd = NULL;
   this->_onTranscriptionCompleted = NULL;
   this->_onChannelClosed = NULL;
+  this->_onMessage = NULL;
 }
 
 SpeechTranscriberCallback::~SpeechTranscriberCallback() {
@@ -43,6 +44,7 @@ SpeechTranscriberCallback::~SpeechTranscriberCallback() {
   this->_onSentenceEnd = NULL;
   this->_onTranscriptionCompleted = NULL;
   this->_onChannelClosed = NULL;
+  this->_onMessage = NULL;
 
   std::map<NlsEvent::EventType, void*>::iterator iter;
   for (iter = _paramap.begin(); iter != _paramap.end();) {
@@ -186,7 +188,10 @@ int SpeechTranscriberRequest::start() {
   return INlsRequest::start(this);
 }
 
-int SpeechTranscriberRequest::control(const char* message) {
+int SpeechTranscriberRequest::control(const char* message, const char* name) {
+  if (name && _transcriberParam) {
+    _transcriberParam->setControlHeaderName(name);
+  }
   return INlsRequest::stControl(this, message);
 }
 
@@ -314,6 +319,10 @@ int SpeechTranscriberRequest::setEnableOnMessage(bool value) {
 
 const char* SpeechTranscriberRequest::getOutputFormat() {
   return _transcriberParam->getOutputFormat().c_str();
+}
+
+const char* SpeechTranscriberRequest::getTaskId() {
+  return _transcriberParam->getTaskId().c_str();
 }
 
 int SpeechTranscriberRequest::setNlpModel(const char* value) {

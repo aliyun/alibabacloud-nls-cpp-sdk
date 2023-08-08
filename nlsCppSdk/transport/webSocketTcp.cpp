@@ -48,9 +48,13 @@ WebSocketTcp::WebSocketTcp() {
   _httpCode = 0;
   _httpLength = 0;
   _rStatus = WsHeadSize;
+
+  LOG_DEBUG("Create WebSocketTcp:%p.", this);
 }
 
-WebSocketTcp::~WebSocketTcp() {}
+WebSocketTcp::~WebSocketTcp() {
+  LOG_DEBUG("WS(%p) Destroy WebSocketTcp done.", this);
+}
 
 int WebSocketTcp::requestPackage(
     urlAddress * url, char* buffer, std::string httpHeader) {
@@ -91,12 +95,12 @@ int WebSocketTcp::requestPackage(
   }
 
   if (contentSize <= 0) {
-    LOG_ERROR("send http head to server failed.");
+    LOG_ERROR("WS(%p) send http head to server failed.", this);
     return -(WsRequestPackageEmpty);
   }
 
   std::string buf_str;
-  LOG_DEBUG("Http Request:\n%s", getRequestForLog(buffer, &buf_str));
+  LOG_DEBUG("WS(%p) Http Request:\n%s", this, getRequestForLog(buffer, &buf_str));
 
   return contentSize;
 }
@@ -128,8 +132,8 @@ int WebSocketTcp::getTargetLen(
   if (position == std::string::npos) {
     return 0;
   }
-  LOG_DEBUG("Position: %d %d %s",
-      position, strlen(begin), line.c_str()+position);
+  LOG_DEBUG("WS(%p) Position: %d %d %s",
+      this, position, strlen(begin), line.c_str()+position);
 
   std::string tmpCode(line.substr(seek + strlen(begin), position - strlen(begin)));
 
@@ -198,7 +202,7 @@ const char* WebSocketTcp::getRequestForLog(char *buf_in, std::string *buf_str) {
 }
 
 int WebSocketTcp::responsePackage(const char * content, size_t length) {
-  LOG_DEBUG("Http response:%s", content);
+  LOG_DEBUG("WS(%p) Http response:%s", this, content);
 
   if (!strstr(content, HTTP_HEADER_END_STRING)) {
     return length;
@@ -208,7 +212,7 @@ int WebSocketTcp::responsePackage(const char * content, size_t length) {
   if (_httpCode == 0) {
     _httpCode = getTargetLen(tmpLine, "HTTP/1.1 ", " ");
     if (_httpCode == 0) {
-      LOG_ERROR("Got bad status connecting to %s", content);
+      LOG_ERROR("WS(%p) Got bad status connecting to %s", this, content);
       return -(HttpGotBadStatus);
     }
   }
@@ -224,14 +228,14 @@ int WebSocketTcp::responsePackage(const char * content, size_t length) {
     size_t position = tmpLine.find(HTTP_HEADER_END_STRING);
     if (position != std::string::npos) {
       if (_httpLength == 0) {
-        LOG_ERROR("Failed: %s", content);
+        LOG_ERROR("WS(%p) Failed: %s", this, content);
         _errorMsg = content;
         return -(WsResponsePackageFailed);
       } else {
         if (_httpLength == (length - (position + endLen))) {
           const char* errMsg = (content + position + endLen);
           _errorMsg = errMsg;
-          LOG_ERROR("Position: %d %s", (int)(length - (position + endLen)), errMsg);
+          LOG_ERROR("WS(%p) Position: %d %s", this, (int)(length - (position + endLen)), errMsg);
           return -(WsResponsePackageFailed);
         }
       }
@@ -254,7 +258,7 @@ int WebSocketTcp::receiveFullWebSocketFrame(
       //LOG_DEBUG("WsHeadSize.");
       retCode = decodeHeaderSizeWebSocketFrame(frame, frameSize, wsType);
       if (retCode < 0) {
-        //LOG_ERROR("Parse WsHeadSize Failed.");
+        LOG_ERROR("WS(%p) Parse WsHeadSize Failed, retCode:%d.", this, retCode);
         return retCode;
       }
       _rStatus = WsHeadBody;
@@ -262,7 +266,7 @@ int WebSocketTcp::receiveFullWebSocketFrame(
       //LOG_DEBUG("WsHeadBody.");
       retCode = decodeHeaderBodyWebSocketFrame(frame, frameSize, wsType);
       if (retCode < 0) {
-        //LOG_ERROR("Parse WsHeadBody Failed.");
+        LOG_ERROR("WS(%p) Parse WsHeadBody Failed, retCode:%d.", this, retCode);
         return retCode;
       }
       _rStatus = WsContentBody;
@@ -270,13 +274,13 @@ int WebSocketTcp::receiveFullWebSocketFrame(
       //LOG_DEBUG("WsContentBody.");
       retCode = decodeFrameBodyWebSocketFrame(frame, frameSize, wsType, resultDate);
       if (retCode < 0) {
-        //LOG_ERROR("Parse WsContentBody Failed.");
+        //LOG_ERROR("WS(%p) Parse WsContentBody Failed, retCode:%d.", this, retCode);
         return retCode;
       }
       _rStatus = WsHeadSize;
-      return 0;
+      return Success;
     default:
-      LOG_WARN("Default None.");
+      LOG_WARN("WS(%p) Default None. _rStatus:%d.", this, _rStatus);
       break;
   }
 
@@ -405,8 +409,8 @@ int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
     // LOG_DEBUG("Decoder Receive Data: %zu ", receivedData->length);
   };
 
-  LOG_DEBUG("Decoder received data opCode:%d dataType:%d dataLength:%d.",
-      wsType->opCode, receivedData->type, receivedData->length);
+  LOG_DEBUG("WS(%p) Decoder received data opCode:%d dataType:%d dataLength:%d.",
+      this, wsType->opCode, receivedData->type, receivedData->length);
   return Success;
 }
 

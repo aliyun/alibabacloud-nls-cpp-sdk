@@ -32,6 +32,7 @@ public:
     const char*  getStopCommand();
     const char*  getControlCommand(const char* message);
 
+    int setControlHeaderName(const char* name);
     int setMaxSentenceSilence(int value);
     int setEnableNlp(bool enable);
     int setNlpModel(const char* value);
@@ -39,6 +40,9 @@ public:
     int setEnableIgnoreSentenceTimeout(bool enable);
     int setDisfluency(bool enable);
     int setSpeechNoiseThreshold(float value);
+
+private:
+    std::string _controlHeaderName;
 };
 
 }
