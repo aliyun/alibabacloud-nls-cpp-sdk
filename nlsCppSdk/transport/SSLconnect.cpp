@@ -30,14 +30,14 @@ SSL_CTX* SSLconnect::_sslCtx = NULL;
 
 SSLconnect::SSLconnect() {
   _ssl = NULL;
-  _ssl_try_again = 0;
+  _sslTryAgain = 0;
 
   LOG_DEBUG("Create SSLconnect:%p.", this);
 }
 
 SSLconnect::~SSLconnect() {
   sslClose();
-  _ssl_try_again = 0;
+  _sslTryAgain = 0;
 
   LOG_DEBUG("SSL(%p) Destroy SSLconnect done.", this);
 }
@@ -259,7 +259,7 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
       ERR_error_string_n(ERR_get_error(),
                          sslErrMsg + strnlen(SSL_read_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
-      if (eCode == SSL_ERROR_ZERO_RETURN && errno_code == 0 && ++_ssl_try_again <= MAX_SSL_TRY_AGAIN) {
+      if (eCode == SSL_ERROR_ZERO_RETURN && errno_code == 0 && ++_sslTryAgain <= MAX_SSL_TRY_AGAIN) {
         snprintf(
             _errorMsg, MAX_SSL_ERROR_LENGTH,
             "%s. errno_code:%d eCode:%d. It's mean this connection was closed or shutdown because of bad network, Try again ...",
@@ -274,14 +274,13 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
     }
   }
 
-  _ssl_try_again = 0;
+  _sslTryAgain = 0;
   return rLen;
 }
 
-/*
- * Description: 关闭TLS/SSL连接
- * Return:
- * Others:
+/**
+ * @brief: 关闭TLS/SSL连接
+ * @return:
  */
 void SSLconnect::sslClose() {
   if (_ssl) {

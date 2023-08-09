@@ -288,10 +288,9 @@ int WebSocketTcp::receiveFullWebSocketFrame(
   return Success;
 }
 
-/*
- * Description: 从Websocket帧中解析出HeaderSize
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 从Websocket帧中解析出HeaderSize
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int WebSocketTcp::decodeHeaderSizeWebSocketFrame(
     uint8_t * buffer, size_t length, WebSocketHeaderType* wsType) {
@@ -312,10 +311,9 @@ int WebSocketTcp::decodeHeaderSizeWebSocketFrame(
   return Success;
 }
 
-/*
- * Description: 从Websocket帧中解析出HeaderBody
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 从Websocket帧中解析出HeaderBody
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
     uint8_t* buffer, size_t length, WebSocketHeaderType* wsType) {
@@ -357,10 +355,9 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
   return Success;
 }
 
-/*
- * Description: 从Websocket帧中解析出FrameBody
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 从Websocket帧中解析出FrameBody
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
     size_t length,
@@ -440,7 +437,11 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   const int headlen = 2 + (length >= 126 ? 2 : 0) + (length >= 65536 ? 6 : 0) + (useMask ? 4 : 0);
 
   uint8_t* header = (uint8_t*)calloc(headlen, sizeof(uint8_t));//new uint8_t[headlen];
-  //memset(header, 0, sizeof(uint8_t)*headlen);
+  if (header == NULL) {
+    LOG_ERROR("WS(%p) calloc header failed.", this);
+    return -(MallocFailed);
+  }
+
   header[0] = 0x80 | codeType;
 
   if (length < 126) {
@@ -512,7 +513,7 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   free(header);
   header = NULL;
 
-  return 0;
+  return Success;
 }
 
 }

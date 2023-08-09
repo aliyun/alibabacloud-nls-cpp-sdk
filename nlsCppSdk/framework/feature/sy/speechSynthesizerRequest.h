@@ -198,13 +198,13 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
    */
   int setOutputFormat(const char* value);
 
-  /*
+  /**
    * @brief 获得设置的输出文本的编码格式
    * @return 返回  UTF-8 or GBK
    */
   const char* getOutputFormat();
 
-  /*
+  /**
    * @brief 获得当前请求的task_id
    * @return 返回当前请求的task_id
    */
@@ -299,7 +299,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
    */
   void setOnMetaInfo(NlsCallbackMethod _event, void* para = NULL);
 
-  /*
+  /**
    * @brief 设置服务端response message回调函数
    * @note 表示返回所有服务端返回的结果
    * @param _event 回调方法

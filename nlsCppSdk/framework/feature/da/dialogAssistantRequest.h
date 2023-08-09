@@ -235,12 +235,16 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
 
   /**
    * @brief 发送语音数据
-   * @note request
+   * @note 异步操作。request
    * @param data 语音数据
-   * @param dataSize 语音数据长度(建议每次100ms左右数据)
-   * @param type ENCODER_NONE表示原始音频进行传递;
-                 ENCODER_OPU表示以OPUS压缩后进行传递
-   * @return 成功则返回字节数，失败返回负值，查看nlsGlobal.h中错误码详细定位。
+   * @param dataSize 语音数据长度(建议每次100ms左右数据, 且推荐少于16K字节)
+   * @param type ENCODER_NONE 表示原始音频进行传递,
+                              建议每次100ms音频数据,支持16K和8K;
+                 ENCODER_OPU 表示以定制OPUS压缩后进行传递,
+                             建议每次大于20ms音频数据(即大于640bytes), 格式要求16K16b1c
+                 ENCODER_OPUS 表示以OPUS压缩后进行传递, 强烈建议使用此类型,
+                              建议每次大于20ms音频数据(即大于640/320bytes), 支持16K16b1c和8K16b1c
+   * @return 成功则返回字节数(可能为0，即留下包音频数据再发送)，失败返回负值，查看nlsGlobal.h中错误码详细定位。
    */
   int sendAudio(const uint8_t * data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);

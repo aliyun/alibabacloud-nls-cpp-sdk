@@ -52,10 +52,9 @@ NlsNodeManager::~NlsNodeManager() {
 #endif
 }
 
-/*
- * Description: 新创建request加入到NodeManager中
- * Return: Error Code
- * Others:
+/**
+ * @brief: 新创建request加入到NodeManager中
+ * @return:
  */
 int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance) {
 #if defined(_MSC_VER)
@@ -155,10 +154,9 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
   return Success;
 }
 
-/*
- * Description: 检查request是否属于此instance
- * Return: Error Code
- * Others:
+/**
+ * @brief: 检查request是否属于此instance
+ * @return: Error Code
  */
 int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
 #if defined(_MSC_VER)
@@ -237,10 +235,9 @@ int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
   return Success;
 }
 
-/*
- * Description: request释放后从NodeManager中删除此request
- * Return: Error Code
- * Others:
+/**
+ * @brief: request释放后从NodeManager中删除此request
+ * @return:
  */
 int NlsNodeManager::removeRequestFromInfo(void* request, bool wait) {
 #if defined(_MSC_VER)

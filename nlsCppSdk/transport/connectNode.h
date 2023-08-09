@@ -344,10 +344,11 @@ class ConnectNode {
 
   /* about audio data encoder */
   NlsEncoder * _nlsEncoder;
-  ENCODER_TYPE _encoder_type;
-  uint8_t * _audio_data;
-  int _audio_data_size;
-  int _max_data_size;
+  ENCODER_TYPE _encoderType;
+  uint8_t * _audioFrame;
+  int _audioFrameSize;
+  int _maxFrameSize;
+  bool _isFrirstAudioFrame;
 
   bool _isStop;
   bool _isFirstBinaryFrame;

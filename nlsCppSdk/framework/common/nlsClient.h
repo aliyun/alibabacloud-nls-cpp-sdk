@@ -62,7 +62,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
  public:
 
-  /*
+  /**
    * @brief 设置日志文件与存储路径
    * @param logOutputFile 日志文件，绝对路径或者相对路径均可
                           若填写"log-transcriber"，
@@ -82,7 +82,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
                    unsigned int logFileSize = 10, unsigned int logFileNum = 10,
                    LogCallbackMethod logCallback = NULL);
 
-  /*
+  /**
    * @brief 创建一句话识别对象
    * @param onResultReceivedEvent  事件回调接口
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -91,14 +91,14 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   SpeechRecognizerRequest* createRecognizerRequest(
       const char* sdkName = "cpp", bool isLongConnection = false);
 
-  /*
+  /**
    * @brief 销毁一句话识别对象
    * @param request  createRecognizerRequest所建立的request对象
    * @return
    */
   void releaseRecognizerRequest(SpeechRecognizerRequest* request);
 
-  /*
+  /**
    * @brief 创建实时音频流识别对象
    * @param onResultReceivedEvent  事件回调接口
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -107,14 +107,14 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   SpeechTranscriberRequest* createTranscriberRequest(
       const char* sdkName = "cpp", bool isLongConnection = false);
 
-  /*
+  /**
    * @brief 销毁实时音频流识别对象
    * @param request  createTranscriberRequest所建立的request对象
    * @return
    */
   void releaseTranscriberRequest(SpeechTranscriberRequest* request);
 
-  /*
+  /**
    * @brief 创建语音合成对象
    * @param type tts类型
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -125,14 +125,14 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
       const char* sdkName = "cpp",
       bool isLongConnection = false);
 
-  /*
+  /**
    * @brief 销毁语音合成对象
    * @param request  createSynthesizerRequest所建立的request对象
    * @return
    */
   void releaseSynthesizerRequest(SpeechSynthesizerRequest* request);
 
-  /*
+  /**
    * @brief 创建语音助手对象
    * @param version  dialogAssistant类型
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -143,20 +143,20 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
       const char* sdkName = "cpp",
       bool isLongConnection = false);
 
-  /*
+  /**
    * @brief 销毁语音助手对象
    * @param request  createDialogAssistantRequest所建立的request对象
    * @return
    */
   void releaseDialogAssistantRequest(DialogAssistantRequest* request);
 
-  /*
+  /**
    * @brief 当前版本信息
    * @return
    */
   const char* getVersion();
 
-  /*
+  /**
    * @brief 设置套接口地址结构的类型，若调用则需要在startWorkThread之前
    * @param aiFamily 套接口地址结构类型 AF_INET/AF_INET6/AF_UNSPEC
    *                 AF_INET:  仅返回IPV4相关的地址信息
@@ -166,14 +166,14 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   void setAddrInFamily(const char* aiFamily = "AF_INET");
 
-  /*
+  /**
    * @brief 跳过dns域名解析直接设置服务器ipv4地址，若调用则需要在startWorkThread之前
    * @param ipv4的ip地址 比如106.15.83.44
    * @return
    */
   void setDirectHost(const char* ip);
 
-  /*
+  /**
    * @brief 是否使用系统的getaddrinfo接口, 替代libevent的域名解析, 默认false
    *        若调用则需要在startWorkThread之前.
    *        存在部分设备在设置了dns后仍然无法通过SDK的dns获取可用的IP,
@@ -183,7 +183,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   void setUseSysGetAddrInfo(bool enable);
 
-  /*
+  /**
    * @brief 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
    *        此模式start()后收到服务端结果再return出去,
    *        stop()后收到close()回调再return出去.
@@ -192,7 +192,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   void setSyncCallTimeout(unsigned int timeout_ms);
 
-  /*
+  /**
    * @brief 待合成音频文本内容字符数
    * @note 必选参数，需要传入UTF-8编码的文本内容
    *       短文本语音合成模式下(默认), 支持一次性合成300字符以内的文字,
@@ -204,27 +204,31 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   int calculateUtf8Chars(const char* value);
 
-  /*
+  /**
    * @brief 启动工作线程数量
    * @param threadsNumber 启动工作线程数量，默认设置值为1
    * @return
    */
   void startWorkThread(int threadsNumber = 1);
 
-  /*
+  /**
    * @brief NlsClient对象实例
    * @param sslInitial 是否初始化openssl 线程安全，默认为true
    * @return NlsClient对象
    */
   static NlsClient* getInstance(bool sslInitial = true);
 
-  /*
+  /**
    * @brief 销毁NlsClient对象实例
    * @note 进程退出时调用, 销毁NlsClient.
    * @return
    */
   static void releaseInstance();
 
+  /**
+   * @brief 获得当前实例NlsClient的请求管理
+   * @return 当前实例NlsClient的请求管理指针
+   */
   void* getNodeManger();
 
  private:
@@ -242,11 +246,11 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   static bool _isInitializeThread;
   static NlsClient* _instance;
   static char _aiFamily[16];
-  static char _direct_host_ip[64];
+  static char _directHostIp[64];
   static bool _enableSysGetAddr;
   static unsigned int _syncCallTimeoutMs;
 
-  void* _node_manager;
+  void* _nodeManager;
 
 }; // class NLS_SDK_CLIENT_EXPORT NlsClient
 
