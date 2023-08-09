@@ -33,9 +33,8 @@
 #include "speechSynthesizerRequest.h"
 #include "profile_scan.h"
 
-#define SAMPLE_RATE_8K 8000
-#define SAMPLE_RATE_16K 16000
 #define SELF_TESTING_TRIGGER
+#define SAMPLE_RATE_16K 16000
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
 //#define TTS_AUDIO_DUMP

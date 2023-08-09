@@ -50,8 +50,6 @@ SpeechSynthesizerCallback::~SpeechSynthesizerCallback() {
 
 void SpeechSynthesizerCallback::setOnTaskFailed(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnTaskFailed callback");
-
   this->_onTaskFailed = _event;
   if (this->_paramap.find(NlsEvent::TaskFailed) != _paramap.end()) {
     _paramap[NlsEvent::TaskFailed] = para;
@@ -62,8 +60,6 @@ void SpeechSynthesizerCallback::setOnTaskFailed(
 
 void SpeechSynthesizerCallback::setOnSynthesisStarted(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnSynthesisStarted callback");
-
   this->_onSynthesisStarted = _event;
   if (this->_paramap.find(NlsEvent::SynthesisStarted) != _paramap.end()) {
     _paramap[NlsEvent::SynthesisStarted] = para;
@@ -74,8 +70,6 @@ void SpeechSynthesizerCallback::setOnSynthesisStarted(
 
 void SpeechSynthesizerCallback::setOnSynthesisCompleted(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnSynthesisCompleted callback");
-
   this->_onSynthesisCompleted = _event;
   if (this->_paramap.find(NlsEvent::SynthesisCompleted) != _paramap.end()) {
     _paramap[NlsEvent::SynthesisCompleted] = para;
@@ -86,8 +80,6 @@ void SpeechSynthesizerCallback::setOnSynthesisCompleted(
 
 void SpeechSynthesizerCallback::setOnChannelClosed(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnChannelClosed callback");
-
   this->_onChannelClosed = _event;
   if (this->_paramap.find(NlsEvent::Close) != _paramap.end()) {
     _paramap[NlsEvent::Close] = para;
@@ -98,8 +90,6 @@ void SpeechSynthesizerCallback::setOnChannelClosed(
 
 void SpeechSynthesizerCallback::setOnBinaryDataReceived(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnBinaryDataReceived callback");
-
   this->_onBinaryDataReceived = _event;
   if (this->_paramap.find(NlsEvent::Binary) != _paramap.end()) {
     _paramap[NlsEvent::Binary] = para;
@@ -110,8 +100,6 @@ void SpeechSynthesizerCallback::setOnBinaryDataReceived(
 
 void SpeechSynthesizerCallback::setOnMetaInfo(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnMetaInfo callback");
-
   this->_onMetaInfo = _event;
   if (this->_paramap.find(NlsEvent::MetaInfo) != _paramap.end()) {
     _paramap[NlsEvent::MetaInfo] = para;

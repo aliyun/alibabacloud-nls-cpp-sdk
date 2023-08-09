@@ -23,14 +23,12 @@
 #endif
 
 #define DEFAULT_OPUS_FRAME_SIZE 640
-#define DEFAULT_FRAME_NORMAL_SIZE 640
-#define DEFAULT_FRAME_INTER_SIZE 320
 
 namespace AlibabaNls {
 
 class NlsEncoder {
  public:
-  /*
+  /**
    * @brief 建立编码器
    * @param _event sampleRate 采样率
    * @param errorCode 错误代码
@@ -39,7 +37,7 @@ class NlsEncoder {
   int createNlsEncoder(ENCODER_TYPE type, int channels,
                        const int sampleRate, int *errorCode);
 
-  /*
+  /**
    * @brief 对数据进行编码
    * @param frameBuff 原始PCM音频数据
    * @param frameLen 原始PCM音频数据长度。目前仅支持640字节。
@@ -52,13 +50,13 @@ class NlsEncoder {
 
   int nlsEncoderSoftRestart();
 
-  /*
+  /**
    * @brief 释放编码器
    * @return 成功返回0，失败返回负值
    */
   int destroyNlsEncoder();
 
-  /*
+  /**
    * @brief 获得用于编码的每帧字节长度
    * @return 成功返回每帧字节长度，失败返回负值
    */

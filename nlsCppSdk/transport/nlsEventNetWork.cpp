@@ -180,10 +180,9 @@ void NlsEventNetWork::destroyEventNetWork() {
   return;
 }
 
-/*
- * Description: 选择工作进程
- * Return: 成功则返回工程进程号, 失败则返回负值.
- * Others:
+/**
+ * @brief: 选择工作进程
+ * @return: 成功则返回工程进程号, 失败则返回负值.
  */
 int NlsEventNetWork::selectThreadNumber() {
   int number = 0;
@@ -251,7 +250,8 @@ int NlsEventNetWork::start(INlsRequest *request) {
     }
   }
 
-  /* invoke start
+  /*
+   * invoke start
    * Node处于刚创建完状态, 且处于非退出状态, 则可进行start操作.
    */
   if (node->getConnectNodeStatus() == NodeCreated && node->getExitStatus() == ExitInvalid) {

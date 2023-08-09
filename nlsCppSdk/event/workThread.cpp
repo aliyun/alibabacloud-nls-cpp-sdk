@@ -242,10 +242,9 @@ void WorkThread::freeListNode(WorkThread* thread, INlsRequest* request) {
 #endif
 }
 
-/*
- * Description: 释放request和node
- * Return:
- * Others:
+/**
+ * @brief: 释放request和node
+ * @return:
  */
 void WorkThread::destroyConnectNode(ConnectNode* node) {
 #ifdef _MSC_VER
@@ -359,10 +358,9 @@ void* WorkThread::loopEventCallback(void* arg) {
 }
 
 #ifdef ENABLE_HIGH_EFFICIENCY
-/*
- * Description:
- * Return:
- * Others:
+/**
+ * @brief:
+ * @return:
  */
 void WorkThread::connectTimerEventCallback(
     evutil_socket_t socketFd , short event, void *arg) {
@@ -437,7 +435,8 @@ void WorkThread::connectTimerEventCallback(
 
 HandshakeTimerProcessFailed:
 ConnectTimerProcessFailed:
-  /* connect失败, 或者connect成功但是handshake失败.
+  /*
+   * connect失败, 或者connect成功但是handshake失败.
    * 进行断链并重回connecting阶段, 然后再开始dns解析.
    */
   LOG_ERROR("Node(%p) connect or handshake failed, socket error mesg:%s.",
@@ -463,10 +462,9 @@ ConnectTimerProcessFailed:
 }
 #endif
 
-/*
- * Description: connect()后检查链接状态并开启ssl握手.
- * Return: 
- * Others:
+/**
+ * @brief: connect()后检查链接状态并开启ssl握手.
+ * @return:
  */
 void WorkThread::connectEventCallback(
     evutil_socket_t socketFd , short event, void *arg) {
@@ -544,7 +542,8 @@ void WorkThread::connectEventCallback(
 
 HandshakeProcessFailed:
 ConnectProcessFailed:
-  /* connect失败, 或者connect成功但是handshake失败.
+  /*
+   * connect失败, 或者connect成功但是handshake失败.
    * 进行断链并重回connecting阶段, 然后再开始dns解析.
    */
   LOG_ERROR("Node(%p) connect or handshake failed, socket error mesg:%s.",
@@ -725,10 +724,9 @@ DirectConnectRetry:
   return;
 }
 
-/*
- * Description: 启动语音交互请求
- * Return:
- * Others:
+/**
+ * @brief: 启动语音交互请求
+ * @return:
  */
 void WorkThread::launchEventCallback(evutil_socket_t fd, short which, void *arg) {
   ConnectNode *node = (ConnectNode*)arg;
@@ -930,10 +928,9 @@ ConnectRetry:
   return;
 }
 
-/*
- * Description: 开始gateway的请求处理
- * Return: 成功则Success, 失败则返回负值.
- * Others:
+/**
+ * @brief: 开始gateway的请求处理
+ * @return: 成功则Success, 失败则返回负值.
  */
 int WorkThread::nodeRequestProcess(ConnectNode* node) {
   int ret = Success;
@@ -1000,10 +997,9 @@ int WorkThread::nodeRequestProcess(ConnectNode* node) {
   return Success;
 }
 
-/*
- * Description: 接收gateway的响应
- * Return: 成功则Success, 失败则返回负值.
- * Others:
+/**
+ * @brief: 接收gateway的响应
+ * @return: 成功则Success, 失败则返回负值.
  */
 int WorkThread::nodeResponseProcess(ConnectNode* node) {
   int ret = Success;

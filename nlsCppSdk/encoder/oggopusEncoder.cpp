@@ -15,7 +15,6 @@
  */
 
 #include "oggopusEncoder.h"
-#include "nlsEncoderCommon.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -171,7 +170,7 @@ int OggOpusDataEncoder::OggopusEncoderCreate(
   }
   ogg_opus_para_ = new OggOpusDataEncoderPara();
   if (NULL == ogg_opus_para_) {
-    return kNlsStartOpusFailed;
+    return -(OggOpusCreateFailed);
   }
   is_first_frame_processed_ = false;
 
@@ -328,12 +327,12 @@ int OggOpusDataEncoder::OggopusEncoderCreate(
   ogg_opus_para_->nb_samples = -1;
   is_first_frame_processed_ = false;
 
-  return kNlsOk;
+  return Success;
 }
 
 int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
   if (NULL == ogg_opus_para_)  {
-    return kNlsInvalidState;
+    return -(OggOpusInvalidState);
   }
 
   int ret = 0;
@@ -372,7 +371,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
         if (ret !=
             ogg_opus_para_->og.header_len + ogg_opus_para_->og.body_len) {
           LOG_ERROR("error: failed writing header to output stream");
-          return kNlsOpusEncodeFailed;
+          return -(OggOpusEncodeFailed);
         }
       } // while
 
@@ -395,7 +394,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
         if (ret !=
             ogg_opus_para_->og.header_len + ogg_opus_para_->og.body_len) {
           LOG_ERROR("error: failed writing header to output stream");
-          return kNlsOpusEncodeFailed;
+          return -(OggOpusEncodeFailed);
         }
       } // while
 
@@ -447,7 +446,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
       free(tmp_buf);
       tmp_buf = NULL;
     }
-    return kNlsOpusEncodeFailed;
+    return -(OggOpusEncodeFailed);
   }
 
   /* 成功，是被编码包的长度（字节数），失败，一个负的错误代码 */
@@ -466,7 +465,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
       free(tmp_buf);
       tmp_buf = NULL;
     }
-    return kNlsOpusEncodeFailed;
+    return -(OggOpusEncodeFailed);
   }
   ogg_opus_para_->enc_granulepos += FRAME_SAMPLE_NUM * 3;
   size_segments = (ogg_opus_para_->nbBytes + 255) / 255;
@@ -492,7 +491,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
         free(tmp_buf);
         tmp_buf = NULL;
       }
-      return kNlsOpusEncodeFailed;
+      return -(OggOpusEncodeFailed);
     }
   }
 
@@ -549,7 +548,7 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
         free(tmp_buf);
         tmp_buf = NULL;
       }
-      return kNlsOpusEncodeFailed;
+      return -(OggOpusEncodeFailed);
     }
   }
   if (tmp_buf) {
@@ -557,27 +556,27 @@ int OggOpusDataEncoder::OggopusEncode(const char *input_data, int length) {
     tmp_buf = NULL;
   }
 
-  return kNlsOk;
+  return Success;
 }
 
 int OggOpusDataEncoder::OggopusFinish() {
   if (NULL == ogg_opus_para_) {
-    return kNlsFinishOpusFailed;
+    return -(OggOpusInvalidState);
   }
 
   OggopusEncode(NULL, 0);
   OggopusEncode(NULL, 0);
-  return kNlsOk;
+  return Success;
 }
 
 int OggOpusDataEncoder::OggopusSoftRestart() {
   is_first_frame_processed_ = false;
-  return kNlsOk;
+  return Success;
 }
 
 int OggOpusDataEncoder::OggopusDestroy() {
   if (NULL == ogg_opus_para_) {
-    return kNlsStopOpusFailed;
+    return -(OggOpusInvalidState);
   }
 
   is_first_frame_processed_ = false;
@@ -598,7 +597,7 @@ int OggOpusDataEncoder::OggopusDestroy() {
     ogg_opus_para_ = NULL;
   }
 
-  return kNlsOk;
+  return Success;
 }
 
 OggOpusDataEncoder::~OggOpusDataEncoder() {}

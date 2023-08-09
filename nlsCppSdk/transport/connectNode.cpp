@@ -85,10 +85,11 @@ ConnectNode::ConnectNode(INlsRequest* request,
   evbuffer_enable_locking(_wwvEvBuffer, NULL);
 
   _nlsEncoder = NULL; //createNlsEncoder
-  _encoder_type = ENCODER_NONE;
-  _audio_data = NULL;
-  _audio_data_size = 0;
-  _max_data_size = 0;
+  _encoderType = ENCODER_NONE;
+  _audioFrame = NULL;
+  _audioFrameSize = 0;
+  _maxFrameSize = 0;
+  _isFrirstAudioFrame = true;
 
   _eventThread = NULL;
 
@@ -235,12 +236,13 @@ ConnectNode::~ConnectNode() {
     delete _nlsEncoder;
     _nlsEncoder = NULL;
   }
-  if (_audio_data) {
-    free(_audio_data);
-    _audio_data = NULL;
-    _audio_data_size = 0;
-    _max_data_size = 0;
+  if (_audioFrame) {
+    free(_audioFrame);
+    _audioFrame = NULL;
   }
+  _audioFrameSize = 0;
+  _maxFrameSize = 0;
+  _isFrirstAudioFrame = true;
 
 #if defined(_MSC_VER)
   CloseHandle(_mtxNode);
@@ -662,10 +664,9 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
   return true;
 }
 
-/*
- * Description: 关闭ssl并释放event, 调用后会进行重链操作
- * Return:
- * Others:
+/**
+ * @brief: 关闭ssl并释放event, 调用后会进行重链操作
+ * @return:
  */
 void ConnectNode::disconnectProcess() {
 #if defined(_MSC_VER)
@@ -701,10 +702,9 @@ void ConnectNode::disconnectProcess() {
 #endif
 }
 
-/*
- * Description: 当前Node切换到close状态, 而不进行断网, 用于长链接模式
- * Return:
- * Others:
+/**
+ * @brief: 当前Node切换到close状态, 而不进行断网, 用于长链接模式
+ * @return:
  */
 void ConnectNode::closeStatusConnectNode() {
 #if defined(_MSC_VER)
@@ -722,6 +722,14 @@ void ConnectNode::closeStatusConnectNode() {
     _nlsEncoder->nlsEncoderSoftRestart();
   }
 
+  if (_audioFrame) {
+    free(_audioFrame);
+    _audioFrame = NULL;
+  }
+  _audioFrameSize = 0;
+  _maxFrameSize = 0;
+  _isFrirstAudioFrame = true;
+
   LOG_DEBUG("Node(%p) closeStatusConnectNode done, current node status:%s exit status:%s.",
       this,
       getConnectNodeStatusString().c_str(),
@@ -734,10 +742,9 @@ void ConnectNode::closeStatusConnectNode() {
 #endif
 }
 
-/*
- * Description: 关闭ssl并释放event, 并设置node状态, 调用后往往进行释放操作.
- * Return:
- * Others:
+/**
+ * @brief: 关闭ssl并释放event, 并设置node状态, 调用后往往进行释放操作.
+ * @return:
  */
 void ConnectNode::closeConnectNode() {
 #if defined(_MSC_VER)
@@ -784,6 +791,14 @@ void ConnectNode::closeConnectNode() {
     _connectTimerEvent = NULL;
   }
 #endif
+
+  if (_audioFrame) {
+    free(_audioFrame);
+    _audioFrame = NULL;
+  }
+  _audioFrameSize = 0;
+  _maxFrameSize = 0;
+  _isFrirstAudioFrame = true;
 
   LOG_INFO("Node(%p) closeConnectNode done, current node status:%s exit status:%s.",
       this,
@@ -864,10 +879,9 @@ int ConnectNode::gatewayRequest() {
   return Success;
 }
 
-/*
- * Description: 获取gateway的响应
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 获取gateway的响应
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int ConnectNode::gatewayResponse() {
   int ret = 0;
@@ -919,73 +933,102 @@ int ConnectNode::gatewayResponse() {
   return ret;
 }
 
-/*
- * Description: 将buffer中剩余音频数据ws封包并发送
- * Return: 成功发送的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 将buffer中剩余音频数据ws封包并发送
+ * @return: 成功发送的字节数, 失败则返回负值.
  */
 int ConnectNode::addRemainAudioData() {
   int ret = 0;
-  if (_audio_data != NULL && _audio_data_size > 0) {
-    ret = addAudioDataBuffer(_audio_data, _audio_data_size);
-    memset(_audio_data, 0, _max_data_size);
-    _audio_data_size = 0;
+  if (_audioFrame != NULL && _audioFrameSize > 0) {
+    ret = addAudioDataBuffer(_audioFrame, _audioFrameSize);
+    memset(_audioFrame, 0, _maxFrameSize);
+    _audioFrameSize = 0;
   }
   return ret;
 }
 
-/*
- * Description: 将音频数据切片后再ws封包并发送
- * Return: 成功发送的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 将音频数据切片或填充后再ws封包并发送
+ * @param frame	用户传入的数据
+ * @param length	用户传入的数据字节数
+ * @return: 成功发送的字节数(可能为0, 留下一包数据发送), 失败则返回负值.
  */
 int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) {
   int ret = 0;
   int filling_ret = 0;
 
-  if (_nlsEncoder && _encoder_type != ENCODER_NONE) {
+  if (_nlsEncoder && _encoderType != ENCODER_NONE) {
     #ifdef ENABLE_NLS_DEBUG
     LOG_DEBUG("Node(%p) addSlicedAudioDataBuffer input data %d bytes.", this, length);
     #endif
-    _max_data_size = _nlsEncoder->getFrameSampleBytes();
-    if (_audio_data == NULL) {
-        _audio_data = (unsigned char*)malloc(_max_data_size);
-        if (_audio_data == NULL) {
+    _maxFrameSize = _nlsEncoder->getFrameSampleBytes();
+    if (_maxFrameSize <= 0) {
+      return _maxFrameSize;
+    }
+    if (_audioFrame == NULL) {
+        _audioFrame = (unsigned char*)calloc(_maxFrameSize, sizeof(unsigned char*));
+        if (_audioFrame == NULL) {
           LOG_ERROR("Node(%p) malloc audio_data_buffer failed.", this);
           return -(MallocFailed);
+        #ifdef ENABLE_NLS_DEBUG
+        } else {
+          LOG_DEBUG("Node(%p) create audio frame data %d bytes.", this, _maxFrameSize);
+        #endif
         }
-        _audio_data_size = 0;
+        _audioFrameSize = 0;
     }
 
-    size_t buffer_space_size = 0; /*buffer中空闲空间*/
+    size_t buffer_space_size = 0; /*buffer中空闲空间, 最大为_maxFrameSize*/
     size_t frame_used_size = 0; /*frame已经传入buffer的字节数*/
     size_t frame_remain_size = length; /*frame未传入buffer的字节数*/
     do {
-      buffer_space_size = _max_data_size - _audio_data_size;
+      buffer_space_size = _maxFrameSize - _audioFrameSize;
       if (frame_remain_size < buffer_space_size) {
-        memcpy(_audio_data + _audio_data_size, frame + frame_used_size, frame_remain_size);
-        filling_ret = frame_remain_size;
-        _audio_data_size += frame_remain_size;
+        memcpy(_audioFrame + _audioFrameSize, frame + frame_used_size, frame_remain_size);
+        _audioFrameSize += frame_remain_size;
         frame_used_size += frame_remain_size;
         frame_remain_size -= frame_remain_size;
       } else {
-        memcpy(_audio_data + _audio_data_size, frame + frame_used_size, buffer_space_size);
-        filling_ret = buffer_space_size;
-        _audio_data_size += buffer_space_size;
+        memcpy(_audioFrame + _audioFrameSize, frame + frame_used_size, buffer_space_size);
+        _audioFrameSize += buffer_space_size;
         frame_used_size += buffer_space_size;
         frame_remain_size -= buffer_space_size;
       }
 
-      if (_audio_data_size >= _max_data_size) {
-        ret = addAudioDataBuffer(_audio_data, _max_data_size);
-        memset(_audio_data, 0, _max_data_size);
-        _audio_data_size = 0;
+      if (_audioFrameSize >= _maxFrameSize) {
+        /*每次填充完整的一包数据*/
+        ret = addAudioDataBuffer(_audioFrame, _maxFrameSize);
+        memset(_audioFrame, 0, _maxFrameSize);
+        filling_ret += _maxFrameSize;
+        _audioFrameSize = 0;
         #ifdef ENABLE_NLS_DEBUG
         LOG_DEBUG("Node(%p) ready to push audio data(%d) into nls_buffer, has digest %dbytes, ret:%d.",
-              this, length, frame_used_size, ret);
+              this, _maxFrameSize, frame_used_size, ret);
         #endif
         if (ret < 0) {
           filling_ret = ret;
+          break;
+        }
+      } else {
+        if (_isFrirstAudioFrame == false && _encoderType != ENCODER_OPU) {
+          /*数据不足一包, 且非第一包数据. OPU第一包如果未满, 则会编码失败*/
+          ret = addAudioDataBuffer(_audioFrame, _audioFrameSize);
+          filling_ret += _audioFrameSize;
+          #ifdef ENABLE_NLS_DEBUG
+          LOG_DEBUG("Node(%p) ready to push audio data(%d) into nls_buffer, has digest %dbytes, ret:%d.",
+                this, _audioFrameSize, frame_used_size, ret);
+          #endif
+          memset(_audioFrame, 0, _maxFrameSize);
+          _audioFrameSize = 0;
+          if (ret < 0) {
+            filling_ret = ret;
+            break;
+          }
+        } else {
+          #ifdef ENABLE_NLS_DEBUG
+          LOG_DEBUG("Node(%p) leave audio data(%d) for the next round.",
+                this, _audioFrameSize);
+          #endif
           break;
         }
       }
@@ -995,15 +1038,16 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) 
   }
 
   #ifdef ENABLE_NLS_DEBUG
-  LOG_DEBUG("Node(%p) pushed audio data(%d) into audio_data_tmp_buffer.", this, filling_ret);
+  LOG_DEBUG("Node(%p) pushed audio data(%d:%d) into audio_data_tmp_buffer.", this, length, filling_ret);
   #endif
   return filling_ret;
 }
 
-/*
- * Description: 将音频数据进行ws封包并发送
- * Return: 成功发送的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 将音频数据进行ws封包并发送
+ * @param frame	用户传入的数据
+ * @param frameSize	用户传入的数据字节数
+ * @return: 成功发送的字节数(可能为0, 留下一包数据发送), 失败则返回负值.
  */
 int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   REQUEST_CHECK(_request, this);
@@ -1013,7 +1057,7 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   size_t length = 0;
   struct evbuffer* buff = NULL;
 
-  if (_nlsEncoder && _encoder_type != ENCODER_NONE) {
+  if (_nlsEncoder && _encoderType != ENCODER_NONE) {
     int nSize = 0;
     uint8_t *outputBuffer = new uint8_t[frameSize];
     if (outputBuffer == NULL) {
@@ -1024,8 +1068,10 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
       nSize = _nlsEncoder->nlsEncoding(
           frame, (int)frameSize,
           outputBuffer, (int)frameSize);
-      // LOG_DEBUG("Node(%p) Opus encoder(%d) encoding %dbytes data, and return nSize:%d.",
-      //     this, _encoder_type, frameSize, nSize);
+      #ifdef ENABLE_NLS_DEBUG
+      LOG_DEBUG("Node(%p) Opus encoder(%d) encoding %dbytes data, and return nSize:%d.",
+          this, _encoderType, frameSize, nSize);
+      #endif
       if (nSize < 0) {
         LOG_ERROR("Node(%p) Opus encoder failed:%d.", this, nSize);
         delete [] outputBuffer;
@@ -1102,26 +1148,26 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
     handlerTaskFailedEvent(getErrorMsg());
   } else {
     ret = frameSize;
+    _isFrirstAudioFrame = false;
   }
 
   return ret;
 }
 
-/*
- * Description: 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
- *              此模式start()后收到服务端结果再return出去,
- *              stop()后收到close()回调再return出去.
- * Return:
- * Others:
+/**
+ * @brief: 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
+ *         此模式start()后收到服务端结果再return出去,
+ *         stop()后收到close()回调再return出去.
+ * @param timeout_ms	大于0, 则启动同步调用模式
+ * @return:
  */
 void ConnectNode::setSyncCallTimeout(unsigned int timeout_ms) {
   _syncCallTimeoutMs = timeout_ms;
 }
 
-/*
- * Description: 发送控制命令
- * Return: 成功发送的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 发送控制命令
+ * @return: 成功发送的字节数, 失败则返回负值.
  */
 int ConnectNode::sendControlDirective() {
   int ret = 0;
@@ -1156,10 +1202,11 @@ int ConnectNode::sendControlDirective() {
   return ret;
 }
 
-/*
- * Description: 将命令字符串加入buffer用于发送
- * Return:
- * Others:
+/**
+ * @brief: 将命令字符串加入buffer用于发送
+ * @param type	CmdType
+ * @param message	待发送命令
+ * @return:
  */
 void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
   char *cmd = NULL;
@@ -1214,10 +1261,11 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
   }
 }
 
-/*
- * Description: 命令发送
- * Return: 成功则返回发送字节数, 失败则返回负值
- * Others:
+/**
+ * @brief: 命令发送
+ * @param type	CmdType
+ * @param message	待发送命令
+ * @return: 成功则返回发送字节数, 失败则返回负值
  */
 int ConnectNode::cmdNotify(CmdType type, const char* message) {
   int ret = Success;
@@ -1291,10 +1339,9 @@ int ConnectNode::nlsSend(const uint8_t * frame, size_t length) {
   return sLen;
 }
 
-/*
- * Description: 发送一帧数据 
- * Return: 成功发送的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 发送一帧数据 
+ * @return: 成功发送的字节数, 失败则返回负值.
  */
 int ConnectNode::nlsSendFrame(struct evbuffer * eventBuffer) {
   int sLen = 0;
@@ -1368,10 +1415,9 @@ int ConnectNode::nlsReceive(uint8_t *buffer, int max_size) {
   return rLen;
 }
 
-/*
- * Description: 接收一帧数据
- * Return: 成功接收的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 接收一帧数据
+ * @return: 成功接收的字节数, 失败则返回负值.
  */
 int ConnectNode::webSocketResponse() {
   int ret = 0;
@@ -2021,10 +2067,9 @@ dnsExit:
   pthread_exit(NULL);
 }
 
-/*
- * Description: 异步方式使用系统的getaddrinfo()方法获得dns
- * Return: 成功则为0, 否则为失败
- * Others:
+/**
+ * @brief: 异步方式使用系统的getaddrinfo()方法获得dns
+ * @return: 成功则为0, 否则为失败
  */
 static int native_getaddrinfo(
     const char *nodename, const char *servname,
@@ -2045,10 +2090,9 @@ static int native_getaddrinfo(
 }
 #endif
 
-/*
- * Description: 进行DNS解析
- * Return: 成功则为正值, 失败则为负值
- * Others:
+/**
+ * @brief: 进行DNS解析
+ * @return: 成功则为正值, 失败则为负值
  */
 int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
   EXIT_CANCEL_CHECK(_exitStatus, this);
@@ -2176,10 +2220,9 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
   return result;
 }
 
-/*
- * Description: 开始进行链接处理, 创建socket, 设置libevent, 并开始socket链接.
- * Return: 成功则为0, 阻塞则为1, 失败则负值.
- * Others:
+/**
+ * @brief: 开始进行链接处理, 创建socket, 设置libevent, 并开始socket链接.
+ * @return: 成功则为0, 阻塞则为1, 失败则负值.
  */
 int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   EXIT_CANCEL_CHECK(_exitStatus, this);
@@ -2308,10 +2351,9 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   return socketConnect();
 }
 
-/*
- * Description: 进行socket链接
- * Return: 成功则为0, 阻塞则为1, 失败则负值.
- * Others:
+/**
+ * @brief:进行socket链接
+ * @return: 成功则为0, 阻塞则为1, 失败则负值.
  */
 int ConnectNode::socketConnect() {
   int retCode = 0;
@@ -2339,7 +2381,8 @@ int ConnectNode::socketConnect() {
   if (retCode == -1) {
     connectErrCode = utility::getLastErrorCode();
     if (NLS_ERR_CONNECT_RETRIABLE(connectErrCode)) {
-      /*  connectErrCode == 115(EINPROGRESS)
+      /* 
+       *  connectErrCode == 115(EINPROGRESS)
        *  means connection is in progress,
        *  normally the socket connecting timeout is 75s.
        *  after the socket fd is ready to read.
@@ -2373,10 +2416,9 @@ int ConnectNode::socketConnect() {
   return 0;
 }
 
-/*
- * Description: 进行SSL握手
- * Return: 成功 等待链接则返回1, 正在握手则返回0, 失败则返回负值
- * Others:
+/**
+ * @brief: 进行SSL握手
+ * @return: 成功 等待链接则返回1, 正在握手则返回0, 失败则返回负值
  */
 int ConnectNode::sslProcess() {
   EXIT_CANCEL_CHECK(_exitStatus, this);
@@ -2454,10 +2496,9 @@ int ConnectNode::sslProcess() {
   return 0;
 }
 
-/*
- * Description: 初始化音频编码器
- * Return:
- * Others:
+/**
+ * @brief: 初始化音频编码器
+ * @return:
  */
 void ConnectNode::initNlsEncoder() {
 #if defined(_MSC_VER)
@@ -2478,12 +2519,12 @@ void ConnectNode::initNlsEncoder() {
     }
 
     if (_request->getRequestParam()->_format == "opu") {
-      _encoder_type = ENCODER_OPU;
+      _encoderType = ENCODER_OPU;
     } else if (_request->getRequestParam()->_format == "opus") {
-      _encoder_type = ENCODER_OPUS;
+      _encoderType = ENCODER_OPUS;
     }
 
-    if (_encoder_type != ENCODER_NONE) {
+    if (_encoderType != ENCODER_NONE) {
       _nlsEncoder = new NlsEncoder();
       if (NULL == _nlsEncoder) {
         LOG_ERROR("Node(%p) new _nlsEncoder failed.", this);
@@ -2497,7 +2538,7 @@ void ConnectNode::initNlsEncoder() {
 
       int errorCode = 0;
       int ret = _nlsEncoder->createNlsEncoder(
-          _encoder_type, 1,
+          _encoderType, 1,
           _request->getRequestParam()->_sampleRate,
           &errorCode);
       if (ret < 0) {
@@ -2515,10 +2556,9 @@ void ConnectNode::initNlsEncoder() {
 #endif
 }
 
-/*
- * Description: 更新并生效所有ConnectNode中设置的参数
- * Return:
- * Others:
+/**
+ * @brief: 更新并生效所有ConnectNode中设置的参数
+ * @return:
  */
 void ConnectNode::updateParameters() {
 #if defined(_MSC_VER)
@@ -2568,10 +2608,9 @@ void ConnectNode::updateParameters() {
 #endif
 }
 
-/*
- * Description: 等待所有EventCallback退出并删除和停止EventCallback的队列
- * Return:
- * Others:
+/**
+ * @brief: 等待所有EventCallback退出并删除和停止EventCallback的队列
+ * @return:
  */
 void ConnectNode::delAllEvents() {
   LOG_DEBUG("Node(%p) delete all events begin, current node status:%s exit status:%s.",
@@ -2622,10 +2661,9 @@ void ConnectNode::delAllEvents() {
   LOG_DEBUG("Node(%p) delete all events done.", this);
 }
 
-/*
- * Description: 等待所有EventCallback退出, 默认1s超时.
- * Return:
- * Others:
+/**
+ * @brief: 等待所有EventCallback退出, 默认1s超时.
+ * @return:
  */
 void ConnectNode::waitEventCallback() {
   // LOG_DEBUG("Node:%p waiting EventCallback, current node status:%s exit status:%s",
@@ -2656,10 +2694,9 @@ void ConnectNode::waitEventCallback() {
   // LOG_DEBUG("Node(%p) wait all EventCallback exit done.", this);
 }
 
-/*
- * Description: 等待调用完成, 默认10s超时.
- * Return:
- * Others:
+/**
+ * @brief: 等待调用完成, 默认10s超时.
+ * @return:
  */
 void ConnectNode::waitInvokeFinish() {
   if (_syncCallTimeoutMs > 0) {
@@ -2686,10 +2723,9 @@ void ConnectNode::waitInvokeFinish() {
   }
 }
 
-/*
- * Description: 发送调用完成的信号.
- * Return:
- * Others:
+/**
+ * @brief: 发送调用完成的信号.
+ * @return:
  */
 void ConnectNode::sendFinishCondSignal(NlsEvent::EventType eventType) {
   if (_syncCallTimeoutMs > 0) {

@@ -46,7 +46,7 @@ class SSLconnect {
 
  private:
   SSL* _ssl;
-  int _ssl_try_again;
+  int _sslTryAgain;
   char _errorMsg[MAX_SSL_ERROR_LENGTH];
 };
 

@@ -27,7 +27,6 @@
 #include "nlsGlobal.h"
 #include "nlsEncoder.h"
 #ifdef ENABLE_OGGOPUS
-#include "nlsEncoderCommon.h"
 #include "oggopusEncoder.h"
 #endif
 
@@ -50,7 +49,7 @@ static size_t oggopusEncodedData(const uint8_t *encoded_data, int len,
 int NlsEncoder::pushbackEncodedData(
     const uint8_t *encoded_data, int data_len) {
   encoded_data_.Pushback(encoded_data, data_len);
-  return kNlsOk;
+  return Success;
 }
 #endif
 
@@ -125,7 +124,7 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
     }
     ret = ((OggOpusDataEncoder *)nlsEncoder_)->OggopusEncoderCreate(
         oggopusEncodedData, this, sampleRate);
-    if (ret == kNlsOk) {
+    if (ret == Success) {
       /* 这里暂时未开放编码码率和计算复杂度的设置 */
       ((OggOpusDataEncoder *)nlsEncoder_)->SetBitrate(27800);
       ((OggOpusDataEncoder *)nlsEncoder_)->SetSampleRate(sampleRate);
@@ -179,7 +178,7 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
                               frameLen / 2,
                               outputTmp,
                               outputSize);
-//    LOG_DEBUG("frameLen:%d, outputSize:%d, encoderSize:%d\n",
+//    LOG_DEBUG("frameLen:%d, outputSize:%d, encoderSize:%d",
 //        frameLen, outputSize, encoderSize);
 
     if (encoderSize < 0) {
@@ -194,10 +193,10 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
 #ifdef ENABLE_OGGOPUS
     encoderSize = ((OggOpusDataEncoder *)nlsEncoder_)->OggopusEncode(
         (const char *)frameBuff, frameLen);
-    if (encoderSize != kNlsOk) {
+    if (encoderSize != Success) {
       LOG_ERROR("OggopusEncode failed, ret %d", encoderSize);
       free(outputTmp);
-      return 0;
+      return encoderSize;
     }
 #endif
   }

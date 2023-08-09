@@ -35,9 +35,6 @@
 
 #define SELF_TESTING_TRIGGER
 #define FRAME_16K_20MS 640
-#define FRAME_16K_100MS 3200
-#define FRAME_8K_20MS 320
-#define SAMPLE_RATE_8K 8000
 #define SAMPLE_RATE_16K 16000
 #define DEFAULT_STRING_LEN 512
 
@@ -1096,6 +1093,8 @@ void* pthreadFunction(void* arg) {
         // 发送失败, 退出循环数据发送
         std::cout << "send data fail(" << ret << ")." << std::endl;
         break;
+      } else {
+        // std::cout << "send data " << nlen << "bytes, return " << ret << " bytes." << std::endl;
       }
       gettimeofday(&tv1, NULL);
       uint64_t tmp_us =
@@ -1449,6 +1448,8 @@ void* pthreadLongConnectionFunction(void* arg) {
         // 发送失败, 退出循环数据发送
         std::cout << "send data fail(" << ret << ")." << std::endl;
         break;
+      } else {
+        // std::cout << "send data " << ret << " bytes." << std::endl;
       }
       gettimeofday(&tv1, NULL);
       uint64_t tmp_us =
@@ -1998,13 +1999,10 @@ int parse_argv(int argc, char* argv[]) {
       if (invalied_argv(index, argc)) return 1;
       if (strcmp(argv[index], "pcm") == 0) {
         encoder_type = ENCODER_NONE;
-        frame_size = FRAME_16K_100MS;
       } else if (strcmp(argv[index], "opu") == 0) {
         encoder_type = ENCODER_OPU;
-        frame_size = FRAME_16K_20MS;
       } else if (strcmp(argv[index], "opus") == 0) {
         encoder_type = ENCODER_OPUS;
-        frame_size = FRAME_16K_20MS;
       }
     } else if (!strcmp(argv[index], "--log")) {
       index++;
@@ -2014,11 +2012,9 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       sample_rate = atoi(argv[index]);
-      if (sample_rate == SAMPLE_RATE_8K) {
-        frame_size = FRAME_8K_20MS;
-      } else if (sample_rate == SAMPLE_RATE_16K) {
-        frame_size = FRAME_16K_20MS;
-      }
+    } else if (!strcmp(argv[index], "--frameSize")) {
+      index++;
+      frame_size = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -2103,6 +2099,7 @@ int main(int argc, char* argv[]) {
       << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
       << "  --noSleep <use sleep after sendAudio(), default 0>\n"
       << "  --audioFile <the absolute path of audio file>\n"
+      << "  --frameSize <audio data size, 640 ~ 16384bytes>\n"
       << "  --loop <loop count>\n"
       << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, invoke is async.>\n"
       << "eg:\n"

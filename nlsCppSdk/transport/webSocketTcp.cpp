@@ -288,10 +288,9 @@ int WebSocketTcp::receiveFullWebSocketFrame(
   return Success;
 }
 
-/*
- * Description: 从Websocket帧中解析出HeaderSize
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 从Websocket帧中解析出HeaderSize
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int WebSocketTcp::decodeHeaderSizeWebSocketFrame(
     uint8_t * buffer, size_t length, WebSocketHeaderType* wsType) {
@@ -312,10 +311,9 @@ int WebSocketTcp::decodeHeaderSizeWebSocketFrame(
   return Success;
 }
 
-/*
- * Description: 从Websocket帧中解析出HeaderBody
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 从Websocket帧中解析出HeaderBody
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
     uint8_t* buffer, size_t length, WebSocketHeaderType* wsType) {
@@ -357,10 +355,9 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
   return Success;
 }
 
-/*
- * Description: 从Websocket帧中解析出FrameBody
- * Return: 成功则返回收到的字节数, 失败则返回负值.
- * Others:
+/**
+ * @brief: 从Websocket帧中解析出FrameBody
+ * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
 int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
     size_t length,

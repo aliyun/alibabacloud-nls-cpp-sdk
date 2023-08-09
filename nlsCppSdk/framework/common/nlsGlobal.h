@@ -75,6 +75,13 @@ enum NlsRetCode {
   OpusEncoderCreateFailed,      /* Opus编码器创建失败 */
   OggOpusEncoderCreateFailed,   /* OggOpus编码器创建失败 */
   InvalidEncoderType,           /* encoder类型无效 */
+  /* encoder - oggopus internal */
+  OggOpusInvalidState = 110,    /* OggOpus状态不正确 */
+  OggOpusCreateFailed,          /* OggOpus创建失败 */
+  OggOpusStartFailed,           /* OggOpus启动失败 */
+  OggOpusEncodeFailed,          /* OggOpus编码失败 */
+  OggOpusDecodeFailed,          /* OggOpus解码失败 */
+  OggOpusStopFailed,            /* OggOpus停止失败 */
 
 
   /* nls client */
