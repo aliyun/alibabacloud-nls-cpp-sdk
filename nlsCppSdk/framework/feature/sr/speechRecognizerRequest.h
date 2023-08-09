@@ -160,7 +160,8 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
 
   /**
    * @brief 设置开启接收超时时间
-   * @param value 默认true, 即默认开启接收超时时间
+   * @param value 默认false, 即默认关闭接收超时时间,
+   *              开启后长时间未收服务端则报错
    * @return 成功则返回0，否则返回负值错误码
    */
   int setEnableRecvTimeout(bool value);
