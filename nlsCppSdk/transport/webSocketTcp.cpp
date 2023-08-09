@@ -437,7 +437,11 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   const int headlen = 2 + (length >= 126 ? 2 : 0) + (length >= 65536 ? 6 : 0) + (useMask ? 4 : 0);
 
   uint8_t* header = (uint8_t*)calloc(headlen, sizeof(uint8_t));//new uint8_t[headlen];
-  //memset(header, 0, sizeof(uint8_t)*headlen);
+  if (header == NULL) {
+    LOG_ERROR("WS(%p) calloc header failed.", this);
+    return -(MallocFailed);
+  }
+
   header[0] = 0x80 | codeType;
 
   if (length < 126) {
@@ -509,7 +513,7 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   free(header);
   header = NULL;
 
-  return 0;
+  return Success;
 }
 
 }
