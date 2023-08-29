@@ -83,6 +83,12 @@
             this.tFileLinkUrl = new System.Windows.Forms.TextBox();
             this.label15 = new System.Windows.Forms.Label();
             this.ftResult = new System.Windows.Forms.Label();
+            this.label16 = new System.Windows.Forms.Label();
+            this.tInput1 = new System.Windows.Forms.TextBox();
+            this.tinput2 = new System.Windows.Forms.TextBox();
+            this.label19 = new System.Windows.Forms.Label();
+            this.label20 = new System.Windows.Forms.Label();
+            this.syOutput = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // btnOpenLog
@@ -97,11 +103,12 @@
             // 
             // stResult
             // 
+            this.stResult.BackColor = System.Drawing.SystemColors.ControlLight;
             this.stResult.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.stResult.Location = new System.Drawing.Point(220, 210);
             this.stResult.Name = "stResult";
             this.stResult.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.stResult.Size = new System.Drawing.Size(837, 66);
+            this.stResult.Size = new System.Drawing.Size(785, 55);
             this.stResult.TabIndex = 1;
             this.stResult.Text = "null";
             this.stResult.Click += new System.EventHandler(this.label1_Click);
@@ -128,6 +135,7 @@
             // 
             // btnDeinitNls
             // 
+            this.btnDeinitNls.Enabled = false;
             this.btnDeinitNls.Location = new System.Drawing.Point(306, 5);
             this.btnDeinitNls.Name = "btnDeinitNls";
             this.btnDeinitNls.Size = new System.Drawing.Size(114, 47);
@@ -138,6 +146,7 @@
             // 
             // btnSTcreate
             // 
+            this.btnSTcreate.Enabled = false;
             this.btnSTcreate.Location = new System.Drawing.Point(58, 156);
             this.btnSTcreate.Name = "btnSTcreate";
             this.btnSTcreate.Size = new System.Drawing.Size(153, 47);
@@ -148,6 +157,7 @@
             // 
             // btnSTrelease
             // 
+            this.btnSTrelease.Enabled = false;
             this.btnSTrelease.Location = new System.Drawing.Point(415, 156);
             this.btnSTrelease.Name = "btnSTrelease";
             this.btnSTrelease.Size = new System.Drawing.Size(168, 47);
@@ -158,6 +168,7 @@
             // 
             // btnSTstart
             // 
+            this.btnSTstart.Enabled = false;
             this.btnSTstart.Location = new System.Drawing.Point(217, 156);
             this.btnSTstart.Name = "btnSTstart";
             this.btnSTstart.Size = new System.Drawing.Size(93, 47);
@@ -168,6 +179,7 @@
             // 
             // btnSTstop
             // 
+            this.btnSTstop.Enabled = false;
             this.btnSTstop.Location = new System.Drawing.Point(316, 156);
             this.btnSTstop.Name = "btnSTstop";
             this.btnSTstop.Size = new System.Drawing.Size(93, 47);
@@ -178,33 +190,33 @@
             // 
             // tAkId
             // 
-            this.tAkId.Location = new System.Drawing.Point(598, 36);
+            this.tAkId.Location = new System.Drawing.Point(572, 36);
             this.tAkId.Name = "tAkId";
-            this.tAkId.Size = new System.Drawing.Size(346, 25);
+            this.tAkId.Size = new System.Drawing.Size(339, 25);
             this.tAkId.TabIndex = 9;
             this.tAkId.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
             // 
             // tAkSecret
             // 
-            this.tAkSecret.Location = new System.Drawing.Point(598, 67);
+            this.tAkSecret.Location = new System.Drawing.Point(1011, 36);
             this.tAkSecret.Name = "tAkSecret";
-            this.tAkSecret.Size = new System.Drawing.Size(346, 25);
+            this.tAkSecret.Size = new System.Drawing.Size(338, 25);
             this.tAkSecret.TabIndex = 10;
             this.tAkSecret.TextChanged += new System.EventHandler(this.tAkSecret_TextChanged);
             // 
             // tAppKey
             // 
-            this.tAppKey.Location = new System.Drawing.Point(598, 5);
+            this.tAppKey.Location = new System.Drawing.Point(572, 5);
             this.tAppKey.Name = "tAppKey";
-            this.tAppKey.Size = new System.Drawing.Size(346, 25);
+            this.tAppKey.Size = new System.Drawing.Size(339, 25);
             this.tAppKey.TabIndex = 11;
             this.tAppKey.TextChanged += new System.EventHandler(this.tAppKey_TextChanged);
             // 
             // tToken
             // 
-            this.tToken.Location = new System.Drawing.Point(598, 98);
+            this.tToken.Location = new System.Drawing.Point(572, 67);
             this.tToken.Name = "tToken";
-            this.tToken.Size = new System.Drawing.Size(346, 25);
+            this.tToken.Size = new System.Drawing.Size(339, 25);
             this.tToken.TabIndex = 12;
             this.tToken.TextChanged += new System.EventHandler(this.tToken_TextChanged);
             // 
@@ -229,7 +241,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(509, 70);
+            this.label3.Location = new System.Drawing.Point(934, 39);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(71, 15);
             this.label3.TabIndex = 15;
@@ -238,7 +250,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(509, 101);
+            this.label4.Location = new System.Drawing.Point(509, 70);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(47, 15);
             this.label4.TabIndex = 16;
@@ -247,7 +259,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(509, 132);
+            this.label5.Location = new System.Drawing.Point(934, 74);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(31, 15);
             this.label5.TabIndex = 18;
@@ -255,14 +267,15 @@
             // 
             // tUrl
             // 
-            this.tUrl.Location = new System.Drawing.Point(598, 129);
+            this.tUrl.Location = new System.Drawing.Point(1011, 67);
             this.tUrl.Name = "tUrl";
-            this.tUrl.Size = new System.Drawing.Size(346, 25);
+            this.tUrl.Size = new System.Drawing.Size(338, 25);
             this.tUrl.TabIndex = 17;
             this.tUrl.TextChanged += new System.EventHandler(this.tUrl_TextChanged);
             // 
             // btnCreateToken
             // 
+            this.btnCreateToken.Enabled = false;
             this.btnCreateToken.Location = new System.Drawing.Point(58, 58);
             this.btnCreateToken.Name = "btnCreateToken";
             this.btnCreateToken.Size = new System.Drawing.Size(118, 47);
@@ -273,6 +286,7 @@
             // 
             // btnReleaseToken
             // 
+            this.btnReleaseToken.Enabled = false;
             this.btnReleaseToken.Location = new System.Drawing.Point(182, 58);
             this.btnReleaseToken.Name = "btnReleaseToken";
             this.btnReleaseToken.Size = new System.Drawing.Size(114, 47);
@@ -283,7 +297,8 @@
             // 
             // btnSRstop
             // 
-            this.btnSRstop.Location = new System.Drawing.Point(319, 444);
+            this.btnSRstop.Enabled = false;
+            this.btnSRstop.Location = new System.Drawing.Point(319, 417);
             this.btnSRstop.Name = "btnSRstop";
             this.btnSRstop.Size = new System.Drawing.Size(93, 47);
             this.btnSRstop.TabIndex = 24;
@@ -293,7 +308,8 @@
             // 
             // btnSRstart
             // 
-            this.btnSRstart.Location = new System.Drawing.Point(220, 444);
+            this.btnSRstart.Enabled = false;
+            this.btnSRstart.Location = new System.Drawing.Point(220, 417);
             this.btnSRstart.Name = "btnSRstart";
             this.btnSRstart.Size = new System.Drawing.Size(93, 47);
             this.btnSRstart.TabIndex = 23;
@@ -303,7 +319,8 @@
             // 
             // btnSRrelease
             // 
-            this.btnSRrelease.Location = new System.Drawing.Point(418, 444);
+            this.btnSRrelease.Enabled = false;
+            this.btnSRrelease.Location = new System.Drawing.Point(418, 417);
             this.btnSRrelease.Name = "btnSRrelease";
             this.btnSRrelease.Size = new System.Drawing.Size(168, 47);
             this.btnSRrelease.TabIndex = 22;
@@ -313,7 +330,8 @@
             // 
             // btnSRcreate
             // 
-            this.btnSRcreate.Location = new System.Drawing.Point(61, 444);
+            this.btnSRcreate.Enabled = false;
+            this.btnSRcreate.Location = new System.Drawing.Point(61, 417);
             this.btnSRcreate.Name = "btnSRcreate";
             this.btnSRcreate.Size = new System.Drawing.Size(153, 47);
             this.btnSRcreate.TabIndex = 21;
@@ -323,7 +341,8 @@
             // 
             // btnSYcancel
             // 
-            this.btnSYcancel.Location = new System.Drawing.Point(319, 679);
+            this.btnSYcancel.Enabled = false;
+            this.btnSYcancel.Location = new System.Drawing.Point(319, 650);
             this.btnSYcancel.Name = "btnSYcancel";
             this.btnSYcancel.Size = new System.Drawing.Size(93, 47);
             this.btnSYcancel.TabIndex = 28;
@@ -333,7 +352,8 @@
             // 
             // btnSYstart
             // 
-            this.btnSYstart.Location = new System.Drawing.Point(220, 679);
+            this.btnSYstart.Enabled = false;
+            this.btnSYstart.Location = new System.Drawing.Point(220, 650);
             this.btnSYstart.Name = "btnSYstart";
             this.btnSYstart.Size = new System.Drawing.Size(93, 47);
             this.btnSYstart.TabIndex = 27;
@@ -343,7 +363,8 @@
             // 
             // btnSYrelease
             // 
-            this.btnSYrelease.Location = new System.Drawing.Point(418, 679);
+            this.btnSYrelease.Enabled = false;
+            this.btnSYrelease.Location = new System.Drawing.Point(418, 650);
             this.btnSYrelease.Name = "btnSYrelease";
             this.btnSYrelease.Size = new System.Drawing.Size(168, 47);
             this.btnSYrelease.TabIndex = 26;
@@ -353,7 +374,8 @@
             // 
             // btnSYcreate
             // 
-            this.btnSYcreate.Location = new System.Drawing.Point(61, 679);
+            this.btnSYcreate.Enabled = false;
+            this.btnSYcreate.Location = new System.Drawing.Point(61, 650);
             this.btnSYcreate.Name = "btnSYcreate";
             this.btnSYcreate.Size = new System.Drawing.Size(153, 47);
             this.btnSYcreate.TabIndex = 25;
@@ -363,22 +385,24 @@
             // 
             // stCompleted
             // 
+            this.stCompleted.BackColor = System.Drawing.SystemColors.ControlLight;
             this.stCompleted.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.stCompleted.Location = new System.Drawing.Point(220, 285);
             this.stCompleted.Name = "stCompleted";
             this.stCompleted.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.stCompleted.Size = new System.Drawing.Size(837, 72);
+            this.stCompleted.Size = new System.Drawing.Size(785, 72);
             this.stCompleted.TabIndex = 29;
             this.stCompleted.Text = "null";
             this.stCompleted.Click += new System.EventHandler(this.label6_Click);
             // 
             // stClosed
             // 
+            this.stClosed.BackColor = System.Drawing.SystemColors.ControlLight;
             this.stClosed.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.stClosed.Location = new System.Drawing.Point(220, 371);
             this.stClosed.Name = "stClosed";
             this.stClosed.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.stClosed.Size = new System.Drawing.Size(837, 55);
+            this.stClosed.Size = new System.Drawing.Size(785, 34);
             this.stClosed.TabIndex = 30;
             this.stClosed.Text = "null";
             // 
@@ -412,7 +436,7 @@
             // label11
             // 
             this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(55, 642);
+            this.label11.Location = new System.Drawing.Point(55, 615);
             this.label11.Name = "label11";
             this.label11.Size = new System.Drawing.Size(119, 15);
             this.label11.TabIndex = 39;
@@ -421,7 +445,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(55, 568);
+            this.label12.Location = new System.Drawing.Point(55, 541);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(143, 15);
             this.label12.TabIndex = 38;
@@ -430,7 +454,7 @@
             // label13
             // 
             this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(55, 505);
+            this.label13.Location = new System.Drawing.Point(55, 478);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(151, 15);
             this.label13.TabIndex = 37;
@@ -438,40 +462,43 @@
             // 
             // srClosed
             // 
+            this.srClosed.BackColor = System.Drawing.SystemColors.ControlLight;
             this.srClosed.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.srClosed.Location = new System.Drawing.Point(220, 642);
+            this.srClosed.Location = new System.Drawing.Point(220, 615);
             this.srClosed.Name = "srClosed";
             this.srClosed.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.srClosed.Size = new System.Drawing.Size(837, 24);
+            this.srClosed.Size = new System.Drawing.Size(780, 24);
             this.srClosed.TabIndex = 36;
             this.srClosed.Text = "null";
             this.srClosed.Click += new System.EventHandler(this.label14_Click);
             // 
             // srCompleted
             // 
+            this.srCompleted.BackColor = System.Drawing.SystemColors.ControlLight;
             this.srCompleted.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.srCompleted.Location = new System.Drawing.Point(220, 568);
+            this.srCompleted.Location = new System.Drawing.Point(220, 541);
             this.srCompleted.Name = "srCompleted";
             this.srCompleted.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.srCompleted.Size = new System.Drawing.Size(837, 60);
+            this.srCompleted.Size = new System.Drawing.Size(780, 60);
             this.srCompleted.TabIndex = 35;
             this.srCompleted.Text = "null";
             this.srCompleted.Click += new System.EventHandler(this.srCompleted_Click);
             // 
             // srResult
             // 
+            this.srResult.BackColor = System.Drawing.SystemColors.ControlLight;
             this.srResult.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.srResult.Location = new System.Drawing.Point(220, 505);
+            this.srResult.Location = new System.Drawing.Point(220, 478);
             this.srResult.Name = "srResult";
             this.srResult.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.srResult.Size = new System.Drawing.Size(837, 63);
+            this.srResult.Size = new System.Drawing.Size(780, 43);
             this.srResult.TabIndex = 34;
             this.srResult.Text = "null";
             // 
             // label17
             // 
             this.label17.AutoSize = true;
-            this.label17.Location = new System.Drawing.Point(55, 794);
+            this.label17.Location = new System.Drawing.Point(55, 796);
             this.label17.Name = "label17";
             this.label17.Size = new System.Drawing.Size(119, 15);
             this.label17.TabIndex = 43;
@@ -480,7 +507,7 @@
             // label18
             // 
             this.label18.AutoSize = true;
-            this.label18.Location = new System.Drawing.Point(55, 739);
+            this.label18.Location = new System.Drawing.Point(55, 710);
             this.label18.Name = "label18";
             this.label18.Size = new System.Drawing.Size(143, 15);
             this.label18.TabIndex = 42;
@@ -488,32 +515,35 @@
             // 
             // syClosed
             // 
+            this.syClosed.BackColor = System.Drawing.SystemColors.ControlLight;
             this.syClosed.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.syClosed.Location = new System.Drawing.Point(220, 794);
+            this.syClosed.Location = new System.Drawing.Point(220, 796);
             this.syClosed.Name = "syClosed";
             this.syClosed.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.syClosed.Size = new System.Drawing.Size(837, 31);
+            this.syClosed.Size = new System.Drawing.Size(780, 31);
             this.syClosed.TabIndex = 41;
             this.syClosed.Text = "null";
             // 
             // syCompleted
             // 
+            this.syCompleted.BackColor = System.Drawing.SystemColors.ControlLight;
             this.syCompleted.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.syCompleted.Location = new System.Drawing.Point(220, 739);
+            this.syCompleted.Location = new System.Drawing.Point(220, 711);
             this.syCompleted.Name = "syCompleted";
             this.syCompleted.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.syCompleted.Size = new System.Drawing.Size(837, 42);
+            this.syCompleted.Size = new System.Drawing.Size(780, 74);
             this.syCompleted.TabIndex = 40;
             this.syCompleted.Text = "null";
             this.syCompleted.Click += new System.EventHandler(this.syCompleted_Click);
             // 
             // nlsResult
             // 
+            this.nlsResult.BackColor = System.Drawing.SystemColors.ControlLight;
             this.nlsResult.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.nlsResult.Location = new System.Drawing.Point(55, 123);
             this.nlsResult.Name = "nlsResult";
             this.nlsResult.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.nlsResult.Size = new System.Drawing.Size(365, 24);
+            this.nlsResult.Size = new System.Drawing.Size(528, 24);
             this.nlsResult.TabIndex = 44;
             this.nlsResult.Text = "nls...";
             this.nlsResult.Click += new System.EventHandler(this.label21_Click);
@@ -521,7 +551,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(669, 172);
+            this.label6.Location = new System.Drawing.Point(610, 172);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(159, 15);
             this.label6.TabIndex = 45;
@@ -530,7 +560,7 @@
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(851, 169);
+            this.textBox1.Location = new System.Drawing.Point(775, 169);
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(93, 25);
             this.textBox1.TabIndex = 46;
@@ -539,7 +569,7 @@
             // 
             // textBox2
             // 
-            this.textBox2.Location = new System.Drawing.Point(854, 457);
+            this.textBox2.Location = new System.Drawing.Point(772, 430);
             this.textBox2.Name = "textBox2";
             this.textBox2.Size = new System.Drawing.Size(93, 25);
             this.textBox2.TabIndex = 48;
@@ -549,7 +579,7 @@
             // label7
             // 
             this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(672, 460);
+            this.label7.Location = new System.Drawing.Point(610, 433);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(159, 15);
             this.label7.TabIndex = 47;
@@ -557,7 +587,7 @@
             // 
             // textBox3
             // 
-            this.textBox3.Location = new System.Drawing.Point(851, 692);
+            this.textBox3.Location = new System.Drawing.Point(775, 663);
             this.textBox3.Name = "textBox3";
             this.textBox3.Size = new System.Drawing.Size(93, 25);
             this.textBox3.TabIndex = 50;
@@ -567,7 +597,7 @@
             // label14
             // 
             this.label14.AutoSize = true;
-            this.label14.Location = new System.Drawing.Point(669, 695);
+            this.label14.Location = new System.Drawing.Point(610, 666);
             this.label14.Name = "label14";
             this.label14.Size = new System.Drawing.Size(159, 15);
             this.label14.TabIndex = 49;
@@ -575,7 +605,8 @@
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(61, 836);
+            this.button1.Enabled = false;
+            this.button1.Location = new System.Drawing.Point(61, 838);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(153, 47);
             this.button1.TabIndex = 51;
@@ -585,7 +616,7 @@
             // 
             // tFileLinkUrl
             // 
-            this.tFileLinkUrl.Location = new System.Drawing.Point(223, 836);
+            this.tFileLinkUrl.Location = new System.Drawing.Point(223, 838);
             this.tFileLinkUrl.Name = "tFileLinkUrl";
             this.tFileLinkUrl.Size = new System.Drawing.Size(721, 25);
             this.tFileLinkUrl.TabIndex = 52;
@@ -596,7 +627,7 @@
             // label15
             // 
             this.label15.AutoSize = true;
-            this.label15.Location = new System.Drawing.Point(55, 896);
+            this.label15.Location = new System.Drawing.Point(55, 897);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(135, 15);
             this.label15.TabIndex = 54;
@@ -604,20 +635,87 @@
             // 
             // ftResult
             // 
+            this.ftResult.BackColor = System.Drawing.SystemColors.ControlLight;
             this.ftResult.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.ftResult.Location = new System.Drawing.Point(220, 885);
+            this.ftResult.Location = new System.Drawing.Point(220, 896);
             this.ftResult.Name = "ftResult";
             this.ftResult.RightToLeft = System.Windows.Forms.RightToLeft.No;
-            this.ftResult.Size = new System.Drawing.Size(837, 72);
+            this.ftResult.Size = new System.Drawing.Size(1129, 72);
             this.ftResult.TabIndex = 53;
             this.ftResult.Text = "null";
             this.ftResult.Click += new System.EventHandler(this.ftResult_Click);
+            // 
+            // label16
+            // 
+            this.label16.AutoSize = true;
+            this.label16.Location = new System.Drawing.Point(897, 172);
+            this.label16.Name = "label16";
+            this.label16.Size = new System.Drawing.Size(103, 15);
+            this.label16.TabIndex = 55;
+            this.label16.Text = "input audio:";
+            this.label16.Click += new System.EventHandler(this.label16_Click);
+            // 
+            // tInput1
+            // 
+            this.tInput1.Location = new System.Drawing.Point(1011, 169);
+            this.tInput1.Multiline = true;
+            this.tInput1.Name = "tInput1";
+            this.tInput1.Size = new System.Drawing.Size(338, 69);
+            this.tInput1.TabIndex = 56;
+            this.tInput1.Text = "audio_files\\test3.wav";
+            this.tInput1.TextChanged += new System.EventHandler(this.tInput1_TextChanged);
+            // 
+            // tinput2
+            // 
+            this.tinput2.Location = new System.Drawing.Point(1011, 430);
+            this.tinput2.Multiline = true;
+            this.tinput2.Name = "tinput2";
+            this.tinput2.Size = new System.Drawing.Size(338, 69);
+            this.tinput2.TabIndex = 58;
+            this.tinput2.Text = "audio_files\\test2.wav";
+            this.tinput2.TextChanged += new System.EventHandler(this.tinput2_TextChanged);
+            // 
+            // label19
+            // 
+            this.label19.AutoSize = true;
+            this.label19.Location = new System.Drawing.Point(902, 433);
+            this.label19.Name = "label19";
+            this.label19.Size = new System.Drawing.Size(103, 15);
+            this.label19.TabIndex = 57;
+            this.label19.Text = "input audio:";
+            // 
+            // label20
+            // 
+            this.label20.AutoSize = true;
+            this.label20.Location = new System.Drawing.Point(902, 666);
+            this.label20.Name = "label20";
+            this.label20.Size = new System.Drawing.Size(103, 15);
+            this.label20.TabIndex = 59;
+            this.label20.Text = "output file:";
+            // 
+            // syOutput
+            // 
+            this.syOutput.BackColor = System.Drawing.SystemColors.ControlLight;
+            this.syOutput.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.syOutput.Location = new System.Drawing.Point(1011, 666);
+            this.syOutput.Name = "syOutput";
+            this.syOutput.RightToLeft = System.Windows.Forms.RightToLeft.No;
+            this.syOutput.Size = new System.Drawing.Size(338, 85);
+            this.syOutput.TabIndex = 60;
+            this.syOutput.Text = "null";
+            this.syOutput.Click += new System.EventHandler(this.label21_Click_1);
             // 
             // nlsCsharpSdkDemo
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1117, 979);
+            this.ClientSize = new System.Drawing.Size(1427, 990);
+            this.Controls.Add(this.syOutput);
+            this.Controls.Add(this.label20);
+            this.Controls.Add(this.tinput2);
+            this.Controls.Add(this.label19);
+            this.Controls.Add(this.tInput1);
+            this.Controls.Add(this.label16);
             this.Controls.Add(this.label15);
             this.Controls.Add(this.ftResult);
             this.Controls.Add(this.tFileLinkUrl);
@@ -738,6 +836,12 @@
         private System.Windows.Forms.TextBox tFileLinkUrl;
         private System.Windows.Forms.Label label15;
         private System.Windows.Forms.Label ftResult;
+        private System.Windows.Forms.Label label16;
+        private System.Windows.Forms.TextBox tInput1;
+        private System.Windows.Forms.TextBox tinput2;
+        private System.Windows.Forms.Label label19;
+        private System.Windows.Forms.Label label20;
+        private System.Windows.Forms.Label syOutput;
     }
 }
 
