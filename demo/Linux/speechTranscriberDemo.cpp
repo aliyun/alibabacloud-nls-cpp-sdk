@@ -15,18 +15,22 @@
  */
 
 #include <sys/time.h>
+#include <dirent.h>
+#include <errno.h>
 #include <pthread.h>
+#include <sys/io.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <ctime>
+#include <fstream>
+#include <iostream>
 #include <stdlib.h>
 #include <string.h>
 #include <map>
 #include <string>
-#include <iostream>
 #include <vector>
-#include <fstream>
 #include <signal.h>
-#include <errno.h>
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"
@@ -170,6 +174,7 @@ std::string g_audio_path = "";
 int g_threads = 1;
 int g_cpu = 1;
 int g_sync_timeout = 0;
+bool g_save_audio = false;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
@@ -1253,6 +1258,21 @@ void* pthreadFunction(void* arg) {
         std::cout << "fs empty..." << std::endl;
         continue;
       }
+      if (g_save_audio) {
+        // 以追加形式将二进制音频数据写入文件
+        std::string dir = "./original_audio";
+        if (access(dir.c_str(), 0) == -1) {
+          mkdir(dir.c_str(), S_IRWXU);
+        }
+        char file_name[256] = {0};
+        snprintf(file_name, 256, "%s/%s.pcm", dir.c_str(),
+                 request->getTaskId());
+        FILE* audio_stream = fopen(file_name, "a+");
+        if (audio_stream) {
+          fwrite(data, nlen, 1, audio_stream);
+          fclose(audio_stream);
+        }
+      }
 
       struct timeval tv0, tv1;
       gettimeofday(&tv0, NULL);
@@ -1623,6 +1643,21 @@ void* pthreadLongConnectionFunction(void* arg) {
       if (nlen <= 0) {
         std::cout << "fs empty..." << std::endl;
         continue;
+      }
+      if (g_save_audio) {
+        // 以追加形式将二进制音频数据写入文件
+        std::string dir = "./original_audio";
+        if (access(dir.c_str(), 0) == -1) {
+          mkdir(dir.c_str(), S_IRWXU);
+        }
+        char file_name[256] = {0};
+        snprintf(file_name, 256, "%s/%s.pcm", dir.c_str(),
+                 request->getTaskId());
+        FILE* audio_stream = fopen(file_name, "a+");
+        if (audio_stream) {
+          fwrite(data, nlen, 1, audio_stream);
+          fclose(audio_stream);
+        }
       }
 
       struct timeval tv0, tv1;
@@ -2203,6 +2238,14 @@ int parse_argv(int argc, char* argv[]) {
     } else if (!strcmp(argv[index], "--frameSize")) {
       index++;
       frame_size = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--save")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        g_save_audio = true;
+      } else {
+        g_save_audio = false;
+      }
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -2268,42 +2311,50 @@ int parse_argv(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
   if (parse_argv(argc, argv)) {
-    std::cout << "params is not valid.\n"
-      << "Usage:\n"
-      << "  --appkey <appkey>\n"
-      << "  --akId <AccessKey ID>\n"
-      << "  --akSecret <AccessKey Secret>\n"
-      << "  --token <Token>\n"
-      << "  --tokenDomain <the domain of token>\n"
-      << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
-      << "  --tokenApiVersion <the ApiVersion of token>\n"
-      << "      mcos:  2022-08-11\n"
-      << "  --url <Url>\n"
-      << "      public(default): wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
-      << "      internal: ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
-      << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
-      << "  --threads <Thread Numbers, default 1>\n"
-      << "  --time <Timeout secs, default 60 seconds>\n"
-      << "  --type <audio type, default pcm>\n"
-      << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-      << "  --sampleRate <sample rate, 16K or 8K>\n"
-      << "  --long <long connection: 1, short connection: 0, default 0>\n"
-      << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
-      << "  --noSleep <use sleep after sendAudio(), default 0>\n"
-      << "  --audioFile <the absolute path of audio file>\n"
-      << "  --frameSize <audio data size, 640 ~ 16384bytes>\n"
-      << "  --maxSilence <max silence time of sentence>\n"
-      << "  --loop <loop count>\n"
-      << "  --maxSilence <max sentence silence time>\n"
-      << "  --NlsScan <profile scan number>\n"
-      << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, invoke is async.>\n"
-      << "eg:\n"
-      << "  ./stDemo --appkey xxxxxx --token xxxxxx\n"
-      << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 4 --time 3600\n"
-      << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 4 --time 3600 --log 4 --type pcm\n"
-      << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 1 --loop 1 --log 4 --type pcm --audioFile /home/xxx/test0.wav \n"
-      << "  ./stDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads 4 --time 3600\n"
-      << std::endl;
+    std::cout
+        << "params is not valid.\n"
+        << "Usage:\n"
+        << "  --appkey <appkey>\n"
+        << "  --akId <AccessKey ID>\n"
+        << "  --akSecret <AccessKey Secret>\n"
+        << "  --token <Token>\n"
+        << "  --tokenDomain <the domain of token>\n"
+        << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
+        << "  --tokenApiVersion <the ApiVersion of token>\n"
+        << "      mcos:  2022-08-11\n"
+        << "  --url <Url>\n"
+        << "      public(default): "
+           "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
+        << "      internal: "
+           "ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
+        << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
+        << "  --threads <Thread Numbers, default 1>\n"
+        << "  --time <Timeout secs, default 60 seconds>\n"
+        << "  --type <audio type, default pcm>\n"
+        << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
+        << "  --sampleRate <sample rate, 16K or 8K>\n"
+        << "  --long <long connection: 1, short connection: 0, default 0>\n"
+        << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
+        << "  --noSleep <use sleep after sendAudio(), default 0>\n"
+        << "  --audioFile <the absolute path of audio file>\n"
+        << "  --frameSize <audio data size, 640 ~ 16384bytes>\n"
+        << "  --save <save input audio flag, default 0>\n"
+        << "  --maxSilence <max silence time of sentence>\n"
+        << "  --loop <loop count>\n"
+        << "  --maxSilence <max sentence silence time>\n"
+        << "  --NlsScan <profile scan number>\n"
+        << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, "
+           "invoke is async.>\n"
+        << "eg:\n"
+        << "  ./stDemo --appkey xxxxxx --token xxxxxx\n"
+        << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 4 --time 3600\n"
+        << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 4 --time 3600 "
+           "--log 4 --type pcm\n"
+        << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 1 --loop 1 "
+           "--log 4 --type pcm --audioFile /home/xxx/test0.wav \n"
+        << "  ./stDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
+           "--threads 4 --time 3600\n"
+        << std::endl;
     return -1;
   }
 

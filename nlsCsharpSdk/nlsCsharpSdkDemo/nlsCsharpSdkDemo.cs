@@ -1,9 +1,9 @@
-﻿using System;
+﻿using nlsCsharpSdk;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
-using nlsCsharpSdk;
 
 namespace nlsCsharpSdkDemo
 {
@@ -39,7 +39,7 @@ namespace nlsCsharpSdkDemo
         private NlsClient nlsClient;
         private static Dictionary<string, RunParams> globalRunParams = new Dictionary<string, RunParams>();
         private LinkedList<DemoSpeechTranscriberStruct> stList = null;
-        private LinkedList<DemoSpeechRecognizerStruct>  srList = null;
+        private LinkedList<DemoSpeechRecognizerStruct> srList = null;
         private LinkedList<DemoSpeechSynthesizerStruct> syList = null;
         private NlsToken tokenPtr;
         private UInt64 expireTime;
@@ -52,21 +52,23 @@ namespace nlsCsharpSdkDemo
 
         static int max_concurrency_num = 200;  /* 可设置的最大并发数 */
         static bool running;  /* 刷新Label的flag */
-        //static string cur_nls_result;
 
         static string cur_st_result;
         static string cur_st_completed;
         static string cur_st_closed;
         static int st_concurrency_number = 1;
+        static string cur_st_file_path = System.Environment.CurrentDirectory + @"\audio_files\test3.wav";
 
         static string cur_sr_result;
         static string cur_sr_completed;
         static string cur_sr_closed;
         static int sr_concurrency_number = 1;
+        static string cur_sr_file_path = System.Environment.CurrentDirectory + @"\audio_files\test1.wav";
 
         static string cur_sy_completed;
         static string cur_sy_closed;
         static int sy_concurrency_number = 1;
+        static string cur_sy_output;
 
         static string fileLinkUrl = "https://gw.alipayobjects.com/os/bmw-prod/0574ee2e-f494-45a5-820f-63aee583045a.wav";
 
@@ -83,11 +85,6 @@ namespace nlsCsharpSdkDemo
         {
             while (running)
             {
-                /*if (cur_nls_result != null && cur_nls_result.Length > 0)
-                {
-                    nlsResult.Text = cur_nls_result;
-                }*/
-
                 if (cur_st_result != null && cur_st_result.Length > 0)
                 {
                     stResult.Text = cur_st_result;
@@ -122,6 +119,10 @@ namespace nlsCsharpSdkDemo
                 {
                     syClosed.Text = cur_sy_closed;
                 }
+                if (cur_sy_output != null && cur_sy_output.Length > 0)
+                {
+                    syOutput.Text = cur_sy_output;
+                }
                 Thread.Sleep(200);
             }
         }
@@ -133,20 +134,12 @@ namespace nlsCsharpSdkDemo
         /// </summary>
         private void STAudioLab(object request)
         {
-            /*
-             * 随机打开audio_files目录下 test0.wav test1.wav test2.wav test3.wav中其中一个进行模拟音频
-             * 若打开音频不存在，则崩溃推出。
-             */
-            Random ran = new Random();
-            int file_number = ran.Next(0, 4);
             DemoSpeechTranscriberStruct st_node = (DemoSpeechTranscriberStruct)request;
-            //string file_name = System.Environment.CurrentDirectory + @"\audio_files\test3.wav";
-            string file_name = System.Environment.CurrentDirectory + @"\audio_files\test" + Convert.ToString(file_number) + @".wav";
-            System.Diagnostics.Debug.WriteLine("st audio file_name = {0}", file_name);
-            FileStream fs = new FileStream(file_name, FileMode.Open, FileAccess.Read);
+            System.Diagnostics.Debug.WriteLine("st audio file_name = {0}", cur_st_file_path);
+            FileStream fs = new FileStream(cur_st_file_path, FileMode.Open, FileAccess.Read);
             if (fs.Length <= 0)
             {
-                nlsResult.Text = "open" + file_name + "failed";
+                nlsResult.Text = "open" + cur_st_file_path + "failed";
                 return;
             }
             BinaryReader br = new BinaryReader(fs);
@@ -161,7 +154,7 @@ namespace nlsCsharpSdkDemo
             {
                 if (cur_send_audio_flag)
                 {
-                    byte[] byData = br.ReadBytes((int)640);
+                    byte[] byData = br.ReadBytes((int)3200);
                     if (byData.Length > 0)
                     {
                         /*
@@ -172,11 +165,11 @@ namespace nlsCsharpSdkDemo
                     else
                     {
                         /*
-                         * 音频推送完成则重新打开循环继续
+                         * 音频推送完成,重新打开循环继续
                          */
                         br.Close();
                         fs.Dispose();
-                        fs = new FileStream(file_name, FileMode.Open, FileAccess.Read);
+                        fs = new FileStream(cur_st_file_path, FileMode.Open, FileAccess.Read);
                         br = new BinaryReader(fs);
                     }
                 }
@@ -184,9 +177,9 @@ namespace nlsCsharpSdkDemo
                 {
                 }
                 /*
-                 * 上面推送640字节音频数据，相当于模拟20MS的音频
+                 * 上面推送3200字节音频数据，相当于模拟100MS的音频
                  */
-                Thread.Sleep(20);
+                Thread.Sleep(100);
 
                 /*
                  * 更新状态机
@@ -211,20 +204,12 @@ namespace nlsCsharpSdkDemo
         /// </summary>
         private void SRAudioLab(object request)
         {
-            /*
-             * 随机打开audio_files目录下 test0.wav test1.wav test2.wav test3.wav中其中一个进行模拟音频
-             * 若打开音频不存在，则崩溃推出。
-             */
-            Random ran = new Random();
-            int file_number = ran.Next(0, 4);
             DemoSpeechRecognizerStruct sr_node = (DemoSpeechRecognizerStruct)request;
-            //string file_name = System.Environment.CurrentDirectory + @"\audio_files\test3.wav";
-            string file_name = System.Environment.CurrentDirectory + @"\audio_files\test" + Convert.ToString(file_number) + @".wav";
-            System.Diagnostics.Debug.WriteLine("st audio file_name = {0}", file_name);
-            FileStream fs = new FileStream(file_name, FileMode.Open, FileAccess.Read);
+            System.Diagnostics.Debug.WriteLine("sr audio file_name = {0}", cur_sr_file_path);
+            FileStream fs = new FileStream(cur_sr_file_path, FileMode.Open, FileAccess.Read);
             if (fs.Length <= 0)
             {
-                nlsResult.Text = "open" + file_name + "failed";
+                nlsResult.Text = "open" + cur_sr_file_path + "failed";
                 return;
             }
             BinaryReader br = new BinaryReader(fs);
@@ -239,7 +224,7 @@ namespace nlsCsharpSdkDemo
             {
                 if (cur_send_audio_flag)
                 {
-                    byte[] byData = br.ReadBytes((int)640);
+                    byte[] byData = br.ReadBytes((int)3200);
                     if (byData.Length > 0)
                     {
                         /*
@@ -250,11 +235,11 @@ namespace nlsCsharpSdkDemo
                     else
                     {
                         /*
-                         * 音频推送完成则重新打开循环继续
+                         * 音频推送完成,重新打开循环继续
                          */
                         br.Close();
                         fs.Dispose();
-                        fs = new FileStream(file_name, FileMode.Open, FileAccess.Read);
+                        fs = new FileStream(cur_sr_file_path, FileMode.Open, FileAccess.Read);
                         br = new BinaryReader(fs);
                     }
                 }
@@ -262,9 +247,9 @@ namespace nlsCsharpSdkDemo
                 {
                 }
                 /*
-                 * 上面推送640字节音频数据，相当于模拟20MS的音频
+                 * 上面推送3200字节音频数据，相当于模拟100MS的音频
                  */
-                Thread.Sleep(20);
+                Thread.Sleep(100);
 
                 /*
                  * 更新状态机
@@ -320,6 +305,25 @@ namespace nlsCsharpSdkDemo
              */
             Thread t = new Thread(FlushLab);
             t.Start();
+
+            btnInitNls.Enabled = false;
+            btnDeinitNls.Enabled = true;
+            btnCreateToken.Enabled = true;
+            btnReleaseToken.Enabled = false;
+
+            btnSTcreate.Enabled = true;
+            btnSTstart.Enabled = false;
+            btnSTstop.Enabled = false;
+            btnSTrelease.Enabled = false;
+            btnSRcreate.Enabled = true;
+            btnSRstart.Enabled = false;
+            btnSRstop.Enabled = false;
+            btnSRrelease.Enabled = false;
+            btnSYcreate.Enabled = true;
+            btnSYstart.Enabled = false;
+            btnSYcancel.Enabled = false;
+            btnSYrelease.Enabled = false;
+            button1.Enabled = true;
         }
 
         // release sdk
@@ -327,6 +331,25 @@ namespace nlsCsharpSdkDemo
         {
             nlsClient.ReleaseInstance();
             nlsResult.Text = "Release NLS success.";
+
+            btnInitNls.Enabled = true;
+            btnDeinitNls.Enabled = false;
+            btnCreateToken.Enabled = false;
+            btnReleaseToken.Enabled = false;
+
+            btnSTcreate.Enabled = false;
+            btnSTstart.Enabled = false;
+            btnSTstop.Enabled = false;
+            btnSTrelease.Enabled = false;
+            btnSRcreate.Enabled = false;
+            btnSRstart.Enabled = false;
+            btnSRstop.Enabled = false;
+            btnSRrelease.Enabled = false;
+            btnSYcreate.Enabled = false;
+            btnSYstart.Enabled = false;
+            btnSYcancel.Enabled = false;
+            btnSYrelease.Enabled = false;
+            button1.Enabled = false;
         }
         #endregion
 
@@ -354,6 +377,16 @@ namespace nlsCsharpSdkDemo
         private void tUrl_TextChanged(object sender, EventArgs e)
         {
             url = tUrl.Text;
+        }
+
+        private void tInput1_TextChanged(object sender, EventArgs e)
+        {
+            cur_st_file_path = tInput1.Text;
+        }
+
+        private void tinput2_TextChanged(object sender, EventArgs e)
+        {
+            cur_sr_file_path = tinput2.Text;
         }
         #endregion
 
@@ -388,6 +421,10 @@ namespace nlsCsharpSdkDemo
                     else
                     {
                         System.Diagnostics.Debug.WriteLine("ApplyNlsToken success");
+
+                        btnCreateToken.Enabled = false;
+                        btnReleaseToken.Enabled = true;
+
                         token = tokenPtr.GetToken(tokenPtr);
                         tToken.Text = token;
                         expireTime = tokenPtr.GetExpireTime(tokenPtr);
@@ -473,7 +510,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionStarted user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionStarted msg = {0}", msg);
                 cur_st_completed = "msg : " + msg;
 
@@ -488,7 +525,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionClosed user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionClosed msg = {0}", msg);
                 cur_st_closed = "msg : " + msg;
             };
@@ -496,7 +533,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionTaskFailed user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionTaskFailed msg = {0}", msg);
                 cur_st_completed = "msg : " + msg;
 
@@ -511,7 +548,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionResultChanged user uuid = {0}", uuid);
-                string result = System.Text.Encoding.Default.GetString(e.result);
+                string result = System.Text.Encoding.Default.GetString(e.result).TrimEnd('\0');
                 //System.Diagnostics.Debug.WriteLine("DemoOnTranscriptionResultChanged result = {0}", result);
                 cur_st_result = "middle result : " + result;
             };
@@ -519,7 +556,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnSentenceBegin user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnSentenceBegin msg = {0}", msg);
                 cur_st_completed = "sentenceBegin : " + msg;
             };
@@ -527,7 +564,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnSentenceEnd user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnSentenceEnd msg = {0}", msg);
                 cur_st_completed = "sentenceEnd : " + msg;
             };
@@ -554,6 +591,9 @@ namespace nlsCsharpSdkDemo
                 if (stStruct.stPtr.native_request != IntPtr.Zero)
                 {
                     nlsResult.Text = "CreateTranscriberRequest Success";
+                    btnSTcreate.Enabled = false;
+                    btnSTstart.Enabled = true;
+                    btnSTrelease.Enabled = true;
 
                     stStruct.uuid = System.Guid.NewGuid().ToString("N");
                     RunParams demo_params = new RunParams();
@@ -595,6 +635,10 @@ namespace nlsCsharpSdkDemo
                         globalRunParams.Remove(st.uuid);
 
                         nlsResult.Text = "ReleaseTranscriberRequest Success";
+                        btnSTrelease.Enabled = false;
+                        btnSTcreate.Enabled = true;
+                        btnSTstart.Enabled = false;
+                        btnSTstop.Enabled = false;
                     }
                     else
                     {
@@ -621,6 +665,15 @@ namespace nlsCsharpSdkDemo
             }
             else
             {
+                if (File.Exists(cur_st_file_path))
+                {
+                }
+                else
+                {
+                    cur_st_completed = "cannot open file: " + cur_st_file_path;
+                    return;
+                }
+
                 LinkedListNode<DemoSpeechTranscriberStruct> stStruct = stList.First;
                 int st_count = stList.Count;
                 for (int i = 0; i < st_count; i++)
@@ -681,6 +734,9 @@ namespace nlsCsharpSdkDemo
 
                                 st.st_send_audio = new Thread(new ParameterizedThreadStart(STAudioLab));
                                 st.st_send_audio.Start((object)st);
+
+                                btnSTstart.Enabled = false;
+                                btnSTstop.Enabled = true;
                             }
 
                             nlsResult.Text = "Transcriber Start success";
@@ -734,6 +790,7 @@ namespace nlsCsharpSdkDemo
                         }
                         else
                         {
+                            btnSTstop.Enabled = false;
                             nlsResult.Text = "Transcriber Stop success";
                         }
                     }
@@ -763,9 +820,10 @@ namespace nlsCsharpSdkDemo
                  * 特殊注意：此回调频率较高，需要谨慎处理对收到音频数据的转存。
                  * 如下写入音频，容易出现多次回调同一时间同时操作同一个fs的问题。
                  */
-#if FALSE
+#if TRUE
                 FileStream fs;
                 string filename = e.taskId + ".wav";
+                cur_sy_output = System.Environment.CurrentDirectory + @"\" + filename;
                 System.Diagnostics.Debug.WriteLine("DemoOnBinaryDataReceived current filename = {0}", filename);
                 if (File.Exists(filename))
                 {
@@ -783,7 +841,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisClosed msg = {0}", msg);
                 cur_sy_closed = "msg : " + msg;
             };
@@ -791,7 +849,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisTaskFailed msg = {0}", msg);
                 cur_sy_completed = "msg : " + msg;
             };
@@ -799,7 +857,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnSynthesisCompleted msg = {0}", msg);
                 cur_sy_completed = "result : " + msg;
             };
@@ -807,11 +865,11 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnMetaInfo msg = {0}", msg);
                 //cur_sy_completed = "metaInfo : " + e.msg;
             };
-#endregion
+        #endregion
 
         #region SynthesizerButton
         // create synthesizer
@@ -837,6 +895,9 @@ namespace nlsCsharpSdkDemo
                 if (syStruct.syPtr.native_request != IntPtr.Zero)
                 {
                     nlsResult.Text = "CreateSynthesizerRequest Success";
+                    btnSYcreate.Enabled = false;
+                    btnSYstart.Enabled = true;
+                    btnSYrelease.Enabled = true;
 
                     /*
                      * 结构体RunParams中创建uuid，用于状态机与此次请求的一一对应
@@ -918,6 +979,8 @@ namespace nlsCsharpSdkDemo
                         else
                         {
                             nlsResult.Text = "Transcriber Start success.";
+                            btnSYstart.Enabled = false;
+                            btnSYcancel.Enabled = true;
                         }
                     }
                     else
@@ -961,6 +1024,7 @@ namespace nlsCsharpSdkDemo
                         }
                         else
                         {
+                            btnSYcancel.Enabled = false;
                             nlsResult.Text = "Synthesizer Cancel success";
                         }
                     }
@@ -998,6 +1062,10 @@ namespace nlsCsharpSdkDemo
                         globalRunParams.Remove(sy.uuid);
 
                         nlsResult.Text = "ReleaseSynthesizerRequest Success";
+                        btnSYrelease.Enabled = false;
+                        btnSYcreate.Enabled = true;
+                        btnSYstart.Enabled = false;
+                        btnSYcancel.Enabled = false;
                     }
                     else
                     {
@@ -1011,14 +1079,14 @@ namespace nlsCsharpSdkDemo
             cur_sy_closed = "null";
             cur_sy_completed = "null";
         }
-#endregion
+        #endregion
 
         #region RecognizerCallback
         private CallbackDelegate DemoOnRecognitionStarted =
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionStarted user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionStarted msg = {0}", msg);
 
                 cur_sr_completed = "msg : " + msg;
@@ -1036,7 +1104,7 @@ namespace nlsCsharpSdkDemo
         private CallbackDelegate DemoOnRecognitionClosed =
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionClosed = {0}", msg);
                 cur_sr_closed = "msg : " + msg;
 
@@ -1049,7 +1117,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionTaskFailed user uuid = {0}", uuid);
-                string msg = System.Text.Encoding.Default.GetString(e.msg);
+                string msg = System.Text.Encoding.Default.GetString(e.msg).TrimEnd('\0');
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionTaskFailed = {0}", msg);
                 cur_sr_completed = "msg : " + msg;
 
@@ -1067,7 +1135,7 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionResultChanged user uuid = {0}", uuid);
-                string result = System.Text.Encoding.Default.GetString(e.result);
+                string result = System.Text.Encoding.Default.GetString(e.result).TrimEnd('\0');
                 //System.Diagnostics.Debug.WriteLine("DemoOnRecognitionResultChanged result = {0}", result);
                 cur_sr_result = "middle result : " + result;
             };
@@ -1075,11 +1143,11 @@ namespace nlsCsharpSdkDemo
             (ref NLS_EVENT_STRUCT e, ref string uuid) =>
             {
                 System.Diagnostics.Debug.WriteLine("DemoOnRecognitionCompleted user uuid = {0}", uuid);
-                string result = System.Text.Encoding.Default.GetString(e.result);
+                string result = System.Text.Encoding.Default.GetString(e.result).TrimEnd('\0');
                 //System.Diagnostics.Debug.WriteLine("DemoOnRecognitionCompleted result = {0}", result);
                 cur_sr_completed = "final result : " + result;
             };
-#endregion
+        #endregion
 
         #region RecognizerButton
         // create recognizer
@@ -1102,6 +1170,9 @@ namespace nlsCsharpSdkDemo
                 if (srStruct.srPtr.native_request != IntPtr.Zero)
                 {
                     nlsResult.Text = "CreateRecognizerRequest Success";
+                    btnSRcreate.Enabled = false;
+                    btnSRstart.Enabled = true;
+                    btnSRrelease.Enabled = true;
 
                     srStruct.uuid = System.Guid.NewGuid().ToString("N");
                     RunParams demo_params = new RunParams();
@@ -1131,6 +1202,15 @@ namespace nlsCsharpSdkDemo
             }
             else
             {
+                if (File.Exists(cur_sr_file_path))
+                {
+                }
+                else
+                {
+                    cur_sr_completed = "cannot open file: " + cur_sr_file_path;
+                    return;
+                }
+
                 LinkedListNode<DemoSpeechRecognizerStruct> srStruct = srList.First;
                 int sr_count = srList.Count;
                 for (int i = 0; i < sr_count; i++)
@@ -1186,6 +1266,9 @@ namespace nlsCsharpSdkDemo
 
                                 sr.sr_send_audio = new Thread(new ParameterizedThreadStart(SRAudioLab));
                                 sr.sr_send_audio.Start((object)sr);
+
+                                btnSRstart.Enabled = false;
+                                btnSRstop.Enabled = true;
                             }
 
                             nlsResult.Text = "Recognizer Start success";
@@ -1239,6 +1322,7 @@ namespace nlsCsharpSdkDemo
                         }
                         else
                         {
+                            btnSRstop.Enabled = false;
                             nlsResult.Text = "Recognizer Stop success";
                         }
                     }
@@ -1276,6 +1360,10 @@ namespace nlsCsharpSdkDemo
                         globalRunParams.Remove(sr.uuid);
 
                         nlsResult.Text = "ReleaseRecognizerRequest Success";
+                        btnSRrelease.Enabled = false;
+                        btnSRcreate.Enabled = true;
+                        btnSRstart.Enabled = false;
+                        btnSRstop.Enabled = false;
                     }
                     else
                     {
@@ -1324,15 +1412,17 @@ namespace nlsCsharpSdkDemo
         #endregion
 
         #region Useless
-        private void label1_Click(object sender, EventArgs e) {}
-        private void nlsCsharpSdkDemo_Load(object sender, EventArgs e) {}
-        private void label6_Click(object sender, EventArgs e) {}
-        private void label21_Click(object sender, EventArgs e) {}
-        private void label14_Click(object sender, EventArgs e) {}
-        private void syCompleted_Click(object sender, EventArgs e) {}
-        private void srCompleted_Click(object sender, EventArgs e) {}
-        private void label6_Click_1(object sender, EventArgs e) {}
-        private void ftResult_Click(object sender, EventArgs e) {}
+        private void label1_Click(object sender, EventArgs e) { }
+        private void nlsCsharpSdkDemo_Load(object sender, EventArgs e) { }
+        private void label6_Click(object sender, EventArgs e) { }
+        private void label21_Click(object sender, EventArgs e) { }
+        private void label14_Click(object sender, EventArgs e) { }
+        private void syCompleted_Click(object sender, EventArgs e) { }
+        private void srCompleted_Click(object sender, EventArgs e) { }
+        private void label6_Click_1(object sender, EventArgs e) { }
+        private void ftResult_Click(object sender, EventArgs e) { }
+        private void label16_Click(object sender, EventArgs e) { }
+        private void label21_Click_1(object sender, EventArgs e) { }
         #endregion
     }
 }

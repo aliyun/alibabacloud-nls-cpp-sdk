@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-#include <stdlib.h>
+#include <dirent.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <sys/io.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <ctime>
 #include <map>
@@ -37,7 +41,6 @@
 #define SAMPLE_RATE_16K 16000
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
-//#define TTS_AUDIO_DUMP
 #define DEFAULT_STRING_LEN 512
 #define AUDIO_TEXT_LENGTH 1024
 
@@ -151,6 +154,8 @@ std::string g_api_version = "";
 std::string g_url = "";
 int g_threads = 1;
 int g_cpu = 1;
+bool g_save_audio = false;
+std::string g_format = "wav";
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
@@ -566,19 +571,22 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     << ", data size: " << data.size()              // 数据的大小
     << std::endl;
 #endif
-#ifdef TTS_AUDIO_DUMP
-  // 以追加形式将二进制音频数据写入文件
-  char file_name[256] = {0};
-  snprintf(file_name, 256,
-      "./tts_audio/%s.wav",
-      cbEvent->getTaskId()
-      );
-  FILE *tts_stream = fopen(file_name, "a+");
-  if (tts_stream) {
-    fwrite((char*)&data[0], data.size(), 1, tts_stream);
-    fclose(tts_stream);
+
+  if (g_save_audio && data.size() > 0) {
+    // 以追加形式将二进制音频数据写入文件
+    std::string dir = "./tts_audio";
+    if (access(dir.c_str(), 0) == -1) {
+      mkdir(dir.c_str(), S_IRWXU);
+    }
+    char file_name[256] = {0};
+    snprintf(file_name, 256, "%s/%s.%s", dir.c_str(), cbEvent->getTaskId(),
+             g_format.c_str());
+    FILE* tts_stream = fopen(file_name, "a+");
+    if (tts_stream) {
+      fwrite((char*)&data[0], data.size(), 1, tts_stream);
+      fclose(tts_stream);
+    }
   }
-#endif
 
   if (cbParam && tmpParam->tParam) {
     tmpParam->tParam->audioTotalDuration +=
@@ -1548,6 +1556,18 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       sample_rate = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--format")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_format = argv[index];
+    } else if (!strcmp(argv[index], "--save")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        g_save_audio = true;
+      } else {
+        g_save_audio = false;
+      }
     }
     index++;
   }
@@ -1573,31 +1593,38 @@ int parse_argv(int argc, char* argv[]) {
 
 int main(int argc, char* argv[]) {
   if (parse_argv(argc, argv)) {
-    std::cout << "params is not valid.\n"
-      << "Usage:\n"
-      << "  --appkey <appkey>\n"
-      << "  --akId <AccessKey ID>\n"
-      << "  --akSecret <AccessKey Secret>\n"
-      << "  --token <Token>\n"
-      << "  --tokenDomain <the domain of token>\n"
-      << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
-      << "  --tokenApiVersion <the ApiVersion of token>\n"
-      << "      mcos:  2022-08-11\n"
-      << "  --url <Url>\n"
-      << "      public(default): wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
-      << "      internal: ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
-      << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
-      << "  --threads <Thread Numbers, default 1>\n"
-      << "  --time <Timeout secs, default 60 seconds>\n"
-      << "  --type <audio format pcm opu or opus>\n"
-      << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-      << "  --sampleRate <sample rate, 16K or 8K>\n"
-      << "  --long <long connection: 1, short connection: 0, default 0>\n"
-      << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
-      << "eg:\n"
-      << "  ./syDemo --appkey xxxxxx --token xxxxxx\n"
-      << "  ./syDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads 4 --time 3600\n"
-      << std::endl;
+    std::cout
+        << "params is not valid.\n"
+        << "Usage:\n"
+        << "  --appkey <appkey>\n"
+        << "  --akId <AccessKey ID>\n"
+        << "  --akSecret <AccessKey Secret>\n"
+        << "  --token <Token>\n"
+        << "  --tokenDomain <the domain of token>\n"
+        << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
+        << "  --tokenApiVersion <the ApiVersion of token>\n"
+        << "      mcos:  2022-08-11\n"
+        << "  --url <Url>\n"
+        << "      public(default): "
+           "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1\n"
+        << "      internal: "
+           "ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
+        << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
+        << "  --threads <Thread Numbers, default 1>\n"
+        << "  --time <Timeout secs, default 60 seconds>\n"
+        << "  --format <audio format pcm opu or opus, default wav>\n"
+        << "  --save <save audio flag, default 0>\n"
+        << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
+        << "  --sampleRate <sample rate, 16K or 8K>\n"
+        << "  --long <long connection: 1, short connection: 0, default 0>\n"
+        << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
+        << "eg:\n"
+        << "  ./syDemo --appkey xxxxxx --token xxxxxx\n"
+        << "  ./syDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
+           "--threads 4 --time 3600\n"
+        << "  ./syDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
+           "--threads 4 --time 3600 --format wav --save 1\n"
+        << std::endl;
     return -1;
   }
 
