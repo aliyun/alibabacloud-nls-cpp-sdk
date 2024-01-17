@@ -143,7 +143,7 @@ DialogAssistantRequest::DialogAssistantRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Create DialogAssistantRequest Done.");
+  LOG_INFO("Request(%p) Node(%p) create DialogAssistantRequest Done.", this, _node);
 }
 
 DialogAssistantRequest::~DialogAssistantRequest() {
@@ -161,7 +161,8 @@ DialogAssistantRequest::~DialogAssistantRequest() {
 
   delete _dialogAssistantParam;
   _dialogAssistantParam = NULL;
-  LOG_DEBUG("Request:%p Destroy DialogAssistantRequest.", this);
+
+  LOG_INFO("Request:%p Destroy DialogAssistantRequest.", this);
 }
 
 int DialogAssistantRequest::start() {

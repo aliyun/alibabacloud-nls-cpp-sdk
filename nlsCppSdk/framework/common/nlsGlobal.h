@@ -130,6 +130,7 @@ enum NlsRetCode {
   InvalidWsFrameHeaderBody,     /* 无效的websocket帧头本体 */
   InvalidWsFrameBody,           /* 无效的websocket帧本体 */
   WsFrameBodyEmpty,             /* 帧数据为空, 常见为收到了脏数据 */
+  InvalidWsFrameCloseCode,      /* 帧数据收到异常CLOSE_CODE */
 
   /* connect node */
   NodeEmpty = 400,              /* node为空指针 */

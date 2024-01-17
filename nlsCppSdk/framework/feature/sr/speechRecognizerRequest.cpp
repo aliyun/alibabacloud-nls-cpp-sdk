@@ -122,7 +122,7 @@ SpeechRecognizerRequest::SpeechRecognizerRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Request(%p) create SpeechRecognizerRequest Done.", this);
+  LOG_INFO("Request(%p) Node(%p) create SpeechRecognizerRequest Done.", this, _node);
 }
 
 SpeechRecognizerRequest::~SpeechRecognizerRequest() {
@@ -138,7 +138,7 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
   delete _recognizerParam;
   _recognizerParam = NULL;
 
-  LOG_DEBUG("Request(%p) destroy SpeechRecognizerRequest Done.", this);
+  LOG_INFO("Request(%p) destroy SpeechRecognizerRequest Done.", this);
 }
 
 int SpeechRecognizerRequest::start() {

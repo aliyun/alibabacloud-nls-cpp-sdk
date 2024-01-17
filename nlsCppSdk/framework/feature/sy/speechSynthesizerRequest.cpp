@@ -132,8 +132,8 @@ SpeechSynthesizerRequest::SpeechSynthesizerRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Request(%p) create SpeechSynthesizerRequest with long Connect flag(%d) Done.",
-      this, isLongConnection);
+  LOG_INFO("Request(%p) Node(%p) create SpeechSynthesizerRequest with long Connect flag(%d) Done.",
+      this, _node, isLongConnection);
 }
 
 SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
@@ -149,7 +149,7 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
   delete _synthesizerParam;
   _synthesizerParam = NULL;
 
-  LOG_DEBUG("Request(%p) destroy SpeechSynthesizerRequest Done.", this);
+  LOG_INFO("Request(%p) destroy SpeechSynthesizerRequest Done.", this);
 }
 
 int SpeechSynthesizerRequest::start() {

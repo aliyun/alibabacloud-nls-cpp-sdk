@@ -169,6 +169,7 @@ int FileTrans::applyResultRequest(struct resultRequest param) {
     resultJson.clear();
     resultString.clear();
     resultString = resultOutcome.result().payload();
+    // LOG_INFO("resultString: %s", resultString.c_str());
 
     if (!resultReader.parse(resultString, resultJson)) {
       tmpErrorMsg = "Json any failed: ";
@@ -183,9 +184,9 @@ int FileTrans::applyResultRequest(struct resultRequest param) {
       statusCode = resultJson["StatusCode"].asUInt();
       if ((statusCode == 21050001) || (statusCode == 21050002)) {
 #if defined(_MSC_VER)
-        Sleep(100);
+        Sleep(1000);
 #else
-        usleep(100 * 1000);
+        usleep(1000 * 1000);
 #endif
       } else if ((statusCode == 21050000) || (statusCode == 21050003)){
         resultResponse_.result = resultString;
@@ -194,6 +195,13 @@ int FileTrans::applyResultRequest(struct resultRequest param) {
         LOG_DEBUG("task id: %s, result: %s",
             taskId.c_str(), result_str.c_str());
         break;
+      } else if (statusCode == 40000005){
+        // FlowControlError: The taskid requests frequency should be greater than 1qps
+#if defined(_MSC_VER)
+        Sleep(1200);
+#else
+        usleep(1200 * 1000);
+#endif
       } else {
         resultResponse_.errorMsg = resultJson["StatusText"].asCString();
         resultResponse_.statusCode = statusCode;

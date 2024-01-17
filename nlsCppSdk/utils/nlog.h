@@ -22,6 +22,7 @@
 #else
 #include <pthread.h>
 #endif
+#include <string>
 #include "nlsClient.h"
 
 namespace AlibabaNls {
@@ -42,6 +43,7 @@ public:
   void logWarn(const char* function, int line, const char * format, ...);
   void logError(const char* function, int line, const char * format, ...);
   void logException(const char* function, int line, const char * format, ...);
+  void dumpEvents(void* evbase);
 
 private:
   NlsLog();
@@ -60,6 +62,9 @@ private:
   int _logLevel;
   bool _isStdout;
   bool _isConfig;
+
+  std::string _logFileName;
+  std::string _logLibeventFileName;
 };
 
 }  // namespace utility
@@ -92,6 +97,11 @@ private:
 #define LOG_EXCEPTION(...) do { \
   if (utility::NlsLog::_logInstance) { \
     utility::NlsLog::_logInstance->logException(__FUNCTION__, __LINE__, __VA_ARGS__); \
+  } } while(0);
+
+#define LOG_DUMP_EVENTS(p) do { \
+  if (utility::NlsLog::_logInstance) { \
+    utility::NlsLog::_logInstance->dumpEvents(p); \
   } } while(0);
 
 }  // namespace AlibabaNls

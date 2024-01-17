@@ -48,6 +48,11 @@ class SSLconnect {
   SSL* _ssl;
   int _sslTryAgain;
   char _errorMsg[MAX_SSL_ERROR_LENGTH];
+#if defined(_MSC_VER)
+  HANDLE _mtxSSL;
+#else
+  pthread_mutex_t _mtxSSL;
+#endif
 };
 
 } // namespace AlibabaNls

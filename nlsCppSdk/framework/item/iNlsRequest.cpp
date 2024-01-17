@@ -41,9 +41,9 @@ int INlsRequest::start(INlsRequest *request) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  LOG_DEBUG("Request(%p) invoke start ...", request);
+  LOG_INFO("Request(%p) invoke start ...", request);
   int ret = NlsEventNetWork::_eventClient->start(request);
-  LOG_DEBUG("Request(%p) invoke start done, ret:%d.", request, ret);
+  LOG_INFO("Request(%p) invoke start done, ret:%d.", request, ret);
   return ret;
 }
 
@@ -51,9 +51,9 @@ int INlsRequest::stop(INlsRequest *request) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  LOG_DEBUG("Request(%p) invoke stop ...", request);
+  LOG_INFO("Request(%p) invoke stop ...", request);
   int ret = NlsEventNetWork::_eventClient->stop(request);
-  LOG_DEBUG("Request(%p) invoke stop done, ret:%d.", request, ret);
+  LOG_INFO("Request(%p) invoke stop done, ret:%d.", request, ret);
   return ret;
 }
 
@@ -61,9 +61,9 @@ int INlsRequest::cancel(INlsRequest *request) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  LOG_DEBUG("Request(%p) invoke cancel ...", request);
+  LOG_INFO("Request(%p) invoke cancel ...", request);
   int ret = NlsEventNetWork::_eventClient->cancel(request);
-  LOG_DEBUG("Request(%p) invoke cancel done, ret:%d.", request, ret);
+  LOG_INFO("Request(%p) invoke cancel done, ret:%d.", request, ret);
   return ret;
 }
 

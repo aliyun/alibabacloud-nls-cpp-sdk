@@ -94,6 +94,7 @@ class NlsEventNetWork;
 #define TASKFAILED_NEW_NLSEVENT_FAILED "{\"TaskFailed\": \"new NlsEvent failed, memory is not enough.\"}"
 #define TASKFAILED_UTF8_JSON_STRING    "{\"TaskFailed\": \"utf8ToGbk failed.\"}"
 #define TASKFAILED_WS_JSON_STRING      "{\"TaskFailed\": \"WEBSOCKET: unkown head type.\"}"
+#define TASKFAILED_ERROR_CLOSE_STRING  "{\"TaskFailed\": \"WEBSOCKET: invalid closeCode of wsFrame.\"}"
 
 
 /* EventNetWork发送Node的具体指令 */
@@ -130,9 +131,63 @@ enum ConnectStatus {
   NodeFailed,
   NodeCompleted,
   NodeClosed,
-  NodeReleased
+  NodeReleased,
+
+  NodeStop,
+  NodeCancel,
+  NodeSendAudio,
+  NodeSendControl,
+  NodePlayAudio,
 };
 
+#ifdef ENABLE_REQUEST_RECORDING
+/* Node运行过程记录 */
+struct NodeProcess {
+public:
+  explicit NodeProcess() {
+    create_timestamp_ms = 0;
+    start_timestamp_ms = 0;
+    started_timestamp_ms = 0;
+    stop_timestamp_ms = 0;
+    cancel_timestamp_ms = 0;
+    first_binary_timestamp_ms = 0;
+    last_send_timestamp_ms = 0;
+    last_ctrl_timestamp_ms = 0;
+    failed_timestamp_ms = 0;
+    completed_timestamp_ms = 0;
+    closed_timestamp_ms = 0;
+
+    last_op_timestamp_ms = 0;
+    last_status = NodeInvalid;
+
+    recording_bytes = 0;
+    send_count = 0;
+    play_bytes = 0;
+    play_count = 0;
+  };
+  ~NodeProcess() {};
+
+  uint64_t create_timestamp_ms;
+  uint64_t start_timestamp_ms;
+  uint64_t started_timestamp_ms;
+  uint64_t stop_timestamp_ms;
+  uint64_t cancel_timestamp_ms;
+  uint64_t first_binary_timestamp_ms;
+  uint64_t last_send_timestamp_ms;
+  uint64_t last_ctrl_timestamp_ms;
+  uint64_t failed_timestamp_ms;
+  uint64_t completed_timestamp_ms;
+  uint64_t closed_timestamp_ms;
+
+  uint64_t last_op_timestamp_ms;
+  ConnectStatus last_status;
+
+  uint64_t recording_bytes;
+  uint64_t send_count;
+  uint64_t play_bytes;
+  uint64_t play_count;
+};
+#endif
 
 class ConnectNode {
 
@@ -188,11 +243,13 @@ class ConnectNode {
   HandleBaseOneParamWithReturnVoid<NlsEvent>* _handler; /*callback listener*/
   WorkThread* _eventThread;                             /*setting WorkThread of this node*/
   unsigned int _syncCallTimeoutMs;
+  std::string getNodeUUID();
 
   /* design to record work status */
   ConnectStatus _workStatus;
   ConnectStatus getConnectNodeStatus();
   std::string getConnectNodeStatusString();
+  std::string getConnectNodeStatusString(ConnectStatus status);
   void setConnectNodeStatus(ConnectStatus status);
 
   /* design to record exit status */
@@ -234,7 +291,7 @@ class ConnectNode {
   inline struct evbuffer *getWwvEvBuffer() {return _wwvEvBuffer;};
 
   /* get event point of launching node */
-  struct event *getLaunchEvent();
+  struct event *getLaunchEvent(bool init = false);
 
   /* design to long connection */
   bool _isLongConnection;
@@ -252,13 +309,15 @@ class ConnectNode {
 
   pthread_t _dnsThread;     /*异步dns方案启动线程*/
   bool _dnsThreadExit;
+  bool _dnsThreadRunning;
   struct timespec _outtime; /*异步dns方案超时设置*/
 
   struct gaicb * _gaicbRequest[1];
-  struct event _dnsEvent;
+  struct event * _dnsEvent;
   int _dnsErrorCode;
   struct evutil_addrinfo * _addrinfo;
 #endif
+  int _dnsRequestCallbackStatus;
 
   /* design for thread safe */
 #if defined(_MSC_VER)
@@ -279,6 +338,11 @@ class ConnectNode {
 #else
   pthread_mutex_t _mtxInvokeSyncCallNode;
   pthread_cond_t  _cvInvokeSyncCallNode;   /*调用过程中等待调用结束*/
+#endif
+
+#ifdef ENABLE_REQUEST_RECORDING
+  /* design for recording process */
+  struct NodeProcess _nodeProcess;
 #endif
 
  private:
@@ -306,6 +370,11 @@ class ConnectNode {
   std::string getCmdTypeString(int type);
 
   void sendFinishCondSignal(NlsEvent::EventType eventType);
+
+  std::string getRandomUuid();
+#ifdef ENABLE_REQUEST_RECORDING
+  std::string replenishNodeProcess(const char *error);
+#endif
 
   /* parameters about network */
   int _aiFamily;
@@ -354,6 +423,7 @@ class ConnectNode {
   bool _isFirstBinaryFrame;
 
   NlsClient* _instance;
+  std::string _nodeUUID;
 };
 
 }

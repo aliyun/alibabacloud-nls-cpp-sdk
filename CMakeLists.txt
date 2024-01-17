@@ -3,10 +3,11 @@ cmake_minimum_required(VERSION 3.0)
 #project
 file(STRINGS "${CMAKE_SOURCE_DIR}/version" version)
 string(REPLACE "-" ";" NLS_VERSION ${version})
-list(GET NLS_VERSION 0 SDK_VERSION)
-project(nlsCppSdk3.x VERSION ${SDK_VERSION})
+list(GET NLS_VERSION 0 SDK_MAIN_VERSION)
+list(GET NLS_VERSION 1 SDK_PATCH_VERSION)
+project(nlsCppSdk3.x VERSION ${SDK_MAIN_VERSION})
 message(STATUS "Project version: ${PROJECT_VERSION}")
-add_definitions(-DSDK_VERSION="\\"${version}\\"")
+add_definitions(-DSDK_VERSION="\\"${SDK_MAIN_VERSION}${SDK_PATCH_VERSION}\\"")
 
 message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
@@ -120,7 +121,7 @@ if(GIT_FOUND)
     OUTPUT_VARIABLE VERSION_SHA1 )
   add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
 else()
-  add_definitions(-DGIT_SHA1="\\"no\\"")
+  add_definitions(-DGIT_SHA1="\\"${SDK_MAIN_VERSION}${SDK_PATCH_VERSION}\\"")
 endif()
 
 #获取输出类型
@@ -165,8 +166,8 @@ add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI})
 add_definitions(-DENABLE_OGGOPUS)
 #启用高效模式, 降低CPU占用率
 add_definitions(-DENABLE_HIGH_EFFICIENCY)
-#启用内存扰乱
-add_definitions(-DENABLE_UNALIGNED_MEM)
+#启动请求过程记录
+add_definitions(-DENABLE_REQUEST_RECORDING)
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)

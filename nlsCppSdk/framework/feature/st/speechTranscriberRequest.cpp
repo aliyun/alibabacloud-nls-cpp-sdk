@@ -165,7 +165,7 @@ SpeechTranscriberRequest::SpeechTranscriberRequest(
   //init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_DEBUG("Request(%p) create SpeechTranscriberRequest Done.", this);
+  LOG_INFO("Request(%p) Node(%p) create SpeechTranscriberRequest Done.", this, _node);
 }
 
 SpeechTranscriberRequest::~SpeechTranscriberRequest() {
@@ -181,7 +181,7 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
   delete _transcriberParam;
   _transcriberParam = NULL;
 
-  LOG_DEBUG("Request(%p) destroy SpeechTranscriberRequest Done.", this);
+  LOG_INFO("Request(%p) destroy SpeechTranscriberRequest Done.", this);
 }
 
 int SpeechTranscriberRequest::start() {

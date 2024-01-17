@@ -33,6 +33,9 @@
 #include "workThread.h"
 #include "nlsEventNetWork.h"
 #include "nodeManager.h"
+#ifdef ENABLE_REQUEST_RECORDING
+#include "text_utils.h"
+#endif
 
 namespace AlibabaNls {
 
@@ -61,6 +64,10 @@ NlsEventNetWork::NlsEventNetWork() {
 NlsEventNetWork::~NlsEventNetWork() {}
 
 void NlsEventNetWork::DnsLogCb(int w, const char *m) {
+  LOG_DEBUG(m);
+}
+
+void NlsEventNetWork::EventLogCb(int w, const char *m) {
   LOG_DEBUG(m);
 }
 
@@ -93,6 +100,10 @@ void NlsEventNetWork::initEventNetWork(
     LOG_ERROR("Invoke evthread_use_pthreads failed, ret:%d.", ret);
     exit(1);
   }
+
+#ifdef ENABLE_NLS_DEBUG
+  evthread_enable_lock_debugging();
+#endif
 
   _instance = instance;
   _addrInFamily = AF_INET;
@@ -139,6 +150,7 @@ void NlsEventNetWork::initEventNetWork(
   _workThreadArray = new WorkThread[_workThreadsNumber];
 
   evdns_set_log_fn(DnsLogCb);
+  event_set_log_callback(EventLogCb);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
@@ -190,13 +202,11 @@ int NlsEventNetWork::selectThreadNumber() {
   if (_workThreadArray != NULL) {
     number = _currentCpuNumber;
 
-    LOG_DEBUG("Select Thread NO:%d.", number);
-
     if (++_currentCpuNumber == _workThreadsNumber) {
       _currentCpuNumber = 0;
     }
-    LOG_DEBUG("Next NO:%d, Total:%d.",
-        _currentCpuNumber, _workThreadsNumber);
+    LOG_INFO("Select Thread NO:%d, Next NO:%d, Total:%d.",
+        number, _currentCpuNumber, _workThreadsNumber);
   } else {
     LOG_ERROR("WorkThread isn't startup. Please invoke startWorkThread() first.");
     number = -1;
@@ -257,6 +267,11 @@ int NlsEventNetWork::start(INlsRequest *request) {
   if (node->getConnectNodeStatus() == NodeCreated && node->getExitStatus() == ExitInvalid) {
 
     node->setConnectNodeStatus(NodeInvoking);
+#ifdef ENABLE_REQUEST_RECORDING
+    node->_nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    node->_nodeProcess.start_timestamp_ms = node->_nodeProcess.last_op_timestamp_ms;
+    node->_nodeProcess.last_status = NodeInvoking;
+#endif
 
     int num = request->getThreadNumber();
     if (num < 0) {
@@ -274,7 +289,7 @@ int NlsEventNetWork::start(INlsRequest *request) {
       request->setThreadNumber(num);
     }
 
-    LOG_DEBUG("Request(%p) node(%p) select NO:%d thread.", request, node, num);
+    LOG_INFO("Request(%p) node(%p) select NO:%d thread.", request, node, num);
 
     node->_eventThread = &_workThreadArray[num];
     node->_eventThread->setInstance(_instance);
@@ -286,7 +301,22 @@ int NlsEventNetWork::start(INlsRequest *request) {
     node->_eventThread->setUseSysGetAddrInfo(_enableSysGetAddr);
     node->setSyncCallTimeout(_syncCallTimeoutMs);
 
-    event_add(node->getLaunchEvent(), NULL);
+    LOG_DEBUG("Request(%p) node(%p) ready to invoke event_add LauchEvent ...",
+        request, node);
+    int event_ret = event_add(node->getLaunchEvent(true), NULL);
+    if (event_ret != Success) {
+      LOG_ERROR("Request(%p) node(%p) invoking event_add failed(%d).",
+        request, node, event_ret);
+    #if defined(_MSC_VER)
+      ReleaseMutex(_mtxThread);
+    #else
+      pthread_mutex_unlock(&_mtxThread);
+    #endif
+      return -(InvokeStartFailed);
+    } else {
+      LOG_DEBUG("Request(%p) node(%p) invoking event_add success, ready to launch request.",
+        request, node);
+    }
     event_active(node->getLaunchEvent(), EV_READ, 0);
 
     node->initNlsEncoder();
@@ -333,6 +363,8 @@ int NlsEventNetWork::start(INlsRequest *request) {
     return -(InvokeStartFailed);
   }
 
+  LOG_DEBUG("Request(%p) node(%p) invoke start success.", request, node);
+
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
 #else
@@ -369,6 +401,13 @@ int NlsEventNetWork::sendAudio(INlsRequest *request, const uint8_t * data,
     return -(InvokeSendAudioFailed);
   }
 
+#ifdef ENABLE_REQUEST_RECORDING
+  node->_nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+  node->_nodeProcess.last_send_timestamp_ms = node->_nodeProcess.last_op_timestamp_ms;
+  node->_nodeProcess.last_status = NodeSendAudio;
+  node->_nodeProcess.recording_bytes += dataSize;
+  node->_nodeProcess.send_count++;
+#endif
   if (type != ENCODER_NONE) {
     return node->addSlicedAudioDataBuffer(data, dataSize);
   } else {
@@ -528,6 +567,22 @@ int NlsEventNetWork::cancel(INlsRequest *request) {
   }
 
   int ret = node->cmdNotify(CmdCancel, NULL);
+
+  // NodeConnecting状态尽量不做操作, 500ms
+  int try_count = 100;
+  while (try_count-- > 0 && node->getConnectNodeStatus() == NodeConnecting) {
+  #if defined(_MSC_VER)
+    ReleaseMutex(_mtxThread);
+    Sleep(5);
+    WaitForSingleObject(_mtxThread, INFINITE);
+  #else
+    pthread_mutex_unlock(&_mtxThread);
+    usleep(5 * 1000);
+    pthread_mutex_lock(&_mtxThread);
+  #endif
+  }
+
+  // LOG_DUMP_EVENTS(node->_eventThread->_workBase);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxThread);
