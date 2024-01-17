@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+#ifdef _MSC_VER
+#include <Rpc.h>
+#else
+#include "uuid/uuid.h"
+#endif
+
 #include <stdio.h>
 #include <stdint.h>
 #include <vector>
@@ -48,6 +54,10 @@
 #include "workThread.h"
 #include "nodeManager.h"
 #include "connectNode.h"
+#ifdef ENABLE_REQUEST_RECORDING
+#include "text_utils.h"
+#include "json/json.h"
+#endif
 
 namespace AlibabaNls {
 
@@ -56,7 +66,8 @@ namespace AlibabaNls {
 ConnectNode::ConnectNode(INlsRequest* request,
                          HandleBaseOneParamWithReturnVoid<NlsEvent>* handler,
                          bool isLongConnection) : _request(request), _handler(handler) {
-
+  _dnsRequest = NULL;
+  _dnsRequestCallbackStatus = 0;
   _retryConnectCount = 0;
 
   _socketFd = INVALID_SOCKET;
@@ -112,6 +123,9 @@ ConnectNode::ConnectNode(INlsRequest* request,
   _servname = NULL;
   _dnsThread = 0;
   _dnsThreadExit = false;
+  _dnsThreadRunning = false;
+  _gaicbRequest[0] = NULL;
+  _dnsEvent = NULL;
   _dnsErrorCode = 0;
   _addrinfo = NULL;
 #endif
@@ -166,8 +180,16 @@ ConnectNode::ConnectNode(INlsRequest* request,
   pthread_cond_init(&_cvInvokeSyncCallNode, NULL);
 #endif
   _inEventCallbackNode = false;
+  _nodeUUID = getRandomUuid();
 
-  LOG_INFO("Node(%p) create ConnectNode done with long connection flag:%d.", this, _isLongConnection);
+#ifdef ENABLE_REQUEST_RECORDING
+  _nodeProcess.last_status = NodeCreated;
+  _nodeProcess.create_timestamp_ms = utility::TextUtils::GetTimestampMs();
+  _nodeProcess.last_op_timestamp_ms = _nodeProcess.create_timestamp_ms;
+#endif
+
+  LOG_INFO("Node(%p) create ConnectNode done with long connection flag:%d, the UUID is %s",
+    this, _isLongConnection, _nodeUUID.c_str());
 }
 
 ConnectNode::~ConnectNode() {
@@ -175,24 +197,21 @@ ConnectNode::~ConnectNode() {
 
 #ifndef _MSC_VER
   int ret = 0;
-  if (_dnsThread) {
-    _dnsThreadExit = true;
-    ret = pthread_kill(_dnsThread, 0);
-    if (ret == 0) {
-      LOG_WARN("Node(%p) dnsThread(%lu) still exist.", this, _dnsThread);
-      if (_gaicbRequest[0]) {
-        gai_cancel(_gaicbRequest[0]);
-      }
+  if (_url._enableSysGetAddr) {
+    if (_dnsThread) {
+      LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this, _dnsThread);
+      _dnsThreadExit = true;
       #ifndef __ANDROID__
       pthread_join(_dnsThread, NULL);
       #endif
       LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
       _dnsThread = 0;
-      _dnsThreadExit = false;
-    } else if (ret == ESRCH) {
-      LOG_DEBUG("Node(%p) dnsThread(%lu) not exist.", this, _dnsThread);
+      if (_gaicbRequest[0]) {
+        free(_gaicbRequest[0]);
+        _gaicbRequest[0] = NULL;
+      }
     } else {
-      LOG_DEBUG("Node(%p) dnsThread(%lu) ret:%d.", this, _dnsThread, ret);
+      LOG_DEBUG("Node(%p) dnsThread has exited.", this);
     }
   }
 #endif
@@ -203,7 +222,7 @@ ConnectNode::~ConnectNode() {
   _request = NULL;
 
   if (_sslHandle) {
-    LOG_DEBUG("Node(%p) delete _sslHandle:%p.", this, _sslHandle);
+    LOG_INFO("Node(%p) delete _sslHandle:%p.", this, _sslHandle);
     delete _sslHandle;
     _sslHandle = NULL;
   }
@@ -230,6 +249,40 @@ ConnectNode::~ConnectNode() {
     event_free(_launchEvent);
     _launchEvent = NULL;
   }
+
+  if (_dnsRequest && _dnsRequestCallbackStatus == 1) {
+    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_active_added_virtual:%d",
+        this, _dnsRequest,
+        event_base_get_num_events(
+          _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE |
+          EVENT_BASE_COUNT_ADDED | EVENT_BASE_COUNT_VIRTUAL));
+    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_active:%d",
+        this, _dnsRequest,
+        event_base_get_num_events(
+          _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE));
+    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_virtual:%d",
+        this, _dnsRequest,
+        event_base_get_num_events(
+          _eventThread->_workBase, EVENT_BASE_COUNT_VIRTUAL));
+    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_added:%d",
+        this, _dnsRequest,
+        event_base_get_num_events(
+          _eventThread->_workBase, EVENT_BASE_COUNT_ADDED));
+    evdns_getaddrinfo_cancel(_dnsRequest);
+  }
+  LOG_DEBUG("Node(%p) get event_count_active_added_virtual %d in deconstructing ConnectNode.",
+      this, event_base_get_num_events(
+        _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE |
+        EVENT_BASE_COUNT_ADDED | EVENT_BASE_COUNT_VIRTUAL));
+  LOG_DEBUG("Node(%p) get event_count_active %d in deconstructing ConnectNode.",
+      this, event_base_get_num_events(
+        _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE));
+  LOG_DEBUG("Node(%p) get event_count_virtual %d in deconstructing ConnectNode.",
+      this, event_base_get_num_events(
+        _eventThread->_workBase, EVENT_BASE_COUNT_VIRTUAL));
+  LOG_DEBUG("Node(%p) get event_count_added %d in deconstructing ConnectNode.",
+      this, event_base_get_num_events(
+        _eventThread->_workBase, EVENT_BASE_COUNT_ADDED));
 
   if (_nlsEncoder) {
     _nlsEncoder->destroyNlsEncoder();
@@ -286,10 +339,24 @@ void ConnectNode::initAllStatus() {
 #endif
 }
 
-struct event * ConnectNode::getLaunchEvent() {
+struct event * ConnectNode::getLaunchEvent(bool init) {
   if (_launchEvent == NULL) {
     _launchEvent = event_new(_eventThread->_workBase, -1, EV_READ,
                              WorkThread::launchEventCallback, this);
+    if (NULL == _launchEvent) {
+      LOG_ERROR("Node(%p) new event(_launchEvent) failed.", this);
+    } else {
+      LOG_DEBUG("Node(%p) new event(_launchEvent).", this);
+    }
+  } else {
+    if (init) {
+      event_del(_launchEvent);
+      event_assign(_launchEvent, _eventThread->_workBase, -1,
+                   EV_READ,
+                   WorkThread::launchEventCallback,
+                   this);
+      LOG_DEBUG("Node(%p) new event_assign(_launchEvent).", this);
+    }
   }
   return _launchEvent;
 }
@@ -313,15 +380,9 @@ ConnectStatus ConnectNode::getConnectNodeStatus() {
   return status;
 }
 
-std::string ConnectNode::getConnectNodeStatusString() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
+std::string ConnectNode::getConnectNodeStatusString(ConnectStatus status) {
   std::string ret_str("Unknown");
-  switch (_workStatus) {
+  switch (status) {
     case NodeInvalid:
       ret_str.assign("NodeInvalid");
       break;
@@ -367,9 +428,35 @@ std::string ConnectNode::getConnectNodeStatusString() {
     case NodeReleased:
       ret_str.assign("NodeReleased");
       break;
+    case NodeStop:
+      ret_str.assign("NodeStop");
+      break;
+    case NodeCancel:
+      ret_str.assign("NodeCancel");
+      break;
+    case NodeSendAudio:
+      ret_str.assign("NodeSendAudio");
+      break;
+    case NodeSendControl:
+      ret_str.assign("NodeSendControl");
+      break;
+    case NodePlayAudio:
+      ret_str.assign("NodePlayAudio");
+      break;
     default:
-      LOG_ERROR("Current invalid node status:%d.", _workStatus);
+      LOG_ERROR("Current invalid node status:%d.", status);
   }
+  return ret_str;
+}
+
+std::string ConnectNode::getConnectNodeStatusString() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxNode, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxNode);
+#endif
+
+  std::string ret_str = getConnectNodeStatusString(_workStatus);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxNode);
@@ -503,24 +590,17 @@ bool ConnectNode::updateDestroyStatus() {
   if (!_isDestroy) {
   #ifndef _MSC_VER
     int result = 0;
-    if (_dnsThread) {
-      _dnsThreadExit = true;
-      result = pthread_kill(_dnsThread, 0);
-      if (result == 0) {
-        LOG_WARN("Node(%p) dnsThread(%lu) still exist.", this, _dnsThread);
-        if (_gaicbRequest[0]) {
-          gai_cancel(_gaicbRequest[0]);
-        }
+    if (_url._enableSysGetAddr) {
+      if (_dnsThread) {
+        LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this, _dnsThread);
+        _dnsThreadExit = true;
         #ifndef __ANDROID__
         pthread_join(_dnsThread, NULL);
         #endif
         LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
         _dnsThread = 0;
-        _dnsThreadExit = false;
-      } else if (result == ESRCH) {
-        LOG_DEBUG("Node(%p) dnsThread(%lu) not exist.", this, _dnsThread);
       } else {
-        LOG_DEBUG("Node(%p) dnsThread(%lu) ret:%d.", this, _dnsThread, result);
+        LOG_DEBUG("Node(%p) dnsThread has exited.", this);
       }
     }
   #endif
@@ -591,7 +671,7 @@ bool ConnectNode::checkConnectCount() {
     _retryConnectCount = 0;
     // return false : restart connect failed
   }
-  LOG_DEBUG("Node(%p) check connection count: %d.", this, _retryConnectCount);
+  LOG_INFO("Node(%p) check connection count: %d.", this, _retryConnectCount);
 
 #if defined(_MSC_VER)
   ReleaseMutex(_mtxNode);
@@ -686,6 +766,11 @@ void ConnectNode::disconnectProcess() {
     }
     evutil_closesocket(_socketFd);
     _socketFd = INVALID_SOCKET;
+
+    if (_url._enableSysGetAddr && _dnsEvent) {
+      event_free(_dnsEvent);
+      _dnsEvent = NULL;
+    }
   }
 
   _isConnected = false;
@@ -768,17 +853,30 @@ void ConnectNode::closeConnectNode() {
 
   _isConnected = false;
 
+  if (_url._enableSysGetAddr && _dnsEvent) {
+    event_del(_dnsEvent);
+    event_free(_dnsEvent);
+    _dnsEvent = NULL;
+  }
   if (_readEvent) {
+    event_del(_readEvent);
     event_free(_readEvent);
     _readEvent = NULL;
   }
   if (_writeEvent) {
+    event_del(_writeEvent);
     event_free(_writeEvent);
     _writeEvent = NULL;
   }
   if (_connectEvent) {
+    event_del(_connectEvent);
     event_free(_connectEvent);
     _connectEvent = NULL;
+  }
+  if (_launchEvent) {
+    event_del(_launchEvent);
+    event_free(_launchEvent);
+    _launchEvent = NULL;
   }
 
 #ifdef ENABLE_HIGH_EFFICIENCY
@@ -1273,6 +1371,11 @@ int ConnectNode::cmdNotify(CmdType type, const char* message) {
   LOG_DEBUG("Node(%p) invoke CmdNotify: %s.", this, getCmdTypeString(type).c_str());
 
   if (type == CmdStop) {
+#ifdef ENABLE_REQUEST_RECORDING
+    _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    _nodeProcess.stop_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+    _nodeProcess.last_status = NodeStop;
+#endif
     addRemainAudioData();
     _exitStatus = ExitStopping;
     if (_workStatus == NodeStarted) {
@@ -1285,8 +1388,18 @@ int ConnectNode::cmdNotify(CmdType type, const char* message) {
       }
     }
   } else if (type == CmdCancel) {
+#ifdef ENABLE_REQUEST_RECORDING
+    _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    _nodeProcess.cancel_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+    _nodeProcess.last_status = NodeCancel;
+#endif
     _exitStatus = ExitCancel;
   } else if (type == CmdStControl) {
+#ifdef ENABLE_REQUEST_RECORDING
+    _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    _nodeProcess.last_ctrl_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+    _nodeProcess.last_status = NodeSendControl;
+#endif
     addCmdDataBuffer(CmdStControl, message);
     if (_workStatus == NodeStarted) {
       size_t length = evbuffer_get_length(_binaryEvBuffer);
@@ -1594,6 +1707,10 @@ NlsClient* ConnectNode::getInstance() {
   return _instance;
 }
 
+std::string ConnectNode::getNodeUUID() {
+  return _nodeUUID;
+}
+
 NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
   NlsEvent* wsEvent = NULL;
 
@@ -1611,6 +1728,14 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
       wsEvent = new NlsEvent(data, 0,
                              NlsEvent::Binary,
                              _request->getRequestParam()->_task_id);
+      if (wsEvent == NULL) {
+        LOG_ERROR("Node(%p) new NlsEvent failed!", this);
+        handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED,
+                     MemNotEnough,
+                     NlsEvent::TaskFailed,
+                     _enableOnMessage);
+        *ret = -(NewNlsEventFailed);
+      }
     } else {
       LOG_WARN("Node(%p) this ws frame length is invalid %d.", wsFrame->length);
       *ret = -(WsFrameBodyEmpty);
@@ -1623,6 +1748,8 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
       std::string part_result((char *)wsFrame->data, 1024);
       LOG_INFO("Node(%p) ws frame len:%d is too long, part response(1024): %s.",
           this, wsFrame->length, part_result.c_str());
+    } else if (wsFrame->length == 0) {
+      LOG_ERROR("Node(%p) ws frame len is zero!", this);
     } else {
       LOG_INFO("Node(%p) response(ws frame len:%d): %s",
           this, wsFrame->length, result.c_str());
@@ -1708,11 +1835,26 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
       snprintf(tmp_msg, 2048 - 1, "{\"TaskFailed\":\"%s\"}", msg.c_str());
       std::string closeMsg = tmp_msg;
 
-      LOG_DEBUG("Node(%p) close msg:%s.", this, closeMsg.c_str());
+      LOG_ERROR("Node(%p) close msg:%s.", this, closeMsg.c_str());
 
       frameEvent = new NlsEvent(
           closeMsg.c_str(), wsFrame->closeCode,
           NlsEvent::TaskFailed, _request->getRequestParam()->_task_id);
+      if (frameEvent == NULL) {
+        LOG_ERROR("Node(%p) new NlsEvent failed!", this);
+        handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED,
+                     MemNotEnough,
+                     NlsEvent::TaskFailed,
+                     _enableOnMessage);
+        return -(NewNlsEventFailed);
+      }
+    } else {
+      LOG_ERROR("Node(%p) get invalid wsFrame closeCode:%d.", this, wsFrame->closeCode);
+      handlerEvent(TASKFAILED_ERROR_CLOSE_STRING,
+                   UnknownWsHeadType,
+                   NlsEvent::TaskFailed,
+                   _enableOnMessage);
+      return -(InvalidWsFrameCloseCode);
     }
   } else {
     frameEvent = convertResult(wsFrame, &result);
@@ -1725,10 +1867,12 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
     } else {
       LOG_ERROR("Node(%p) convert result failed, result:%d.", this, result);
       closeConnectNode();
-      handlerEvent(CLOSE_JSON_STRING,
-                   CLOSE_CODE,
-                   NlsEvent::Close,
-                   _enableOnMessage);
+      if (result != Success) {
+        handlerEvent(CLOSE_JSON_STRING,
+                     CLOSE_CODE,
+                     NlsEvent::Close,
+                     _enableOnMessage);
+      }
       return -(NlsEventEmpty);
     }
   }
@@ -1832,6 +1976,32 @@ int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
       return -(NlsEventEmpty);
     }
 
+#ifdef ENABLE_REQUEST_RECORDING
+    int msg_type = frameEvent->getMsgType();
+    switch(msg_type) {
+      case NlsEvent::RecognitionStarted:
+      case NlsEvent::TranscriptionStarted:
+        _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+        _nodeProcess.started_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+        break;
+      case NlsEvent::TranscriptionCompleted:
+      case NlsEvent::RecognitionCompleted:
+      case NlsEvent::SynthesisCompleted:
+        _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+        _nodeProcess.completed_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+        break;
+      case NlsEvent::Binary:
+        _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+        _nodeProcess.play_bytes += frameEvent->getBinaryData().size();
+        _nodeProcess.play_count++;
+        _nodeProcess.last_status = NodePlayAudio;
+        if (_isFirstBinaryFrame) {
+          _nodeProcess.first_binary_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+        }
+        break;
+    }
+#endif
+
     // LOG_DEBUG("Node:%p current node status:%s is valid, msg type:%s handle message ...",
     //     this, getConnectNodeStatusString().c_str(),
     //     frameEvent->getMsgTypeString().c_str());
@@ -1868,16 +2038,34 @@ void ConnectNode::handlerEvent(const char* error,
     _nodeErrCode = errorCode;
   }
 
+  std::string error_str(error);
+#ifdef ENABLE_REQUEST_RECORDING
+  if (eventType == NlsEvent::Close || eventType == NlsEvent::TaskFailed) {
+    if (eventType == NlsEvent::TaskFailed) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.failed_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+    } else if (eventType == NlsEvent::Close) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.closed_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+    }
+    error_str.assign(replenishNodeProcess(error));
+    if (eventType == NlsEvent::TaskFailed) {
+      LOG_ERROR("Node(%p) trigger message: %s", this, error_str.c_str());
+    } else if (eventType == NlsEvent::Close) {
+      LOG_INFO("Node(%p) trigger message: %s", this, error_str.c_str());
+    }
+  }
+#endif
   NlsEvent* useEvent = NULL;
   useEvent = new NlsEvent(
-      error, errorCode, eventType, _request->getRequestParam()->_task_id);
+      error_str.c_str(), errorCode, eventType, _request->getRequestParam()->_task_id);
   if (useEvent == NULL) {
     LOG_ERROR("Node(%p) new NlsEvent failed.", this);
     return;
   }
 
   if (eventType == NlsEvent::Close) {
-    LOG_DEBUG("Node(%p) will callback NlsEvent::Close frame.", this);
+    LOG_INFO("Node(%p) will callback NlsEvent::Close frame.", this);
   }
 
   if (_handler == NULL) {
@@ -1889,9 +2077,9 @@ void ConnectNode::handlerEvent(const char* error,
       handlerFrame(useEvent);
       if (eventType == NlsEvent::Close) {
         _workStatus = NodeClosed;
-        LOG_DEBUG("Node(%p) callback NlsEvent::Close frame done.", this);
+        LOG_INFO("Node(%p) callback NlsEvent::Close frame done.", this);
       } else {
-        LOG_DEBUG("Node(%p) callback NlsEvent::%s frame done.", this, useEvent->getMsgTypeString().c_str());
+        LOG_INFO("Node(%p) callback NlsEvent::%s frame done.", this, useEvent->getMsgTypeString().c_str());
       }
     }
   }
@@ -1993,14 +2181,18 @@ void ConnectNode::handlerTaskFailedEvent(std::string failedInfo, int code) {
 static void *async_dns_resolve_thread_fn(void *arg) {
   pthread_detach(pthread_self());
   ConnectNode *node = (ConnectNode *)arg;
+  LOG_DEBUG("Node(%p) dnsThread(%lu) is working ...", node, pthread_self());
 
-  node->_gaicbRequest[0] = (struct gaicb *)malloc(sizeof(*node->_gaicbRequest[0]));
+  if (node->_gaicbRequest[0] == NULL) {
+    node->_gaicbRequest[0] = (struct gaicb *)malloc(sizeof(*node->_gaicbRequest[0]));
+  }
   if (node->_gaicbRequest[0] == NULL) {
     LOG_ERROR("Node(%p) malloc _gaicbRequest failed.", arg);
   } else {
     memset(node->_gaicbRequest[0], 0, sizeof(*node->_gaicbRequest[0]));
     node->_gaicbRequest[0]->ar_name = node->_nodename;
 
+    // LOG_DEBUG("Node(%p) ready to getaddrinfo_a ...", node);
     int err = getaddrinfo_a(GAI_NOWAIT, node->_gaicbRequest, 1, NULL);
     if (err) {
       LOG_ERROR("Node(%p) getaddrinfo_a failed, err:%d(%s).", arg, err, gai_strerror(err));
@@ -2023,15 +2215,22 @@ static void *async_dns_resolve_thread_fn(void *arg) {
       time_t time_s = timeout_ms / 1000;
       time_t time_ns = (timeout_ms % 1000) * 1000000;
       struct timespec outtime = { time_s, time_ns };
-      // LOG_DEBUG("Node(%p) ready to gai_suspend.", arg);
+      // LOG_DEBUG("Node(%p) ready to gai_suspend ...", node);
       err = gai_suspend(node->_gaicbRequest, 1, &outtime);
-      // LOG_DEBUG("Node(%p) gai_suspend finish.", arg);
+      // LOG_DEBUG("Node(%p) gai_suspend finish, err:%d(%s).", node, err, gai_strerror(err));
       if (node->_dnsThreadExit) {
-        LOG_WARN("Node(%p) ConnectNode is exiting, skip gai.");
+        LOG_WARN("Node(%p) ConnectNode is exiting, skip gai.", node);
+        goto dnsExit;
+      }
+      if (node->_dnsThread == 0) {
+        LOG_WARN("Node(%p) ConnectNode has exited, skip gai.", node);
         goto dnsExit;
       }
       if (err) {
         LOG_ERROR("Node(%p) gai_suspend failed, err:%d(%s).", arg, err, gai_strerror(err));
+        if (err == EAI_SYSTEM || err == EAI_AGAIN) {
+          LOG_ERROR("Node(%p) gai_suspend err:%d is mean timeout. please try again ...", arg, err);
+        }
       } else {
         /* check this node is alive again after gai_suspend. */
         result = node_manager->checkNodeExist(node, &status);
@@ -2050,12 +2249,24 @@ static void *async_dns_resolve_thread_fn(void *arg) {
     }
 
     node->_dnsErrorCode = err;
-    event_assign(&node->_dnsEvent, node->_eventThread->_workBase,
-                 -1, EV_READ, WorkThread::sysDnsEventCallback, node);
-    event_add(&node->_dnsEvent, NULL);
-    event_active(&node->_dnsEvent, EV_READ, 0);
-
-    LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn exit.", arg);
+    // LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn event_assign ->", node);
+    if (node->_dnsEvent) {
+      event_del(node->_dnsEvent);
+      event_assign(node->_dnsEvent, node->_eventThread->_workBase,
+                   -1, EV_READ, WorkThread::sysDnsEventCallback, node);
+    } else {
+      node->_dnsEvent = event_new(node->_eventThread->_workBase,
+                                  -1, EV_READ, WorkThread::sysDnsEventCallback, node);
+      if (NULL == node->_dnsEvent) {
+        LOG_ERROR("Node(%p) new event(_dnsEvent) failed.", node);
+        goto dnsExit;
+      }
+    }
+    // LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn event_add ->", node);
+    event_add(node->_dnsEvent, NULL);
+    // LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn event_active ->", node);
+    event_active(node->_dnsEvent, EV_READ, 0);
+    LOG_INFO("Node(%p) dnsThread(%lu) event_active done.", node, pthread_self());
   }
 
 dnsExit:
@@ -2064,6 +2275,8 @@ dnsExit:
     node->_gaicbRequest[0] = NULL;
   }
   node->_dnsThread = 0;
+  node->_dnsThreadRunning = false;
+  LOG_INFO("Node(%p) dnsThread(%lu) is exited.", node, pthread_self());
   pthread_exit(NULL);
 }
 
@@ -2073,10 +2286,42 @@ dnsExit:
  */
 static int native_getaddrinfo(
     const char *nodename, const char *servname,
-    const struct evutil_addrinfo *hints_in,
     evdns_getaddrinfo_cb cb, void *arg) {
   int err = 0;
   ConnectNode *node = (ConnectNode *)arg;
+
+#if defined(_MSC_VER)
+  WaitForSingleObject(node->_mtxNode, INFINITE);
+#else
+  pthread_mutex_lock(&node->_mtxNode);
+#endif
+
+  NlsNodeManager* node_manager = (NlsNodeManager*)node->getInstance()->getNodeManger();
+  int status = NodeStatusInvalid;
+  int result = node_manager->checkNodeExist(node, &status);
+  if (result != Success) {
+    LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", node, result);
+    #if defined(_MSC_VER)
+    ReleaseMutex(node->_mtxNode);
+    #else
+    pthread_mutex_unlock(&node->_mtxNode);
+    #endif
+    return result;
+  } else {
+    LOG_DEBUG("Node(%p) use native_getaddrinfo, ready to create dnsThread(%lu).", node, node->_dnsThread);
+  }
+
+  if (node->_exitStatus == ExitCancel) {
+    LOG_WARN("Node(%p) is ExitCancel, skip here ...", node);
+    #if defined(_MSC_VER)
+    ReleaseMutex(node->_mtxNode);
+    #else
+    pthread_mutex_unlock(&node->_mtxNode);
+    #endif
+    return -(CancelledExitStatus);
+  }
+
+  node->_dnsThreadRunning = true;
   node->_nodename = (char*)nodename;
   node->_servname = (char*)servname;
 
@@ -2085,6 +2330,18 @@ static int native_getaddrinfo(
   }
   err = pthread_create(&node->_dnsThread, NULL,
                        &async_dns_resolve_thread_fn, arg);
+  if (err) {
+    node->_dnsThreadRunning = false;
+    LOG_ERROR("Node(%p) dnsThread(%lu) create failed.", node, node->_dnsThread);
+  } else {
+    LOG_DEBUG("Node(%p) dnsThread(%lu) create success.", node, node->_dnsThread);
+  }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(node->_mtxNode);
+#else
+  pthread_mutex_unlock(&node->_mtxNode);
+#endif
 
   return err;
 }
@@ -2143,10 +2400,9 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
 
   _url._enableSysGetAddr = sysGetAddr;
   if (_url._isSsl) {
-    LOG_INFO("Node(%p) _url._isSsl is True.", this);
+    LOG_INFO("Node(%p) _url._isSsl is True, _url._enableSysGetAddr is %d.", this, _url._enableSysGetAddr);
   } else {
-    LOG_INFO("Node(%p) _url._isSsl is False.", this);
-    _url._enableSysGetAddr = true;
+    LOG_INFO("Node(%p) _url._isSsl is False, _url._enableSysGetAddr is %d.", this, _url._enableSysGetAddr);
   }
 
   if (_url._directIp) {
@@ -2178,41 +2434,41 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
        */
       result = native_getaddrinfo(_url._host,
                                   NULL,
-                                  &hints,
                                   WorkThread::dnsEventCallback,
                                   this);
       if (result != Success) {
         result = -(GetAddrinfoFailed);
       }
     #else
-      if (NULL == _eventThread->_dnsBase) {
+      if (NULL == _eventThread || NULL == _eventThread->_dnsBase) {
         LOG_ERROR("Node:%p dns source is invalid.", this);
         return -(InvalidDnsSource);
       }
       _dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
-                                     _url._host,
-                                     NULL,
-                                     &hints,
-                                     WorkThread::dnsEventCallback,
-                                     this);
+                                      _url._host,
+                                      NULL,
+                                      &hints,
+                                      WorkThread::dnsEventCallback,
+                                      this);
     #endif
     } else {
-      if (NULL == _eventThread->_dnsBase) {
+      if (NULL == _eventThread || NULL == _eventThread->_dnsBase) {
         LOG_ERROR("Node(%p) dns source is invalid.", this);
         return -(InvalidDnsSource);
       }
       _dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
-                                     _url._host,
-                                     NULL,
-                                     &hints,
-                                     WorkThread::dnsEventCallback,
-                                     this);
+                                      _url._host,
+                                      NULL,
+                                      &hints,
+                                      WorkThread::dnsEventCallback,
+                                      this);
       if (_dnsRequest == NULL) {
-        //LOG_DEBUG("Node:%p dnsRequest returned immediately.", this);
+        LOG_ERROR("Node:%p dnsRequest evdns_getaddrinfo failed!", this);
         /*
          * No need to free user_data ordecrement n_pending_requests; that
          * happened in the callback.
          */
+        return -(InvalidDnsSource);
       }
     }
   }
@@ -2265,6 +2521,7 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       return -(EventEmpty);
     }
   } else {
+    event_del(_connectEvent);
     event_assign(_connectEvent, _eventThread->_workBase, sockFd,
                  events,
                  WorkThread::connectEventCallback,
@@ -2299,6 +2556,7 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       return -(EventEmpty);
     }
   } else {
+    event_del(_readEvent);
     event_assign(_readEvent, _eventThread->_workBase, sockFd,
                  events,
                  WorkThread::readEventCallBack,
@@ -2317,6 +2575,7 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
       return -(EventEmpty);
     }
   } else {
+    event_del(_writeEvent);
     event_assign(_writeEvent, _eventThread->_workBase, sockFd,
                  events,
                  WorkThread::writeEventCallBack,
@@ -2393,6 +2652,7 @@ int ConnectNode::socketConnect() {
         LOG_ERROR("Node(%p) event is nullptr.", this);
         return -(EventEmpty);
       }
+
       int timeout_ms = _request->getRequestParam()->getTimeout();
       _connectTv.tv_sec = timeout_ms / 1000;
       _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
@@ -2482,9 +2742,9 @@ int ConnectNode::sslProcess() {
       LOG_ERROR("Node(%p) sslHandshake failed, %s.", this, _nodeErrMsg.c_str());
       return -(SslHandshakeFailed);
     } else {
-      // LOG_DEBUG("Node(%p) sslHandshake done, ret:%d, set node:NodeHandshaking.", this, ret);
       _workStatus = NodeHandshaking;
       node_manager->updateNodeStatus(this, NodeStatusHandshaking);
+      LOG_DEBUG("Node(%p) sslHandshake done, ret:%d, set node:NodeHandshaking.", this, ret);
       return 0;
     }
   } else {
@@ -2576,7 +2836,7 @@ void ConnectNode::updateParameters() {
   int timeout_ms = _request->getRequestParam()->getTimeout();
   _connectTv.tv_sec = timeout_ms / 1000;
   _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
-  LOG_DEBUG("Node(%p) set connect timeout: %dms.", this, timeout_ms);
+  LOG_INFO("Node(%p) set connect timeout: %dms.", this, timeout_ms);
 
   _enableRecvTv = _request->getRequestParam()->getEnableRecvTimeout();
   if (_enableRecvTv) {
@@ -2587,12 +2847,12 @@ void ConnectNode::updateParameters() {
   timeout_ms = _request->getRequestParam()->getRecvTimeout();
   _recvTv.tv_sec = timeout_ms / 1000;
   _recvTv.tv_usec = (timeout_ms - _recvTv.tv_sec * 1000) * 1000;
-  LOG_DEBUG("Node(%p) set recv timeout: %dms.", this, timeout_ms);
+  LOG_INFO("Node(%p) set recv timeout: %dms.", this, timeout_ms);
 
   timeout_ms = _request->getRequestParam()->getSendTimeout();
   _sendTv.tv_sec = timeout_ms / 1000;
   _sendTv.tv_usec = (timeout_ms - _sendTv.tv_sec * 1000) * 1000;
-  LOG_DEBUG("Node(%p) set send timeout: %dms.", this, timeout_ms);
+  LOG_INFO("Node(%p) set send timeout: %dms.", this, timeout_ms);
 
   _enableOnMessage = _request->getRequestParam()->getEnableOnMessage();
   if (_enableOnMessage) {
@@ -2620,7 +2880,7 @@ void ConnectNode::delAllEvents() {
 
   /* 当Node处于Invoking状态, 即还未进入正式运行, 需要等待其进入Invoked才可进行操作 */
   int try_count = 2000;
-  while (try_count-- > 0 && _workStatus == NodeInvoking) {
+  while (_workStatus == NodeInvoking && try_count-- > 0) {
   #ifdef _MSC_VER
     Sleep(1);
   #else
@@ -2629,19 +2889,48 @@ void ConnectNode::delAllEvents() {
   }
   if (try_count <=0) {
     LOG_WARN("Node(%p) waiting exit NodeInvoking failed.", this);
+  } else {
+    LOG_WARN("Node(%p) waiting exit NodeInvoking success.", this);
+  }
+
+  /* 当Node处于异步dns线程状态, 通知线程退出并等待其退出再进行释放 */
+  if (_url._enableSysGetAddr && _dnsThreadRunning) {
+    _dnsThreadExit = true;
+    try_count = 5000;
+    LOG_WARN("Node(%p) waiting exit dnsThread ...", this);
+    while (_dnsThreadRunning && try_count-- > 0) {
+    #ifdef _MSC_VER
+      Sleep(1);
+    #else
+      usleep(1000);
+    #endif
+    }
+    if (try_count <=0) {
+      LOG_WARN("Node(%p) waiting exit dnsThread failed.", this);
+    } else {
+      LOG_WARN("Node(%p) waiting exit dnsThread success.", this);
+    }
   }
 
   waitEventCallback();
 
+  if (_dnsEvent) {
+    event_del(_dnsEvent);
+    event_free(_dnsEvent);
+    _dnsEvent = NULL;
+  }
   if (_readEvent) {
+    event_del(_readEvent);
     event_free(_readEvent);
     _readEvent = NULL;
   }
   if (_writeEvent) {
+    event_del(_writeEvent);
     event_free(_writeEvent);
     _writeEvent = NULL;
   }
   if (_connectEvent) {
+    event_del(_connectEvent);
     event_free(_connectEvent);
     _connectEvent = NULL;
   }
@@ -2744,5 +3033,118 @@ void ConnectNode::sendFinishCondSignal(NlsEvent::EventType eventType) {
     }
   }
 }
+
+std::string ConnectNode::getRandomUuid() {
+  char uuidBuff[48] = {0};
+#ifdef _MSC_VER
+  char* data = NULL;
+  UUID uuidhandle;
+  RPC_STATUS ret_val = UuidCreate(&uuidhandle);
+  if (ret_val != RPC_S_OK) {
+    LOG_ERROR("UuidCreate failed");
+    return uuidBuff;
+  }
+  UuidToString(&uuidhandle, (RPC_CSTR*)&data);
+  if (data == NULL) {
+    LOG_ERROR("UuidToString data is nullptr");
+    return uuidBuff;
+  }
+  int len = strnlen(data, 36);
+  int i = 0, j = 0;
+  for (i = 0; i < len; i++) {
+    if (data[i] != '-') {
+      uuidBuff[j++] = data[i];
+    }
+  }
+  RpcStringFree((RPC_CSTR*)&data);
+#else
+  char tmp[48] = {0};
+  uuid_t uuid;
+  uuid_generate(uuid);
+  uuid_unparse(uuid, tmp);
+  int i = 0, j = 0;
+  while (tmp[i]) {
+    if (tmp[i] != '-') {
+      uuidBuff[j++] = tmp[i];
+    }
+    i++;
+  }
+#endif
+  return uuidBuff;
+}
+
+#ifdef ENABLE_REQUEST_RECORDING
+std::string ConnectNode::replenishNodeProcess(const char *error) {
+  if (error == NULL) {
+    return "";
+  }
+
+  Json::Reader reader;
+  Json::Value root(Json::objectValue);
+  if (!reader.parse(error, root)) {
+    return "";
+  } else {
+    Json::FastWriter writer;
+    Json::Value request_process(Json::objectValue);
+    Json::Value timestamp(Json::objectValue);
+    Json::Value last(Json::objectValue);
+    Json::Value data(Json::objectValue);
+    timestamp["create"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.create_timestamp_ms);
+    if (_nodeProcess.start_timestamp_ms > 0) {
+      timestamp["start"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.start_timestamp_ms);
+    }
+    if (_nodeProcess.started_timestamp_ms > 0) {
+      timestamp["started"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.started_timestamp_ms);
+    }
+    if (_nodeProcess.stop_timestamp_ms > 0) {
+      timestamp["stop"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.stop_timestamp_ms);
+    }
+    if (_nodeProcess.cancel_timestamp_ms > 0) {
+      timestamp["cancel"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.cancel_timestamp_ms);
+    }
+    if (_nodeProcess.failed_timestamp_ms > 0) {
+      timestamp["failed"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.failed_timestamp_ms);
+    }
+    if (_nodeProcess.completed_timestamp_ms > 0) {
+      timestamp["completed"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.completed_timestamp_ms);
+    }
+    if (_nodeProcess.closed_timestamp_ms > 0) {
+      timestamp["closed"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.closed_timestamp_ms);
+    }
+    if (_nodeProcess.first_binary_timestamp_ms > 0) {
+      timestamp["first_binary"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.first_binary_timestamp_ms);
+    }
+
+    last["status"] = getConnectNodeStatusString(_nodeProcess.last_status);
+    if (_nodeProcess.last_send_timestamp_ms > 0) {
+      last["send"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.last_send_timestamp_ms);
+    }
+    if (_nodeProcess.last_ctrl_timestamp_ms > 0) {
+      last["control"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.last_ctrl_timestamp_ms);
+    }
+    if (_nodeProcess.last_op_timestamp_ms > 0) {
+      last["action"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.last_op_timestamp_ms);
+    }
+
+    if (_nodeProcess.recording_bytes > 0) {
+      data["recording_bytes"] = (Json::UInt64)_nodeProcess.recording_bytes;
+    }
+    if (_nodeProcess.send_count > 0) {
+      data["send_count"] = (Json::UInt64)_nodeProcess.send_count;
+    }
+    if (_nodeProcess.play_bytes > 0) {
+      data["play_bytes"] = (Json::UInt64)_nodeProcess.play_bytes;
+    }
+    if (_nodeProcess.play_count > 0) {
+      data["play_count"] = (Json::UInt64)_nodeProcess.play_count;
+    }
+
+    root["timestamp"] = timestamp;
+    root["last"] = last;
+    root["data"] = data;
+    return writer.write(root);
+  }
+}
+#endif
 
 }  // namespace AlibabaNls

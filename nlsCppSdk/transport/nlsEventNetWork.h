@@ -38,6 +38,7 @@ class NlsEventNetWork {
   static NlsEventNetWork * _eventClient;
 
   static void DnsLogCb(int w, const char *m);
+  static void EventLogCb(int w, const char *m);
 
   void initEventNetWork(
       NlsClient* instance, int count, char *aiFamily, char *directIp,

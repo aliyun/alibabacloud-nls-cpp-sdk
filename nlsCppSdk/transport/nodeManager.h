@@ -48,6 +48,7 @@ typedef struct {
   void* request;
   void* node;
   void* instance;
+  std::string uuid;
   int status;
 } NodeInfo;
 
@@ -66,11 +67,6 @@ class NlsNodeManager {
   int updateNodeStatus(void* node, int status);
   std::string getNodeStatusString(int status);
 
-#ifdef ENABLE_UNALIGNED_MEM
-  int addRandomMemChunk();
-  int removeAllMemChunk();
-#endif
-
  private:
 #ifdef _MSC_VER
   HANDLE _mtxNodeManager;
@@ -81,12 +77,6 @@ class NlsNodeManager {
   std::map<void*, void*> _requestListByNode;
   std::map<void*, NodeInfo> _infoByRequest;
   int _timeout_ms;
-
-#ifdef ENABLE_UNALIGNED_MEM
-  std::vector<char*> _unaligned_list;
-  int _max_unaligned_item_size;
-  int _max_unaligned_array_len;
-#endif
 };
 
 } // namespace AlibabaNls

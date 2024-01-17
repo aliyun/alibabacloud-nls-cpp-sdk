@@ -116,3 +116,17 @@
 13:修复create/release同时操作一个request指针地址时偶现崩溃的问题, 增加防止request地址容易重复的机制
 14:C++到C#结构体msg数组扩大
 15:LinuxC++和C#的Demo均增加语音识别输入音频文件路径设置, 和语音合成音频文件路径显示
+
+-----2023/10/08 Version:3.1.17a/b/c-----
+1: 修复调用系统getaddrinfo_a()接口进行dns解析时, 低概率出现卡死和崩溃的问题
+2: SDK版本信息加入patch号, 例如3.1.17a, 是对3.1.17版本的补丁修复
+3: 增加每次请求的UUID, 解决释放请求后马上申请请求低概率出现同内存地址然后错误操作已释放请求的问题
+
+-----2023/11/01 Version:3.1.17d-----
+1: SSL操作增加锁, 修复SSL_read失败并释放的同时进行SSL_write导致崩溃的问题
+2: 增加收到异常wsFrame未给出有效的TaskFailed的问题, 同时增加相关日志便于进一步判断错误
+3: 增加每次请求关键步骤的记录, 记录信息通过TaskFailed和Closed回调给出
+
+-----2024/01/06 Version:3.1.17e-----
+1: 增加DNS搜索domain - gds.alibabadns.com, 解决无法找到域名 nls-gateway.cn-shanghai-internal.aliyuncs.com 的问题
+2: 修复录音文件转写中的报错 - FlowControlError: The taskid requests frequency should be greater than 1qps

@@ -34,17 +34,8 @@ NlsNodeManager::NlsNodeManager() {
 #endif
 
   _timeout_ms = 2000;
-
-#ifdef ENABLE_UNALIGNED_MEM
-  _max_unaligned_item_size = 256; // bytes
-  _max_unaligned_array_len = 2048;
-#endif
 }
 NlsNodeManager::~NlsNodeManager() {
-#ifdef ENABLE_UNALIGNED_MEM
-  removeAllMemChunk();
-#endif
-
 #if defined(_MSC_VER)
   CloseHandle(_mtxNodeManager);
 #else
@@ -131,6 +122,7 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
       info.request = request;
       info.node = node;
       info.instance = instance;
+      info.uuid = node->getNodeUUID();
       info.status = NodeStatusCreated;
       this->_requestListByNode[node] = request;
     }
@@ -139,6 +131,7 @@ int NlsNodeManager::addRequestIntoInfoWithInstance(void* request, void* instance
     info.request = request;
     info.node = node;
     info.instance = instance;
+    info.uuid = node->getNodeUUID();
     info.status = NodeStatusCreated;
     this->_infoByRequest.insert(std::make_pair(request, info));
     this->_requestListByNode.insert(std::make_pair(node, request));
@@ -201,6 +194,7 @@ int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
 
       return -(InvalidRequest);
     } else {
+      // find request in this instance.
       INlsRequest* nls_request = (INlsRequest*)request;
       ConnectNode* node = (ConnectNode*)nls_request->getConnectNode();
       std::map<void*, void*>::iterator node_iter;
@@ -214,6 +208,18 @@ int NlsNodeManager::checkRequestWithInstance(void* request, void* instance) {
         #endif
 
         return -(InvalidRequest);
+      } else {
+        std::string uuid = node->getNodeUUID();
+        if (info.uuid != uuid) {
+          LOG_ERROR("the uuid(%s) isnot in node(%p), request(%p) is invalid.", uuid.c_str(), node, request);
+          #if defined(_MSC_VER)
+          ReleaseMutex(_mtxNodeManager);
+          #else
+          pthread_mutex_unlock(&_mtxNodeManager);
+          #endif
+
+          return -(InvalidRequest);
+        }
       }
     }
   } else {
@@ -379,6 +385,18 @@ int NlsNodeManager::checkRequestExist(void* request, int* status) {
         #endif
 
         return -(InvalidRequest);
+      } else {
+        std::string uuid = node->getNodeUUID();
+        if (info.uuid != uuid) {
+          LOG_ERROR("the uuid(%s) isnot in node(%p), request(%p) is invalid.", uuid.c_str(), node, request);
+          #if defined(_MSC_VER)
+          ReleaseMutex(_mtxNodeManager);
+          #else
+          pthread_mutex_unlock(&_mtxNodeManager);
+          #endif
+
+          return -(InvalidRequest);
+        }
       }
     }
     *status = info.status;
@@ -458,6 +476,19 @@ int NlsNodeManager::checkNodeExist(void* node, int* status) {
       #endif
 
       return -(InvalidRequest);
+    } else {
+      std::string uuid = connect_node->getNodeUUID();
+      if (info.uuid != uuid) {
+        LOG_ERROR("the uuid(%s) isnot in node(%p), request(%p) is invalid.",
+            uuid.c_str(), connect_node, request);
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxNodeManager);
+        #else
+        pthread_mutex_unlock(&_mtxNodeManager);
+        #endif
+
+        return -(InvalidRequest);
+      }
     }
     *status = info.status;
   } else {
@@ -516,6 +547,18 @@ int NlsNodeManager::updateNodeStatus(void* node, int status) {
   iter = this->_infoByRequest.find(request);
   if (iter != this->_infoByRequest.end()) {
     NodeInfo &info = iter->second;
+    std::string uuid = connect_node->getNodeUUID();
+    if (info.uuid != uuid) {
+      LOG_ERROR("the uuid(%s) isnot in node(%p), request(%p) is invalid.",
+          uuid.c_str(), connect_node, request);
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxNodeManager);
+      #else
+      pthread_mutex_unlock(&_mtxNodeManager);
+      #endif
+      return -(InvalidRequest);
+    }
+    
     LOG_DEBUG("Node:%p set node status from %s to %s.",
         info.node,
         this->getNodeStatusString(info.status).c_str(),
@@ -589,67 +632,5 @@ std::string NlsNodeManager::getNodeStatusString(int status) {
 
   return ret_str;
 }
-
-#ifdef ENABLE_UNALIGNED_MEM
-int NlsNodeManager::addRandomMemChunk() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNodeManager, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNodeManager);
-#endif
-
-  struct timeval t;
-  int array_len = _unaligned_list.size();
-  if (array_len >= _max_unaligned_array_len) {
-    int remove_count = _max_unaligned_array_len / 2;
-    for (int i = 0; i < remove_count; i++) {
-      array_len = _unaligned_list.size();
-      gettimeofday(&t, NULL);
-      srand(t.tv_usec);
-      int index = rand() % array_len;
-      std::vector<char*>::iterator iter = _unaligned_list.begin() + index;
-      char* p = *iter;
-      delete[] p;
-      _unaligned_list.erase(iter);
-    }
-  }
-
-  gettimeofday(&t, NULL);
-  srand(t.tv_usec);
-  int size = rand() % _max_unaligned_item_size + 1;
-  char* n = new char[size];
-  // LOG_DEBUG("Add random mem(%dbytes) in %p.", size, n);
-  _unaligned_list.push_back(n);
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNodeManager);
-#else
-  pthread_mutex_unlock(&_mtxNodeManager);
-#endif
-  return Success;
-}
-
-int NlsNodeManager::removeAllMemChunk() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNodeManager, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNodeManager);
-#endif
-
-  for (std::vector<char*>::iterator iter = _unaligned_list.begin(); iter != _unaligned_list.end();) {
-    char* p = *iter;
-    // LOG_DEBUG("delete mem in %p.", p);
-    delete[] p;
-    _unaligned_list.erase(iter);
-  }
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNodeManager);
-#else
-  pthread_mutex_unlock(&_mtxNodeManager);
-#endif
-  return Success;
-}
-#endif
 
 } // namespace AlibabaNls

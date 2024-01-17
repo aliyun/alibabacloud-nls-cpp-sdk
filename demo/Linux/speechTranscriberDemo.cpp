@@ -1225,7 +1225,7 @@ void* pthreadFunction(void* arg) {
           request->cancel();
           run_cancel++;
           AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
-          break;
+          continue;
         }
         pthread_mutex_unlock(&(cbParam->mtxWord));
         std::cout << "current request task_id:" << request->getTaskId() << std::endl;
@@ -1375,7 +1375,7 @@ void* pthreadFunction(void* arg) {
           timedwait_flag = true;
           pthread_mutex_unlock(&(cbParam->mtxWord));
           AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
-          break;
+          continue;
         }
         pthread_mutex_unlock(&(cbParam->mtxWord));
       } else {

@@ -31,14 +31,22 @@ SSL_CTX* SSLconnect::_sslCtx = NULL;
 SSLconnect::SSLconnect() {
   _ssl = NULL;
   _sslTryAgain = 0;
-
+#if defined(_MSC_VER)
+  _mtxSSL = CreateMutex(NULL, FALSE, NULL);
+#else
+  pthread_mutex_init(&_mtxSSL, NULL);
+#endif
   LOG_DEBUG("Create SSLconnect:%p.", this);
 }
 
 SSLconnect::~SSLconnect() {
   sslClose();
   _sslTryAgain = 0;
-
+#if defined(_MSC_VER)
+  CloseHandle(_mtxSSL);
+#else
+  pthread_mutex_destroy(&_mtxSSL);
+#endif
   LOG_DEBUG("SSL(%p) Destroy SSLconnect done.", this);
 }
 
@@ -79,6 +87,12 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
     return -(SslCtxEmpty);
   }
 
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxSSL, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxSSL);
+#endif
+
   int ret;
   if (_ssl == NULL) {
     _ssl = SSL_new(_sslCtx);
@@ -90,6 +104,12 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
                          _errorMsg + strnlen(SSL_new_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("SSL(%p) Invoke SSL_new failed:%s.", this, _errorMsg);
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return -(SslNewFailed);
     }
 
@@ -102,6 +122,12 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
                          _errorMsg + strnlen(SSL_set_fd_ret, 24),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("SSL(%p) Invoke SSL_set_fd failed:%s.", this, _errorMsg);
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return -(SslSetFailed);
     }
 
@@ -126,6 +152,11 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
     // SSL_ERROR_SYSCALL
     if (sslError == SSL_ERROR_WANT_READ || sslError == SSL_ERROR_WANT_WRITE) {
       // LOG_DEBUG("sslHandshake continue.");
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return sslError;
     } else if (sslError == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
@@ -133,11 +164,27 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return SSL_ERROR_WANT_READ;
       } else if (errno_code == 0) {
         LOG_DEBUG("SSL(%p) SSL connect syscall success.", this);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return Success;
       } else {
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return -(SslConnectFailed);
       }
     } else {
@@ -148,18 +195,49 @@ int SSLconnect::sslHandshake(int socketFd, const char* hostname) {
                          _errorMsg + strnlen(SSL_connect_ret, 64),
                          MAX_SSL_ERROR_LENGTH);
       LOG_ERROR("SSL(%p) SSL connect failed:%s.", this, _errorMsg);
-      sslClose();
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
+
+      this->sslClose();
       return -(SslConnectFailed);
     }
   } else {
     // LOG_DEBUG("sslHandshake success.");
+    #if defined(_MSC_VER)
+    ReleaseMutex(_mtxSSL);
+    #else
+    pthread_mutex_unlock(&_mtxSSL);
+    #endif
     return Success;
   }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxSSL);
+#else
+  pthread_mutex_unlock(&_mtxSSL);
+#endif
+  return Success;
 }
 
 int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxSSL, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxSSL);
+#endif
+
   if (_ssl == NULL) {
     LOG_ERROR("SSL(%p) ssl has been closed.", this);
+
+    #if defined(_MSC_VER)
+    ReleaseMutex(_mtxSSL);
+    #else
+    pthread_mutex_unlock(&_mtxSSL);
+    #endif
     return -(SslWriteFailed);
   }
 
@@ -170,15 +248,32 @@ int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
     char sslErrMsg[MAX_SSL_ERROR_LENGTH] = {0};
     if (eCode == SSL_ERROR_WANT_READ || eCode == SSL_ERROR_WANT_WRITE) {
       LOG_DEBUG("SSL(%p) Write could not complete. Will be invoked later.", this);
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
       LOG_INFO("SSL(%p) SSL_write error_syscall failed, errno:%d.", this, errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return 0;
       } else if (errno_code == 0) {
         LOG_DEBUG("SSL(%p) SSL_write syscall success.", this);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return 0;
       } else {
         memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -189,6 +284,12 @@ int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
                            MAX_SSL_ERROR_LENGTH);
         snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
         LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Write failed: %s.", this, _errorMsg);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return -(SslWriteFailed);
       }
     } else {
@@ -207,16 +308,39 @@ int SSLconnect::sslWrite(const uint8_t * buffer, size_t len) {
         snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
       }
       LOG_ERROR("SSL(%p) SSL_write failed: %s.", this, _errorMsg);
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return -(SslWriteFailed);
     }
   }
 
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxSSL);
+#else
+  pthread_mutex_unlock(&_mtxSSL);
+#endif
   return wLen;
 }
 
 int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxSSL, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxSSL);
+#endif
+
   if (_ssl == NULL) {
     LOG_ERROR("SSL(%p) ssl has been closed.", this);
+
+    #if defined(_MSC_VER)
+    ReleaseMutex(_mtxSSL);
+    #else
+    pthread_mutex_unlock(&_mtxSSL);
+    #endif
     return -(SslReadFailed);
   }
 
@@ -230,6 +354,12 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
         eCode == SSL_ERROR_WANT_WRITE ||
         eCode == SSL_ERROR_WANT_X509_LOOKUP) {
       LOG_WARN("SSL(%p) Read could not complete. Will be invoked later.", this);
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return 0;
     } else if (eCode == SSL_ERROR_SYSCALL) {
       LOG_INFO("SSL(%p) SSL_read error_syscall failed, errno:%d.", this, errno_code);
@@ -237,9 +367,21 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
         LOG_WARN("SSL(%p) Retry read...", this);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return 0;
       } else if (errno_code == 0) {
         LOG_DEBUG("SSL(%p) SSL_write syscall success.", this);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return 0;
       } else {
         memset(_errorMsg, 0x0, MAX_SSL_ERROR_LENGTH);
@@ -250,6 +392,12 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
                            MAX_SSL_ERROR_LENGTH);
         snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
         LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Read failed:, %s.", this, _errorMsg);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return -(SslReadSysError);
       }
     } else {
@@ -265,16 +413,34 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
             "%s. errno_code:%d eCode:%d. It's mean this connection was closed or shutdown because of bad network, Try again ...",
             sslErrMsg, errno_code, eCode);
         LOG_WARN("SSL(%p) SSL_read failed: %s.", this, _errorMsg);
+
+        #if defined(_MSC_VER)
+        ReleaseMutex(_mtxSSL);
+        #else
+        pthread_mutex_unlock(&_mtxSSL);
+        #endif
         return 0;
       } else {
         snprintf(_errorMsg, MAX_SSL_ERROR_LENGTH, "%s. errno_code:%d eCode:%d.", sslErrMsg, errno_code, eCode);
       }
       LOG_ERROR("SSL(%p) SSL_read failed: %s.", this, _errorMsg);
+
+      #if defined(_MSC_VER)
+      ReleaseMutex(_mtxSSL);
+      #else
+      pthread_mutex_unlock(&_mtxSSL);
+      #endif
       return -(SslReadFailed);
     }
   }
 
   _sslTryAgain = 0;
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxSSL);
+#else
+  pthread_mutex_unlock(&_mtxSSL);
+#endif
   return rLen;
 }
 
@@ -283,13 +449,27 @@ int SSLconnect::sslRead(uint8_t * buffer, size_t len) {
  * @return:
  */
 void SSLconnect::sslClose() {
+#if defined(_MSC_VER)
+  WaitForSingleObject(_mtxSSL, INFINITE);
+#else
+  pthread_mutex_lock(&_mtxSSL);
+#endif
+
   if (_ssl) {
-    LOG_DEBUG("SSL(%p) ssl connect close.", this);
+    LOG_INFO("SSL(%p) ssl connect close.", this);
 
     SSL_shutdown(_ssl);
     SSL_free(_ssl);
     _ssl = NULL;
+  } else {
+    LOG_DEBUG("SSL connect has closed.");
   }
+
+#if defined(_MSC_VER)
+  ReleaseMutex(_mtxSSL);
+#else
+  pthread_mutex_unlock(&_mtxSSL);
+#endif
 }
 
 const char* SSLconnect::getFailedMsg() {

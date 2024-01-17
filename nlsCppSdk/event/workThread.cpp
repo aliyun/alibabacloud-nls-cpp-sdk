@@ -67,6 +67,8 @@ WorkThread::WorkThread() {
     LOG_ERROR("WorkThread(%p) invoke event_base_new failed.", this);
     exit(1);
   }
+  int features = event_base_get_features(_workBase);
+  LOG_DEBUG("WorkThread(%p) create evbase(%p), get features %d", this, _workBase, features);
 
   _dnsBase = evdns_base_new(_workBase, 1);
   if (NULL == _dnsBase) {
@@ -75,6 +77,9 @@ WorkThread::WorkThread() {
   } else {
     // disable mixed cases
     evdns_base_set_option(_dnsBase, "randomize-case", "0");
+
+    // add search domain for nls-gateway.cn-shanghai-internal.aliyuncs.com
+    evdns_base_search_add(_dnsBase, "gds.alibabadns.com");
   }
 
 #if defined(_MSC_VER)
@@ -390,7 +395,7 @@ void WorkThread::connectTimerEventCallback(
         socklen_t client_len = sizeof(client);
         getsockname(socketFd, (struct sockaddr *)&client, &client_len);
         inet_ntop(AF_INET, &client.sin_addr, client_ip, sizeof(client_ip));
-        LOG_DEBUG("Node:%p local %s:%d", node, client_ip, ntohs(client.sin_port));
+        LOG_INFO("Node(%p) local %s:%d", node, client_ip, ntohs(client.sin_port));
         #endif
 
         node->_isConnected = true;
@@ -499,7 +504,7 @@ void WorkThread::connectEventCallback(
         socklen_t client_len = sizeof(client);
         getsockname(socketFd, (struct sockaddr *)&client, &client_len);
         inet_ntop(AF_INET, &client.sin_addr, client_ip, sizeof(client_ip));
-        LOG_DEBUG("Node(%p) local %s:%d.", node, client_ip, ntohs(client.sin_port));
+        LOG_INFO("Node(%p) local %s:%d", node, client_ip, ntohs(client.sin_port));
         #endif
 
         node->_isConnected = true;
@@ -807,7 +812,7 @@ void WorkThread::dnsEventCallback(int errorCode,
       return;
     }
   }
-
+  node->_dnsRequestCallbackStatus = 1;
   node->_inEventCallbackNode = true;
 
   if (errorCode) {
@@ -822,6 +827,7 @@ void WorkThread::dnsEventCallback(int errorCode,
 #else
     SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
 #endif
+    node->_dnsRequestCallbackStatus = 2;
     return;
   }
 
@@ -853,7 +859,8 @@ void WorkThread::dnsEventCallback(int errorCode,
           #else
             SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
           #endif
-            return ;
+            node->_dnsRequestCallbackStatus = 2;
+            return;
           }
         }
 
@@ -888,7 +895,8 @@ void WorkThread::dnsEventCallback(int errorCode,
           #else
             SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
           #endif
-            return ;
+            node->_dnsRequestCallbackStatus = 2;
+            return;
           }
         }
 
@@ -909,7 +917,7 @@ void WorkThread::dnsEventCallback(int errorCode,
 #else
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
 #endif
-
+  node->_dnsRequestCallbackStatus = 2;
   return;
 
 ConnectRetry:
@@ -925,6 +933,7 @@ ConnectRetry:
 #else
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode, node->_inEventCallbackNode);
 #endif
+  node->_dnsRequestCallbackStatus = 2;
   return;
 }
 

@@ -18,6 +18,7 @@
 #define NLS_SDK_TEXT_UTILS_H
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <sstream>
 #include <string.h>
 #include <vector>
@@ -32,6 +33,8 @@ class TextUtils {
                                     short *short_array);
   static std::string GetTime();
   static std::string GetTimestamp();
+  static uint64_t GetTimestampMs();
+  static std::string GetTimeFromMs(uint64_t ms);
   static const char *GetGitCommitInfo();
   static std::string GetVersion();
   static std::string GetProductName();

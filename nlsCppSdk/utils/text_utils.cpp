@@ -105,6 +105,29 @@ std::string TextUtils::GetTimestamp() {
   return timestamp_s;
 }
 
+uint64_t TextUtils::GetTimestampMs() {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
+}
+
+std::string TextUtils::GetTimeFromMs(uint64_t ms) {
+  char buf[64];
+  struct timeval tv;
+  struct tm ltm;
+
+  tv.tv_sec = ms / 1000;
+  uint64_t tv_msec = ms % 1000;
+  time_t tt = tv.tv_sec;
+  struct tm* ptm = localtime(&tt);
+
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02d_%02d:%02d:%02d.%03ld",
+           ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
+           ptm->tm_hour, ptm->tm_min, ptm->tm_sec, tv_msec);
+  std::string s(buf);
+  return s;
+}
+
 #ifndef GIT_SHA1
 #define GIT_SHA1 "unknown" 
 #endif

@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <ctime>
+#include <string.h>
 
 #if defined(__ANDRIOD__)
 #include <android/log.h>
@@ -30,6 +31,7 @@
 #include "log4cpp/RollingFileAppender.hh"
 #endif
 
+#include "event.h"
 #include "nlog.h"
 #include "utility.h"
 
@@ -123,14 +125,15 @@ HANDLE NlsLog::_mtxLog = CreateMutex(NULL, FALSE, NULL);
 pthread_mutex_t NlsLog::_mtxLog = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
-NlsLog* NlsLog::_logInstance = new NlsLog();
+NlsLog* NlsLog::_logInstance = NULL;
 
-NlsLog::NlsLog() {
-  _callback = NULL;
-  _logLevel = 1;
-  _isStdout = true;
-  _isConfig = false;
-}
+NlsLog::NlsLog()
+    : _callback(NULL),
+      _logLevel(1),
+      _isStdout(true),
+      _isConfig(false),
+      _logFileName(""),
+      _logLibeventFileName("") {}
 
 NlsLog::~NlsLog() {
 #if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
@@ -215,13 +218,15 @@ void NlsLog::logConfig(const char* name, int level,
       layout = new log4cpp::PatternLayout();
       layout->setConversionPattern("%d: %p %c%x: %m%n");
 
-      string logFileName = name;
-      logFileName += ".log";
-//      cout << "Nls log name: " << logFileName << " ." << endl;
+      _logFileName = name;
+      _logLibeventFileName = name;
+      _logFileName += ".log";
+      _logLibeventFileName += "_libevent.log";
+
       log4cpp::RollingFileAppender* rollfileAppender;
       rollfileAppender =
           new log4cpp::RollingFileAppender(
-            name, logFileName,
+            name, _logFileName,
             fileSize * LOG_FILE_BASE_SIZE, fileNum);
       rollfileAppender->setLayout(layout);
 
@@ -414,6 +419,22 @@ void NlsLog::logException(const char* function, int line, const char *format, ..
   LOG_PRINT_COMMON("EXCEPTION", str_in.c_str());
 #endif
   LOG_PRINT_CALLBACK(AlibabaNls::LogError, str_in.c_str(), _callback);
+}
+
+void NlsLog::dumpEvents(void* evbase) {
+#ifdef ENABLE_NLS_DEBUG
+  if (!_logLibeventFileName.empty()) {
+    FILE* f = fopen(_logLibeventFileName.c_str(), "a+");
+    if (f) {
+      char log_mesg[256] = {0};
+      snprintf(log_mesg, 256, "Dump events about evbase %p:\n", evbase);
+      fwrite(log_mesg, strnlen(log_mesg, 256), 1, f);
+      struct event_base* base = (struct event_base*)evbase;
+      event_base_dump_events(base, f);
+      fclose(f);
+    }
+  }
+#endif
 }
 
 }  // utility
