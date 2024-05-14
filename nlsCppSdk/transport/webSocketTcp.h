@@ -17,14 +17,22 @@
 #ifndef NLS_SDK_WEBSOCKET_TCP_H
 #define NLS_SDK_WEBSOCKET_TCP_H
 
+#include <stdint.h>
+
 #include <cstring>
 #include <string>
-#include <stdint.h>
 
 namespace AlibabaNls {
 
-#define BUFFER_SIZE 2048  //1024
-#define READ_BUFFER_SIZE 20480
+enum WebSocketConstValue {
+  HttpPort = 80,
+  TypeSize = 10,
+  HostSize = 256,
+  PathSize = 512,
+  TokenSize = 512,
+  BufferSize = 2048,  // 1024
+  ReadBufferSize = 20480,
+};
 
 union StatusCode {
   unsigned short status;
@@ -57,22 +65,19 @@ struct WebSocketHeaderType {
 
 struct WebSocketFrame {
   WebSocketHeaderType::OpCodeType type;
-  uint8_t * data;
+  uint8_t* data;
   size_t length;
   int closeCode;
 };
 
-#define HOST_SIZE 256
-#define TOKEN_SIZE 512
-
 struct urlAddress {
-  char _host[HOST_SIZE];
+  char _host[HostSize];
   int _port;
-  char _type[10];
-  char _path[HOST_SIZE];
-  char _token[TOKEN_SIZE];
+  char _type[TypeSize];
+  char _path[PathSize];
+  char _token[TokenSize];
   bool _isSsl;
-  char _address[HOST_SIZE];
+  char _address[HostSize];
   bool _directIp;
   bool _enableSysGetAddr;
 };
@@ -82,28 +87,30 @@ class WebSocketTcp {
   WebSocketTcp();
   ~WebSocketTcp();
 
-  int requestPackage(urlAddress * url, char* buffer, std::string httpHeader);
-  int responsePackage(const char * content, size_t length);
+  int requestPackage(urlAddress* url, char* buffer, std::string httpHeader);
+  int responsePackage(const char* content, size_t length);
 
-  int framePackage(WebSocketHeaderType::OpCodeType type,
-                   const uint8_t * buffer, size_t length,
-                   uint8_t** frame, size_t * frameSize);
-  int binaryFrame(const uint8_t * buffer, size_t length,
-                  uint8_t** frame, size_t * frameSize);
-  int textFrame(const uint8_t * buffer, size_t length,
-                uint8_t** frame, size_t * frameSize);
+  int framePackage(WebSocketHeaderType::OpCodeType type, const uint8_t* buffer,
+                   size_t length, uint8_t** frame, size_t* frameSize);
+  int binaryFrame(const uint8_t* buffer, size_t length, uint8_t** frame,
+                  size_t* frameSize);
+  int textFrame(const uint8_t* buffer, size_t length, uint8_t** frame,
+                size_t* frameSize);
 
-  int receiveFullWebSocketFrame(uint8_t * frame, size_t frameSize,
+  int receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
                                 WebSocketHeaderType* ws, WebSocketFrame* rData);
-  int decodeHeaderSizeWebSocketFrame(uint8_t * buffer, size_t length,
+  int decodeHeaderSizeWebSocketFrame(uint8_t* buffer, size_t length,
                                      WebSocketHeaderType* wsType);
-  int decodeHeaderBodyWebSocketFrame(uint8_t * buffer, size_t length,
+  int decodeHeaderBodyWebSocketFrame(uint8_t* buffer, size_t length,
                                      WebSocketHeaderType* wsType);
-  int decodeFrameBodyWebSocketFrame(uint8_t * buffer, size_t length,
+  int decodeFrameBodyWebSocketFrame(uint8_t* buffer, size_t length,
                                     WebSocketHeaderType* ws,
                                     WebSocketFrame* receivedData);
 
   const char* getFailedMsg();
+
+  static int parseUrlAddress(struct urlAddress& url, const char* address);
+  static bool urlWithAccess(const char* address);
 
  private:
   size_t _httpCode;
@@ -115,10 +122,9 @@ class WebSocketTcp {
 
   int getTargetLen(std::string line, const char* begin, const char* end);
   const char* getSecWsKey();
-  const char* getRequestForLog(char *buf_in, std::string *buf_out);
+  const char* getRequestForLog(char* buf_in, std::string* buf_out);
 };
 
 }  // namespace AlibabaNls
 
-
-#endif // NLS_SDK_WEBSOCKET_TCP_H
+#endif  // NLS_SDK_WEBSOCKET_TCP_H

@@ -17,9 +17,10 @@
 #ifndef NLS_SDK_EVENT_H
 #define NLS_SDK_EVENT_H
 
+#include <list>
 #include <string>
 #include <vector>
-#include <list>
+
 #include "nlsGlobal.h"
 
 namespace AlibabaNls {
@@ -32,7 +33,6 @@ typedef struct {
 
 class NLS_SDK_CLIENT_EXPORT NlsEvent {
  public:
-
   enum EventType {
     TaskFailed = 0,
     RecognitionStarted,
@@ -50,9 +50,11 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
     Binary,
     MetaInfo,
     DialogResultGenerated,
-    Close = 16,  /*语音功能通道连接关闭*/
+    Close = 16, /*语音功能通道连接关闭*/
     Message
   };
+
+  NlsEvent();
 
   /**
    * @brief NlsEvent构造函数
@@ -67,13 +69,13 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @param type   Event类型
    * @param taskId 任务的task id
    */
-  NlsEvent(const char * msg, int code, EventType type, std::string & taskId);
+  NlsEvent(const char* msg, int code, EventType type, std::string& taskId);
 
   /**
    * @brief NlsEvent构造函数
    * @param msg    Event消息字符串
    */
-  NlsEvent(std::string & msg);
+  explicit NlsEvent(std::string& msg);
 
   /**
    * @brief NlsEvent构造函数
@@ -83,8 +85,8 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @param taskId 任务的task id
    * @return
    */
-  NlsEvent(std::vector<unsigned char> data, int code,
-           EventType type, std::string taskId);
+  NlsEvent(std::vector<unsigned char> data, int code, EventType type,
+           std::string taskId);
 
   /**
    * @brief NlsEvent析构函数
@@ -100,7 +102,8 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
 
   /**
    * @brief 获取状态码
-   * @note 正常情况为0或者20000000，失败时对应失败的错误码。错误码参考SDK文档说明。
+   * @note
+   * 正常情况为0或者20000000，失败时对应失败的错误码。错误码参考SDK文档说明。
    * @return int
    */
   int getStatusCode();
@@ -147,7 +150,7 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
 
   /**
    * @brief 获取sentence超时状态
-   * @note 在实时语音识别SentenceEnd事件回调中使用. 
+   * @note 在实时语音识别SentenceEnd事件回调中使用.
    *       正常返回2000000, 超时返回51040104
    * @result int
    */
@@ -182,6 +185,20 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
   std::vector<unsigned char> getBinaryData();
 
   /**
+   * @brief 获取云端返回的二进制数据内存地址, 数据同getBinaryDataInChar
+   * @note 仅用于语音合成功能
+   * @return unsigned char*
+   */
+  unsigned char* getBinaryDataInChar();
+
+  /**
+   * @brief 获取云端返回的二进制数据字节数
+   * @note 仅用于语音合成功能
+   * @return unsigned int
+   */
+  unsigned int getBinaryDataSize();
+
+  /**
    * @brief 获取当前所发生Event的类型
    * @return EventType
    */
@@ -191,7 +208,7 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @brief 获取当前所发生Event的类型的字符串形式
    * @return std::string
    */
-  std::string getMsgTypeString();
+  std::string getMsgTypeString(int type = -1);
 
   /**
    * @brief 获取用于显示的文本
@@ -209,25 +226,25 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @brief 服务端确认结果
    * @return const bool
    */
-  const bool getWakeWordAccepted();
+  bool getWakeWordAccepted();
 
   /**
    * @brief 获取stashResult的sentence Id
    * @return id
    */
-  const int getStashResultSentenceId();
+  int getStashResultSentenceId();
 
   /**
    * @brief 获取stashResult的beginTime
    * @return 下一句的开始时间
    */
-  const int getStashResultBeginTime();
+  int getStashResultBeginTime();
 
   /**
    * @brief 获取stashResult的CurrentTime
    * @return 当前时间
    */
-  const int getStashResultCurrentTime();
+  int getStashResultCurrentTime();
 
   /**
    * @brief 获取stashResult的text
@@ -238,7 +255,6 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
  private:
   int parseMsgType(std::string name);
 
- private:
   int _statusCode;
   std::string _msg;
   EventType _msgType;
@@ -258,6 +274,8 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
   int _wakeWordGender;
 
   std::vector<unsigned char> _binaryData;
+  unsigned char* _binaryDataInChar;
+  unsigned int _binaryDataSize;
 
   int _stashResultSentenceId;
   int _stashResultBeginTime;
@@ -269,4 +287,4 @@ typedef void (*NlsCallbackMethod)(NlsEvent*, void*);
 
 }  // namespace AlibabaNls
 
-#endif // NLS_SDK_EVENT_H
+#endif  // NLS_SDK_EVENT_H

@@ -18,13 +18,13 @@
 #define NLS_SDK_SPEECH_RECOGNIZER_REQUEST_H
 
 #include "iNlsRequest.h"
+#include "nlsEvent.h"
 
 namespace AlibabaNls {
-//class ConnectNode;
-class SpeechRecognizerParam;
-class INlsRequestListener;
 
-class SpeechRecognizerCallback  {
+class SpeechRecognizerParam;
+
+class SpeechRecognizerCallback {
  public:
   SpeechRecognizerCallback();
   ~SpeechRecognizerCallback();
@@ -32,7 +32,8 @@ class SpeechRecognizerCallback  {
   void setOnTaskFailed(NlsCallbackMethod event, void* param = NULL);
   void setOnRecognitionStarted(NlsCallbackMethod event, void* param = NULL);
   void setOnRecognitionCompleted(NlsCallbackMethod event, void* param = NULL);
-  void setOnRecognitionResultChanged(NlsCallbackMethod event, void* param = NULL);
+  void setOnRecognitionResultChanged(NlsCallbackMethod event,
+                                     void* param = NULL);
   void setOnChannelClosed(NlsCallbackMethod event, void* param = NULL);
   void setOnMessage(NlsCallbackMethod event, void* param = NULL);
 
@@ -47,8 +48,8 @@ class SpeechRecognizerCallback  {
 
 class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
  public:
-  SpeechRecognizerRequest(
-      const char* sdkName = "cpp", bool isLongConnection = false);
+  SpeechRecognizerRequest(const char* sdkName = "cpp",
+                          bool isLongConnection = false);
   virtual ~SpeechRecognizerRequest();
 
   /**
@@ -94,14 +95,14 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
    * @param value 定制模型id字符串
    * @return 成功则返回0，否则返回负值错误码
    */
-  int setCustomizationId(const char * value);
+  int setCustomizationId(const char* value);
 
   /**
    * @brief 设置泛热词
    * @param value 定制泛热词id字符串
    * @return 成功则返回0，否则返回负值错误码
    */
-  int setVocabularyId(const char * value);
+  int setVocabularyId(const char* value);
 
   /**
    * @brief 设置字段enable_intermediate_result设置
@@ -135,15 +136,15 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
   /**
    * @brief 设置字段max_start_silence
    * @param value 允许的最大开始静音, 可选. 单位是毫秒.
-   *              超出设置时间后(即开始识别后多长时间没有检测到声音)服务端将会发送TaskFailed事件, 结束本次识别.
-   *              需要先设置enable_voice_detection为true. 建议时间2~5秒.
+   *              超出设置时间后(即开始识别后多长时间没有检测到声音)服务端将会发送TaskFailed事件,
+   * 结束本次识别. 需要先设置enable_voice_detection为true. 建议时间2~5秒.
    * @return 成功则返回0，否则返回负值错误码
    */
   int setMaxStartSilence(int value);
 
   /**
    * @brief 设置字段max_end_silence
-   * @param value 允许的最大结束静音, 可选, 单位是毫秒. 
+   * @param value 允许的最大结束静音, 可选, 单位是毫秒.
    *              超出时长服务端会发送RecognitionCompleted事件,
    *              结束本次识别(需要注意后续的语音将不会进行识别).
    *              需要先设置enable_voice_detection为true. 建议时间0~5秒.
@@ -153,7 +154,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
 
   /**
    * @brief 设置链接超时时间
-   * @param value 超时时间(ms), 默认5000ms
+   * @param value 超时时间(ms), 默认500ms. 内部会以value(ms)尝试4次链接.
    * @return 成功则返回0，否则返回负值错误码
    */
   int setTimeout(int value);
@@ -265,13 +266,51 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
    * @param type ENCODER_NONE 表示原始音频进行传递,
                               建议每次100ms音频数据,支持16K和8K;
                  ENCODER_OPU 表示以定制OPUS压缩后进行传递,
-                             建议每次大于20ms音频数据(即大于640bytes), 格式要求16K16b1c
-                 ENCODER_OPUS 表示以OPUS压缩后进行传递, 强烈建议使用此类型,
-                              建议每次大于20ms音频数据(即大于640/320bytes), 支持16K16b1c和8K16b1c
-   * @return 成功则返回字节数(可能为0，即留下包音频数据再发送)，失败返回负值，查看nlsGlobal.h中错误码详细定位。
+                             建议每次大于20ms音频数据(即大于640bytes),
+   格式要求16K16b1c ENCODER_OPUS 表示以OPUS压缩后进行传递, 强烈建议使用此类型,
+                              建议每次大于20ms音频数据(即大于640/320bytes),
+   支持16K16b1c和8K16b1c
+   * @return
+   成功则返回字节数(可能为0，即留下包音频数据再发送)，失败返回负值，查看nlsGlobal.h中错误码详细定位。
    */
-  int sendAudio(const uint8_t * data, size_t dataSize,
+  int sendAudio(const uint8_t* data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);
+
+  /**
+   * @brief 获得当前请求的全部运行信息
+   * @note
+   *{
+   *	"block": {
+   *    // 表示调用了stop, 已经运行了10014ms, 阻塞
+   *		"stop": "running",
+   *		"stop_duration_ms": 10014,
+   *		"stop_timestamp": "2024-04-26_15:19:44.783"
+   *	},
+   *	"callback": {
+   *    // 表示回调SentenceBegin阻塞
+   *		"name": "SentenceBegin",
+   *		"start": "2024-04-26_15:15:25.607",
+   *		"status": "running"
+   *	},
+   *	"data": {
+   *		"recording_bytes": 183764,
+   *		"send_count": 288
+   *	},
+   *	"last": {
+   *		"action": "2024-04-26_15:15:30.897",
+   *		"send": "2024-04-26_15:15:30.894",
+   *		"status": "NodeStop"
+   *	},
+   *	"timestamp": {
+   *		"create": "2024-04-26_15:15:24.862",
+   *		"start": "2024-04-26_15:15:24.862",
+   *		"started": "2024-04-26_15:15:25.124",
+   *		"stop": "2024-04-26_15:15:30.897"
+   *	}
+   *}
+   * @return
+   */
+  const char* dumpAllInfo();
 
   /**
    * @brief 设置错误回调函数
@@ -307,7 +346,8 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
    * @param para 用户传入参数, 默认为NULL
    * @return void
    */
-  void setOnRecognitionResultChanged(NlsCallbackMethod event, void* param = NULL);
+  void setOnRecognitionResultChanged(NlsCallbackMethod event,
+                                     void* param = NULL);
 
   /**
    * @brief 设置通道关闭回调函数
@@ -333,6 +373,6 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
   INlsRequestListener* _listener;
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_RECOGNIZER_REQUEST_H
+#endif  // NLS_SDK_SPEECH_RECOGNIZER_REQUEST_H

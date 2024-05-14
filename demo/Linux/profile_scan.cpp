@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include <iostream>
-#include <unistd.h>
 #include "profile_scan.h"
 
-void get_profile_info (const char *exec, PROFILE_INFO *info) {
-  FILE *fd = NULL;
-  char buff[1024];
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <iostream>
+
+void get_profile_info(const char *exec, PROFILE_INFO *info) {
   char cmd_string[1024];
   char exec_tmp_file[64];
   PROFILE_INFO *cur_info = info;
@@ -33,26 +32,23 @@ void get_profile_info (const char *exec, PROFILE_INFO *info) {
   snprintf(cmd_string, 1024, "ps -aux | grep %s > %s", exec, exec_tmp_file);
   int ret = system(cmd_string);
   if (ret >= 0) {
-    fd = fopen(exec_tmp_file, "r");
+    FILE *fd = fopen(exec_tmp_file, "r");
     if (fd) {
+      char buff[1024];
       while (fgets(buff, sizeof(buff), fd) != NULL) {
-
         if (strstr(buff, "--appkey") != NULL) {
           //      std::cout << "get return: " << buff << std::endl;
-          sscanf(buff, "%s %u %f %f",
-              cur_info->usr_name,
-              &cur_info->pid,
-              &cur_info->ave_cpu_percent,
-              &cur_info->ave_mem_percent
-              );
-          //      std::cout << "get cpu:" << cur_info->ave_cpu_percent << "%" << std::endl;
+          sscanf(buff, "%31s %u %f %f", cur_info->usr_name, &cur_info->pid,
+                 &cur_info->ave_cpu_percent, &cur_info->ave_mem_percent);
+          //      std::cout << "get cpu:" << cur_info->ave_cpu_percent << "%" <<
+          //      std::endl;
           break;
         }
         memset(buff, 0, sizeof(buff));
 
-      } // while
+      }  // while
 
-      fclose(fd);  
+      fclose(fd);
     }
   }
   return;

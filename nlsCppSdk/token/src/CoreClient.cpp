@@ -1,12 +1,12 @@
 /*
  * Copyright 2009-2017 Alibaba Cloud All rights reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,44 +14,38 @@
  * limitations under the License.
  */
 
-#include <iostream>
 #include "CoreClient.h"
-#include "json/json.h"
-#include "Signer.h"
+
+#include <iostream>
+
 #include "CurlHttpClient.h"
+#include "Signer.h"
+#include "json/json.h"
 
 namespace AlibabaNlsCommon {
 
-CoreClient::CoreClient(const std::string & servicename,
-    const ClientConfiguration &configuration) : serviceName_(servicename),
-  configuration_(configuration) {
-    httpClient_ = new CurlHttpClient();
-    httpClient_->setProxy(configuration.proxy());
+CoreClient::CoreClient(const std::string &servicename,
+                       const ClientConfiguration &configuration)
+    : serviceName_(servicename), configuration_(configuration) {
+  httpClient_ = new CurlHttpClient();
+  httpClient_->setProxy(configuration.proxy());
 }
 
-CoreClient::~CoreClient() {
-  delete httpClient_;
-}
+CoreClient::~CoreClient() { delete httpClient_; }
 
-ClientConfiguration CoreClient::configuration()const {
-  return configuration_;
-}
+ClientConfiguration CoreClient::configuration() const { return configuration_; }
 
-std::string CoreClient::serviceName()const {
-  return serviceName_;
-}
+std::string CoreClient::serviceName() const { return serviceName_; }
 
 HttpClient::HttpResponseOutcome CoreClient::AttemptRequest(
-    const std::string & endpoint,
-    const ServiceRequest & request,
+    const std::string &endpoint, const ServiceRequest &request,
     HttpRequest::Method method) const {
   HttpRequest r = buildHttpRequest(endpoint, request, method);
   HttpClient::HttpResponseOutcome outcome = httpClient_->makeRequest(r);
 
-  if (!outcome.isSuccess())
-    return outcome;
+  if (!outcome.isSuccess()) return outcome;
 
-  if(hasResponseError(outcome.result()))
+  if (hasResponseError(outcome.result()))
     return HttpClient::HttpResponseOutcome(buildCoreError(outcome.result()));
   else
     return outcome;
@@ -77,4 +71,4 @@ bool CoreClient::hasResponseError(const HttpResponse &response) const {
   return response.statusCode() < 200 || response.statusCode() > 299;
 }
 
-}
+}  // namespace AlibabaNlsCommon

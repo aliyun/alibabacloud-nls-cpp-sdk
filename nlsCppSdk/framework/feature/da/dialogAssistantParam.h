@@ -22,26 +22,25 @@
 namespace AlibabaNls {
 
 class DialogAssistantParam : public INlsRequestParam {
-
  public:
-   DialogAssistantParam(int version, const char* sdkName = "cpp");
-   ~DialogAssistantParam();
+  explicit DialogAssistantParam(int version, const char* sdkName = "cpp");
+  ~DialogAssistantParam();
 
-   virtual const char*  getStartCommand();
-   virtual const char*  getStopCommand();
-   virtual const char*  getExecuteDialog();
-   virtual const char*  getStopWakeWordCommand();
+  virtual const char* getStartCommand();
+  virtual const char* getStopCommand();
+  virtual const char* getExecuteDialog();
+  virtual const char* getStopWakeWordCommand();
 
-   virtual int setQueryParams(const char* value);
-   virtual int setQueryContext(const char* value);
-   virtual int setQuery(const char* value);
+  virtual int setQueryParams(const char* value);
+  virtual int setQueryContext(const char* value);
+  virtual int setQuery(const char* value);
 
-   int setWakeWordModel(const char* value);
-   int setWakeWord(const char* value);
+  int setWakeWordModel(const char* value);
+  int setWakeWord(const char* value);
 
-   void setEnableMultiGroup(bool value);
+  void setEnableMultiGroup(bool value);
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_DIALOG_ASSISTANT_REQUEST_PARAM_H
+#endif  // NLS_SDK_DIALOG_ASSISTANT_REQUEST_PARAM_H

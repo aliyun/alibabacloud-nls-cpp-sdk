@@ -17,7 +17,7 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 
 * 获取访问令牌（Access Token)
 
-* Linux下请安装CMake 3.0及以上, GCC 4.8.5 或以上版本。目前验证且顺利编译运行的GCC版本有: 4.8.5、5.5.0、8.4.0
+* Linux下请安装CMake 3.8及以上, GCC 4.8.5 或以上版本。目前验证且顺利编译运行的GCC版本有: 4.8.5、5.5.0、8.4.0
 
 详细说明请参考:[智能语音交互接入](https://help.aliyun.com/document_detail/72138.html)  
 
@@ -33,13 +33,15 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 
 
 ### Linux平台编译及说明：
-编译指令：  
+编译指令, 推荐开启支持C++11的版本, 即参数\<abi>为1：  
+./scripts/build_linux.sh \<all or incr> \<debug or release> \<abi> \<private>
 > ./scripts/build_linux.sh                  默认增量编译，生成Debug版本  
 > ./scripts/build_linux.sh all debug        全量编译，生成Debug版本  
 > ./scripts/build_linux.sh incr debug       增量编译，生成Debug版本  
 > ./scripts/build_linux.sh all release      全量编译，生成Release版本  
 > ./scripts/build_linux.sh incr release     增量编译，生成Release版本  
 > ./scripts/build_linux.sh all debug 1      全量编译，生成Debug版本，支持C++11
+> ./scripts/build_linux.sh all debug 1 1    全量编译，生成Debug版本，支持C++11，支持私有云VipClient
 
 生成物NlsSdk3.X_LINUX 目录说明:  
 NlsSdk3.X_LINUX  
@@ -81,7 +83,7 @@ NlsSdk3.X_LINUX
 └── version                 版本说明  
 
 注意：
-1. linux环境下，运行环境最低要求：CMake 3.0及以上，Glibc 2.5及以上，GCC4.8.5及以上。   
+1. linux环境下，运行环境最低要求：CMake 3.8及以上，Glibc 2.5及以上，GCC4.8.5及以上。   
 2. linux环境下，编译环境无论是x86_64还是aarch64，编译脚本均为scripts/build_linux.sh。   
 3. linux环境下，高并发运行，注意 系统打开文件数限制，可通过ulimit -a查看当前允许的打开文件数限制。比如预设最大并发数1000，建议将open files限制设置大于1000，ulimit -n 2000。否则会出现connect failed错误。  
 4. 使用alibabacloud-nls-cpp-sdk<版本>-master.zip进行编译时，若出现如下CMake报错：

@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#include <cstdlib>
-#include <string.h>
 #include "speechSynthesizerParam.h"
-#include "nlsRequestParamInfo.h"
+
+#include <string.h>
+
+#include <cstdlib>
+
 #include "nlog.h"
+#include "nlsRequestParamInfo.h"
 
 namespace AlibabaNls {
 
@@ -26,8 +29,8 @@ namespace AlibabaNls {
 #define D_NAMESPACE_SYNTHESIZER "SpeechSynthesizer"
 #define D_NAMESPACE_LONG_SYNTHESIZER "SpeechLongSynthesizer"
 
-SpeechSynthesizerParam::SpeechSynthesizerParam(int version, const char* sdkName) :
-    INlsRequestParam(TypeTts, sdkName) {
+SpeechSynthesizerParam::SpeechSynthesizerParam(int version, const char* sdkName)
+    : INlsRequestParam(TypeTts, sdkName) {
   if (version == 0) {
     _header[D_NAMESPACE] = D_NAMESPACE_SYNTHESIZER;
   } else {
@@ -39,39 +42,33 @@ SpeechSynthesizerParam::~SpeechSynthesizerParam() {}
 
 int SpeechSynthesizerParam::setText(const char* value) {
   if (value == NULL) {
-    LOG_ERROR("text is NULL.");
-    return -1;
+    return -(InvalidInputParam);
   }
-
-  LOG_DEBUG("setText(%dbytes): %s", strlen(value), value);
   _payload[D_SY_TEXT] = value;
-
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerParam::setVoice(const char* value) {
   if (value == NULL) {
-    return -1;
+    return -(InvalidInputParam);
   }
-
   _payload[D_SY_VOICE] = value;
-
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerParam::setVolume(int value) {
   _payload[D_SY_VOLUME] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerParam::setSpeechRate(int value) {
   _payload[D_SY_SPEECH_RATE] = value;
-  return 0;
+  return Success;
 }
 
 int SpeechSynthesizerParam::setPitchRate(int value) {
   _payload[D_SY_PITCH_RATE] = value;
-  return 0;
+  return Success;
 }
 
 void SpeechSynthesizerParam::setEnableSubtitle(bool value) {
@@ -80,7 +77,7 @@ void SpeechSynthesizerParam::setEnableSubtitle(bool value) {
 
 int SpeechSynthesizerParam::setMethod(int value) {
   _payload[D_SY_METHOD] = value;
-  return 0;
+  return Success;
 }
 
 const char* SpeechSynthesizerParam::getStartCommand() {
@@ -88,8 +85,6 @@ const char* SpeechSynthesizerParam::getStartCommand() {
   return INlsRequestParam::getStartCommand();
 }
 
-const char* SpeechSynthesizerParam::getStopCommand() {
-  return "";
-}
+const char* SpeechSynthesizerParam::getStopCommand() { return ""; }
 
-}
+}  // namespace AlibabaNls

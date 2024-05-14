@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-#include <string.h>
 #include "speechTranscriberParam.h"
-#include "nlsRequestParamInfo.h"
-#include "nlsGlobal.h"
+
+#include <string.h>
+
 #include "nlog.h"
+#include "nlsRequestParamInfo.h"
 
 namespace AlibabaNls {
 
-#define D_CMD_START_TRANSCRIPTION "StartTranscription"
+#define D_CMD_START_TRANSCRIPTION   "StartTranscription"
 #define D_CMD_CONTROL_TRANSCRIPTION "ControlTranscriber"
-#define D_CMD_STOP_TRANSCRIPTION "StopTranscription"
-#define D_NAMESPACE_TRANSCRIPTION "SpeechTranscriber"
+#define D_CMD_STOP_TRANSCRIPTION    "StopTranscription"
+#define D_NAMESPACE_TRANSCRIPTION   "SpeechTranscriber"
 
-SpeechTranscriberParam::SpeechTranscriberParam(const char* sdkName) :
-    INlsRequestParam(TypeRealTime, sdkName) {
+SpeechTranscriberParam::SpeechTranscriberParam(const char* sdkName)
+    : INlsRequestParam(TypeRealTime, sdkName) {
   _header[D_NAMESPACE] = D_NAMESPACE_TRANSCRIPTION;
-  _controlHeaderName = "";
+  _controlHeaderName.clear();
 }
 
 SpeechTranscriberParam::~SpeechTranscriberParam() {}
@@ -98,4 +99,4 @@ int SpeechTranscriberParam::setSpeechNoiseThreshold(float value) {
   return Success;
 }
 
-}
+}  // namespace AlibabaNls

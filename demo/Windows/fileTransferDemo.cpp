@@ -21,17 +21,19 @@
 #include <unistd.h>
 #endif
 
+#include <errno.h>
 #include <pthread.h>
-#include <ctime>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <ctime>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
-#include <iostream>
 #include <vector>
-#include <fstream>
-#include <signal.h>
-#include <errno.h>
+
 #include "FileTrans.h"
 /* 若需要启动Log记录, 则需要此头文件 */
 #include "nlsClient.h"
@@ -39,7 +41,9 @@
 std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
-std::string g_fileLinkUrl = "https://gw.alipayobjects.com/os/bmw-prod/0574ee2e-f494-45a5-820f-63aee583045a.wav";
+std::string g_fileLinkUrl =
+    "https://gw.alipayobjects.com/os/bmw-prod/"
+    "0574ee2e-f494-45a5-820f-63aee583045a.wav";
 
 int invalied_argv(int index, int argc) {
   if (index >= argc) {
@@ -82,14 +86,15 @@ int parse_argv(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
   if (parse_argv(argc, argv)) {
     std::cout << "params is not valid.\n"
-      << "Usage:\n"
-      << "  --appkey <appkey>\n"
-      << "  --akId <AccessKey ID>\n"
-      << "  --akSecret <AccessKey Secret>\n"
-      << "  --fileLinkUrl <your file link url>\n"
-      << "eg:\n"
-      << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --fileLinkUrl xxxxxxxxx\n"
-      << std::endl;
+              << "Usage:\n"
+              << "  --appkey <appkey>\n"
+              << "  --akId <AccessKey ID>\n"
+              << "  --akSecret <AccessKey Secret>\n"
+              << "  --fileLinkUrl <your file link url>\n"
+              << "eg:\n"
+              << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
+                 "--fileLinkUrl xxxxxxxxx\n"
+              << std::endl;
     return -1;
   }
 
@@ -101,7 +106,7 @@ int main(int argc, char* argv[]) {
 
   /* 此为启动Log记录, 非必须 */
   AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        "log-filetransfer", AlibabaNls::LogDebug, 100, 10);
+      "log-filetransfer", AlibabaNls::LogDebug, 100, 10);
 
   /**
    * 录音文件识别
@@ -120,9 +125,9 @@ int main(int argc, char* argv[]) {
   /*开始文件识别, 成功返回0, 失败返回-1*/
   int ret = request.applyFileTrans();
   if (ret < 0) {
-    std::cout << "FileTrans failed error code: "
-      << ret << "  error msg: "
-      << request.getErrorMsg() << std::endl; /*获取失败原因*/
+    std::cout << "FileTrans failed error code: " << ret
+              << "  error msg: " << request.getErrorMsg()
+              << std::endl; /*获取失败原因*/
     return -1;
   } else {
     std::string result = request.getResult();

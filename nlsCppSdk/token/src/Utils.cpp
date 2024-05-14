@@ -1,12 +1,12 @@
 /*
  * Copyright 2009-2017 Alibaba Cloud All rights reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,10 +15,11 @@
  */
 
 #include "Utils.h"
+
 #include <curl/curl.h>
 #ifdef _MSC_VER
-#include <Windows.h>
 #include <Rpc.h>
+#include <Windows.h>
 #include <wincrypt.h>
 #else
 #include <openssl/hmac.h>
@@ -33,9 +34,9 @@ std::string GenerateUuid() {
   char *data;
   UUID uuidhandle;
   UuidCreate(&uuidhandle);
-  UuidToString(&uuidhandle, (RPC_CSTR*)&data);
+  UuidToString(&uuidhandle, (RPC_CSTR *)&data);
   std::string uuid(data);
-  RpcStringFree((RPC_CSTR*)&data);
+  RpcStringFree((RPC_CSTR *)&data);
   return uuid;
 #else
   uuid_t uu;
@@ -46,8 +47,8 @@ std::string GenerateUuid() {
 #endif
 }
 
-std::string UrlEncode(const std::string & src) {
-  CURL *curl = curl_easy_init();	
+std::string UrlEncode(const std::string &src) {
+  CURL *curl = curl_easy_init();
   char *output = curl_easy_escape(curl, src.c_str(), src.size());
   std::string result(output);
   curl_free(output);
@@ -55,7 +56,7 @@ std::string UrlEncode(const std::string & src) {
   return result;
 }
 
-std::string UrlDecode(const std::string & src) {
+std::string UrlDecode(const std::string &src) {
   CURL *curl = curl_easy_init();
   int outlength = 0;
   char *output = curl_easy_unescape(curl, src.c_str(), src.size(), &outlength);
@@ -65,7 +66,7 @@ std::string UrlDecode(const std::string & src) {
   return result;
 }
 
-std::string ComputeContentMD5(const char * data, size_t size) {
+std::string ComputeContentMD5(const char *data, size_t size) {
 #ifdef _MSC_VER
   HCRYPTPROV hProv = 0;
   HCRYPTHASH hHash = 0;
@@ -74,7 +75,7 @@ std::string ComputeContentMD5(const char * data, size_t size) {
 
   CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
   CryptCreateHash(hProv, CALG_MD5, 0, 0, &hHash);
-  CryptHashData(hHash, (BYTE*)(data), size, 0);
+  CryptHashData(hHash, (BYTE *)(data), size, 0);
   CryptGetHashParam(hHash, HP_HASHVAL, pbHash, &dwDataLen, 0);
 
   CryptDestroyHash(hHash);
@@ -82,32 +83,32 @@ std::string ComputeContentMD5(const char * data, size_t size) {
 
   DWORD dlen = 0;
   CryptBinaryToString(pbHash, dwDataLen,
-      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dlen);
-  char* dest = new char[dlen];
+                      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dlen);
+  char *dest = new char[dlen];
   CryptBinaryToString(pbHash, dwDataLen,
-      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, dest, &dlen);
+                      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, dest, &dlen);
 
   std::string ret = std::string(dest, dlen);
-  delete dest;
+  delete[] dest;
   return ret;
 #else
   unsigned char md[MD5_DIGEST_LENGTH] = {0};
-  MD5(reinterpret_cast<const unsigned char*>(data), size, (unsigned char*)&md);
+  MD5(reinterpret_cast<const unsigned char *>(data), size,
+      (unsigned char *)&md);
 
   char encodedData[100] = {0};
-  EVP_EncodeBlock(reinterpret_cast<unsigned char*>(encodedData),
-                  md, MD5_DIGEST_LENGTH);
+  EVP_EncodeBlock(reinterpret_cast<unsigned char *>(encodedData), md,
+                  MD5_DIGEST_LENGTH);
   return encodedData;
 #endif
 }
 
-void StringReplace(std::string & src,
-                   const std::string & s1,
-                   const std::string & s2) {
-  std::string::size_type pos =0;
+void StringReplace(std::string &src, const std::string &s1,
+                   const std::string &s2) {
+  std::string::size_type pos = 0;
   while ((pos = src.find(s1, pos)) != std::string::npos) {
     src.replace(pos, s1.length(), s2);
-    pos += s2.length(); 
+    pos += s2.length();
   }
 }
 
@@ -144,4 +145,4 @@ std::string HttpMethodToString(HttpRequest::Method method) {
   }
 }
 
-}
+}  // namespace AlibabaNlsCommon

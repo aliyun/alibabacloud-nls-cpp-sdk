@@ -18,6 +18,7 @@
 #define NLS_SDK_REQUEST_PARAM_H
 
 #include <string>
+
 #include "json/json.h"
 
 namespace AlibabaNls {
@@ -46,21 +47,30 @@ class INlsRequestParam {
   INlsRequestParam(NlsType mode, const char* sdkName);
   virtual ~INlsRequestParam() = 0;
 
-  std::string getRandomUuid();
   Json::Value getSdkInfo();
 
   inline void setPayloadParam(const char* key, Json::Value value) {
-    _payload[key] = value[key];
+    try {
+      if (key == NULL || value.isNull()) {
+        return;
+      }
+      _payload[key] = value[key];
+    } catch (const std::exception& e) {
+      return;
+    }
   };
   inline void setContextParam(const char* key, Json::Value value) {
-    _context[key] = value[key];
+    try {
+      if (key == NULL || value.isNull()) {
+        return;
+      }
+      _context[key] = value[key];
+    } catch (const std::exception& e) {
+      return;
+    }
   };
-  inline void setToken(const char* token) {
-    this->_token = token;
-  };
-  inline void setUrl(const char* url) {
-    this->_url = url;
-  };
+  inline void setToken(const char* token) { this->_token = token; };
+  inline void setUrl(const char* url) { this->_url = url; };
   inline void setNlsRequestType(NlsRequestType requestType) {
     _requestType = requestType;
   };
@@ -69,26 +79,18 @@ class INlsRequestParam {
   void setFormat(const char* format);
   void setSampleRate(int sampleRate);
 
-  inline void setTimeout(int timeout) {
-    _timeout = timeout;
-  };
+  inline void setTimeout(int timeout) { _timeout = timeout; };
   inline void setEnableRecvTimeout(bool enable) {
     _enableRecvTimeout = enable;
   };
-  inline void setRecvTimeout(int timeout) {
-    _recv_timeout = timeout;
-  };
-  inline void setSendTimeout(int timeout) {
-    _send_timeout = timeout;
-  };
+  inline void setRecvTimeout(int timeout) { _recv_timeout = timeout; };
+  inline void setSendTimeout(int timeout) { _send_timeout = timeout; };
 
   inline void setOutputFormat(const char* outputFormat) {
     _outputFormat = outputFormat;
   };
 
-  inline void setEnableOnMessage(bool enable) {
-    _enableOnMessage = enable;
-  };
+  inline void setEnableOnMessage(bool enable) { _enableOnMessage = enable; };
 
   void setIntermediateResult(bool value);
   void setPunctuationPrediction(bool value);
@@ -105,14 +107,14 @@ class INlsRequestParam {
   virtual const char* getExecuteDialog();
   virtual const char* getStopWakeWordCommand();
 
-  virtual int setCustomizationId(const char * value);
-  virtual int setVocabularyId(const char * value);
+  virtual int setCustomizationId(const char* value);
+  virtual int setVocabularyId(const char* value);
 
   virtual std::string getOutputFormat();
-  virtual int getTimeout();
+  virtual time_t getTimeout();
   virtual bool getEnableRecvTimeout();
-  virtual int getRecvTimeout();
-  virtual int getSendTimeout();
+  virtual time_t getRecvTimeout();
+  virtual time_t getSendTimeout();
   virtual bool getEnableOnMessage();
   virtual std::string getTaskId();
 
@@ -125,9 +127,9 @@ class INlsRequestParam {
   bool _enableRecvTimeout;
   bool _enableOnMessage;
 
-  int _timeout;
-  int _recv_timeout;
-  int _send_timeout;
+  time_t _timeout;
+  time_t _recv_timeout;
+  time_t _send_timeout;
 
   int _sampleRate;
   NlsRequestType _requestType;

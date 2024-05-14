@@ -130,3 +130,20 @@
 -----2024/01/06 Version:3.1.17e-----
 1: 增加DNS搜索domain - gds.alibabadns.com, 解决无法找到域名 nls-gateway.cn-shanghai-internal.aliyuncs.com 的问题
 2: 修复录音文件转写中的报错 - FlowControlError: The taskid requests frequency should be greater than 1qps
+
+-----2023/09/07 Version:3.1.18-----
+1: 增加dns缓存机制, 将dns解析的IP地址缓存, 解决每次请求都要dns请求导致的dns负载过高的问题
+2: 增加接口getBinaryDataInChar(), 用于返回char*的语音合成音频数据, 解决UE集成时使用std::vector崩溃的问题
+3: 修复setTimeout()对dns无效的问题。dns默认5s超时。当设置setTimeout(val)时, dns会以val超时尝试运行3次
+4: SSL操作增加锁, 修复SSL_read失败并释放的同时进行SSL_write导致崩溃的问题
+5: 增加收到异常wsFrame未给出有效的TaskFailed的问题, 同时增加相关日志便于进一步判断错误
+6: 增加每次请求关键步骤的记录, 记录信息通过TaskFailed和Closed回调给出
+
+-----2024/04/26 Version:3.1.18c-----
+1: 修复异常操作时偶现addAudioBuffer中空指针崩溃的问题
+2: 修复正在释放WorkThread时getNodeManager崩溃的问题
+3: 修复接收到WebSocketHeaderType::CLOSE时发送TaskFailed的问题
+4: 对Json调用进行了try{}catch(){}包裹保护
+5: 修复当回调阻塞时崩溃的问题
+6: 增加接口dumpAllInfo(), 用于dump所有node状态数据, 方便定位阻塞等问题
+7: 修复动态库未链接系统库导致用户因编译环境不同依赖不同系统库导致无法运行的情况

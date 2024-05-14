@@ -21,7 +21,7 @@
 
 namespace AlibabaNls {
 
-template<typename T>
+template <typename T>
 class HandleBaseOneParamWithReturnVoid {
  public:
   HandleBaseOneParamWithReturnVoid();
@@ -31,16 +31,17 @@ class HandleBaseOneParamWithReturnVoid {
                             NlsEvent::EventType type, std::string taskId);
 };
 
-template<typename T>
+template <typename T>
 HandleBaseOneParamWithReturnVoid<T>::HandleBaseOneParamWithReturnVoid() {}
 
-template<typename T>
+template <typename T>
 HandleBaseOneParamWithReturnVoid<T>::~HandleBaseOneParamWithReturnVoid() {}
 
-template<typename T>
-void HandleBaseOneParamWithReturnVoid<T>::handlerFrame(
-    std::string errorInfo, int errorCode,
-    NlsEvent::EventType type, std::string taskId) {}
+template <typename T>
+void HandleBaseOneParamWithReturnVoid<T>::handlerFrame(std::string errorInfo,
+                                                       int errorCode,
+                                                       NlsEvent::EventType type,
+                                                       std::string taskId) {}
 
 }  // namespace AlibabaNls
 

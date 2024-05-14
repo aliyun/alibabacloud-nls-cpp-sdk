@@ -29,11 +29,11 @@ namespace AlibabaNls {
 /* Node处于的最新运行状态 */
 enum NodeStatus {
   NodeStatusInvalid = 0,
-  NodeStatusCreated,     /* 新建node */
-  NodeStatusInvoking,    /* 刚调用start的过程, 向notifyEventCallback发送c指令 */
-  NodeStatusInvoked,     /* 调用start的过程, 在notifyEventCallback完成 */
-  NodeStatusConnecting,  /* 正在dns解析, 在dnsProcess中设置 */
-  NodeStatusConnected,   /* socket链接成功 */
+  NodeStatusCreated, /* 新建node */
+  NodeStatusInvoking, /* 刚调用start的过程, 向notifyEventCallback发送c指令 */
+  NodeStatusInvoked,    /* 调用start的过程, 在notifyEventCallback完成 */
+  NodeStatusConnecting, /* 正在dns解析, 在dnsProcess中设置 */
+  NodeStatusConnected,  /* socket链接成功 */
   NodeStatusHandshaking, /* ssl握手中 */
   NodeStatusHandshaked,  /* 握手成功 */
   NodeStatusRunning,     /* 运行中 */
@@ -41,7 +41,7 @@ enum NodeStatus {
   NodeStatusClosing,     /* 正在关闭ssl */
   NodeStatusClosed,      /* 已经调用完closed回调 */
   NodeStatusReleasing,
-  NodeStatusReleased,    /* 已销毁node */
+  NodeStatusReleased, /* 已销毁node */
 };
 
 typedef struct {
@@ -68,6 +68,13 @@ class NlsNodeManager {
   std::string getNodeStatusString(int status);
 
  private:
+  enum NodeManagerConstValue {
+    StepSleepMs = 500,
+    DefaultRemoveTimeout = 2000,
+    DefaultMaxUnalignedItemSize = 256,
+    DefaultMaxUnalignedArrayLen = 2048,
+  };
+
 #ifdef _MSC_VER
   HANDLE _mtxNodeManager;
 #else
@@ -79,6 +86,6 @@ class NlsNodeManager {
   int _timeout_ms;
 };
 
-} // namespace AlibabaNls
+}  // namespace AlibabaNls
 
-#endif // NLS_SDK_NODE_MANAGER_H
+#endif  // NLS_SDK_NODE_MANAGER_H

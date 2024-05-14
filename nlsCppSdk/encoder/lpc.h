@@ -22,8 +22,7 @@ last mod: $Id: lpc.h 16037 2009-05-26 21:10:58Z xiphmont $
 
 float vorbis_lpc_from_data(float *data, float *lpci, int n, int m, int stride);
 
-void vorbis_lpc_predict(float *coeff, float *prime, int m,
-                        float *data, int64_t n, int stride);
+void vorbis_lpc_predict(float *coeff, float *prime, int m, float *data,
+                        int64_t n, int stride);
 
 #endif  // ALIBABA_NLS_LPC_H_
-

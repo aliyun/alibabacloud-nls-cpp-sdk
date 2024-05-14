@@ -9,7 +9,8 @@ project(nlsCppSdk3.x VERSION ${SDK_MAIN_VERSION})
 message(STATUS "Project version: ${PROJECT_VERSION}")
 add_definitions(-DSDK_VERSION="\\"${SDK_MAIN_VERSION}${SDK_PATCH_VERSION}\\"")
 
-message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "CMAKE_LIBRARY_ARCHITECTURE: ${CMAKE_LIBRARY_ARCHITECTURE}")
 
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug")
@@ -35,6 +36,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
 elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
   message("This operation platform is Linux")
   set_property(GLOBAL PROPERTY PLATFORM_LINUX ON)
+  add_definitions(-D__LINUX__)
 elseif (CMAKE_SYSTEM_NAME MATCHES "Android")
   message(STATUS "ANDROID_PLATFORM_LEVEL: ${ANDROID_PLATFORM_LEVEL}")
   message("This operation platform is ANDROID.")
@@ -56,14 +58,14 @@ get_property(ENABLE_BUILD_MACOS GLOBAL PROPERTY PLATFORM_MACOS)
 
 message(STATUS "root CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}")
 
+message(STATUS "ENABLE_BUILD_IOS: ${ENABLE_BUILD_IOS}")
+message(STATUS "ENABLE_BUILD_LINUX: ${ENABLE_BUILD_LINUX}")
+message(STATUS "ENABLE_BUILD_ANDROID: ${ENABLE_BUILD_ANDROID}")
+message(STATUS "ENABLE_BUILD_WINDOWS: ${ENABLE_BUILD_WINDOWS}")
+message(STATUS "ENABLE_BUILD_MACOS: ${ENABLE_BUILD_MACOS}")
+
 #nlsSDK配置文件解析, 功能开关
 function(getConfigValue line)
-  #编译动态库
-  if (${line} MATCHES "BuildShared=True")
-    set_property(GLOBAL PROPERTY BUILD_SHARED_LIBS ON)
-    message(STATUS "BuildShared: ON")
-  endif ()
-
   #专有云
   if (${line} MATCHES "BuildVipServer=True")
     set_property(GLOBAL PROPERTY BUILD_PRIVATE_SDK ON)
@@ -150,8 +152,15 @@ endif ()
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -Wl,-Bsymbolic")
 set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} -Wl,-Bsymbolic")
 
+#default is public_cloud sdk. PRIVATE_CLOUD setting from script.
+if (NOT DEFINED PRIVATE_CLOUD)
+  message(STATUS "Use default PRIVATE_CLOUD 0")
+  set(PRIVATE_CLOUD 0)
+endif ()
+
 #default forbidden C++11, -D_GLIBCXX_USE_CXX11_ABI=0
 if (NOT DEFINED CXX11_ABI)
+  message(STATUS "Use default CXX11_ABI 0")
   set(CXX11_ABI 0)
 endif ()
 if (CXX11_ABI)
@@ -162,12 +171,24 @@ if (CXX11_ABI)
 endif ()
 add_definitions(-D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI})
 
-#启用OPUS(OPU模式默认已启动)
+#启用OPUS(OPUS模式默认已启动)
 add_definitions(-DENABLE_OGGOPUS)
 #启用高效模式, 降低CPU占用率
 add_definitions(-DENABLE_HIGH_EFFICIENCY)
 #启动请求过程记录
 add_definitions(-DENABLE_REQUEST_RECORDING)
+#增加DNS IP缓存机制, 以降低DNS资源占用
+add_definitions(-DENABLE_DNS_IP_CACHE)
+
+#添加VipServer相关配置
+message(STATUS "PRIVATE_CLOUD: ${PRIVATE_CLOUD}")
+message(STATUS "ENABLE_BUILD_PRIVATE_SDK: ${ENABLE_BUILD_PRIVATE_SDK}")
+if (PRIVATE_CLOUD AND ENABLE_BUILD_LINUX AND ENABLE_BUILD_PRIVATE_SDK)
+  message(STATUS "Enable Private Cloud.")
+  add_definitions(-DENABLE_VIPSERVER)
+else ()
+  message(STATUS "Only Enable Public Cloud.")
+endif ()
 
 #编译nlsCppSdk依赖的第三方库
 if (ENABLE_BUILD_WINDOWS)

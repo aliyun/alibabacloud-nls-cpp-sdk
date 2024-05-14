@@ -7,6 +7,8 @@ endif ()
 
 #安装目录
 set(CMAKE_INSTALL_TMP_PREFIX ${CMAKE_SOURCE_DIR}/build/install/${SDK_FOLDER}/tmp)
+message(STATUS " CMAKE_LIBRARY_ARCHITECTURE: ${CMAKE_LIBRARY_ARCHITECTURE}")
+message(STATUS " SDK_FOLDER: ${SDK_FOLDER}")
 
 #编译依赖库设置
 ExternalProject_Get_Property(jsoncpp INSTALL_DIR)
@@ -46,6 +48,7 @@ message(STATUS "curl install path: ${curl_install_dir}")
 
 #安装基础依赖库文件, 即搬运静态库到操作目录
 function(installThirdpartySdkFiles)
+
   if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 
     #openssl
@@ -73,6 +76,10 @@ function(installThirdpartySdkFiles)
             ${CMAKE_INSTALL_TMP_PREFIX}
             OPTIONAL)
     install(FILES ${jsoncpp_install_dir}/lib/${CMAKE_LIBRARY_ARCHITECTURE}/libjsoncpp.a
+            DESTINATION
+            ${CMAKE_INSTALL_TMP_PREFIX}
+            OPTIONAL)
+    install(FILES ${jsoncpp_install_dir}/lib/libjsoncpp.a
             DESTINATION
             ${CMAKE_INSTALL_TMP_PREFIX}
             OPTIONAL)
@@ -127,7 +134,12 @@ function(installThirdpartySdkFiles)
     #curl
     install(FILES ${curl_install_dir}/lib/libcurl.a
             DESTINATION
-            ${CMAKE_INSTALL_TMP_PREFIX})
+            ${CMAKE_INSTALL_TMP_PREFIX}
+            OPTIONAL)
+    install(FILES ${curl_install_dir}/lib/libcurl-d.a
+            DESTINATION
+            ${CMAKE_INSTALL_TMP_PREFIX}
+            OPTIONAL)
 
   endif ()
 endfunction()

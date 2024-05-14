@@ -18,6 +18,7 @@
 #define ALIBABANLS_COMMON_TOKEN_H_
 
 #include <string>
+
 #include "nlsGlobal.h"
 
 namespace AlibabaNlsCommon {
@@ -57,49 +58,49 @@ class NLS_SDK_CLIENT_EXPORT NlsToken {
    * @param KeySecret	Secret字符串
    * @return void
    */
-  void setKeySecret(const std::string & KeySecret);
+  void setKeySecret(const std::string& KeySecret);
 
   /**
    * @brief 设置阿里云账号的KeyId
    * @param KeyId	Id字符串
    * @return void
    */
-  void setAccessKeyId(const std::string & accessKeyId);
+  void setAccessKeyId(const std::string& accessKeyId);
 
   /**
    * @brief 设置域名
    * @param domain	域名字符串
    * @return void
    */
-  void setDomain(const std::string & domain);
+  void setDomain(const std::string& domain);
 
   /**
    * @brief 设置API版本
    * @param serverVersion	API版本字符串
    * @return void
    */
-  void setServerVersion(const std::string & serverVersion);
+  void setServerVersion(const std::string& serverVersion);
 
   /**
    * @brief 设置服务路径
    * @param serverResourcePath	服务路径字符串
    * @return void
    */
-  void setServerResourcePath(const std::string & serverResourcePath);
+  void setServerResourcePath(const std::string& serverResourcePath);
 
   /**
    * @brief 设置RegionId
    * @param regionId	服务地区
    * @return void
    */
-  void setRegionId(const std::string & regionId);
+  void setRegionId(const std::string& regionId);
 
   /**
    * @brief 设置功能
    * @param action	功能
    * @return void
    */
-  void setAction(const std::string & action);
+  void setAction(const std::string& action);
 
  private:
   std::string accessKeySecret_;
@@ -119,6 +120,6 @@ class NLS_SDK_CLIENT_EXPORT NlsToken {
   int paramCheck();
 };
 
-}
+}  // namespace AlibabaNlsCommon
 
-#endif //ALIBABANLS_COMMON_TOKEN_H_
+#endif  // ALIBABANLS_COMMON_TOKEN_H_

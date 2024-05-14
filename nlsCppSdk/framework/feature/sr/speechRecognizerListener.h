@@ -25,16 +25,15 @@ class SpeechRecognizerCallback;
 
 class SpeechRecognizerListener : public INlsRequestListener {
  public:
-  SpeechRecognizerListener(SpeechRecognizerCallback* cb);
+  explicit SpeechRecognizerListener(SpeechRecognizerCallback* cb);
   ~SpeechRecognizerListener();
 
   virtual void handlerFrame(NlsEvent);
 
  private:
   SpeechRecognizerCallback* _callback;
-
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H
+#endif  // NLS_SDK_SPEECH_RECOGNIZER_LISTENER_H

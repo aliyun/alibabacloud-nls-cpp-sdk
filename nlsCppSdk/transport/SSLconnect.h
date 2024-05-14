@@ -17,19 +17,15 @@
 #define NLS_SDK_SSL_CONNECT_H
 
 #include <stdint.h>
+
 #include <string>
-#include "openssl/ssl.h"
+
 #include "error.h"
+#include "openssl/ssl.h"
 
 namespace AlibabaNls {
 
-#define MAX_SSL_ERROR_LENGTH 512
-#define MAX_SSL_TRY_AGAIN    3
-
 class SSLconnect {
-
-  static SSL_CTX* _sslCtx;
-
  public:
   SSLconnect();
   ~SSLconnect();
@@ -37,17 +33,23 @@ class SSLconnect {
   static int init();
   static void destroy();
 
-  int sslHandshake(int socketFd, const char* hostname); //hostname暂不使用
-  int sslWrite(const uint8_t * buffer, size_t len);
-  int sslRead(uint8_t * buffer, size_t len);
+  int sslHandshake(int socketFd, const char* hostname);  // hostname暂不使用
+  int sslWrite(const uint8_t* buffer, size_t len);
+  int sslRead(uint8_t* buffer, size_t len);
   void sslClose();
 
   const char* getFailedMsg();
 
  private:
+  enum SSLconnectConstValue {
+    MaxSslTryAgain = 3,
+    MaxSslErrorLength = 512,
+  };
+
+  static SSL_CTX* _sslCtx;
   SSL* _ssl;
   int _sslTryAgain;
-  char _errorMsg[MAX_SSL_ERROR_LENGTH];
+  char _errorMsg[MaxSslErrorLength];
 #if defined(_MSC_VER)
   HANDLE _mtxSSL;
 #else
@@ -55,6 +57,6 @@ class SSLconnect {
 #endif
 };
 
-} // namespace AlibabaNls
+}  // namespace AlibabaNls
 
-#endif // NLS_SDK_SSL_CONNECT_H
+#endif  // NLS_SDK_SSL_CONNECT_H

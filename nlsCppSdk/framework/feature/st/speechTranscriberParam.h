@@ -18,33 +18,33 @@
 #define NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_PARAM_H
 
 #include <string>
+
 #include "iNlsRequestParam.h"
 
 namespace AlibabaNls {
 
 class SpeechTranscriberParam : public INlsRequestParam {
+ public:
+  explicit SpeechTranscriberParam(const char* sdkName = "cpp");
+  ~SpeechTranscriberParam();
 
-public:
-    SpeechTranscriberParam(const char* sdkName = "cpp");
-    ~SpeechTranscriberParam();
+  const char* getStartCommand();
+  const char* getStopCommand();
+  const char* getControlCommand(const char* message);
 
-    const char*  getStartCommand();
-    const char*  getStopCommand();
-    const char*  getControlCommand(const char* message);
+  int setControlHeaderName(const char* name);
+  int setMaxSentenceSilence(int value);
+  int setEnableNlp(bool enable);
+  int setNlpModel(const char* value);
+  int setEnableWords(bool enable);
+  int setEnableIgnoreSentenceTimeout(bool enable);
+  int setDisfluency(bool enable);
+  int setSpeechNoiseThreshold(float value);
 
-    int setControlHeaderName(const char* name);
-    int setMaxSentenceSilence(int value);
-    int setEnableNlp(bool enable);
-    int setNlpModel(const char* value);
-    int setEnableWords(bool enable);
-    int setEnableIgnoreSentenceTimeout(bool enable);
-    int setDisfluency(bool enable);
-    int setSpeechNoiseThreshold(float value);
-
-private:
-    std::string _controlHeaderName;
+ private:
+  std::string _controlHeaderName;
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_PARAM_H
+#endif  // NLS_SDK_SPEECH_TRANSCRIBER_REQUEST_PARAM_H

@@ -31,63 +31,54 @@ set(NLS_DEMO_LIST
 include_directories(${NLS_DEMO_LIST})
 link_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/lib)
 
+set(NLS_DEMO_EXT_FLAG pthread)
 # maybe need for low glibc and gcc
-#set(NLS_DEMO_EXT_FLAG ldap rt)
+#set(NLS_DEMO_EXT_FLAG pthread ldap)
 
 # 一句话识别
 add_executable(srDemo profile_scan.cpp speechRecognizerDemo.cpp)
 target_link_libraries(srDemo
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 add_executable(srMT profile_scan.cpp speechRecognizerMonkeyTest.cpp)
 target_link_libraries(srMT
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 实时识别
 add_executable(stDemo profile_scan.cpp speechTranscriberDemo.cpp)
 target_link_libraries(stDemo
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 add_executable(stMT profile_scan.cpp speechTranscriberMonkeyTest.cpp)
 target_link_libraries(stMT
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 转写
 add_executable(syDemo profile_scan.cpp speechSynthesizerDemo.cpp)
 target_link_libraries(syDemo
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 add_executable(syMT speechSynthesizerMonkeyTest.cpp)
 target_link_libraries(syMT
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 对话助手
 add_executable(daDemo dialogAssistantDemo.cpp)
 target_link_libraries(daDemo
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 录音文件识别
 add_executable(ftDemo fileTransferDemo.cpp)
 target_link_libraries(ftDemo
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # Token生成
 add_executable(gtDemo generateTokenDemo.cpp)
 target_link_libraries(gtDemo
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # log4cpp单元测试
 add_executable(logUnitTest log4cppUnitTest.cpp)
 target_link_libraries(logUnitTest
-    alibabacloud-idst-speech
-    pthread z dl anl ${NLS_DEMO_EXT_FLAG})
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 

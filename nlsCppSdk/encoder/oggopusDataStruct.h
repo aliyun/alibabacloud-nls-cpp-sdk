@@ -21,17 +21,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "opus/opus_types.h"
-#include "opus/opus_multistream.h"
 #include "ogg/ogg.h"
 #include "oggopusHeader.h"
+#include "opus/opus_multistream.h"
+#include "opus/opus_types.h"
 
 namespace AlibabaNls {
 
-typedef size_t(*EncodedDataCallback)(const unsigned char *encoded_data,
-                                     int len, void *user_data);
-typedef int64_t(*ReadFunc)(void *src, float *buffer, int samples,
-                           char **buffers, int *lenth);
+typedef size_t (*EncodedDataCallback)(const unsigned char *encoded_data,
+                                      int len, void *user_data);
+typedef int64_t (*ReadFunc)(void *src, float *buffer, int samples,
+                            char **buffers, int *lenth);
 
 struct WavInfo {
   uint16_t channels;
@@ -40,8 +40,13 @@ struct WavInfo {
   int16_t bigendian;
   int16_t unsigned8bit;
   int *channel_permute;
-  WavInfo() : channels(0), sample_bits(0), samplesread(0), bigendian(0),
-  unsigned8bit(0), channel_permute(NULL) {}
+  WavInfo()
+      : channels(0),
+        sample_bits(0),
+        samplesread(0),
+        bigendian(0),
+        unsigned8bit(0),
+        channel_permute(NULL) {}
 };
 
 struct Padder {
@@ -52,8 +57,14 @@ struct Padder {
   int lpc_ptr;
   int *extra_samples;
   float *lpc_out;
-  Padder() : read_func(NULL), read_info(NULL), original_sample_number(NULL),
-  channels(0), lpc_ptr(0), extra_samples(NULL), lpc_out(NULL) {}
+  Padder()
+      : read_func(NULL),
+        read_info(NULL),
+        original_sample_number(NULL),
+        channels(0),
+        lpc_ptr(0),
+        extra_samples(NULL),
+        lpc_out(NULL) {}
 };
 
 struct OggEncodeOpt {
@@ -72,29 +83,41 @@ struct OggEncodeOpt {
   int comments_length;
   int copy_comments;
   int copy_pictures;
-  OggEncodeOpt() : read_func(NULL), callback_data_func(NULL), comments(NULL),
-  user_data(NULL), read_info(NULL), total_samples_per_channel(0), channels(0),
-  sample_bits(0), endianness(0), ignorelength(0), skip(0), extraout(0),
-  comments_length(0), copy_comments(0), copy_pictures(0) {}
+  OggEncodeOpt()
+      : read_func(NULL),
+        callback_data_func(NULL),
+        comments(NULL),
+        user_data(NULL),
+        read_info(NULL),
+        total_samples_per_channel(0),
+        channels(0),
+        sample_bits(0),
+        endianness(0),
+        ignorelength(0),
+        skip(0),
+        extraout(0),
+        comments_length(0),
+        copy_comments(0),
+        copy_pictures(0) {}
 };
 
 struct AudioFunctions {
-  void(*open_func)(OggEncodeOpt *opt);
-  void(*close_func)(void *);
+  void (*open_func)(OggEncodeOpt *opt);
+  void (*close_func)(void *);
 };
 
-#define readint(buf, base) (((buf[base+3]<<24)&0xff000000)| \
-                            ((buf[base+2]<<16)&0xff0000)| \
-                            ((buf[base+1]<<8)&0xff00)| \
-                            (buf[base]&0xff))
+#define readint(buf, base)                                                     \
+  (((buf[base + 3] << 24) & 0xff000000) | ((buf[base + 2] << 16) & 0xff0000) | \
+   ((buf[base + 1] << 8) & 0xff00) | (buf[base] & 0xff))
 
-#define writeint(buf, base, val) do { buf[base+3]=((val)>>24)&0xff; \
-  buf[base+2]=((val)>>16)&0xff; \
-  buf[base+1]=((val)>>8)&0xff; \
-  buf[base]=(val)&0xff; \
-} while (0)
+#define writeint(buf, base, val)          \
+  do {                                    \
+    buf[base + 3] = ((val) >> 24) & 0xff; \
+    buf[base + 2] = ((val) >> 16) & 0xff; \
+    buf[base + 1] = ((val) >> 8) & 0xff;  \
+    buf[base] = (val)&0xff;               \
+  } while (0)
 
-} // namespace AlibabaNls
+}  // namespace AlibabaNls
 
 #endif  // ALIBABA_NLS_OGGOPUS_DATASTRUCT_H_
-

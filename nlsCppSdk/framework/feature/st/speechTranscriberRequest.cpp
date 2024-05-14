@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include "nlsGlobal.h"
-#include "nlog.h"
-#include "utility.h"
+#include "speechTranscriberRequest.h"
+
 #include "connectNode.h"
 #include "iNlsRequestListener.h"
-#include "speechTranscriberRequest.h"
-#include "speechTranscriberParam.h"
+#include "nlog.h"
 #include "speechTranscriberListener.h"
+#include "speechTranscriberParam.h"
+#include "utility.h"
 
 namespace AlibabaNls {
 
@@ -53,9 +53,9 @@ SpeechTranscriberCallback::~SpeechTranscriberCallback() {
   _paramap.clear();
 }
 
-void SpeechTranscriberCallback::setOnTaskFailed(
-    NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnTaskFailed callback");
+void SpeechTranscriberCallback::setOnTaskFailed(NlsCallbackMethod _event,
+                                                void* para) {
+  // LOG_DEBUG("setOnTaskFailed callback");
   this->_onTaskFailed = _event;
   if (this->_paramap.find(NlsEvent::TaskFailed) != _paramap.end()) {
     _paramap[NlsEvent::TaskFailed] = para;
@@ -66,7 +66,7 @@ void SpeechTranscriberCallback::setOnTaskFailed(
 
 void SpeechTranscriberCallback::setOnTranscriptionStarted(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnTranscriptionStarted callback");
+  // LOG_DEBUG("setOnTranscriptionStarted callback");
   this->_onTranscriptionStarted = _event;
   if (this->_paramap.find(NlsEvent::TranscriptionStarted) != _paramap.end()) {
     _paramap[NlsEvent::TranscriptionStarted] = para;
@@ -75,9 +75,9 @@ void SpeechTranscriberCallback::setOnTranscriptionStarted(
   }
 }
 
-void SpeechTranscriberCallback::setOnSentenceBegin(
-    NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnSentenceBegin callback");
+void SpeechTranscriberCallback::setOnSentenceBegin(NlsCallbackMethod _event,
+                                                   void* para) {
+  // LOG_DEBUG("setOnSentenceBegin callback");
   this->_onSentenceBegin = _event;
   if (this->_paramap.find(NlsEvent::SentenceBegin) != _paramap.end()) {
     _paramap[NlsEvent::SentenceBegin] = para;
@@ -88,18 +88,19 @@ void SpeechTranscriberCallback::setOnSentenceBegin(
 
 void SpeechTranscriberCallback::setOnTranscriptionResultChanged(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnTranscriptionResultChanged callback");
+  // LOG_DEBUG("setOnTranscriptionResultChanged callback");
   this->_onTranscriptionResultChanged = _event;
-  if (this->_paramap.find(NlsEvent::TranscriptionResultChanged) != _paramap.end()) {
+  if (this->_paramap.find(NlsEvent::TranscriptionResultChanged) !=
+      _paramap.end()) {
     _paramap[NlsEvent::TranscriptionResultChanged] = para;
   } else {
     _paramap.insert(std::make_pair(NlsEvent::TranscriptionResultChanged, para));
   }
 }
 
-void SpeechTranscriberCallback::setOnSentenceEnd(
-    NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnSentenceEnd callback");
+void SpeechTranscriberCallback::setOnSentenceEnd(NlsCallbackMethod _event,
+                                                 void* para) {
+  // LOG_DEBUG("setOnSentenceEnd callback");
   this->_onSentenceEnd = _event;
   if (this->_paramap.find(NlsEvent::SentenceEnd) != _paramap.end()) {
     _paramap[NlsEvent::SentenceEnd] = para;
@@ -108,9 +109,9 @@ void SpeechTranscriberCallback::setOnSentenceEnd(
   }
 }
 
-void SpeechTranscriberCallback::setOnSentenceSemantics(
-    NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnSentenceSemantics callback");
+void SpeechTranscriberCallback::setOnSentenceSemantics(NlsCallbackMethod _event,
+                                                       void* para) {
+  // LOG_DEBUG("setOnSentenceSemantics callback");
   this->_onSentenceSemantics = _event;
   if (this->_paramap.find(NlsEvent::SentenceSemantics) != _paramap.end()) {
     _paramap[NlsEvent::SentenceSemantics] = para;
@@ -119,8 +120,8 @@ void SpeechTranscriberCallback::setOnSentenceSemantics(
   }
 }
 
-void SpeechTranscriberCallback::setOnMessage(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberCallback::setOnMessage(NlsCallbackMethod _event,
+                                             void* para) {
   this->_onMessage = _event;
   if (this->_paramap.find(NlsEvent::Message) != _paramap.end()) {
     _paramap[NlsEvent::Message] = para;
@@ -131,7 +132,7 @@ void SpeechTranscriberCallback::setOnMessage(
 
 void SpeechTranscriberCallback::setOnTranscriptionCompleted(
     NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnTranscriptionCompleted callback");
+  // LOG_DEBUG("setOnTranscriptionCompleted callback");
   this->_onTranscriptionCompleted = _event;
   if (this->_paramap.find(NlsEvent::TranscriptionCompleted) != _paramap.end()) {
     _paramap[NlsEvent::TranscriptionCompleted] = para;
@@ -140,9 +141,9 @@ void SpeechTranscriberCallback::setOnTranscriptionCompleted(
   }
 }
 
-void SpeechTranscriberCallback::setOnChannelClosed(
-    NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnChannelClosed callback");
+void SpeechTranscriberCallback::setOnChannelClosed(NlsCallbackMethod _event,
+                                                   void* para) {
+  // LOG_DEBUG("setOnChannelClosed callback");
   this->_onChannelClosed = _event;
   if (this->_paramap.find(NlsEvent::Close) != _paramap.end()) {
     _paramap[NlsEvent::Close] = para;
@@ -151,21 +152,22 @@ void SpeechTranscriberCallback::setOnChannelClosed(
   }
 }
 
-SpeechTranscriberRequest::SpeechTranscriberRequest(
-    const char* sdkName, bool isLongConnection) {
+SpeechTranscriberRequest::SpeechTranscriberRequest(const char* sdkName,
+                                                   bool isLongConnection) {
   _callback = new SpeechTranscriberCallback();
 
-  //init request param
+  // init request param
   _transcriberParam = new SpeechTranscriberParam(sdkName);
   _requestParam = _transcriberParam;
 
-  //init listener
+  // init listener
   _listener = new SpeechTranscriberListener(_callback);
 
-  //init connect node
+  // init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_INFO("Request(%p) Node(%p) create SpeechTranscriberRequest Done.", this, _node);
+  LOG_INFO("Request(%p) Node(%p) create SpeechTranscriberRequest Done.", this,
+           _node);
 }
 
 SpeechTranscriberRequest::~SpeechTranscriberRequest() {
@@ -184,9 +186,7 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
   LOG_INFO("Request(%p) destroy SpeechTranscriberRequest Done.", this);
 }
 
-int SpeechTranscriberRequest::start() {
-  return INlsRequest::start(this);
-}
+int SpeechTranscriberRequest::start() { return INlsRequest::start(this); }
 
 int SpeechTranscriberRequest::control(const char* message, const char* name) {
   if (name && _transcriberParam) {
@@ -195,17 +195,17 @@ int SpeechTranscriberRequest::control(const char* message, const char* name) {
   return INlsRequest::stControl(this, message);
 }
 
-int SpeechTranscriberRequest::stop() {
-  return INlsRequest::stop(this);
-}
+int SpeechTranscriberRequest::stop() { return INlsRequest::stop(this); }
 
-int SpeechTranscriberRequest::cancel() {
-  return INlsRequest::cancel(this);
-}
+int SpeechTranscriberRequest::cancel() { return INlsRequest::cancel(this); }
 
-int SpeechTranscriberRequest::sendAudio(
-    const uint8_t * data, size_t dataSize, ENCODER_TYPE type) {
+int SpeechTranscriberRequest::sendAudio(const uint8_t* data, size_t dataSize,
+                                        ENCODER_TYPE type) {
   return INlsRequest::sendAudio(this, data, dataSize, type);
+}
+
+const char* SpeechTranscriberRequest::dumpAllInfo() {
+  return INlsRequest::dumpAllInfo(this);
 }
 
 int SpeechTranscriberRequest::setPayloadParam(const char* value) {
@@ -213,7 +213,7 @@ int SpeechTranscriberRequest::setPayloadParam(const char* value) {
   return _transcriberParam->setPayloadParam(value);
 }
 
-int SpeechTranscriberRequest::setContextParam(const char *value) {
+int SpeechTranscriberRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setContextParam(value);
 }
@@ -262,8 +262,8 @@ int SpeechTranscriberRequest::setInverseTextNormalization(bool value) {
   return Success;
 }
 
-int SpeechTranscriberRequest::AppendHttpHeaderParam(
-    const char* key, const char* value) {
+int SpeechTranscriberRequest::AppendHttpHeaderParam(const char* key,
+                                                    const char* value) {
   return _transcriberParam->AppendHttpHeader(key, value);
 }
 
@@ -276,12 +276,12 @@ int SpeechTranscriberRequest::setMaxSentenceSilence(int value) {
   return _transcriberParam->setMaxSentenceSilence(value);
 }
 
-int SpeechTranscriberRequest::setCustomizationId(const char * value) {
+int SpeechTranscriberRequest::setCustomizationId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setCustomizationId(value);
 }
 
-int SpeechTranscriberRequest::setVocabularyId(const char * value) {
+int SpeechTranscriberRequest::setVocabularyId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _transcriberParam->setVocabularyId(value);
 }
@@ -355,8 +355,8 @@ int SpeechTranscriberRequest::setSpeechNoiseThreshold(float value) {
   return _transcriberParam->setSpeechNoiseThreshold(value);
 }
 
-void SpeechTranscriberRequest::setOnTaskFailed(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberRequest::setOnTaskFailed(NlsCallbackMethod _event,
+                                               void* para) {
   _callback->setOnTaskFailed(_event, para);
 }
 
@@ -365,8 +365,8 @@ void SpeechTranscriberRequest::setOnTranscriptionStarted(
   _callback->setOnTranscriptionStarted(_event, para);
 }
 
-void SpeechTranscriberRequest::setOnSentenceBegin(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberRequest::setOnSentenceBegin(NlsCallbackMethod _event,
+                                                  void* para) {
   _callback->setOnSentenceBegin(_event, para);
 }
 
@@ -375,8 +375,8 @@ void SpeechTranscriberRequest::setOnTranscriptionResultChanged(
   _callback->setOnTranscriptionResultChanged(_event, para);
 }
 
-void SpeechTranscriberRequest::setOnSentenceEnd(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberRequest::setOnSentenceEnd(NlsCallbackMethod _event,
+                                                void* para) {
   _callback->setOnSentenceEnd(_event, para);
 }
 
@@ -385,19 +385,19 @@ void SpeechTranscriberRequest::setOnTranscriptionCompleted(
   _callback->setOnTranscriptionCompleted(_event, para);
 }
 
-void SpeechTranscriberRequest::setOnChannelClosed(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberRequest::setOnChannelClosed(NlsCallbackMethod _event,
+                                                  void* para) {
   _callback->setOnChannelClosed(_event, para);
 }
 
-void SpeechTranscriberRequest::setOnSentenceSemantics(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberRequest::setOnSentenceSemantics(NlsCallbackMethod _event,
+                                                      void* para) {
   _callback->setOnSentenceSemantics(_event, para);
 }
 
-void SpeechTranscriberRequest::setOnMessage(
-    NlsCallbackMethod _event, void* para) {
+void SpeechTranscriberRequest::setOnMessage(NlsCallbackMethod _event,
+                                            void* para) {
   _callback->setOnMessage(_event, para);
 }
 
-}
+}  // namespace AlibabaNls

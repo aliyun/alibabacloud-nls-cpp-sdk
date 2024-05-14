@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-#include <sys/time.h>
+#include <errno.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <ctime>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#include <ctime>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
-#include <iostream>
 #include <vector>
-#include <fstream>
-#include <signal.h>
-#include <errno.h>
+
 #include "nlsToken.h"
 /* 若需要启动Log记录, 则需要此头文件 */
 #include "nlsClient.h"
@@ -83,16 +85,16 @@ int parse_argv(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
   if (parse_argv(argc, argv)) {
     std::cout << "params is not valid.\n"
-      << "Usage:\n"
-      << "  --akId <AccessKey ID>\n"
-      << "  --akSecret <AccessKey Secret>\n"
-      << "  --domain <url>\n"
-      << "      mcos:  mcos.cn-shanghai.aliyuncs.com\n"
-      << "  --apiVersion <API VERSION>\n"
-      << "      mcos:  2022-08-11\n"
-      << "eg:\n"
-      << "  ./gtDemo --akId xxxxxx --akSecret xxxxxx --domain xxxxx\n"
-      << std::endl;
+              << "Usage:\n"
+              << "  --akId <AccessKey ID>\n"
+              << "  --akSecret <AccessKey Secret>\n"
+              << "  --domain <url>\n"
+              << "      mcos:  mcos.cn-shanghai.aliyuncs.com\n"
+              << "  --apiVersion <API VERSION>\n"
+              << "      mcos:  2022-08-11\n"
+              << "eg:\n"
+              << "  ./gtDemo --akId xxxxxx --akSecret xxxxxx --domain xxxxx\n"
+              << std::endl;
     return -1;
   }
 
@@ -130,9 +132,9 @@ int main(int argc, char* argv[]) {
   /*获取token, 成功返回0, 失败返回负值*/
   int ret = request.applyNlsToken();
   if (ret < 0) {
-    std::cout << "generate token failed error code: "
-      << ret << "  error msg: "
-      << request.getErrorMsg() << std::endl; /*获取失败原因*/
+    std::cout << "generate token failed error code: " << ret
+              << "  error msg: " << request.getErrorMsg()
+              << std::endl; /*获取失败原因*/
     return -1;
   } else {
     std::string token = request.getToken();

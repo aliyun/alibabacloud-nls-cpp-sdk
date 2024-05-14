@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#include "iNlsRequestListener.h"
 #include "speechRecognizerRequest.h"
-#include "speechRecognizerParam.h"
-#include "speechRecognizerListener.h"
+
 #include "connectNode.h"
+#include "iNlsRequestListener.h"
 #include "nlog.h"
+#include "speechRecognizerListener.h"
+#include "speechRecognizerParam.h"
 #include "utility.h"
 
 namespace AlibabaNls {
@@ -48,8 +49,8 @@ SpeechRecognizerCallback::~SpeechRecognizerCallback() {
   _paramap.clear();
 }
 
-void SpeechRecognizerCallback::setOnTaskFailed(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerCallback::setOnTaskFailed(NlsCallbackMethod event,
+                                               void* param) {
   this->_onTaskFailed = event;
   if (this->_paramap.find(NlsEvent::TaskFailed) != _paramap.end()) {
     _paramap[NlsEvent::TaskFailed] = param;
@@ -58,8 +59,8 @@ void SpeechRecognizerCallback::setOnTaskFailed(
   }
 }
 
-void SpeechRecognizerCallback::setOnRecognitionStarted(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerCallback::setOnRecognitionStarted(NlsCallbackMethod event,
+                                                       void* param) {
   this->_onRecognitionStarted = event;
   if (this->_paramap.find(NlsEvent::RecognitionStarted) != _paramap.end()) {
     _paramap[NlsEvent::RecognitionStarted] = param;
@@ -68,8 +69,8 @@ void SpeechRecognizerCallback::setOnRecognitionStarted(
   }
 }
 
-void SpeechRecognizerCallback::setOnMessage(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerCallback::setOnMessage(NlsCallbackMethod event,
+                                            void* param) {
   this->_onMessage = event;
   if (this->_paramap.find(NlsEvent::Message) != _paramap.end()) {
     _paramap[NlsEvent::Message] = param;
@@ -91,15 +92,16 @@ void SpeechRecognizerCallback::setOnRecognitionCompleted(
 void SpeechRecognizerCallback::setOnRecognitionResultChanged(
     NlsCallbackMethod event, void* param) {
   this->_onRecognitionResultChanged = event;
-  if (this->_paramap.find(NlsEvent::RecognitionResultChanged) != _paramap.end()) {
+  if (this->_paramap.find(NlsEvent::RecognitionResultChanged) !=
+      _paramap.end()) {
     _paramap[NlsEvent::RecognitionResultChanged] = param;
   } else {
     _paramap.insert(std::make_pair(NlsEvent::RecognitionResultChanged, param));
   }
 }
 
-void SpeechRecognizerCallback::setOnChannelClosed(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerCallback::setOnChannelClosed(NlsCallbackMethod event,
+                                                  void* param) {
   this->_onChannelClosed = event;
   if (this->_paramap.find(NlsEvent::Close) != _paramap.end()) {
     _paramap[NlsEvent::Close] = param;
@@ -108,21 +110,22 @@ void SpeechRecognizerCallback::setOnChannelClosed(
   }
 }
 
-SpeechRecognizerRequest::SpeechRecognizerRequest(
-    const char* sdkName, bool isLongConnection) {
+SpeechRecognizerRequest::SpeechRecognizerRequest(const char* sdkName,
+                                                 bool isLongConnection) {
   _callback = new SpeechRecognizerCallback();
 
-  //init request param
+  // init request param
   _recognizerParam = new SpeechRecognizerParam(sdkName);
   _requestParam = _recognizerParam;
 
-  //init listener
+  // init listener
   _listener = new SpeechRecognizerListener(_callback);
 
-  //init connect node
+  // init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_INFO("Request(%p) Node(%p) create SpeechRecognizerRequest Done.", this, _node);
+  LOG_INFO("Request(%p) Node(%p) create SpeechRecognizerRequest Done.", this,
+           _node);
 }
 
 SpeechRecognizerRequest::~SpeechRecognizerRequest() {
@@ -141,21 +144,19 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
   LOG_INFO("Request(%p) destroy SpeechRecognizerRequest Done.", this);
 }
 
-int SpeechRecognizerRequest::start() {
-  return INlsRequest::start(this);
-}
+int SpeechRecognizerRequest::start() { return INlsRequest::start(this); }
 
-int SpeechRecognizerRequest::stop() {
-  return INlsRequest::stop(this);
-}
+int SpeechRecognizerRequest::stop() { return INlsRequest::stop(this); }
 
-int SpeechRecognizerRequest::cancel() {
-  return INlsRequest::cancel(this);
-}
+int SpeechRecognizerRequest::cancel() { return INlsRequest::cancel(this); }
 
-int SpeechRecognizerRequest::sendAudio(
-    const uint8_t * data, size_t dataSize, ENCODER_TYPE type) {
+int SpeechRecognizerRequest::sendAudio(const uint8_t* data, size_t dataSize,
+                                       ENCODER_TYPE type) {
   return INlsRequest::sendAudio(this, data, dataSize, type);
+}
+
+const char* SpeechRecognizerRequest::dumpAllInfo() {
+  return INlsRequest::dumpAllInfo(this);
 }
 
 int SpeechRecognizerRequest::setPayloadParam(const char* value) {
@@ -163,7 +164,7 @@ int SpeechRecognizerRequest::setPayloadParam(const char* value) {
   return _recognizerParam->setPayloadParam(value);
 }
 
-int SpeechRecognizerRequest::setContextParam(const char *value) {
+int SpeechRecognizerRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _recognizerParam->setContextParam(value);
 }
@@ -227,17 +228,17 @@ int SpeechRecognizerRequest::setMaxEndSilence(int value) {
   return Success;
 }
 
-int SpeechRecognizerRequest::AppendHttpHeaderParam(
-    const char* key, const char* value) {
+int SpeechRecognizerRequest::AppendHttpHeaderParam(const char* key,
+                                                   const char* value) {
   return _recognizerParam->AppendHttpHeader(key, value);
 }
 
-int SpeechRecognizerRequest::setCustomizationId(const char * value) {
+int SpeechRecognizerRequest::setCustomizationId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _recognizerParam->setCustomizationId(value);
 }
 
-int SpeechRecognizerRequest::setVocabularyId(const char * value) {
+int SpeechRecognizerRequest::setVocabularyId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _recognizerParam->setVocabularyId(value);
 }
@@ -288,18 +289,18 @@ int SpeechRecognizerRequest::setAudioAddress(const char* value) {
 }
 
 /* set callback of SpeechRecognizerRequest */
-void SpeechRecognizerRequest::setOnTaskFailed(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerRequest::setOnTaskFailed(NlsCallbackMethod event,
+                                              void* param) {
   _callback->setOnTaskFailed(event, param);
 }
 
-void SpeechRecognizerRequest::setOnRecognitionStarted(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerRequest::setOnRecognitionStarted(NlsCallbackMethod event,
+                                                      void* param) {
   _callback->setOnRecognitionStarted(event, param);
 }
 
-void SpeechRecognizerRequest::setOnRecognitionCompleted(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerRequest::setOnRecognitionCompleted(NlsCallbackMethod event,
+                                                        void* param) {
   _callback->setOnRecognitionCompleted(event, param);
 }
 
@@ -308,14 +309,14 @@ void SpeechRecognizerRequest::setOnRecognitionResultChanged(
   _callback->setOnRecognitionResultChanged(event, param);
 }
 
-void SpeechRecognizerRequest::setOnChannelClosed(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerRequest::setOnChannelClosed(NlsCallbackMethod event,
+                                                 void* param) {
   _callback->setOnChannelClosed(event, param);
 }
 
-void SpeechRecognizerRequest::setOnMessage(
-    NlsCallbackMethod event, void* param) {
+void SpeechRecognizerRequest::setOnMessage(NlsCallbackMethod event,
+                                           void* param) {
   _callback->setOnMessage(event, param);
 }
 
-}
+}  // namespace AlibabaNls

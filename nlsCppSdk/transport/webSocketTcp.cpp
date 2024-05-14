@@ -17,38 +17,35 @@
 #if defined(_MSC_VER)
 #include <winsock2.h>
 #else
-#include <netdb.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <stdio.h>
 #endif
 
+#include <stdlib.h>
+
 #include <fstream>
 #include <sstream>
-#include <stdlib.h>
-#include "webSocketTcp.h"
-#include "nlsGlobal.h"
-#include "utility.h"
+
 #include "nlog.h"
+#include "nlsGlobal.h"
+#include "text_utils.h"
+#include "utility.h"
+#include "webSocketTcp.h"
 
 namespace AlibabaNls {
 
-#define HTTP_PORT 80
 #define HTTP_STATUS_CODE "HTTP/1.1 "
 #define HTTP_STATUS_CODE_END " "
 #define HTTP_HEADER_END_STRING "\r\n\r\n"
-#define HTTP_CHUNK_END_STRING "\r\n0\r\n\r\n"
 #define HTTP_CONTENT_LENGTH "Content-Length: "
 #define HTTP_CONTENT_LENGTH_END "\r\n"
-#define HTTP_ "Transfer-Encoding: chunked\r\n"
 #define SEC_WS_VER "13"
 
 //#define OPU_DEBUG
 
-WebSocketTcp::WebSocketTcp() {
-  _httpCode = 0;
-  _httpLength = 0;
-  _rStatus = WsHeadSize;
-
+WebSocketTcp::WebSocketTcp()
+    : _httpCode(0), _httpLength(0), _rStatus(WsHeadSize) {
   LOG_DEBUG("Create WebSocketTcp:%p.", this);
 }
 
@@ -56,11 +53,55 @@ WebSocketTcp::~WebSocketTcp() {
   LOG_DEBUG("WS(%p) Destroy WebSocketTcp done.", this);
 }
 
-int WebSocketTcp::requestPackage(
-    urlAddress * url, char* buffer, std::string httpHeader) {
+int WebSocketTcp::parseUrlAddress(struct urlAddress& url, const char* address) {
+  if (sscanf(address, "%10[^:/]://%256[^:/]:%d/%255s", url._type, url._host,
+             &url._port, url._path) == 4) {
+    if (strcmp(url._type, "wss") == 0 || strcmp(url._type, "https") == 0) {
+      url._isSsl = true;
+    }
+  } else if (sscanf(address, "%10[^:/]://%256[^:/]/%255s", url._type, url._host,
+                    url._path) == 3) {
+    if (strcmp(url._type, "wss") == 0 || strcmp(url._type, "https") == 0) {
+      url._port = 443;
+      url._isSsl = true;
+    } else {
+      url._port = 80;
+    }
+  } else if (sscanf(address, "%10[^:/]://%256[^:/]:%d", url._type, url._host,
+                    &url._port) == 3) {
+    url._path[0] = '\0';
+  } else if (sscanf(address, "%10[^:/]://%256[^:/]", url._type, url._host) ==
+             2) {
+    if (strcmp(url._type, "wss") == 0 || strcmp(url._type, "https") == 0) {
+      url._port = 443;
+      url._isSsl = true;
+    } else {
+      url._port = 80;
+    }
+    url._path[0] = '\0';
+  } else {
+    return -(ParseUrlFailed);
+  }
+  return Success;
+}
+
+bool WebSocketTcp::urlWithAccess(const char* address) {
+  struct urlAddress url;
+  if (WebSocketTcp::parseUrlAddress(url, address) == Success) {
+    for (int i = 0; i < strnlen(url._path, PathSize); i++) {
+      if (url._path[i] == '?') {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+int WebSocketTcp::requestPackage(urlAddress* url, char* buffer,
+                                 std::string httpHeader) {
   char hostBuff[256] = {0};
 
-  if (url->_port == HTTP_PORT) {
+  if (url->_port == HttpPort) {
     _ssnprintf(hostBuff, 256, "Host: %s\r\n", url->_host);
   } else {
     _ssnprintf(hostBuff, 256, "Host: %s:%d\r\n", url->_host, url->_port);
@@ -68,30 +109,21 @@ int WebSocketTcp::requestPackage(
 
   int contentSize = 0;
   if (httpHeader.empty()) {
-    contentSize = _ssnprintf(buffer, BUFFER_SIZE,
-        "GET /%s HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s: %s\r\n%s",
-        url->_path,
-        hostBuff,
-        "Upgrade: websocket\r\n",
-        "Connection: Upgrade\r\n",
-        getSecWsKey(), "\r\n",
-        "Sec-WebSocket-Version: ", SEC_WS_VER, "\r\n",
-        "X-NLS-Token",
-        url->_token,
-        "\r\n");
+    contentSize = _ssnprintf(
+        buffer, BufferSize, "GET /%s HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s: %s\r\n%s",
+        url->_path, hostBuff, "Upgrade: websocket\r\n",
+        "Connection: Upgrade\r\n", getSecWsKey(), HTTP_CONTENT_LENGTH_END,
+        "Sec-WebSocket-Version: ", SEC_WS_VER, HTTP_CONTENT_LENGTH_END,
+        "X-NLS-Token", url->_token, HTTP_CONTENT_LENGTH_END);
   } else {
-    contentSize = _ssnprintf(buffer, BUFFER_SIZE,
-        "GET /%s HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s: %s\r\n%s%s",
-        url->_path,
-        hostBuff,
-        "Upgrade: websocket\r\n",
-        "Connection: Upgrade\r\n",
-        getSecWsKey(), "\r\n",
-        "Sec-WebSocket-Version: ", SEC_WS_VER, "\r\n",
-        "X-NLS-Token",
-        url->_token,
-        httpHeader.c_str(),
-        "\r\n");
+    contentSize = _ssnprintf(
+        buffer, BufferSize,
+        "GET /%s HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s: %s\r\n%s%s", url->_path,
+        hostBuff, "Upgrade: websocket\r\n", "Connection: Upgrade\r\n",
+        getSecWsKey(), HTTP_CONTENT_LENGTH_END,
+        "Sec-WebSocket-Version: ", SEC_WS_VER, HTTP_CONTENT_LENGTH_END,
+        "X-NLS-Token", url->_token, httpHeader.c_str(),
+        HTTP_CONTENT_LENGTH_END);
   }
 
   if (contentSize <= 0) {
@@ -99,8 +131,13 @@ int WebSocketTcp::requestPackage(
     return -(WsRequestPackageEmpty);
   }
 
-  std::string buf_str;
-  LOG_DEBUG("WS(%p) Http Request:\n%s", this, getRequestForLog(buffer, &buf_str));
+  std::string key_buf_str;
+  std::string token_buf_str;
+  key_buf_str = utility::TextUtils::securityDisposalForLog(
+      buffer, &key_buf_str, "Sec-WebSocket-Key:", 8, 'X');
+  token_buf_str = utility::TextUtils::securityDisposalForLog(
+      (char*)key_buf_str.c_str(), &token_buf_str, "X-NLS-Token:", 8, 'Y');
+  LOG_DEBUG("WS(%p) Http Request:\n%s", this, token_buf_str.c_str());
 
   return contentSize;
 }
@@ -124,29 +161,26 @@ int WebSocketTcp::requestPackage(
  * sec-websocket-accept: HSmrc0sMlYUkAGmm5OPpG2HaGWk=
  */
 
-int WebSocketTcp::getTargetLen(
-    std::string line, const char* begin, const char* end) {
+int WebSocketTcp::getTargetLen(std::string line, const char* begin,
+                               const char* end) {
   size_t seek = line.find(begin);
 
   size_t position = line.find(end, seek + strlen(begin));
   if (position == std::string::npos) {
     return 0;
   }
-  LOG_DEBUG("WS(%p) Position: %d %d %s",
-      this, position, strlen(begin), line.c_str()+position);
+  LOG_DEBUG("WS(%p) Position: %d %d %s", this, position, strlen(begin),
+            line.c_str() + position);
 
-  std::string tmpCode(line.substr(seek + strlen(begin), position - strlen(begin)));
+  std::string tmpCode(
+      line.substr(seek + strlen(begin), position - strlen(begin)));
 
   return atoi(tmpCode.c_str());
 }
 
-const char* WebSocketTcp::getFailedMsg() {
-  return _errorMsg.c_str();
-}
+const char* WebSocketTcp::getFailedMsg() { return _errorMsg.c_str(); }
 
 const char* WebSocketTcp::getSecWsKey() {
-  // Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==
-
   char buffer[128] = {0};
   char tmp[64] = {0};
   char key_array[10] = {'x', 'D', 'H', '3', 'L', 'M', 'J', '1', 'b', 'J'};
@@ -161,47 +195,14 @@ const char* WebSocketTcp::getSecWsKey() {
     tmp[i] = key_array[i * 7 % 10];
   }
 
-  _ssnprintf(buffer, 128,
-        "%s-%s-%s: %s%s%s",
-        name1, name2, name3,
-        tmp, key1, key2
-        );
+  _ssnprintf(buffer, 128, "%s-%s-%s: %s%s%s", name1, name2, name3, tmp, key1,
+             key2);
   _secWsKey = buffer;
 
   return _secWsKey.c_str();
 }
 
-const char* WebSocketTcp::getRequestForLog(char *buf_in, std::string *buf_str) {
-  char buf_out[BUFFER_SIZE] = {0};
-  std::string tmp_str(buf_in);
-  std::string find_key = "Sec-WebSocket-Key:";
-  std::string find_token = "X-NLS-Token:";
-  int step = 8;
-  int pos1 = 0;
-  int pos2 = tmp_str.find(find_key);
-  int pos3 = tmp_str.find(find_token);
-  strncpy(buf_out, buf_in, BUFFER_SIZE - 1);
-
-  if (pos2 >= 0) {
-    for (pos1 = pos2 + find_key.length() + step;
-         pos1 < pos2 + find_key.length() + step + step;
-         pos1++) {
-      buf_out[pos1] = 'X';
-    }
-  }
-  if (pos3 >= 0) {
-    for (pos1 = pos3 + find_token.length() + step;
-         pos1 < pos3 + find_token.length() + step + step;
-         pos1++) {
-      buf_out[pos1] = 'Y';
-    }
-  }
-
-  *buf_str = buf_out;
-  return buf_str->c_str();
-}
-
-int WebSocketTcp::responsePackage(const char * content, size_t length) {
+int WebSocketTcp::responsePackage(const char* content, size_t length) {
   LOG_DEBUG("WS(%p) Http response:%s", this, content);
 
   if (!strstr(content, HTTP_HEADER_END_STRING)) {
@@ -210,7 +211,7 @@ int WebSocketTcp::responsePackage(const char * content, size_t length) {
 
   std::string tmpLine = content;
   if (_httpCode == 0) {
-    _httpCode = getTargetLen(tmpLine, "HTTP/1.1 ", " ");
+    _httpCode = getTargetLen(tmpLine, HTTP_STATUS_CODE, HTTP_STATUS_CODE_END);
     if (_httpCode == 0) {
       LOG_ERROR("WS(%p) Got bad status connecting to %s", this, content);
       return -(HttpGotBadStatus);
@@ -221,7 +222,8 @@ int WebSocketTcp::responsePackage(const char * content, size_t length) {
     return 0;
   } else {
     if (_httpLength == 0) {
-      _httpLength = getTargetLen(tmpLine, "Content-Length: ", "\r\n");
+      _httpLength =
+          getTargetLen(tmpLine, HTTP_CONTENT_LENGTH, HTTP_CONTENT_LENGTH_END);
     }
 
     size_t endLen = strlen(HTTP_HEADER_END_STRING);
@@ -235,7 +237,8 @@ int WebSocketTcp::responsePackage(const char * content, size_t length) {
         if (_httpLength == (length - (position + endLen))) {
           const char* errMsg = (content + position + endLen);
           _errorMsg = errMsg;
-          LOG_ERROR("WS(%p) Position: %d %s", this, (int)(length - (position + endLen)), errMsg);
+          LOG_ERROR("WS(%p) Position: %d %s", this,
+                    (int)(length - (position + endLen)), errMsg);
           return -(WsResponsePackageFailed);
         }
       }
@@ -245,17 +248,14 @@ int WebSocketTcp::responsePackage(const char * content, size_t length) {
   return -(WsResponsePackageFailed);
 }
 
-int WebSocketTcp::receiveFullWebSocketFrame(
-    uint8_t* frame,
-    size_t frameSize,
-    WebSocketHeaderType* wsType,
-    WebSocketFrame* resultDate) {
-
+int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
+                                            WebSocketHeaderType* wsType,
+                                            WebSocketFrame* resultDate) {
   int retCode = Success;
-  //LOG_DEBUG("begin receiveFullWebSocketFrame.");
-  switch(_rStatus) {
+  // LOG_DEBUG("begin receiveFullWebSocketFrame.");
+  switch (_rStatus) {
     case WsHeadSize:
-      //LOG_DEBUG("WsHeadSize.");
+      // LOG_DEBUG("WsHeadSize.");
       retCode = decodeHeaderSizeWebSocketFrame(frame, frameSize, wsType);
       if (retCode < 0) {
         LOG_ERROR("WS(%p) Parse WsHeadSize Failed, retCode:%d.", this, retCode);
@@ -263,7 +263,7 @@ int WebSocketTcp::receiveFullWebSocketFrame(
       }
       _rStatus = WsHeadBody;
     case WsHeadBody:
-      //LOG_DEBUG("WsHeadBody.");
+      // LOG_DEBUG("WsHeadBody.");
       retCode = decodeHeaderBodyWebSocketFrame(frame, frameSize, wsType);
       if (retCode < 0) {
         LOG_ERROR("WS(%p) Parse WsHeadBody Failed, retCode:%d.", this, retCode);
@@ -271,10 +271,12 @@ int WebSocketTcp::receiveFullWebSocketFrame(
       }
       _rStatus = WsContentBody;
     case WsContentBody:
-      //LOG_DEBUG("WsContentBody.");
-      retCode = decodeFrameBodyWebSocketFrame(frame, frameSize, wsType, resultDate);
+      // LOG_DEBUG("WsContentBody.");
+      retCode =
+          decodeFrameBodyWebSocketFrame(frame, frameSize, wsType, resultDate);
       if (retCode < 0) {
-        //LOG_ERROR("WS(%p) Parse WsContentBody Failed, retCode:%d.", this, retCode);
+        // LOG_ERROR("WS(%p) Parse WsContentBody Failed, retCode:%d.", this,
+        // retCode);
         return retCode;
       }
       _rStatus = WsHeadSize;
@@ -284,7 +286,7 @@ int WebSocketTcp::receiveFullWebSocketFrame(
       break;
   }
 
-  //LOG_DEBUG("receiveFullWebSocketFrame done.");
+  // LOG_DEBUG("receiveFullWebSocketFrame done.");
   return Success;
 }
 
@@ -292,21 +294,22 @@ int WebSocketTcp::receiveFullWebSocketFrame(
  * @brief: 从Websocket帧中解析出HeaderSize
  * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
-int WebSocketTcp::decodeHeaderSizeWebSocketFrame(
-    uint8_t * buffer, size_t length, WebSocketHeaderType* wsType) {
+int WebSocketTcp::decodeHeaderSizeWebSocketFrame(uint8_t* buffer, size_t length,
+                                                 WebSocketHeaderType* wsType) {
   if (length < 2) {
     return -(InvalidWsFrameHeaderSize); /* Need at least 2 */
   }
 
-  const uint8_t *data = buffer; // peek, but don't consume
+  const uint8_t* data = buffer;  // peek, but don't consume
   wsType->fin = (data[0] & 0x80) == 0x80;
-  wsType->opCode = (WebSocketHeaderType::OpCodeType) (data[0] & 0x0f);
+  wsType->opCode = (WebSocketHeaderType::OpCodeType)(data[0] & 0x0f);
   wsType->mask = (data[1] & 0x80) == 0x80;
   wsType->N0 = (data[1] & 0x7f);
-  wsType->headerSize = 2 + (wsType->N0 == 126 ? 2 : 0) + (wsType->N0 == 127 ? 8 : 0) + (wsType->mask ? 4 : 0);
+  wsType->headerSize = 2 + (wsType->N0 == 126 ? 2 : 0) +
+                       (wsType->N0 == 127 ? 8 : 0) + (wsType->mask ? 4 : 0);
 
-//  LOG_DEBUG("wsType->headerSize: %d, opCode: %d, fin: %d",
-//      wsType->headerSize, wsType->opCode, wsType->fin);
+  //  LOG_DEBUG("wsType->headerSize: %d, opCode: %d, fin: %d",
+  //      wsType->headerSize, wsType->opCode, wsType->fin);
 
   return Success;
 }
@@ -315,8 +318,8 @@ int WebSocketTcp::decodeHeaderSizeWebSocketFrame(
  * @brief: 从Websocket帧中解析出HeaderBody
  * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
-int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
-    uint8_t* buffer, size_t length, WebSocketHeaderType* wsType) {
+int WebSocketTcp::decodeHeaderBodyWebSocketFrame(uint8_t* buffer, size_t length,
+                                                 WebSocketHeaderType* wsType) {
   if (wsType->headerSize >= length) {
     return -(InvalidWsFrameHeaderBody);
   }
@@ -351,7 +354,7 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
     wsType->masKingKey[3] = 0;
   }
 
-  //LOG_DEBUG("wsType->N: %d", wsType->N);
+  // LOG_DEBUG("wsType->N: %d", wsType->N);
   return Success;
 }
 
@@ -359,16 +362,15 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(
  * @brief: 从Websocket帧中解析出FrameBody
  * @return: 成功则返回收到的字节数, 失败则返回负值.
  */
-int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
-    size_t length,
-    WebSocketHeaderType* wsType,
-    WebSocketFrame* receivedData) {
+int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t* buffer, size_t length,
+                                                WebSocketHeaderType* wsType,
+                                                WebSocketFrame* receivedData) {
   if ((wsType->N + wsType->headerSize) > length) {
-    //LOG_ERROR("Size: %d %u %zu", wsType->N, wsType->headerSize, length);
+    // LOG_ERROR("Size: %d %u %zu", wsType->N, wsType->headerSize, length);
     return -(InvalidWsFrameBody);
   }
 
-  //LOG_DEBUG("Size: %d %d %d", wsType->N, wsType->headerSize, length);
+  // LOG_DEBUG("Size: %d %d %d", wsType->N, wsType->headerSize, length);
 
   if (wsType->opCode == WebSocketHeaderType::TEXT_FRAME ||
       wsType->opCode == WebSocketHeaderType::BINARY_FRAME ||
@@ -407,36 +409,32 @@ int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t * buffer,
   };
 
   LOG_DEBUG("WS(%p) Decoder received data opCode:%d dataType:%d dataLength:%d.",
-      this, wsType->opCode, receivedData->type, receivedData->length);
+            this, wsType->opCode, receivedData->type, receivedData->length);
   return Success;
 }
 
-int WebSocketTcp::binaryFrame(const uint8_t * buffer,
-                              size_t length,
-                              uint8_t** frame,
-                              size_t * frameSize) {
-  return framePackage(WebSocketHeaderType::BINARY_FRAME,
-                      buffer, length, frame, frameSize);
+int WebSocketTcp::binaryFrame(const uint8_t* buffer, size_t length,
+                              uint8_t** frame, size_t* frameSize) {
+  return framePackage(WebSocketHeaderType::BINARY_FRAME, buffer, length, frame,
+                      frameSize);
 }
 
-int WebSocketTcp::textFrame(const uint8_t * buffer,
-                            size_t length,
-                            uint8_t** frame,
-                            size_t * frameSize) {
-  return framePackage(WebSocketHeaderType::TEXT_FRAME,
-                      buffer, length, frame, frameSize);
+int WebSocketTcp::textFrame(const uint8_t* buffer, size_t length,
+                            uint8_t** frame, size_t* frameSize) {
+  return framePackage(WebSocketHeaderType::TEXT_FRAME, buffer, length, frame,
+                      frameSize);
 }
 
 int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
-                               const uint8_t * buffer,
-                               size_t length,
-                               uint8_t ** frame,
-                               size_t * frameSize) {
+                               const uint8_t* buffer, size_t length,
+                               uint8_t** frame, size_t* frameSize) {
   bool useMask = true;
-  const uint8_t masKingKey[4] = { 0x12, 0x34, 0x56, 0x78 };
-  const int headlen = 2 + (length >= 126 ? 2 : 0) + (length >= 65536 ? 6 : 0) + (useMask ? 4 : 0);
+  const uint8_t masKingKey[4] = {0x12, 0x34, 0x56, 0x78};
+  const int headlen = 2 + (length >= 126 ? 2 : 0) + (length >= 65536 ? 6 : 0) +
+                      (useMask ? 4 : 0);
 
-  uint8_t* header = (uint8_t*)calloc(headlen, sizeof(uint8_t));//new uint8_t[headlen];
+  uint8_t* header =
+      (uint8_t*)calloc(headlen, sizeof(uint8_t));  // new uint8_t[headlen];
   if (header == NULL) {
     LOG_ERROR("WS(%p) calloc header failed.", this);
     return -(MallocFailed);
@@ -462,7 +460,7 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
       header[6] = masKingKey[2];
       header[7] = masKingKey[3];
     }
-  } else { // TODO: run coverage testing here
+  } else {  // TODO: run coverage testing here
     header[1] = 127 | (useMask ? 0x80 : 0);
     header[2] = ((uint64_t)length >> 56) & 0xff;
     header[3] = ((uint64_t)length >> 48) & 0xff;
@@ -480,18 +478,22 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
     }
   }
 
-  // N.B. - tmpBuffer will keep growing until it can be transmitted over the socket:
-  // uint8_t * tmpBuffer = new uint8_t[headlen + length];
+  // N.B. - tmpBuffer will keep growing until it can be transmitted over the
+  // socket: uint8_t * tmpBuffer = new uint8_t[headlen + length];
   // memset(tmpBuffer, 0, sizeof(uint8_t) * (headlen + length));
   // memcpy(tmpBuffer, header, headlen);
   // memcpy(tmpBuffer + headlen, (uint8_t*)buffer, length);
 
   *frameSize = (headlen + length);
-  *frame = (uint8_t *)calloc(*frameSize, sizeof(uint8_t));
-  memset(*frame, 0, *frameSize);
+  *frame = (uint8_t*)calloc(*frameSize, sizeof(uint8_t));
+  if (*frame == NULL) {
+    LOG_ERROR("WS(%p) calloc frame failed.", this);
+    free(header);
+    return -(MallocFailed);
+  }
   memcpy(*frame, header, headlen);
   memcpy(*frame + headlen, (uint8_t*)buffer, length);
- 
+
 #ifdef OPU_DEBUG
   std::ofstream ofs;
   ofs.open("./out.opus", std::ios::out | std::ios::app | std::ios::binary);
@@ -502,7 +504,7 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   }
 #endif
 
-  //LOG_DEBUG("framePackage Receive Data: %d ", *frameSize);
+  // LOG_DEBUG("framePackage Receive Data: %d ", *frameSize);
 
   if (useMask) {
     for (size_t i = 0; i != length; ++i) {
@@ -516,4 +518,4 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
   return Success;
 }
 
-}
+}  // namespace AlibabaNls

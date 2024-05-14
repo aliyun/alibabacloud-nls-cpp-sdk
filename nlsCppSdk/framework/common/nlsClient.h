@@ -22,46 +22,28 @@
 #else
 #include <pthread.h>
 #endif
+#include <string>
+
 #include "nlsGlobal.h"
 
 namespace AlibabaNls {
 
-class INlsRequest;
-class SpeechRecognizerCallback;
+class NlsClientImpl;
 class SpeechRecognizerRequest;
-class SpeechRecognizerSyncRequest;
-class SpeechTranscriberCallback;
 class SpeechTranscriberRequest;
-class SpeechTranscriberSyncRequest;
-class SpeechSynthesizerCallback;
 class SpeechSynthesizerRequest;
-class DialogAssistantCallback;
 class DialogAssistantRequest;
-class NlsEventNetWork;
 
-enum LogLevel {
-  LogError = 1,
-  LogWarning,
-  LogInfo,
-  LogDebug
-};
+enum LogLevel { LogError = 1, LogWarning, LogInfo, LogDebug };
 
-enum TtsVersion {
-  ShortTts = 0,
-  LongTts
-};
+enum TtsVersion { ShortTts = 0, LongTts };
 
-enum DaVersion {
-  DaV1 = 0,
-  DaV2
-};
+enum DaVersion { DaV1 = 0, DaV2 };
 
-typedef void (*LogCallbackMethod)(const char *, int, const char *);
+typedef void (*LogCallbackMethod)(const char*, int, const char*);
 
 class NLS_SDK_CLIENT_EXPORT NlsClient {
-
  public:
-
   /**
    * @brief 设置日志文件与存储路径
    * @param logOutputFile 日志文件，绝对路径或者相对路径均可
@@ -70,7 +52,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
                           若填写"/home/XXX/NlsCppSdk/log-transcriber"，
                           则会在/home/XXX/NlsCppSdk/下生成log-transcriber.log
    * @param logLevel  日志级别，默认1
-   *                   （LogError : 1, LogWarning : 2, LogInfo : 3, LogDebug : 4）
+   *                   （LogError : 1, LogWarning : 2, LogInfo : 3, LogDebug :
+   4）
    * @param logFileSize 日志文件的大小，以MB为单位，默认为10MB；
    *                    如果日志文件内容的大小超过这个值，
    *                    SDK会自动备份当前的日志文件，超过后会循环覆盖已有文件
@@ -121,8 +104,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return 成功则SpeechSynthesizerRequest对象，否则返回NULL
    */
   SpeechSynthesizerRequest* createSynthesizerRequest(
-      TtsVersion version = ShortTts,
-      const char* sdkName = "cpp",
+      TtsVersion version = ShortTts, const char* sdkName = "cpp",
       bool isLongConnection = false);
 
   /**
@@ -139,8 +121,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return 成功则DialogAssistantRequest对象，否则返回NULL
    */
   DialogAssistantRequest* createDialogAssistantRequest(
-      DaVersion version = DaV1,
-      const char* sdkName = "cpp",
+      DaVersion version = DaV1, const char* sdkName = "cpp",
       bool isLongConnection = false);
 
   /**
@@ -167,7 +148,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   void setAddrInFamily(const char* aiFamily = "AF_INET");
 
   /**
-   * @brief 跳过dns域名解析直接设置服务器ipv4地址，若调用则需要在startWorkThread之前
+   * @brief
+   * 跳过dns域名解析直接设置服务器ipv4地址，若调用则需要在startWorkThread之前
    * @param ipv4的ip地址 比如106.15.83.44
    * @return
    */
@@ -225,35 +207,32 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    */
   static void releaseInstance();
 
+#if defined(__linux__)
   /**
-   * @brief 获得当前实例NlsClient的请求管理
-   * @return 当前实例NlsClient的请求管理指针
+   * @brief 获取ip
+   * @param vipServerDomainList 地址服务器列表, port可以是80. eg:
+   * "123.123.123.123:80,124.124.124.124:81"
+   * @param targetDomain	服务域, 比如default.gateway.vipserver
+   * @param url         	语音服务目标url
+   * @return 成功返回0, 失败返回-1
    */
-  void* getNodeManger();
+  static int vipServerListGetUrl(const std::string& vipServerDomainList,
+                                 const std::string& targetDomain,
+                                 std::string& url);
+#endif
 
  private:
+  enum NlsClientConstValue {
+    VipServerPort = 80,
+  };
+
   NlsClient();
   ~NlsClient();
 
-  void releaseRequest(INlsRequest*);
-
-#ifdef _MSC_VER
-  static HANDLE _mtx;
-#else
-  static pthread_mutex_t _mtx;
-#endif
-  static bool _isInitializeSSL;
-  static bool _isInitializeThread;
   static NlsClient* _instance;
-  static char _aiFamily[16];
-  static char _directHostIp[64];
-  static bool _enableSysGetAddr;
-  static unsigned int _syncCallTimeoutMs;
-
-  void* _nodeManager;
-
-}; // class NLS_SDK_CLIENT_EXPORT NlsClient
+  NlsClientImpl* _impl;
+};  // class NLS_SDK_CLIENT_EXPORT NlsClient
 
 }  // namespace AlibabaNls
 
-#endif // NLS_SDK_CLIENT_H
+#endif  // NLS_SDK_CLIENT_H

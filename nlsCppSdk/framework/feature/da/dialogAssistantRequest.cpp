@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#include "iNlsRequestListener.h"
 #include "dialogAssistantRequest.h"
-#include "dialogAssistantParam.h"
-#include "dialogAssistantListener.h"
+
 #include "connectNode.h"
+#include "dialogAssistantListener.h"
+#include "dialogAssistantParam.h"
+#include "iNlsRequestListener.h"
 #include "nlog.h"
 #include "utility.h"
 
@@ -48,9 +49,9 @@ DialogAssistantCallback::~DialogAssistantCallback() {
   _paramap.clear();
 }
 
-void DialogAssistantCallback::setOnTaskFailed(
-    NlsCallbackMethod _event, void* para) {
-  //LOG_DEBUG("setOnTaskFailed callback");
+void DialogAssistantCallback::setOnTaskFailed(NlsCallbackMethod _event,
+                                              void* para) {
+  // LOG_DEBUG("setOnTaskFailed callback");
   this->_onTaskFailed = _event;
   if (this->_paramap.find(NlsEvent::TaskFailed) != _paramap.end()) {
     _paramap[NlsEvent::TaskFailed] = para;
@@ -59,8 +60,8 @@ void DialogAssistantCallback::setOnTaskFailed(
   }
 }
 
-void DialogAssistantCallback::setOnRecognitionStarted(
-    NlsCallbackMethod _event, void* para) {
+void DialogAssistantCallback::setOnRecognitionStarted(NlsCallbackMethod _event,
+                                                      void* para) {
   LOG_DEBUG("setOnRecognitionStarted callback");
 
   this->_onRecognitionStarted = _event;
@@ -98,8 +99,8 @@ void DialogAssistantCallback::setOnWakeWordVerificationCompleted(
   LOG_DEBUG("setOnWakeWordVerificationCompleted callback");
 
   this->_onWakeWordVerificationCompleted = _event;
-  if (this->_paramap.find(
-        NlsEvent::WakeWordVerificationCompleted) != _paramap.end()) {
+  if (this->_paramap.find(NlsEvent::WakeWordVerificationCompleted) !=
+      _paramap.end()) {
     _paramap[NlsEvent::WakeWordVerificationCompleted] = para;
   } else {
     _paramap.insert(
@@ -111,15 +112,16 @@ void DialogAssistantCallback::setOnRecognitionResultChanged(
     NlsCallbackMethod _event, void* para) {
   LOG_DEBUG("setOnRecognitionResultChanged callback");
   this->_onRecognitionResultChanged = _event;
-  if (this->_paramap.find(NlsEvent::RecognitionResultChanged) != _paramap.end()) {
+  if (this->_paramap.find(NlsEvent::RecognitionResultChanged) !=
+      _paramap.end()) {
     _paramap[NlsEvent::RecognitionResultChanged] = para;
   } else {
     _paramap.insert(std::make_pair(NlsEvent::RecognitionResultChanged, para));
   }
 }
 
-void DialogAssistantCallback::setOnChannelClosed(
-    NlsCallbackMethod _event, void* para) {
+void DialogAssistantCallback::setOnChannelClosed(NlsCallbackMethod _event,
+                                                 void* para) {
   LOG_DEBUG("setOnChannelClosed callback");
   this->_onChannelClosed = _event;
   if (this->_paramap.find(NlsEvent::Close) != _paramap.end()) {
@@ -129,26 +131,27 @@ void DialogAssistantCallback::setOnChannelClosed(
   }
 }
 
-DialogAssistantRequest::DialogAssistantRequest(
-    int version, const char* sdkName, bool isLongConnection) {
+DialogAssistantRequest::DialogAssistantRequest(int version, const char* sdkName,
+                                               bool isLongConnection) {
   _callback = new DialogAssistantCallback();
 
-  //init request param
+  // init request param
   _dialogAssistantParam = new DialogAssistantParam(version, sdkName);
   _requestParam = _dialogAssistantParam;
 
-  //init listener
+  // init listener
   _listener = new DialogAssistantListener(_callback);
 
-  //init connect node
+  // init connect node
   _node = new ConnectNode(this, _listener, isLongConnection);
 
-  LOG_INFO("Request(%p) Node(%p) create DialogAssistantRequest Done.", this, _node);
+  LOG_INFO("Request(%p) Node(%p) create DialogAssistantRequest Done.", this,
+           _node);
 }
 
 DialogAssistantRequest::~DialogAssistantRequest() {
-//  delete _dialogAssistantParam;
-//  _dialogAssistantParam = NULL;
+  //  delete _dialogAssistantParam;
+  //  _dialogAssistantParam = NULL;
 
   delete _listener;
   _listener = NULL;
@@ -162,7 +165,7 @@ DialogAssistantRequest::~DialogAssistantRequest() {
   delete _dialogAssistantParam;
   _dialogAssistantParam = NULL;
 
-  LOG_INFO("Request:%p Destroy DialogAssistantRequest.", this);
+  LOG_INFO("Request(%p) Destroy DialogAssistantRequest.", this);
 }
 
 int DialogAssistantRequest::start() {
@@ -174,13 +177,9 @@ int DialogAssistantRequest::start() {
   return INlsRequest::start(this);
 }
 
-int DialogAssistantRequest::stop() {
-  return INlsRequest::stop(this);
-}
+int DialogAssistantRequest::stop() { return INlsRequest::stop(this); }
 
-int DialogAssistantRequest::cancel() {
-  return INlsRequest::cancel(this);
-}
+int DialogAssistantRequest::cancel() { return INlsRequest::cancel(this); }
 
 int DialogAssistantRequest::StopWakeWordVerification() {
   // return INlsRequest::stop(this, 2);
@@ -192,9 +191,13 @@ int DialogAssistantRequest::queryText() {
   return INlsRequest::start(this);
 }
 
-int DialogAssistantRequest::sendAudio(
-    const uint8_t * data, size_t dataSize, ENCODER_TYPE type) {
+int DialogAssistantRequest::sendAudio(const uint8_t* data, size_t dataSize,
+                                      ENCODER_TYPE type) {
   return INlsRequest::sendAudio(this, data, dataSize, type);
+}
+
+const char* DialogAssistantRequest::dumpAllInfo() {
+  return INlsRequest::dumpAllInfo(this);
 }
 
 int DialogAssistantRequest::setPayloadParam(const char* value) {
@@ -202,7 +205,7 @@ int DialogAssistantRequest::setPayloadParam(const char* value) {
   return _dialogAssistantParam->setPayloadParam(value);
 }
 
-int DialogAssistantRequest::setContextParam(const char *value) {
+int DialogAssistantRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   return _dialogAssistantParam->setContextParam(value);
 }
@@ -273,8 +276,8 @@ int DialogAssistantRequest::setQueryParams(const char* value) {
   return _dialogAssistantParam->setQueryParams(value);
 }
 
-int DialogAssistantRequest::AppendHttpHeaderParam(
-    const char* key, const char* value) {
+int DialogAssistantRequest::AppendHttpHeaderParam(const char* key,
+                                                  const char* value) {
   return _dialogAssistantParam->AppendHttpHeader(key, value);
 }
 
@@ -290,18 +293,18 @@ int DialogAssistantRequest::setEnableWakeWordVerification(bool value) {
   return _dialogAssistantParam->setEnableWakeWordVerification(value);
 }
 
-void DialogAssistantRequest::setOnTaskFailed(
-    NlsCallbackMethod _event, void* para) {
+void DialogAssistantRequest::setOnTaskFailed(NlsCallbackMethod _event,
+                                             void* para) {
   _callback->setOnTaskFailed(_event, para);
 }
 
-void DialogAssistantRequest::setOnRecognitionStarted(
-    NlsCallbackMethod _event, void* para) {
+void DialogAssistantRequest::setOnRecognitionStarted(NlsCallbackMethod _event,
+                                                     void* para) {
   _callback->setOnRecognitionStarted(_event, para);
 }
 
-void DialogAssistantRequest::setOnRecognitionCompleted(
-    NlsCallbackMethod _event, void* para) {
+void DialogAssistantRequest::setOnRecognitionCompleted(NlsCallbackMethod _event,
+                                                       void* para) {
   _callback->setOnRecognitionCompleted(_event, para);
 }
 
@@ -320,8 +323,8 @@ void DialogAssistantRequest::setOnRecognitionResultChanged(
   _callback->setOnRecognitionResultChanged(_event, para);
 }
 
-void DialogAssistantRequest::setOnChannelClosed(
-    NlsCallbackMethod _event, void* para) {
+void DialogAssistantRequest::setOnChannelClosed(NlsCallbackMethod _event,
+                                                void* para) {
   _callback->setOnChannelClosed(_event, para);
 }
 
@@ -329,4 +332,4 @@ void DialogAssistantRequest::setEnableMultiGroup(bool value) {
   _dialogAssistantParam->setEnableMultiGroup(value);
 }
 
-}
+}  // namespace AlibabaNls
