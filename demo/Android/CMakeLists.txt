@@ -3,7 +3,7 @@ project(speech-demo)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 #set(CMAKE_C_FLAGS "-O2 -fexceptions -fPIC -MMD")
-set(CMAKE_C_FLAGS "-O0 -fexceptions -fPIC -MMD -g -ggdb")
+set(CMAKE_C_FLAGS "-O0 -fexceptions -fPIC -g -ggdb")
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -fpermissive")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-narrowing")
 

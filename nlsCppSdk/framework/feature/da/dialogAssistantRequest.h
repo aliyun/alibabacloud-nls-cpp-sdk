@@ -17,41 +17,42 @@
 #ifndef NLS_SDK_DIALOG_ASSISTANT_REQUEST_H
 #define NLS_SDK_DIALOG_ASSISTANT_REQUEST_H
 
-#include "nlsGlobal.h"
 #include "iNlsRequest.h"
+#include "nlsEvent.h"
+#include "nlsGlobal.h"
 
 namespace AlibabaNls {
 
 class DialogAssistantParam;
 
-class NLS_SDK_CLIENT_EXPORT DialogAssistantCallback {
+class DialogAssistantCallback {
  public:
-   DialogAssistantCallback();
-   ~DialogAssistantCallback();
+  DialogAssistantCallback();
+  ~DialogAssistantCallback();
 
-   void setOnTaskFailed(NlsCallbackMethod _event, void* para = NULL);
-   void setOnRecognitionStarted(NlsCallbackMethod _event, void* para = NULL);
-   void setOnRecognitionResultChanged(NlsCallbackMethod _event, void* para = NULL);
-   void setOnRecognitionCompleted(NlsCallbackMethod _event, void* para = NULL);
-   void setOnDialogResultGenerated(NlsCallbackMethod _event, void* para = NULL);
-   void setOnWakeWordVerificationCompleted(
-       NlsCallbackMethod _event, void* para = NULL);
-   void setOnChannelClosed(NlsCallbackMethod _event, void* para = NULL);
+  void setOnTaskFailed(NlsCallbackMethod _event, void* para = NULL);
+  void setOnRecognitionStarted(NlsCallbackMethod _event, void* para = NULL);
+  void setOnRecognitionResultChanged(NlsCallbackMethod _event,
+                                     void* para = NULL);
+  void setOnRecognitionCompleted(NlsCallbackMethod _event, void* para = NULL);
+  void setOnDialogResultGenerated(NlsCallbackMethod _event, void* para = NULL);
+  void setOnWakeWordVerificationCompleted(NlsCallbackMethod _event,
+                                          void* para = NULL);
+  void setOnChannelClosed(NlsCallbackMethod _event, void* para = NULL);
 
-   NlsCallbackMethod _onTaskFailed;
-   NlsCallbackMethod _onRecognitionStarted;
-   NlsCallbackMethod _onRecognitionCompleted;
-   NlsCallbackMethod _onRecognitionResultChanged;
-   NlsCallbackMethod _onDialogResultGenerated;
-   NlsCallbackMethod _onWakeWordVerificationCompleted;
-   NlsCallbackMethod _onChannelClosed;
-   std::map<NlsEvent::EventType, void*> _paramap;
+  NlsCallbackMethod _onTaskFailed;
+  NlsCallbackMethod _onRecognitionStarted;
+  NlsCallbackMethod _onRecognitionCompleted;
+  NlsCallbackMethod _onRecognitionResultChanged;
+  NlsCallbackMethod _onDialogResultGenerated;
+  NlsCallbackMethod _onWakeWordVerificationCompleted;
+  NlsCallbackMethod _onChannelClosed;
+  std::map<NlsEvent::EventType, void*> _paramap;
 };
 
 class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
  public:
-  DialogAssistantRequest(int version = 0,
-                         const char* sdkName = "cpp",
+  DialogAssistantRequest(int version = 0, const char* sdkName = "cpp",
                          bool isLongConnection = false);
   ~DialogAssistantRequest();
 
@@ -95,7 +96,7 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
 
   /**
    * @brief 设置链接超时时间
-   * @param value 超时时间(ms), 默认5000ms
+   * @param value 超时时间(ms), 默认500ms. 内部会以value(ms)尝试4次链接.
    * @return 成功则返回0，否则返回负值错误码
    */
   int setTimeout(int value);
@@ -241,13 +242,51 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @param type ENCODER_NONE 表示原始音频进行传递,
                               建议每次100ms音频数据,支持16K和8K;
                  ENCODER_OPU 表示以定制OPUS压缩后进行传递,
-                             建议每次大于20ms音频数据(即大于640bytes), 格式要求16K16b1c
-                 ENCODER_OPUS 表示以OPUS压缩后进行传递, 强烈建议使用此类型,
-                              建议每次大于20ms音频数据(即大于640/320bytes), 支持16K16b1c和8K16b1c
-   * @return 成功则返回字节数(可能为0，即留下包音频数据再发送)，失败返回负值，查看nlsGlobal.h中错误码详细定位。
+                             建议每次大于20ms音频数据(即大于640bytes),
+   格式要求16K16b1c ENCODER_OPUS 表示以OPUS压缩后进行传递, 强烈建议使用此类型,
+                              建议每次大于20ms音频数据(即大于640/320bytes),
+   支持16K16b1c和8K16b1c
+   * @return
+   成功则返回字节数(可能为0，即留下包音频数据再发送)，失败返回负值，查看nlsGlobal.h中错误码详细定位。
    */
-  int sendAudio(const uint8_t * data, size_t dataSize,
+  int sendAudio(const uint8_t* data, size_t dataSize,
                 ENCODER_TYPE type = ENCODER_NONE);
+
+  /**
+   * @brief 获得当前请求的全部运行信息
+   * @note
+   *{
+   *	"block": {
+   *    // 表示调用了stop, 已经运行了10014ms, 阻塞
+   *		"stop": "running",
+   *		"stop_duration_ms": 10014,
+   *		"stop_timestamp": "2024-04-26_15:19:44.783"
+   *	},
+   *	"callback": {
+   *    // 表示回调SentenceBegin阻塞
+   *		"name": "SentenceBegin",
+   *		"start": "2024-04-26_15:15:25.607",
+   *		"status": "running"
+   *	},
+   *	"data": {
+   *		"recording_bytes": 183764,
+   *		"send_count": 288
+   *	},
+   *	"last": {
+   *		"action": "2024-04-26_15:15:30.897",
+   *		"send": "2024-04-26_15:15:30.894",
+   *		"status": "NodeStop"
+   *	},
+   *	"timestamp": {
+   *		"create": "2024-04-26_15:15:24.862",
+   *		"start": "2024-04-26_15:15:24.862",
+   *		"started": "2024-04-26_15:15:25.124",
+   *		"stop": "2024-04-26_15:15:30.897"
+   *	}
+   *}
+   * @return
+   */
+  const char* dumpAllInfo();
 
   /**
    * @brief 设置错误回调函数
@@ -268,16 +307,17 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
   void setOnRecognitionStarted(NlsCallbackMethod _event, void* para = NULL);
 
   /**
-   * @brief 用于通知客户端, 随着语音数据增多, 语音识别结果发生了变化. 
+   * @brief 用于通知客户端, 随着语音数据增多, 语音识别结果发生了变化.
    *        客户端可以根据这个事件更新UI状态
    * @param _event 回调方法
    * @param para 用户传入参数, 默认为NULL
    * @return void
    */
-  void setOnRecognitionResultChanged(NlsCallbackMethod _event, void* para = NULL);
+  void setOnRecognitionResultChanged(NlsCallbackMethod _event,
+                                     void* para = NULL);
 
   /**
-   * @brief 用于通知客户端识, 最终的识别结果已经确定, 不会再发生变化. 
+   * @brief 用于通知客户端识, 最终的识别结果已经确定, 不会再发生变化.
    *        客户端可以根据这个事件更新UI状态
    * @param _event 回调方法
    * @param para 用户传入参数, 默认为NULL
@@ -299,8 +339,8 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @param para 用户传入参数, 默认为NULL
    * @return void
    */
-  void setOnWakeWordVerificationCompleted(
-      NlsCallbackMethod _event, void* para = NULL);
+  void setOnWakeWordVerificationCompleted(NlsCallbackMethod _event,
+                                          void* para = NULL);
 
   /**
    * @brief 设置通道关闭回调函数
@@ -317,9 +357,8 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
   DialogAssistantParam* _dialogAssistantParam;
   DialogAssistantCallback* _callback;
   INlsRequestListener* _listener;
-
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_DIALOG_ASSISTANT_REQUEST_H
+#endif  // NLS_SDK_DIALOG_ASSISTANT_REQUEST_H

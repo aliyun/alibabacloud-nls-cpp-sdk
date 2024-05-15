@@ -15,29 +15,27 @@
  */
 
 #include "iNlsRequestListener.h"
+
 #include "nlog.h"
 
 namespace AlibabaNls {
 
-
 INlsRequestListener::INlsRequestListener() {}
 INlsRequestListener::~INlsRequestListener() {}
 
-void INlsRequestListener::handlerFrame(std::string errorInfo,
-                                       int errorCode,
+void INlsRequestListener::handlerFrame(std::string errorInfo, int errorCode,
                                        NlsEvent::EventType type,
                                        std::string taskId) {
-    NlsEvent* nlsevent = new NlsEvent(
-        errorInfo.c_str(), errorCode, type, taskId);
-    handlerFrame(*nlsevent);
-    delete nlsevent;
-    nlsevent = NULL;
+  NlsEvent* nlsevent = new NlsEvent(errorInfo.c_str(), errorCode, type, taskId);
+  handlerFrame(*nlsevent);
+  delete nlsevent;
+  nlsevent = NULL;
 
-    if (NlsEvent::TaskFailed == type) {
-      LOG_ERROR(errorInfo.c_str());
-    } else {
-      LOG_DEBUG(errorInfo.c_str());
-    }
+  if (NlsEvent::TaskFailed == type) {
+    LOG_ERROR(errorInfo.c_str());
+  } else {
+    LOG_DEBUG(errorInfo.c_str());
+  }
 }
 
-}
+}  // namespace AlibabaNls

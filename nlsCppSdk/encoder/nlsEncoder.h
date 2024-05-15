@@ -21,21 +21,22 @@
 #ifdef ENABLE_OGGOPUS
 #include "thread_data.h"
 #endif
-
-#define DEFAULT_OPUS_FRAME_SIZE 640
+#include "nlsGlobal.h"
 
 namespace AlibabaNls {
 
 class NlsEncoder {
  public:
+  NlsEncoder();
+
   /**
    * @brief 建立编码器
    * @param _event sampleRate 采样率
    * @param errorCode 错误代码
    * @return 成功返回0，失败返回负值，查看errorCode
    */
-  int createNlsEncoder(ENCODER_TYPE type, int channels,
-                       const int sampleRate, int *errorCode);
+  int createNlsEncoder(ENCODER_TYPE type, int channels, const int sampleRate,
+                       int* errorCode);
 
   /**
    * @brief 对数据进行编码
@@ -63,10 +64,12 @@ class NlsEncoder {
   int getFrameSampleBytes();
 
 #ifdef ENABLE_OGGOPUS
-  int pushbackEncodedData(const uint8_t *encoded_data, int data_len);
+  int pushbackEncodedData(const uint8_t* encoded_data, int data_len);
 #endif
 
  private:
+  enum NlsEncoderConstValue { DefaultOpusFrameSize = 640 };
+
   void* nlsEncoder_;
   ENCODER_TYPE encoder_type_;
 #ifdef ENABLE_OGGOPUS
@@ -74,6 +77,6 @@ class NlsEncoder {
 #endif
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif // ALIBABA_NLS_ENCODER_H
+#endif  // ALIBABA_NLS_ENCODER_H

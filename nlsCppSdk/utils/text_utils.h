@@ -28,18 +28,29 @@ namespace utility {
 
 class TextUtils {
  public:
-  static bool IsEmpty(const char *str);
-  static void ByteArrayToShortArray(char *byte, int len_byte,
-                                    short *short_array);
+  static const char *GetGitCommitInfo();
+  static std::string GetVersion();
+
   static std::string GetTime();
   static std::string GetTimestamp();
   static uint64_t GetTimestampMs();
   static std::string GetTimeFromMs(uint64_t ms);
-  static const char *GetGitCommitInfo();
-  static std::string GetVersion();
-  static std::string GetProductName();
+  static struct timeval *GetTimevalFromMs(struct timeval *tv, time_t ms);
+  static struct timespec *GetTimespecFromMs(struct timespec *ts, time_t ms);
+
+  static bool IsEmpty(const char *str);
   static std::vector<std::string> split(const std::string &s, char delim);
+#if defined(__ANDROID__) || defined(__linux__)
+  static int codeConvert(char *from_charset, char *to_charset, char *inbuf,
+                         size_t inlen, char *outbuf, size_t outlen);
+#endif
+  static std::string utf8ToGbk(const std::string &strUTF8);
+
   static int CharsCalculate(const char *text);
+  static const char *securityDisposalForLog(char *buf_in, std::string *buf_out,
+                                            std::string key, unsigned int step,
+                                            char c);
+  static std::string getRandomUuid();
 
   /*
   static std::string ws_to_string(const std::wstring &str) {

@@ -26,48 +26,75 @@ namespace utility {
 #define _ssnprintf snprintf
 #endif
 
-
-#define INPUT_PARAM_STRING_CHECK(x) if (x == NULL) {return -(InvalidInputParam);};
-#define INPUT_REQUEST_CHECK(x) \
-  do { \
-    if (x == NULL) { \
+#define INPUT_PARAM_STRING_CHECK(x) \
+  if (x == NULL) {                  \
+    return -(InvalidInputParam);    \
+  };
+#define INPUT_REQUEST_CHECK(x)              \
+  do {                                      \
+    if (x == NULL) {                        \
       LOG_ERROR("Input request is empty."); \
-      return -(RequestEmpty); \
-    } \
+      return -(RequestEmpty);               \
+    }                                       \
   } while (0)
-#define REQUEST_CHECK(x, y) \
-  do { \
-    if (x == NULL) { \
+#define REQUEST_CHECK(x, y)                                     \
+  do {                                                          \
+    if (x == NULL) {                                            \
       LOG_ERROR("The request of this node(%p) is nullptr.", y); \
-      return -(RequestEmpty); \
-    } \
+      return -(RequestEmpty);                                   \
+    }                                                           \
   } while (0)
-#define EXIT_CANCEL_CHECK(x, y) \
-  do { \
-    if (x == ExitCancel) { \
+#define EXIT_CANCEL_CHECK(x, y)                   \
+  do {                                            \
+    if (x == ExitCancel) {                        \
       LOG_WARN("Node(%p) has been canceled.", y); \
-      return -(InvalidExitStatus); \
-    } \
+      return -(InvalidExitStatus);                \
+    }                                             \
   } while (0)
-#define EVENT_CLIENT_CHECK(x) \
-  do { \
-    if (x == NULL) { \
-      LOG_ERROR("NlsEventNetWork has destroyed, please invoke startWorkThread() first."); \
-      return -(EventClientEmpty); \
-    } \
+#define EVENT_CLIENT_CHECK(x)                                               \
+  do {                                                                      \
+    if (x == NULL) {                                                        \
+      LOG_ERROR(                                                            \
+          "NlsEventNetWork has destroyed, please invoke startWorkThread() " \
+          "first.");                                                        \
+      return -(EventClientEmpty);                                           \
+    }                                                                       \
   } while (0)
 #ifdef _MSC_VER
 #define SET_EVENT(a, b) \
-  do { \
-    a = false; \
-    SetEvent(b); \
+  do {                  \
+    a = false;          \
+    SetEvent(b);        \
   } while (0)
 #else
 #define SEND_COND_SIGNAL(a, b, c) \
-  do { \
-    c = false; \
+  do {                            \
+    c = false;                    \
+    pthread_mutex_lock(&a);       \
+    pthread_cond_signal(&b);      \
+    pthread_mutex_unlock(&a);     \
+  } while (0)
+#endif
+
+#ifdef _MSC_VER
+#define MUTEX_LOCK(a)                 \
+  do {                                \
+    WaitForSingleObject(a, INFINITE); \
+  } while (0)
+#else
+#define MUTEX_LOCK(a)       \
+  do {                      \
     pthread_mutex_lock(&a); \
-    pthread_cond_signal(&b); \
+  } while (0)
+#endif
+#ifdef _MSC_VER
+#define MUTEX_UNLOCK(a) \
+  do {                  \
+    ReleaseMutex(a);    \
+  } while (0)
+#else
+#define MUTEX_UNLOCK(a)       \
+  do {                        \
     pthread_mutex_unlock(&a); \
   } while (0)
 #endif
@@ -77,4 +104,4 @@ int getLastErrorCode();
 }  // namespace utility
 }  // namespace AlibabaNls
 
-#endif // NLS_SDK_UTILITY_H
+#endif  // NLS_SDK_UTILITY_H

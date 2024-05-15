@@ -17,10 +17,10 @@
 #ifndef ALIBABA_NLS_OGGOPUS_AUDIO_IN_H_
 #define ALIBABA_NLS_OGGOPUS_AUDIO_IN_H_
 
-#include "opus/opus_types.h"
 #include "ogg/ogg.h"
-#include "opus/opus_multistream.h"
 #include "oggopusDataStruct.h"
+#include "opus/opus_multistream.h"
+#include "opus/opus_types.h"
 
 namespace AlibabaNls {
 
@@ -41,5 +41,4 @@ void WavClose(void *);
 
 }  // namespace AlibabaNls
 
-#endif   // ALIBABA_NLS_OGGOPUS_AUDIO_IN_H_
-
+#endif  // ALIBABA_NLS_OGGOPUS_AUDIO_IN_H_

@@ -2,7 +2,7 @@
 
 echo "Command:"
 echo "./scripts/build_android.sh <all or incr> <debug or release> <android arch>"
-echo "eg: ./scripts/build_linux.sh all debug arm64-v8a"
+echo "eg: ./scripts/build_android.sh all debug arm64-v8a"
 
 
 ALL_FLAG=$1
@@ -40,15 +40,6 @@ if [ x${PLATFORM_FLAG} == x"arm64-v8a" ];then
   TARGET_ARCH=arm64
   ANDROID_COMPILE_NAME=aarch64-linux-android
   CC=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME$ANDROID_API-clang++
-  AR=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-ar
-  RANLIB=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-ranlib
-  STRIP=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-strip
-  LD=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-ld
-elif [ x${PLATFORM_FLAG} == x"armeabi" ];then
-  echo "Build armeabi."
-  TARGET_ARCH=arm
-  ANDROID_COMPILE_NAME=arm-linux-androideabi
-  CC=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++
   AR=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-ar
   RANLIB=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-ranlib
   STRIP=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/$ANDROID_COMPILE_NAME-strip
@@ -181,7 +172,11 @@ mv $sdk_install_folder/tmp/buffer.o $sdk_install_folder/tmp/libevent_buffer.o
 
 $AR x libssl.a
 $AR x libcrypto.a
-$AR x libcurl.a
+if [ -f "libcurl.a" ]; then
+  $AR x libcurl.a
+elif [ -f "libcurl-d.a" ]; then
+  $AR x libcurl-d.a
+fi
 
 $AR cr $sdk_install_folder/lib/libalibabacloud-idst-speech_$PLATFORM_FLAG.a *.o
 $RANLIB $sdk_install_folder/lib/libalibabacloud-idst-speech_$PLATFORM_FLAG.a
@@ -243,6 +238,3 @@ tar -zcPf $tar_file".tar.gz" NlsSdk3.X_$PLATFORM_FLAG
 echo "打包结束..."
 
 cp $audio_resource_folder/* $build_folder/demo/
-
-#echo "可以进入demo目录，执行命令[./demo <your appkey> <your AccessKey ID> <your AccessKey Secret>]，运行demo"
-

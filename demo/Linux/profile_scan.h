@@ -8,4 +8,4 @@ typedef struct PROFILE_INFO {
   unsigned long long eAveTime;
 } PROFILE_INFO;
 
-void get_profile_info (const char *exec, PROFILE_INFO *info);
+void get_profile_info(const char *exec, PROFILE_INFO *info);

@@ -15,14 +15,15 @@
  */
 
 #include "speechSynthesizerListener.h"
-#include "speechSynthesizerRequest.h"
-#include "nlog.h"
 
+#include "nlog.h"
+#include "speechSynthesizerRequest.h"
 
 namespace AlibabaNls {
 
 SpeechSynthesizerListener::SpeechSynthesizerListener(
-    SpeechSynthesizerCallback* cb) : _callback(cb) {}
+    SpeechSynthesizerCallback* cb)
+    : _callback(cb) {}
 
 SpeechSynthesizerListener::~SpeechSynthesizerListener() {}
 
@@ -34,7 +35,7 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
     return;
   }
 
-  switch(type) {
+  switch (type) {
     case NlsEvent::SynthesisStarted:
       if (NULL != _callback->_onSynthesisStarted) {
         _callback->_onSynthesisStarted(
@@ -43,7 +44,8 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
       break;
     case NlsEvent::SynthesisCompleted:
       if (NULL != _callback->_onSynthesisCompleted) {
-        _callback->_onSynthesisCompleted(&str, _callback->_paramap[NlsEvent::SynthesisCompleted]);
+        _callback->_onSynthesisCompleted(
+            &str, _callback->_paramap[NlsEvent::SynthesisCompleted]);
       }
       break;
     case NlsEvent::Close:
@@ -53,8 +55,8 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
       break;
     case NlsEvent::Binary:
       if (NULL != _callback->_onBinaryDataReceived) {
-        _callback->_onBinaryDataReceived(
-            &str, _callback->_paramap[NlsEvent::Binary]);
+        _callback->_onBinaryDataReceived(&str,
+                                         _callback->_paramap[NlsEvent::Binary]);
       }
       break;
     case NlsEvent::MetaInfo:
@@ -69,7 +71,8 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
       break;
     default:
       if (NULL != _callback->_onTaskFailed) {
-        _callback->_onTaskFailed(&str, _callback->_paramap[NlsEvent::TaskFailed]);
+        _callback->_onTaskFailed(&str,
+                                 _callback->_paramap[NlsEvent::TaskFailed]);
       }
       break;
   }
@@ -77,4 +80,4 @@ void SpeechSynthesizerListener::handlerFrame(NlsEvent str) {
   return;
 }
 
-}
+}  // namespace AlibabaNls

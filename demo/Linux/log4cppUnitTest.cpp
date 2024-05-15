@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-#include <sys/time.h>
+#include <errno.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <ctime>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#include <cstdlib>
+#include <ctime>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
-#include <iostream>
 #include <vector>
-#include <fstream>
-#include <signal.h>
-#include <errno.h>
-#include <cstdlib>
-#include "nlsClient.h"
+
 #include "nlog.h"
+#include "nlsClient.h"
 
 using namespace AlibabaNls;
 
@@ -43,7 +45,7 @@ static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop
 volatile static bool global_run = false;
 
 struct ParamStruct {
-  FILE *fp;
+  FILE* fp;
   int line;
 };
 
@@ -72,23 +74,19 @@ void* autoCloseFunc(void* arg) {
 }
 
 void* pthreadFunction(void* arg) {
-  ParamStruct* tst = (ParamStruct*)arg;
+  ParamStruct* tst = static_cast<ParamStruct*>(arg);
   if (tst == NULL) {
     std::cout << "arg is not valid." << std::endl;
     return NULL;
   }
 
-  int logLevel = 1;
-  int sleepMs = 0;
-  int line = 0;
-  char * ret = NULL;
   char text[2048];
   std::srand(std::time(NULL));
 
   while (global_run) {
-    logLevel = rand() % AlibabaNls::LogDebug + 1;
-    sleepMs = rand() % 50;
-    line = rand() % tst->line;
+    int logLevel = rand() % AlibabaNls::LogDebug + 1;
+    int sleepMs = rand() % 50;
+    char* ret = NULL;
 
     memset(text, 0, 2048);
     ret = fgets(text, 2048, tst->fp);
@@ -98,7 +96,7 @@ void* pthreadFunction(void* arg) {
     }
 
     std::string text_str(text);
-    switch(logLevel) {
+    switch (logLevel) {
       case AlibabaNls::LogDebug:
         LOG_DEBUG("Node:%p: %s", text, text_str.c_str());
         break;
@@ -123,7 +121,6 @@ void* pthreadFunction(void* arg) {
 }
 
 int logSystemMultThreads(int threads) {
-
 #ifdef SELF_TESTING_TRIGGER
   if (loop_count == 0) {
     pthread_t p_id;
@@ -143,13 +140,12 @@ int logSystemMultThreads(int threads) {
   if (pa.fp == NULL) {
     return -1;
   }
-  while (NULL != fgets(tmp, 2048, pa.fp))
-		pa.line++;
+  while (NULL != fgets(tmp, 2048, pa.fp)) pa.line++;
 
   fseek(pa.fp, 0, SEEK_SET);
 
   for (int j = 0; j < threads; j++) {
-    pthread_create(&pthreadId[j], NULL, &pthreadFunction, (void *)&pa);
+    pthread_create(&pthreadId[j], NULL, &pthreadFunction, (void*)&pa);
   }
 
   for (int j = 0; j < threads; j++) {
@@ -164,9 +160,9 @@ int logSystemMultThreads(int threads) {
   return 0;
 }
 
-void onExternalLogCallback(const char* timestamp, int level, const char* message) {
-  std::cout << "onExternalLogCallback timestamp:"
-      << timestamp << std::endl;
+void onExternalLogCallback(const char* timestamp, int level,
+                           const char* message) {
+  std::cout << "onExternalLogCallback timestamp:" << timestamp << std::endl;
   std::cout << "  log level:" << level << std::endl;
   std::cout << "  log message:" << message << std::endl;
 }
@@ -210,14 +206,14 @@ int parse_argv(int argc, char* argv[]) {
 int main(int argc, char* argv[]) {
   if (parse_argv(argc, argv)) {
     std::cout << "params is not valid.\n"
-      << "Usage:\n"
-      << "  --threads <Thread Numbers, default 1>\n"
-      << "  --time <Timeout secs, default 60 seconds>\n"
-      << "  --vocabFile <the absolute path of vocab file>\n"
-      << "  --loop <loop count>\n"
-      << "eg:\n"
-      << "  ./logUnitTest --threads 4 --vocabFile ddddddd.txt\n"
-      << std::endl;
+              << "Usage:\n"
+              << "  --threads <Thread Numbers, default 1>\n"
+              << "  --time <Timeout secs, default 60 seconds>\n"
+              << "  --vocabFile <the absolute path of vocab file>\n"
+              << "  --loop <loop count>\n"
+              << "eg:\n"
+              << "  ./logUnitTest --threads 4 --vocabFile ddddddd.txt\n"
+              << std::endl;
     return -1;
   }
 

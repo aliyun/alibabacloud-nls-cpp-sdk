@@ -14,27 +14,32 @@
  * limitations under the License.
  */
 
+#include "nlsEncoder.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <fstream>
 #include <sstream>
 
-#include "opus/opus.h"
-#include "opus/opus_defines.h"
-
 #include "nlog.h"
 #include "nlsGlobal.h"
-#include "nlsEncoder.h"
+#include "opus/opus.h"
+#include "opus/opus_defines.h"
 #ifdef ENABLE_OGGOPUS
 #include "oggopusEncoder.h"
 #endif
-
 
 #define DEFAULT_CHANNELS 1
 //#define OPU_DEBUG
 
 namespace AlibabaNls {
+
+NlsEncoder::NlsEncoder() {
+  nlsEncoder_ = NULL;
+  encoder_type_ = ENCODER_NONE;
+}
 
 #ifdef ENABLE_OGGOPUS
 static size_t oggopusEncodedData(const uint8_t *encoded_data, int len,
@@ -46,8 +51,7 @@ static size_t oggopusEncodedData(const uint8_t *encoded_data, int len,
   return len;
 }
 
-int NlsEncoder::pushbackEncodedData(
-    const uint8_t *encoded_data, int data_len) {
+int NlsEncoder::pushbackEncodedData(const uint8_t *encoded_data, int data_len) {
   encoded_data_.Pushback(encoded_data, data_len);
   return Success;
 }
@@ -61,10 +65,11 @@ int NlsEncoder::getFrameSampleBytes() {
 
   int frame_sample_bytes = 0;
   if (encoder_type_ == ENCODER_OPU) {
-    frame_sample_bytes = DEFAULT_OPUS_FRAME_SIZE;
+    frame_sample_bytes = DefaultOpusFrameSize;
   } else if (encoder_type_ == ENCODER_OPUS) {
 #ifdef ENABLE_OGGOPUS
-    frame_sample_bytes = ((OggOpusDataEncoder *)nlsEncoder_)->GetFrameSampleBytes();
+    frame_sample_bytes =
+        (static_cast<OggOpusDataEncoder *>(nlsEncoder_))->GetFrameSampleBytes();
 #endif
   } else {
     LOG_ERROR("donnot setting encoder type.");
@@ -78,7 +83,7 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
   int ret = Success;
   int tmpCode = 0;
   int channel_num = channels;
-  
+
   if (channel_num < 0) {
     channel_num = DEFAULT_CHANNELS;
   }
@@ -92,16 +97,18 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
                                       OPUS_APPLICATION_VOIP, &tmpCode);
     if (nlsEncoder_) {
       opus_encoder_ctl(
-          (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_VBR(1)); /* 动态码率:OPUS_SET_VBR(1), 固定码率 : OPUS_SET_VBR(0) */
+          (OpusEncoder *)nlsEncoder_,
+          OPUS_SET_VBR(
+              1)); /* 动态码率:OPUS_SET_VBR(1), 固定码率 : OPUS_SET_VBR(0) */
       opus_encoder_ctl(
-          (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_BITRATE(27800)); /* 指定opus编码码率, 比特率从 6kb / s 到 510 kb / s, 想要压缩比大一些就设置码率小一点 */
+          (OpusEncoder *)nlsEncoder_,
+          OPUS_SET_BITRATE(
+              27800)); /* 指定opus编码码率, 比特率从 6kb / s 到 510 kb / s,
+                          想要压缩比大一些就设置码率小一点 */
+      opus_encoder_ctl((OpusEncoder *)nlsEncoder_,
+                       OPUS_SET_COMPLEXITY(8)); /* 计算复杂度 */
       opus_encoder_ctl(
-          (OpusEncoder*)nlsEncoder_,
-          OPUS_SET_COMPLEXITY(8)); /* 计算复杂度 */
-      opus_encoder_ctl(
-          (OpusEncoder*)nlsEncoder_,
+          (OpusEncoder *)nlsEncoder_,
           OPUS_SET_SIGNAL(OPUS_SIGNAL_VOICE)); /* 设置针对语音优化 */
 
       encoder_type_ = type;
@@ -122,13 +129,14 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
       LOG_ERROR("nlsEncoder_ new OggOpusDataEncoder failed");
       return -(OggOpusEncoderCreateFailed);
     }
-    ret = ((OggOpusDataEncoder *)nlsEncoder_)->OggopusEncoderCreate(
-        oggopusEncodedData, this, sampleRate);
+    ret = (static_cast<OggOpusDataEncoder *>(nlsEncoder_))
+              ->OggopusEncoderCreate(oggopusEncodedData, this, sampleRate);
     if (ret == Success) {
       /* 这里暂时未开放编码码率和计算复杂度的设置 */
-      ((OggOpusDataEncoder *)nlsEncoder_)->SetBitrate(27800);
-      ((OggOpusDataEncoder *)nlsEncoder_)->SetSampleRate(sampleRate);
-      ((OggOpusDataEncoder *)nlsEncoder_)->SetComplexity(8);
+      (static_cast<OggOpusDataEncoder *>(nlsEncoder_))->SetBitrate(27800);
+      (static_cast<OggOpusDataEncoder *>(nlsEncoder_))
+          ->SetSampleRate(sampleRate);
+      (static_cast<OggOpusDataEncoder *>(nlsEncoder_))->SetComplexity(8);
 
       LOG_DEBUG("OggopusEncoderCreate for OPUS mode success");
     } else {
@@ -141,16 +149,15 @@ int NlsEncoder::createNlsEncoder(ENCODER_TYPE type, int channels,
   return ret;
 }
 
-int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
-                            unsigned char* outputBuffer, int outputSize) {
-  if (!frameBuff || frameLen <= 0 ||
-      !outputBuffer || outputSize <= 0) {
+int NlsEncoder::nlsEncoding(const uint8_t *frameBuff, const int frameLen,
+                            unsigned char *outputBuffer, int outputSize) {
+  if (!frameBuff || frameLen <= 0 || !outputBuffer || outputSize <= 0) {
     LOG_ERROR("invalid params");
     return 0;
   }
 
-  unsigned char* outputTmp = NULL;
-  outputTmp = (unsigned char*)malloc(outputSize);
+  unsigned char *outputTmp = NULL;
+  outputTmp = (unsigned char *)malloc(outputSize);
   if (!outputTmp) {
     return 0;
   }
@@ -159,7 +166,7 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
   int encoderSize = -1;
   /* 1. 灌入数据开始编码 */
   if (encoder_type_ == ENCODER_OPU) {
-    //uint8 to int16
+    // uint8 to int16
     int16_t *interBuffer = (int16_t *)malloc(frameLen);
     if (interBuffer == NULL) {
       LOG_ERROR("interBuffer malloc failed");
@@ -169,17 +176,13 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
     int i = 0;
     for (i = 0; i < frameLen; i += 2) {
       interBuffer[i / 2] =
-          (int16_t) ((frameBuff[i + 1] << 8 & 0xff00) |
-          (frameBuff[i] & 0xff));
+          (int16_t)((frameBuff[i + 1] << 8 & 0xff00) | (frameBuff[i] & 0xff));
     }
 
-    encoderSize = opus_encode((OpusEncoder*)nlsEncoder_,
-                              interBuffer,
-                              frameLen / 2,
-                              outputTmp,
-                              outputSize);
-//    LOG_DEBUG("frameLen:%d, outputSize:%d, encoderSize:%d",
-//        frameLen, outputSize, encoderSize);
+    encoderSize = opus_encode((OpusEncoder *)nlsEncoder_, interBuffer,
+                              frameLen / 2, outputTmp, outputSize);
+    //    LOG_DEBUG("frameLen:%d, outputSize:%d, encoderSize:%d",
+    //        frameLen, outputSize, encoderSize);
 
     if (encoderSize < 0) {
       free(interBuffer);
@@ -191,8 +194,8 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
     interBuffer = NULL;
   } else if (encoder_type_ == ENCODER_OPUS) {
 #ifdef ENABLE_OGGOPUS
-    encoderSize = ((OggOpusDataEncoder *)nlsEncoder_)->OggopusEncode(
-        (const char *)frameBuff, frameLen);
+    encoderSize = (static_cast<OggOpusDataEncoder *>(nlsEncoder_))
+                      ->OggopusEncode((const char *)frameBuff, frameLen);
     if (encoderSize != Success) {
       LOG_ERROR("OggopusEncode failed, ret %d", encoderSize);
       free(outputTmp);
@@ -203,7 +206,7 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
 
   /* 2. 取出编码后数据 */
   if (encoder_type_ == ENCODER_OPU) {
-    *(outputBuffer + 0) = (unsigned char) encoderSize;
+    *(outputBuffer + 0) = (unsigned char)encoderSize;
     memcpy((outputBuffer + 1), outputTmp, encoderSize);
     encoderSize += 1;
   } else if (encoder_type_ == ENCODER_OPUS) {
@@ -215,11 +218,10 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
       int array_idx = 0;
       int element_idx = 0;
       data_len = (data_len > outputSize) ? outputSize : data_len;
-      encoderSize = encoded_data_.Get(
-              outputTmp, data_len,
-              &array_idx, &element_idx, true);
+      encoderSize = encoded_data_.Get(outputTmp, data_len, &array_idx,
+                                      &element_idx, true);
       if (encoderSize > 0) {
-//        LOG_DEBUG("opus encoded %dbytes", encoderSize);
+        //        LOG_DEBUG("opus encoded %dbytes", encoderSize);
         memcpy(outputBuffer, outputTmp, encoderSize);
       }
     }
@@ -230,12 +232,14 @@ int NlsEncoder::nlsEncoding(const uint8_t* frameBuff, const int frameLen,
   if (encoderSize > 0) {
     std::ofstream ofs;
     if (encoder_type_ == ENCODER_OPU) {
-      ofs.open("./mid_out.opu", std::ios::out | std::ios::app | std::ios::binary);
+      ofs.open("./mid_out.opu",
+               std::ios::out | std::ios::app | std::ios::binary);
     } else if (encoder_type_ == ENCODER_OPUS) {
-      ofs.open("./mid_out.ogg", std::ios::out | std::ios::app | std::ios::binary);
+      ofs.open("./mid_out.ogg",
+               std::ios::out | std::ios::app | std::ios::binary);
     }
     if (ofs.is_open()) {
-      ofs.write((const char*)outputBuffer, encoderSize);
+      ofs.write((const char *)outputBuffer, encoderSize);
       ofs.flush();
       ofs.close();
     }
@@ -254,11 +258,13 @@ int NlsEncoder::nlsEncoderSoftRestart() {
     return -(EncoderInexistent);
   }
 
-#ifdef ENABLE_OGGOPUS
   if (encoder_type_ == ENCODER_OPUS) {
-    ((OggOpusDataEncoder *)nlsEncoder_)->OggopusSoftRestart();
-  }
+#ifdef ENABLE_OGGOPUS
+    (static_cast<OggOpusDataEncoder *>(nlsEncoder_))->OggopusSoftRestart();
 #endif
+  }
+
+  return Success;
 }
 
 int NlsEncoder::destroyNlsEncoder() {
@@ -268,13 +274,13 @@ int NlsEncoder::destroyNlsEncoder() {
   }
 
   if (encoder_type_ == ENCODER_OPU) {
-    opus_encoder_destroy((OpusEncoder*)nlsEncoder_);
+    opus_encoder_destroy((OpusEncoder *)nlsEncoder_);
     nlsEncoder_ = NULL;
   } else if (encoder_type_ == ENCODER_OPUS) {
 #ifdef ENABLE_OGGOPUS
-    ((OggOpusDataEncoder *)nlsEncoder_)->OggopusDestroy();
+    (static_cast<OggOpusDataEncoder *>(nlsEncoder_))->OggopusDestroy();
     encoded_data_.Clear();
-    delete (OggOpusDataEncoder *)nlsEncoder_;
+    delete static_cast<OggOpusDataEncoder *>(nlsEncoder_);
     nlsEncoder_ = NULL;
 #endif
   }
@@ -284,5 +290,4 @@ int NlsEncoder::destroyNlsEncoder() {
   return Success;
 }
 
-}
-
+}  // namespace AlibabaNls

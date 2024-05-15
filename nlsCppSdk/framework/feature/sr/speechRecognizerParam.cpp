@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-#include <string>
 #include "speechRecognizerParam.h"
-#include "nlsRequestParamInfo.h"
-#include "nlsGlobal.h"
+
+#include <string>
+
 #include "nlog.h"
+#include "nlsRequestParamInfo.h"
 
 namespace AlibabaNls {
 
 #define D_CMD_START_RECOGNITION "StartRecognition"
-#define D_CMD_STOP_RECOGNITION "StopRecognition"
+#define D_CMD_STOP_RECOGNITION  "StopRecognition"
 #define D_NAMESPACE_RECOGNITION "SpeechRecognizer"
 
-SpeechRecognizerParam::SpeechRecognizerParam(const char* sdkName) : INlsRequestParam(TypeAsr, sdkName) {
-	_header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
+SpeechRecognizerParam::SpeechRecognizerParam(const char* sdkName)
+    : INlsRequestParam(TypeAsr, sdkName) {
+  _header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
 }
 
 SpeechRecognizerParam::~SpeechRecognizerParam() {}
@@ -62,4 +64,4 @@ int SpeechRecognizerParam::setAudioAddress(const char* value) {
   return Success;
 }
 
-}
+}  // namespace AlibabaNls

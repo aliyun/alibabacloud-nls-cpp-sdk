@@ -15,20 +15,21 @@
  */
 
 #include "speechRecognizerListener.h"
-#include "speechRecognizerRequest.h"
+
 #include "nlog.h"
+#include "speechRecognizerRequest.h"
 
 namespace AlibabaNls {
 
-SpeechRecognizerListener::SpeechRecognizerListener(
-    SpeechRecognizerCallback* cb) : _callback(cb) {}
+SpeechRecognizerListener::SpeechRecognizerListener(SpeechRecognizerCallback* cb)
+    : _callback(cb) {}
 
 SpeechRecognizerListener::~SpeechRecognizerListener() {}
 
 void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
   NlsEvent::EventType type = str.getMsgType();
 
-  switch(type) {
+  switch (type) {
     case NlsEvent::RecognitionStarted:
       if (NULL != _callback->_onRecognitionStarted) {
         _callback->_onRecognitionStarted(
@@ -54,19 +55,18 @@ void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
       break;
     case NlsEvent::Close:
       if (NULL != _callback->_onChannelClosed) {
-        _callback->_onChannelClosed(
-            &str, _callback->_paramap[NlsEvent::Close]);
+        _callback->_onChannelClosed(&str, _callback->_paramap[NlsEvent::Close]);
       }
       break;
     default:
       if (NULL != _callback->_onTaskFailed) {
-        _callback->_onTaskFailed(
-            &str, _callback->_paramap[NlsEvent::TaskFailed]);
+        _callback->_onTaskFailed(&str,
+                                 _callback->_paramap[NlsEvent::TaskFailed]);
       }
-    break;
+      break;
   }
 
   return;
 }
 
-}
+}  // namespace AlibabaNls

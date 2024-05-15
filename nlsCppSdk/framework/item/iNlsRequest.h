@@ -17,11 +17,14 @@
 #ifndef NLS_SDK_SPEECH_REQUEST_H
 #define NLS_SDK_SPEECH_REQUEST_H
 
-#include <map>
+#include <stdint.h>
+
 #include <list>
+#include <map>
 #include <queue>
 #include <string>
-#include <stdint.h>
+
+#include "nlsGlobal.h"
 
 namespace AlibabaNls {
 
@@ -29,17 +32,19 @@ class ConnectNode;
 class INlsRequestParam;
 class INlsRequestListener;
 
-class NLS_SDK_CLIENT_EXPORT INlsRequest {
+class INlsRequest {
  public:
-  INlsRequest(const char* sdkName = "cpp");
-  virtual~INlsRequest();
+  explicit INlsRequest(const char* sdkName = "cpp");
+  virtual ~INlsRequest();
 
   int start(INlsRequest*);
   int stop(INlsRequest*);
   int cancel(INlsRequest*);
   int stControl(INlsRequest*, const char*);
-  int sendAudio(INlsRequest*, const uint8_t *, size_t,
+  int sendAudio(INlsRequest*, const uint8_t*, size_t,
                 ENCODER_TYPE type = ENCODER_NONE);
+
+  const char* dumpAllInfo(INlsRequest*);
 
   ConnectNode* getConnectNode();
   INlsRequestParam* getRequestParam();
@@ -56,4 +61,4 @@ class NLS_SDK_CLIENT_EXPORT INlsRequest {
 
 }  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_REQUEST_H
+#endif  // NLS_SDK_SPEECH_REQUEST_H

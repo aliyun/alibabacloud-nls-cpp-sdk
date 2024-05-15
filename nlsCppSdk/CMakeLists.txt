@@ -154,6 +154,7 @@ set(UTILS_INCLUDE_DIR
 set(UTILS_SOURCE_DIR
     ${UTILS_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsClient.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsClientImpl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsEvent.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequestParam.cpp
@@ -203,6 +204,14 @@ set(UTILS_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/FileTrans.cpp
     )
 
+#头文件-vipServerClient
+if (PRIVATE_CLOUD AND ENABLE_BUILD_LINUX AND ENABLE_BUILD_PRIVATE_SDK)
+  set(UTILS_INCLUDE_DIR
+      ${UTILS_INCLUDE_DIR}
+      ${CMAKE_CURRENT_SOURCE_DIR}/vipServerClient
+      )
+endif ()
+
 
 #配置目标源码和头文件
 set(NLS_SDK_SOURCE_LIST
@@ -245,22 +254,3 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Android")
           ${CMAKE_SOURCE_DIR}/build/build_${ANDROID_ABI}/nlsCppSdk)
 
 endif ()
-
-#======================================#
-
-set(THIRDPARTY_LIB_FILE_LIST
-    ${openssl_install_dir}/lib/libssl.a
-    ${openssl_install_dir}/lib/libcrypto.a
-    ${opus_install_dir}/lib/libopus.a
-    ${ogg_install_dir}/lib/libogg.a
-    ${libevent_install_dir}/lib/libevent_core.a
-    ${libevent_install_dir}/lib/libevent_extra.a
-    ${libevent_install_dir}/lib/libevent_pthreads.a
-    ${log4cpp_install_dir}/lib/liblog4cpp.a
-    ${jsoncpp_install_dir}/lib/libjsoncpp.a
-    ${uuid_install_dir}/lib/libuuid.a
-    ${curl_install_dir}/lib/libcurl.a
-    )
-
-set(LIBS_FILE_LIST ${THIRDPARTY_LIB_FILE_LIST})
-

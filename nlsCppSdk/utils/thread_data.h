@@ -17,12 +17,13 @@
 #ifndef NLS_SDK_THREAD_DATA_H_
 #define NLS_SDK_THREAD_DATA_H_
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vector>
+
 #include <utility>
-#include <pthread.h>
+#include <vector>
 
 namespace AlibabaNls {
 
@@ -38,9 +39,7 @@ class DataItf {
 template <typename T>
 class DataBase : public DataItf {
  public:
-  DataBase() {
-    pthread_mutex_init(&data_mutex_, NULL);
-  }
+  DataBase() { pthread_mutex_init(&data_mutex_, NULL); }
   virtual ~DataBase() {
     Clear();
     pthread_mutex_destroy(&data_mutex_);
@@ -67,14 +66,14 @@ class DataBase : public DataItf {
             data_[*start_array_idx].second) {
           // get data partly from cur array
           int cur_copy_num =
-            data_[*start_array_idx].second - *start_element_idx;
+              data_[*start_array_idx].second - *start_element_idx;
           memcpy(data + num_shift,
                  data_[*start_array_idx].first + *start_element_idx,
                  sizeof(T) * cur_copy_num);
           num_shift += cur_copy_num;
           *start_element_idx = 0;
           if (is_delete_after_get) {
-            delete [](data_[*start_array_idx].first);
+            delete[](data_[*start_array_idx].first);
             data_.erase(data_.begin() + *start_array_idx);
           } else {
             (*start_array_idx)++;
@@ -97,11 +96,11 @@ class DataBase : public DataItf {
   }
 
   virtual int TryGet(T *data, int element_num, int *start_array_idx,
-                  int *start_element_idx, bool is_delete_after_get = false) {
+                     int *start_element_idx, bool is_delete_after_get = false) {
     int tmp_start_array_idx = *start_array_idx;
     int tmp_start_element_idx = *start_element_idx;
-    if (element_num != Get(data, element_num, start_array_idx,
-                           start_element_idx)) {
+    if (element_num !=
+        Get(data, element_num, start_array_idx, start_element_idx)) {
       *start_array_idx = tmp_start_array_idx;
       *start_element_idx = tmp_start_element_idx;
       if (is_delete_after_get) {
@@ -120,7 +119,7 @@ class DataBase : public DataItf {
     pthread_mutex_lock(&data_mutex_);
     for (; *start_array_idx > 0 && *start_array_idx < data_.size();) {
       if ((*data_.begin()).first) {
-       delete[](*data_.begin()).first;
+        delete[](*data_.begin()).first;
       }
       data_.erase(data_.begin());
       (*start_array_idx)--;
@@ -132,7 +131,7 @@ class DataBase : public DataItf {
     pthread_mutex_lock(&data_mutex_);
     for (size_t i = 0; i < data_.size(); ++i) {
       if (data_[i].first) {
-        delete [](data_[i].first);
+        delete[](data_[i].first);
       }
     }
     data_.clear();
@@ -154,16 +153,13 @@ class DataBase : public DataItf {
     pthread_mutex_unlock(&data_mutex_);
     return element_num;
   }
-  virtual size_t ElementSize() {
-    return sizeof(T);
-  }
+  virtual size_t ElementSize() { return sizeof(T); }
 
  protected:
-  std::vector< std::pair<T *, int> > data_;
+  std::vector<std::pair<T *, int> > data_;
   pthread_mutex_t data_mutex_;
 };
 
 }  // namespace AlibabaNls
 
 #endif  // NLS_SDK_THREAD_DATA_H_
-

@@ -18,14 +18,14 @@
 #define NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_PARAM_H
 
 #include <string>
+
 #include "iNlsRequestParam.h"
 
 namespace AlibabaNls {
 
 class SpeechSynthesizerParam : public INlsRequestParam {
-
-public:
-  SpeechSynthesizerParam(int version, const char* sdkName);
+ public:
+  explicit SpeechSynthesizerParam(int version, const char* sdkName);
   ~SpeechSynthesizerParam();
 
   int setText(const char* value);
@@ -38,9 +38,8 @@ public:
 
   const char* getStartCommand();
   const char* getStopCommand();
-
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_PARAM_H
+#endif  // NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_PARAM_H

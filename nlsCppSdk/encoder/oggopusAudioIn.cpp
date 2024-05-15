@@ -17,28 +17,27 @@
 #include "oggopusAudioIn.h"
 
 #include <limits.h>
-#include <stdlib.h>
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include <math.h>
 
 #ifdef WIN32
-# include <windows.h> /*GetFileType()*/
-# include <io.h>      /*_get_osfhandle()*/
+#include <io.h>      /*_get_osfhandle()*/
+#include <windows.h> /*GetFileType()*/
 #endif
 
+#include "lpc.h"
 #include "ogg/ogg.h"
 #include "oggopusHeader.h"
-#include "lpc.h"
 
 namespace AlibabaNls {
 
 // return: sample number actually read
 int ReadBuffer(char *requested_buffer, int requested_len, char **src_buffer,
                int *length) {
-  if (*length == 0 || NULL == *src_buffer)
-    return 0;
+  if (*length == 0 || NULL == *src_buffer) return 0;
 
   // input length is smaller than the length requested
   if (*length < requested_len) {
@@ -68,24 +67,29 @@ int ReadBuffer(char *requested_buffer, int requested_len, char **src_buffer,
   return requested_len / 2;
 }
 
-int64_t WavRead(void *read_info, float *buffer, int samples,
-             char** inbuf, int* length) {
+int64_t WavRead(void *read_info, float *buffer, int samples, char **inbuf,
+                int *length) {
   WavInfo *wav_info = reinterpret_cast<WavInfo *>(read_info);
   int sample_bytes = wav_info->sample_bits / 8;
   int requested_sample_num = samples;
   int requested_len = requested_sample_num * sample_bytes * wav_info->channels;
+  // Obsolete function 'alloca' called. In C++11 and later it is recommended to
+  // use std::array<> instead.
   signed char *requested_buf = (signed char *)alloca(requested_len);
   int *ch_permute = wav_info->channel_permute;
 
   requested_sample_num =
-    ReadBuffer((char *)requested_buf, requested_len, inbuf, length);
+      ReadBuffer((char *)requested_buf, requested_len, inbuf, length);
   wav_info->samplesread += requested_sample_num;
 
   for (int i = 0; i < requested_sample_num; i++) {
     for (int j = 0; j < wav_info->channels; j++) {
-      buffer[i*wav_info->channels + j] =
-        ((requested_buf[i * 2 * wav_info->channels + 2 * ch_permute[j] + 1] << 8) |
-         (requested_buf[i * 2 * wav_info->channels + 2 * ch_permute[j]] & 0xff)) / 32768.0f;
+      buffer[i * wav_info->channels + j] =
+          ((requested_buf[i * 2 * wav_info->channels + 2 * ch_permute[j] + 1]
+            << 8) |
+           (requested_buf[i * 2 * wav_info->channels + 2 * ch_permute[j]] &
+            0xff)) /
+          32768.0f;
     }
   }
   return requested_sample_num;
@@ -106,8 +110,7 @@ void RawOpen(OggEncodeOpt *ogg_encode_opt) {
   wav_info->channels = ogg_encode_opt->channels;
   wav_info->sample_bits = ogg_encode_opt->sample_bits;
   wav_info->channel_permute = (int *)malloc(wav_info->channels * sizeof(int));
-  for (int i = 0; i < wav_info->channels; i++)
-    wav_info->channel_permute[i] = i;
+  for (int i = 0; i < wav_info->channels; i++) wav_info->channel_permute[i] = i;
 
   ogg_encode_opt->read_func = WavRead;
   ogg_encode_opt->read_info = (void *)wav_info;
@@ -118,11 +121,11 @@ void RawOpen(OggEncodeOpt *ogg_encode_opt) {
  * and requested number of samples with LPC-predicted data to minimize the
  * pertubation of the valid data that falls in the same frame. */
 static int64_t ReadPadder(void *read_info, float *buffer, int samples,
-                          char** inbuf, int *length) {
+                          char **inbuf, int *length) {
   Padder *padder = reinterpret_cast<Padder *>(read_info);
   // use WavRead Func here
-  int64_t in_samples = padder->read_func(padder->read_info, buffer, samples,
-                                         inbuf, length);
+  int64_t in_samples =
+      padder->read_func(padder->read_info, buffer, samples, inbuf, length);
   if (in_samples <= 0) {
     return in_samples;  // no sample fetched
   }
@@ -135,11 +138,11 @@ static int64_t ReadPadder(void *read_info, float *buffer, int samples,
   if (in_samples < samples) {
     if (padder->lpc_ptr < 0) {
       padder->lpc_out = reinterpret_cast<float *>(
-		      calloc(padder->channels * (*padder->extra_samples),
-			      sizeof(*padder->lpc_out)));
+          calloc(padder->channels * (*padder->extra_samples),
+                 sizeof(*padder->lpc_out)));
       if (in_samples > lpc_order * 2) {
-        float *lpc = reinterpret_cast<float *>(
-			alloca(lpc_order * sizeof(*lpc)));
+        float *lpc =
+            reinterpret_cast<float *>(alloca(lpc_order * sizeof(*lpc)));
         for (int i = 0; i < padder->channels; i++) {
           vorbis_lpc_from_data(buffer + i, lpc, in_samples, lpc_order,
                                padder->channels);
@@ -152,8 +155,7 @@ static int64_t ReadPadder(void *read_info, float *buffer, int samples,
       padder->lpc_ptr = 0;
     }
     extra = samples - in_samples;
-    if (extra > *padder->extra_samples)
-      extra = *padder->extra_samples;
+    if (extra > *padder->extra_samples) extra = *padder->extra_samples;
     *padder->extra_samples -= extra;
   }
   memcpy(buffer + in_samples * padder->channels,
@@ -176,17 +178,16 @@ void SetupPadder(OggEncodeOpt *ogg_encode_opt,
   padder->lpc_out = NULL;
 
   ogg_encode_opt->read_func = ReadPadder;
-  ogg_encode_opt->read_info = (Padder *)padder;  // use the padder's read data
+  ogg_encode_opt->read_info =
+      static_cast<Padder *>(padder);  // use the padder's read data
 }
 
 void ClearPadder(OggEncodeOpt *ogg_encode_opt) {
-  Padder *padder = (Padder *)ogg_encode_opt->read_info;
+  Padder *padder = static_cast<Padder *>(ogg_encode_opt->read_info);
   ogg_encode_opt->read_func = padder->read_func;
   ogg_encode_opt->read_info = padder->read_info;
-  if (padder->lpc_out)
-    free(padder->lpc_out);
+  if (padder->lpc_out) free(padder->lpc_out);
   delete padder;
 }
 
 }  // namespace AlibabaNls
-

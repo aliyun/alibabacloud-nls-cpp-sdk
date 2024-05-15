@@ -100,10 +100,11 @@ endif ()
 option(JSONCPP_ENABLE "Enable Jsoncpp." ON)
 
 set(CURL_C_FLAGS "-fPIC -fvisibility=hidden -D_GLIBCXX_USE_CXX11_ABI=${CXX11_ABI}")
+set(CURL_WITHOUT_PACKAGE  --without-nghttp2 --without-nghttp3 --without-libidn2 --without-zstd --without-brotli --without-ldap --without-ldaps --without-rtsp --without-rtmp)
 set(CURL_EXTERNAL_COMPILER_FLAGS
     URL ${CURL_URL}
     URL_HASH MD5=${CURL_URL_HASH}
-    CONFIGURE_COMMAND ./configure CFLAGS=${CURL_C_FLAGS} enable_debug=no enable_shared=no enable_static=yes --prefix=<INSTALL_DIR> --without-nghttp2 --without-libidn2 --without-zstd --without-brotli --with-openssl=<INSTALL_DIR>/../openssl-prefix/
+    CONFIGURE_COMMAND ./configure CFLAGS=${CURL_C_FLAGS} enable_debug=no enable_shared=yes enable_static=yes --prefix=<INSTALL_DIR> ${CURL_WITHOUT_PACKAGE} --with-openssl=<INSTALL_DIR>/../openssl-prefix/
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE}
     )

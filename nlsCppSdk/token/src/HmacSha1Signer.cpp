@@ -1,12 +1,12 @@
 /*
  * Copyright 2009-2017 Alibaba Cloud All rights reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,8 +16,8 @@
 
 #include "HmacSha1Signer.h"
 #ifdef _WIN32
-#include <windows.h>
 #include <wincrypt.h>
+#include <windows.h>
 #else
 #include <openssl/hmac.h>
 #endif
@@ -28,10 +28,9 @@ HmacSha1Signer::HmacSha1Signer() : Signer(HmacSha1, "HMAC-SHA1", "1.0") {}
 
 HmacSha1Signer::~HmacSha1Signer() {}
 
-std::string HmacSha1Signer::generate(const std::string & src,
-                                     const std::string & secret) const {
-  if (src.empty())
-    return std::string();
+std::string HmacSha1Signer::generate(const std::string& src,
+                                     const std::string& secret) const {
+  if (src.empty()) return std::string();
 
 #ifdef _WIN32
   typedef struct _my_blob {
@@ -41,7 +40,7 @@ std::string HmacSha1Signer::generate(const std::string & src,
   } my_blob;
 
   DWORD kbLen = sizeof(my_blob) + secret.size();
-  my_blob * kb = (my_blob *)LocalAlloc(LPTR, kbLen);
+  my_blob* kb = (my_blob*)LocalAlloc(LPTR, kbLen);
   kb->hdr.bType = PLAINTEXTKEYBLOB;
   kb->hdr.bVersion = CUR_BLOB_VERSION;
   kb->hdr.reserved = 0;
@@ -59,7 +58,7 @@ std::string HmacSha1Signer::generate(const std::string & src,
   HmacInfo.HashAlgid = CALG_SHA1;
 
   CryptAcquireContext(&hProv, NULL, MS_ENHANCED_PROV, PROV_RSA_FULL,
-      CRYPT_VERIFYCONTEXT | CRYPT_NEWKEYSET);
+                      CRYPT_VERIFYCONTEXT | CRYPT_NEWKEYSET);
   CryptImportKey(hProv, (BYTE*)kb, kbLen, 0, CRYPT_IPSEC_HMAC_KEY, &hKey);
   CryptCreateHash(hProv, CALG_HMAC, hKey, 0, &hHmacHash);
   CryptSetHashParam(hHmacHash, HP_HMAC_INFO, (BYTE*)&HmacInfo, 0);
@@ -73,21 +72,21 @@ std::string HmacSha1Signer::generate(const std::string & src,
 
   DWORD dlen = 0;
   CryptBinaryToString(pbHash, dwDataLen,
-      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dlen);
+                      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &dlen);
   char* dest = new char[dlen];
   CryptBinaryToString(pbHash, dwDataLen,
-      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, dest, &dlen);
+                      CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, dest, &dlen);
 
   std::string ret = std::string(dest, dlen);
-  delete dest;
+  delete[] dest;
   return ret;
 #else
   unsigned char md[EVP_MAX_BLOCK_LENGTH] = {0};
   unsigned int mdLen = EVP_MAX_BLOCK_LENGTH;
 
   if (HMAC(EVP_sha1(), secret.c_str(), secret.size(),
-        reinterpret_cast<const unsigned char*>(src.c_str()),
-        src.size(), md, &mdLen) == NULL) {
+           reinterpret_cast<const unsigned char*>(src.c_str()), src.size(), md,
+           &mdLen) == NULL) {
     return std::string();
   }
 
@@ -97,4 +96,4 @@ std::string HmacSha1Signer::generate(const std::string & src,
 #endif
 }
 
-}
+}  // namespace AlibabaNlsCommon

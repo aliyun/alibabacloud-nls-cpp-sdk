@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+#include "nlsToken.h"
+
 #include <iostream>
+
 #include "CommonClient.h"
 #include "json/json.h"
-#include "nlsToken.h"
 
 namespace AlibabaNlsCommon {
 
@@ -78,11 +80,11 @@ int NlsToken::applyNlsToken() {
     return retCode;
   }
 
-  //ClientConfiguration默认区域id为hangzhou
+  // ClientConfiguration默认区域id为hangzhou
   ClientConfiguration configuration(regionId_);
-  //if (!regionId_.empty()) {
-  //  configuration.setRegionId(regionId_);
-  //}
+  // if (!regionId_.empty()) {
+  //   configuration.setRegionId(regionId_);
+  // }
 
   CommonClient client(accessKeyId_, accessKeySecret_, "", configuration);
 
@@ -93,10 +95,10 @@ int NlsToken::applyNlsToken() {
   request.setHttpMethod(HttpRequest::Post);
   request.setAction(action_);
 
-  //std::cout << "Domain: " << domain_ << std::endl;
-  //std::cout << "ServerVersion: " << serverVersion_ << ", ServerResourcePath: " << serverResourcePath_ << std::endl;
-  //std::cout << "Action: " << action_ << std::endl;
-  //std::cout << "RegionId: " << regionId_ << std::endl;
+  // std::cout << "Domain: " << domain_ << std::endl;
+  // std::cout << "ServerVersion: " << serverVersion_ << ", ServerResourcePath:
+  // " << serverResourcePath_ << std::endl; std::cout << "Action: " << action_
+  // << std::endl; std::cout << "RegionId: " << regionId_ << std::endl;
 
   CommonClient::CommonResponseOutcome outcome = client.commonResponse(request);
   if (!outcome.isSuccess()) {
@@ -105,72 +107,66 @@ int NlsToken::applyNlsToken() {
     return -(ClientRequestFaild);
   }
 
-  Json::Value root;
-  Json::Reader reader;
-  std::string result = outcome.result().payload();
+  try {
+    Json::Value root;
+    Json::Reader reader;
+    std::string result = outcome.result().payload();
 
-  if (!reader.parse(result, root)) {
-    std::string tt = "json any failed.";
-    errorMsg_ = tt;
+    if (!reader.parse(result, root)) {
+      std::string tt = "json any failed.";
+      errorMsg_ = tt;
+      return -(JsonParseFailed);
+    }
+
+    if (!root["Token"].isNull()) {
+      Json::Value subRoot = root["Token"];
+
+      if (!subRoot["Id"].isNull()) {
+        tokenId_ = subRoot["Id"].asString();
+      }
+
+      if (!subRoot["ExpireTime"].isNull()) {
+        expireTime_ = subRoot["ExpireTime"].asUInt();
+      }
+    }
+  } catch (const std::exception& e) {
     return -(JsonParseFailed);
-  }
-
-  if (!root["Token"].isNull()) {
-    Json::Value subRoot = root["Token"];
-
-    if (!subRoot["Id"].isNull()) {
-      tokenId_ = subRoot["Id"].asString();
-    }
-
-    if (!subRoot["ExpireTime"].isNull()) {
-      expireTime_ = subRoot["ExpireTime"].asUInt();
-    }
   }
 
   return Success;
 }
 
-const char* NlsToken::getErrorMsg() {
-  return errorMsg_.c_str();
-}
+const char* NlsToken::getErrorMsg() { return errorMsg_.c_str(); }
 
-const char* NlsToken::getToken() {
-  return tokenId_.c_str();
-}
+const char* NlsToken::getToken() { return tokenId_.c_str(); }
 
-unsigned int NlsToken::getExpireTime() {
-  return expireTime_;
-}
+unsigned int NlsToken::getExpireTime() { return expireTime_; }
 
-void NlsToken::setKeySecret(const std::string & KeySecret) {
+void NlsToken::setKeySecret(const std::string& KeySecret) {
   accessKeySecret_ = KeySecret;
 }
 
-void NlsToken::setAccessKeyId(const std::string & accessKeyId) {
+void NlsToken::setAccessKeyId(const std::string& accessKeyId) {
   accessKeyId_ = accessKeyId;
 }
 
-void NlsToken::setDomain(const std::string & domain) {
-  domain_ = domain;
-}
+void NlsToken::setDomain(const std::string& domain) { domain_ = domain; }
 
-void NlsToken::setServerVersion(const std::string & serverVersion) {
+void NlsToken::setServerVersion(const std::string& serverVersion) {
   serverVersion_ = serverVersion;
   serverResourcePath_ = "/pop/";
   serverResourcePath_ += serverVersion_;
   serverResourcePath_ += "/tokens";
 }
 
-void NlsToken::setServerResourcePath(const std::string & serverResourcePath) {
+void NlsToken::setServerResourcePath(const std::string& serverResourcePath) {
   serverResourcePath_ = serverResourcePath;
 }
 
-void NlsToken::setRegionId(const std::string & regionId) {
+void NlsToken::setRegionId(const std::string& regionId) {
   regionId_ = regionId;
 }
 
-void NlsToken::setAction(const std::string & action) {
-  action_ = action;
-}
+void NlsToken::setAction(const std::string& action) { action_ = action; }
 
-}
+}  // namespace AlibabaNlsCommon

@@ -18,8 +18,8 @@
 #define NLS_SDK_SPEECH_TRANSCRIBER_LISTENER_H
 
 #if defined(_WIN32)
-#pragma warning( push )
-#pragma warning ( disable : 4251 )
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #endif
 
 #include "iNlsRequestListener.h"
@@ -29,23 +29,20 @@ namespace AlibabaNls {
 class SpeechTranscriberCallback;
 
 class SpeechTranscriberListener : public INlsRequestListener {
-public:
+ public:
+  explicit SpeechTranscriberListener(SpeechTranscriberCallback* cb);
+  ~SpeechTranscriberListener();
 
-SpeechTranscriberListener(SpeechTranscriberCallback* cb);
+  virtual void handlerFrame(NlsEvent);
 
-~SpeechTranscriberListener();
-
-virtual void handlerFrame(NlsEvent);
-
-private:
-SpeechTranscriberCallback* _callback;
-
+ private:
+  SpeechTranscriberCallback* _callback;
 };
 
-}
+}  // namespace AlibabaNls
 
 #if defined(_WIN32)
-#pragma warning( pop )
+#pragma warning(pop)
 #endif
 
-#endif //NLS_SDK_SPEECH_TRANSCRIBER_LISTENER_H
+#endif  // NLS_SDK_SPEECH_TRANSCRIBER_LISTENER_H

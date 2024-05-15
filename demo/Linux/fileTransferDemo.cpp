@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-#include <sys/time.h>
-#include <unistd.h>
-#include <ctime>
+#include <errno.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#include <ctime>
+#include <fstream>
+#include <iostream>
 #include <map>
 #include <string>
-#include <iostream>
 #include <vector>
-#include <fstream>
-#include <signal.h>
-#include <errno.h>
+
 #include "FileTrans.h"
 /* 若需要启动Log记录, 则需要此头文件 */
 #include "nlsClient.h"
@@ -34,7 +36,9 @@ std::string g_appkey = "";
 std::string g_akId = "";
 std::string g_akSecret = "";
 std::string g_stsToken = "";
-std::string g_fileLinkUrl = "https://gw.alipayobjects.com/os/bmw-prod/0574ee2e-f494-45a5-820f-63aee583045a.wav";
+std::string g_fileLinkUrl =
+    "https://gw.alipayobjects.com/os/bmw-prod/"
+    "0574ee2e-f494-45a5-820f-63aee583045a.wav";
 bool g_sync = true;
 int g_threads = 1;
 
@@ -53,7 +57,7 @@ int invalied_argv(int index, int argc) {
   return 0;
 }
 
-int parse_argv(int argc, char* argv[]) {
+int parse_argv(int argc, char *argv[]) {
   int index = 1;
   while (index < argc) {
     if (!strcmp(argv[index], "--appkey")) {
@@ -105,17 +109,20 @@ int parse_argv(int argc, char* argv[]) {
   if ((g_fileLinkUrl.empty() && (g_akId.empty() || g_akSecret.empty())) ||
       g_appkey.empty()) {
     std::cout << "short of params..." << std::endl;
-    std::cout << "if ak/sk is empty, please setenv NLS_AK_ENV&NLS_SK_ENV&NLS_APPKEY_ENV" << std::endl;
+    std::cout << "if ak/sk is empty, please setenv "
+                 "NLS_AK_ENV&NLS_SK_ENV&NLS_APPKEY_ENV"
+              << std::endl;
     return 1;
   }
   return 0;
 }
 
-void fileTransferCallback(void* request, void* cbParam) {
+void fileTransferCallback(void *request, void *cbParam) {
   if (request) {
-    AlibabaNlsCommon::FileTrans* result = (AlibabaNlsCommon::FileTrans*)request;
+    AlibabaNlsCommon::FileTrans *result =
+        (AlibabaNlsCommon::FileTrans *)request;
     std::map<std::string, AlibabaNlsCommon::FileTrans> *requests =
-      (std::map<std::string, AlibabaNlsCommon::FileTrans> *)cbParam;
+        (std::map<std::string, AlibabaNlsCommon::FileTrans> *)cbParam;
 
     std::string taskId = result->getTaskId();
     int event = result->getEvent();
@@ -127,9 +134,10 @@ void fileTransferCallback(void* request, void* cbParam) {
     } else {
       std::cout << "   result:" << result->getResult() << std::endl;
     }
-    std::map<std::string, AlibabaNlsCommon::FileTrans>::iterator iter = requests->find(taskId);
+    std::map<std::string, AlibabaNlsCommon::FileTrans>::iterator iter =
+        requests->find(taskId);
     if (iter != requests->end()) {
-      iter->second = *result; 
+      iter->second = *result;
     } else {
       requests->insert(std::make_pair(taskId, *result));
     }
@@ -139,7 +147,8 @@ void fileTransferCallback(void* request, void* cbParam) {
   return;
 }
 
-void releaseAllRequests(std::map<std::string, AlibabaNlsCommon::FileTrans> *requests) {
+void releaseAllRequests(
+    std::map<std::string, AlibabaNlsCommon::FileTrans> *requests) {
   while (!requests->empty()) {
     requests->erase(requests->begin());
   }
@@ -160,7 +169,7 @@ void waitComplete(
     completed = 0;
 
     std::map<std::string, AlibabaNlsCommon::FileTrans>::iterator iter;
-    for (iter = requests->begin(); iter != requests->end(); iter++) {
+    for (iter = requests->begin(); iter != requests->end(); ++iter) {
       int event = iter->second.getEvent();
       if (event == AlibabaNlsCommon::TaskFailed) {
         failed++;
@@ -208,16 +217,15 @@ int fileTransferMultThreads(
       //  设置sts token
       request_array[i].setStsToken(g_stsToken);
     } else {
-    /*设置原阿里云账号访问账号说明：
-     *  此处阿里云账号AccessKey Id和AccessKey Secret
-     *  此方案存在账号泄露的风险，推荐使用STS临时访问方案
-     */
+      /*设置原阿里云账号访问账号说明：
+       *  此处阿里云账号AccessKey Id和AccessKey Secret
+       *  此方案存在账号泄露的风险，推荐使用STS临时访问方案
+       */
       //  设置阿里云账号AccessKey Id
       request_array[i].setAccessKeyId(g_akId);
       //  设置阿里云账号AccessKey Secret
       request_array[i].setKeySecret(g_akSecret);
     }
-
 
     /*设置闲时版的说明：
      *  录音文件识别闲时版是针对已经录制完成的录音文件，进行离线识别的服务。
@@ -226,25 +234,24 @@ int fileTransferMultThreads(
      *  具体说明和设置参数请看https://help.aliyun.com/document_detail/397307.html
      */
     //  设置闲时版连接域名,这里默填写的是上海地域,如果要使用其它地域请参考各地域POP调用参数
-    //request_array[i].setDomain("speechfiletranscriberlite.cn-shanghai.aliyuncs.com");
+    // request_array[i].setDomain("speechfiletranscriberlite.cn-shanghai.aliyuncs.com");
     //  设置闲时版连接版本
-    //request_array[i].setServerVersion("2021-12-21");
+    // request_array[i].setServerVersion("2021-12-21");
     //  设置连接地域
-    //request_array[i].setRegionId("cn-shanghai");
-
+    // request_array[i].setRegionId("cn-shanghai");
 
     /*开始文件识别, 成功返回0, 失败返回非0*/
     int ret = request_array[i].applyFileTrans(false);
     if (ret) {
-      std::cout << "FileTrans (" << i << ") failed error code: "
-        << ret << "  error msg: "
-        << request_array[i].getErrorMsg() << std::endl; /*获取失败原因*/
+      std::cout << "FileTrans (" << i << ") failed error code: " << ret
+                << "  error msg: " << request_array[i].getErrorMsg()
+                << std::endl; /*获取失败原因*/
     } else {
       requests->insert(
           std::make_pair(request_array[i].getTaskId(), request_array[i]));
       cnt++;
     }
-  } // for ()
+  }  // for ()
 
   return cnt;
 }
@@ -278,16 +285,15 @@ int fileTransferSync() {
     //  设置sts token
     request.setStsToken(g_stsToken);
   } else {
-  /*设置原阿里云账号访问账号说明：
-   *  此处阿里云账号AccessKey Id和AccessKey Secret
-   *  此方案存在账号泄露的风险，推荐使用STS临时访问方案
-   */
+    /*设置原阿里云账号访问账号说明：
+     *  此处阿里云账号AccessKey Id和AccessKey Secret
+     *  此方案存在账号泄露的风险，推荐使用STS临时访问方案
+     */
     //  设置阿里云账号AccessKey Id
     request.setAccessKeyId(g_akId);
     //  设置阿里云账号AccessKey Secret
     request.setKeySecret(g_akSecret);
   }
-
 
   /*设置闲时版的说明：
    *  录音文件识别闲时版是针对已经录制完成的录音文件，进行离线识别的服务。
@@ -296,19 +302,18 @@ int fileTransferSync() {
    *  具体说明和设置参数请看https://help.aliyun.com/document_detail/397307.html
    */
   //  设置闲时版连接域名,这里默填写的是上海地域,如果要使用其它地域请参考各地域POP调用参数
-  //request.setDomain("speechfiletranscriberlite.cn-shanghai.aliyuncs.com");
+  // request.setDomain("speechfiletranscriberlite.cn-shanghai.aliyuncs.com");
   //  设置闲时版连接版本
-  //request.setServerVersion("2021-12-21");
+  // request.setServerVersion("2021-12-21");
   //  设置连接地域
-  //request.setRegionId("cn-shanghai");
-
+  // request.setRegionId("cn-shanghai");
 
   /*开始文件识别, 成功返回0, 失败返回负值*/
   int ret = request.applyFileTrans();
   if (ret < 0) {
-    std::cout << "FileTrans failed error code: "
-      << ret << "  error msg: "
-      << request.getErrorMsg() << std::endl; /*获取失败原因*/
+    std::cout << "FileTrans failed error code: " << ret
+              << "  error msg: " << request.getErrorMsg()
+              << std::endl; /*获取失败原因*/
     return -1;
   } else {
     std::string result = request.getResult();
@@ -318,18 +323,20 @@ int fileTransferSync() {
   return 0;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   if (parse_argv(argc, argv)) {
     std::cout << "params is not valid.\n"
-      << "Usage:\n"
-      << "  --appkey <appkey>\n"
-      << "  --akId <AccessKey ID>\n"
-      << "  --akSecret <AccessKey Secret>\n"
-      << "  --fileLinkUrl <your file link url>\n"
-      << "eg:\n"
-      << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --fileLinkUrl xxxxxxxxx\n"
-      << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --fileLinkUrl xxxxxxxxx --sync 0 --threads 50\n"
-      << std::endl;
+              << "Usage:\n"
+              << "  --appkey <appkey>\n"
+              << "  --akId <AccessKey ID>\n"
+              << "  --akSecret <AccessKey Secret>\n"
+              << "  --fileLinkUrl <your file link url>\n"
+              << "eg:\n"
+              << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
+                 "--fileLinkUrl xxxxxxxxx\n"
+              << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
+                 "--fileLinkUrl xxxxxxxxx --sync 0 --threads 50\n"
+              << std::endl;
     return -1;
   }
 
@@ -345,7 +352,6 @@ int main(int argc, char* argv[]) {
   /* 此为启动Log记录, 非必须 */
   AlibabaNls::NlsClient::getInstance()->setLogConfig(
       "log-filetransfer", AlibabaNls::LogDebug, 100, 10);
-
 
   if (g_sync) {
     fileTransferSync();

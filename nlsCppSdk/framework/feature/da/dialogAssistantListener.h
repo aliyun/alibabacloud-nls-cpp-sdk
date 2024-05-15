@@ -25,7 +25,7 @@ class DialogAssistantCallback;
 
 class DialogAssistantListener : public INlsRequestListener {
  public:
-  DialogAssistantListener(DialogAssistantCallback* cb);
+  explicit DialogAssistantListener(DialogAssistantCallback* cb);
   ~DialogAssistantListener();
 
   virtual void handlerFrame(NlsEvent);
@@ -34,6 +34,6 @@ class DialogAssistantListener : public INlsRequestListener {
   DialogAssistantCallback* _callback;
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_DIALOG_ASSISTANT_LISTENER_H
+#endif  // NLS_SDK_DIALOG_ASSISTANT_LISTENER_H

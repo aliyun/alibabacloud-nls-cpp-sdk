@@ -19,31 +19,32 @@
 
 #include "oggopusDataStruct.h"
 
-#define PACKAGE_NAME "opus-tools of Alibaba iDST"
+#define PACKAGE_NAME    "opus-tools of Alibaba iDST"
 #define PACKAGE_VERSION "1.3.5"
 
 namespace AlibabaNls {
 
 class OggOpusDataEncoderPara {
  public:
-  OggOpusDataEncoderPara() :
-    opus_multistream_encoder(NULL),
-    opus_version(NULL),
-    packet(NULL),
-    input(NULL),
-    audio_functions(NULL),
-    last_granulepos(0),
-    enc_granulepos(0),
-    original_sample_number(0),
-    id(0),
-    last_segments(-1),
-    nbBytes(0),
-    nb_samples(0),
-    max_frame_bytes(0),
-    complexity(0),
-    max_ogg_delay(0),
-    serialno(0),
-    lookahead(0) {
+  OggOpusDataEncoderPara()
+      : opus_multistream_encoder(NULL),
+        opus_version(NULL),
+        packet(NULL),
+        input(NULL),
+        audio_functions(NULL),
+        last_granulepos(0),
+        enc_granulepos(0),
+        original_sample_number(0),
+        id(0),
+        last_segments(-1),
+        nbBytes(0),
+        nb_samples(0),
+        start_time(0),
+        max_frame_bytes(0),
+        complexity(0),
+        max_ogg_delay(0),
+        serialno(0),
+        lookahead(0) {
     snprintf(ENCODER_string, sizeof(ENCODER_string), "opusenc from %s %s",
              PACKAGE_NAME, PACKAGE_VERSION);
   }
@@ -79,11 +80,10 @@ class OggOpusDataEncoderPara {
   int max_frame_bytes;
   opus_int32 bitrate;
   int complexity;
-  int max_ogg_delay;  /*48kHz samples*/
+  int max_ogg_delay; /*48kHz samples*/
   int serialno;
   opus_int32 lookahead;
 };
-
 
 class OggOpusDataEncoder {
  public:
@@ -91,7 +91,7 @@ class OggOpusDataEncoder {
   ~OggOpusDataEncoder();
 
   int OggopusEncoderCreate(EncodedDataCallback encoded_data_callback,
-            void *user_data, int samplerate = 16000);
+                           void *user_data, int samplerate = 16000);
   int OggopusEncode(const char *input_data, int len);
   int OggopusFinish();
   int OggopusSoftRestart();
@@ -103,14 +103,10 @@ class OggOpusDataEncoder {
     frame_sample_bytes_ = frame_sample_num_ * 2;
   }
 
-  void SetBitrate(int bitrate) {
-    encoder_bitrate_ = bitrate;
-  }
+  void SetBitrate(int bitrate) { encoder_bitrate_ = bitrate; }
   int GetBitrate() const { return encoder_bitrate_; }
-  
-  void SetComplexity(int complexity) {
-    encoder_complexity_ = complexity;
-  }
+
+  void SetComplexity(int complexity) { encoder_complexity_ = complexity; }
   int GetComplexity() const { return encoder_complexity_; }
 
   void SetFrameSampleBytes(int bytes) {
@@ -130,8 +126,8 @@ class OggOpusDataEncoder {
       }
 
       ogg_opus_para_->input = reinterpret_cast<float *>(
-              realloc(ogg_opus_para_->input,
-                      sizeof(float) * frame_sample_num_ * channel_num_));
+          realloc(ogg_opus_para_->input,
+                  sizeof(float) * frame_sample_num_ * channel_num_));
       if (ogg_opus_para_->input == NULL) {
         exit(1);
       }
@@ -154,7 +150,6 @@ class OggOpusDataEncoder {
   int encoder_complexity_;
 };
 
-} // namespace AlibabaNls
+}  // namespace AlibabaNls
 
-#endif // ALIBABA_OGGOPUS_ENCODER_H_
-
+#endif  // ALIBABA_OGGOPUS_ENCODER_H_

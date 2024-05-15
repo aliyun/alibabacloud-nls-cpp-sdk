@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright 2021 Alibaba Group Holding Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,46 +14,43 @@
  * limitations under the License.
  */
 
-#ifdef _MSC_VER
-#include <Rpc.h>
-#else
-#include "uuid/uuid.h"
-#endif
-
-#include <stdio.h>
 #include <stdint.h>
-#include <vector>
+#include <stdio.h>
+
 #include <iostream>
+#include <vector>
 
 #if defined(__ANDROID__) || defined(__linux__)
-#include <stdlib.h>
 #include <errno.h>
-#include <unistd.h>
-#include <string.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #ifndef __ANDRIOD__
 #include <iconv.h>
 #endif
 #endif
 
 #ifdef __GNUC__
-#include <netdb.h>
-#include <sys/poll.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 #include <sys/time.h>
 #endif
 
-#include "nlsGlobal.h"
-#include "nlsClient.h"
+#include "connectNode.h"
 #include "iNlsRequest.h"
 #include "iNlsRequestParam.h"
 #include "nlog.h"
+#include "nlsClientImpl.h"
+#include "nlsGlobal.h"
+#include "nodeManager.h"
+#include "text_utils.h"
 #include "utility.h"
 #include "workThread.h"
-#include "nodeManager.h"
-#include "connectNode.h"
+#include "Config.h"
 #ifdef ENABLE_REQUEST_RECORDING
 #include "text_utils.h"
 #include "json/json.h"
@@ -61,17 +58,57 @@
 
 namespace AlibabaNls {
 
-#define NODE_FRAME_SIZE 2048
-
-ConnectNode::ConnectNode(INlsRequest* request,
-                         HandleBaseOneParamWithReturnVoid<NlsEvent>* handler,
-                         bool isLongConnection) : _request(request), _handler(handler) {
-  _dnsRequest = NULL;
-  _dnsRequestCallbackStatus = 0;
-  _retryConnectCount = 0;
-
-  _socketFd = INVALID_SOCKET;
-
+ConnectNode::ConnectNode(INlsRequest *request,
+                         HandleBaseOneParamWithReturnVoid<NlsEvent> *handler,
+                         bool isLongConnection)
+    : _request(request),
+      _handler(handler),
+      _isLongConnection(isLongConnection),
+      _dnsRequest(NULL),
+      _dnsRequestCallbackStatus(0),
+      _retryConnectCount(0),
+      _socketFd(INVALID_SOCKET),
+      _binaryEvBuffer(NULL),
+      _readEvBuffer(NULL),
+      _cmdEvBuffer(NULL),
+      _wwvEvBuffer(NULL),
+      _nlsEncoder(NULL),
+      _encoderType(ENCODER_NONE),
+      _audioFrame(NULL),
+      _audioFrameSize(0),
+      _maxFrameSize(0),
+      _isFirstAudioFrame(true),
+      _eventThread(NULL),
+      _isDestroy(false),
+      _isWakeStop(false),
+      _isStop(false),
+      _isFirstBinaryFrame(true),
+      _isConnected(false),
+      _workStatus(NodeCreated),
+      _exitStatus(ExitInvalid),
+      _instance(NULL),
+      _syncCallTimeoutMs(0),
+#ifdef __LINUX__
+      _nodename(NULL),
+      _servname(NULL),
+      _dnsThread(0),
+      _dnsThreadExit(false),
+      _dnsErrorCode(0),
+      _addrinfo(NULL),
+      _dnsThreadRunning(false),
+      _dnsEvent(NULL),
+#endif
+      _sslHandle(NULL),
+      _enableRecvTv(false),
+      _enableOnMessage(false),
+      _launchEvent(NULL),
+      _connectEvent(NULL),
+      _readEvent(NULL),
+      _writeEvent(NULL),
+#ifdef ENABLE_CONTINUED
+      _reconnectEvent(NULL),
+#endif
+      _inEventCallbackNode(false) {
   _binaryEvBuffer = evbuffer_new();
   if (_binaryEvBuffer == NULL) {
     LOG_ERROR("_binaryEvBuffer is nullptr");
@@ -95,41 +132,6 @@ ConnectNode::ConnectNode(INlsRequest* request,
   evbuffer_enable_locking(_cmdEvBuffer, NULL);
   evbuffer_enable_locking(_wwvEvBuffer, NULL);
 
-  _nlsEncoder = NULL; //createNlsEncoder
-  _encoderType = ENCODER_NONE;
-  _audioFrame = NULL;
-  _audioFrameSize = 0;
-  _maxFrameSize = 0;
-  _isFrirstAudioFrame = true;
-
-  _eventThread = NULL;
-
-  _isDestroy = false;
-  _isWakeStop = false;
-  _isStop = false;
-  _isFirstBinaryFrame = true;
-
-  _isLongConnection = isLongConnection;
-  _isConnected = false;
-
-  _workStatus = NodeCreated;
-  _exitStatus = ExitInvalid;
-
-  _instance = NULL;
-  _syncCallTimeoutMs = 0;
-
-#ifndef _MSC_VER
-  _nodename = NULL;
-  _servname = NULL;
-  _dnsThread = 0;
-  _dnsThreadExit = false;
-  _dnsThreadRunning = false;
-  _gaicbRequest[0] = NULL;
-  _dnsEvent = NULL;
-  _dnsErrorCode = 0;
-  _addrinfo = NULL;
-#endif
-
   _sslHandle = new SSLconnect();
   if (_sslHandle == NULL) {
     LOG_ERROR("Node(%p) _sslHandle is nullptr.", this);
@@ -137,33 +139,29 @@ ConnectNode::ConnectNode(INlsRequest* request,
     LOG_DEBUG("Node(%p) new SSLconnect:%p.", this, _sslHandle);
   }
 
-  LOG_INFO("Node(%p) create ConnectNode include webSocketTcp:%p.", this, &_webSocket);
+  LOG_INFO("Node(%p) create ConnectNode include webSocketTcp:%p.", this,
+           &_webSocket);
 
   // will update parameters in updateParameters()
-  int timeout_ms = request->getRequestParam()->getTimeout();
-  _connectTv.tv_sec = timeout_ms / 1000;
-  _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
-
   _enableRecvTv = request->getRequestParam()->getEnableRecvTimeout();
-  timeout_ms = request->getRequestParam()->getRecvTimeout();
-  _recvTv.tv_sec = timeout_ms / 1000;
-  _recvTv.tv_usec = (timeout_ms - _recvTv.tv_sec * 1000) * 1000;
-
-  timeout_ms = request->getRequestParam()->getSendTimeout();
-  _sendTv.tv_sec = timeout_ms / 1000;
-  _sendTv.tv_usec = (timeout_ms - _sendTv.tv_sec * 1000) * 1000;
+  utility::TextUtils::GetTimevalFromMs(
+      &_recvTv, request->getRequestParam()->getRecvTimeout());
+  utility::TextUtils::GetTimevalFromMs(
+      &_sendTv, request->getRequestParam()->getSendTimeout());
+  utility::TextUtils::GetTimevalFromMs(
+      &_connectTv, request->getRequestParam()->getTimeout());
 
   _enableOnMessage = request->getRequestParam()->getEnableOnMessage();
 
-  _launchEvent = NULL;
-  _connectEvent = NULL;
-  _readEvent = NULL;
-  _writeEvent = NULL;
 #ifdef ENABLE_HIGH_EFFICIENCY
   _connectTimerTv.tv_sec = 0;
-  _connectTimerTv.tv_usec = CONNECT_TIMER_INVERVAL_MS * 1000;
+  _connectTimerTv.tv_usec = ConnectTimerIntervalMs * 1000;
   _connectTimerFlag = true;
   _connectTimerEvent = NULL;
+#endif
+
+#ifdef __LINUX__
+  _gaicbRequest[0] = NULL;
 #endif
 
 #if defined(_MSC_VER)
@@ -179,8 +177,6 @@ ConnectNode::ConnectNode(INlsRequest* request,
   pthread_cond_init(&_cvEventCallbackNode, NULL);
   pthread_cond_init(&_cvInvokeSyncCallNode, NULL);
 #endif
-  _inEventCallbackNode = false;
-  _nodeUUID = getRandomUuid();
 
 #ifdef ENABLE_REQUEST_RECORDING
   _nodeProcess.last_status = NodeCreated;
@@ -188,22 +184,24 @@ ConnectNode::ConnectNode(INlsRequest* request,
   _nodeProcess.last_op_timestamp_ms = _nodeProcess.create_timestamp_ms;
 #endif
 
-  LOG_INFO("Node(%p) create ConnectNode done with long connection flag:%d, the UUID is %s",
-    this, _isLongConnection, _nodeUUID.c_str());
+  _nodeUUID = utility::TextUtils::getRandomUuid();
+
+  LOG_INFO(
+      "Node(%p) create ConnectNode done with long connection flag:%d, the UUID "
+      "is %s",
+      this, _isLongConnection, _nodeUUID.c_str());
 }
 
 ConnectNode::~ConnectNode() {
   LOG_DEBUG("Node(%p) destroy ConnectNode begin.", this);
 
-#ifndef _MSC_VER
-  int ret = 0;
+#ifdef __LINUX__
   if (_url._enableSysGetAddr) {
     if (_dnsThread) {
-      LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this, _dnsThread);
+      LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this,
+               _dnsThread);
       _dnsThreadExit = true;
-      #ifndef __ANDROID__
       pthread_join(_dnsThread, NULL);
-      #endif
       LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
       _dnsThread = 0;
       if (_gaicbRequest[0]) {
@@ -218,7 +216,6 @@ ConnectNode::~ConnectNode() {
 
   closeConnectNode();
   _eventThread->freeListNode(_eventThread, _request);
-
   _request = NULL;
 
   if (_sslHandle) {
@@ -249,40 +246,57 @@ ConnectNode::~ConnectNode() {
     event_free(_launchEvent);
     _launchEvent = NULL;
   }
+#ifdef ENABLE_CONTINUED
+  if (_reconnectEvent) {
+    event_free(_reconnectEvent);
+    _reconnectEvent = NULL;
+  }
+#endif
 
   if (_dnsRequest && _dnsRequestCallbackStatus == 1) {
-    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_active_added_virtual:%d",
+    LOG_DEBUG(
+        "Node(%p) cancel _dnsRequest(%p), current "
+        "event_count_active_added_virtual:%d",
         this, _dnsRequest,
-        event_base_get_num_events(
-          _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE |
-          EVENT_BASE_COUNT_ADDED | EVENT_BASE_COUNT_VIRTUAL));
+        event_base_get_num_events(_eventThread->_workBase,
+                                  EVENT_BASE_COUNT_ACTIVE |
+                                      EVENT_BASE_COUNT_ADDED |
+                                      EVENT_BASE_COUNT_VIRTUAL));
     LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_active:%d",
-        this, _dnsRequest,
-        event_base_get_num_events(
-          _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE));
+              this, _dnsRequest,
+              event_base_get_num_events(_eventThread->_workBase,
+                                        EVENT_BASE_COUNT_ACTIVE));
     LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_virtual:%d",
-        this, _dnsRequest,
-        event_base_get_num_events(
-          _eventThread->_workBase, EVENT_BASE_COUNT_VIRTUAL));
+              this, _dnsRequest,
+              event_base_get_num_events(_eventThread->_workBase,
+                                        EVENT_BASE_COUNT_VIRTUAL));
     LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_added:%d",
-        this, _dnsRequest,
-        event_base_get_num_events(
-          _eventThread->_workBase, EVENT_BASE_COUNT_ADDED));
+              this, _dnsRequest,
+              event_base_get_num_events(_eventThread->_workBase,
+                                        EVENT_BASE_COUNT_ADDED));
     evdns_getaddrinfo_cancel(_dnsRequest);
   }
-  LOG_DEBUG("Node(%p) get event_count_active_added_virtual %d in deconstructing ConnectNode.",
-      this, event_base_get_num_events(
-        _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE |
-        EVENT_BASE_COUNT_ADDED | EVENT_BASE_COUNT_VIRTUAL));
+  LOG_DEBUG(
+      "Node(%p) get event_count_active_added_virtual %d in deconstructing "
+      "ConnectNode.",
+      this,
+      event_base_get_num_events(_eventThread->_workBase,
+                                EVENT_BASE_COUNT_ACTIVE |
+                                    EVENT_BASE_COUNT_ADDED |
+                                    EVENT_BASE_COUNT_VIRTUAL));
   LOG_DEBUG("Node(%p) get event_count_active %d in deconstructing ConnectNode.",
-      this, event_base_get_num_events(
-        _eventThread->_workBase, EVENT_BASE_COUNT_ACTIVE));
-  LOG_DEBUG("Node(%p) get event_count_virtual %d in deconstructing ConnectNode.",
-      this, event_base_get_num_events(
-        _eventThread->_workBase, EVENT_BASE_COUNT_VIRTUAL));
+            this,
+            event_base_get_num_events(_eventThread->_workBase,
+                                      EVENT_BASE_COUNT_ACTIVE));
+  LOG_DEBUG(
+      "Node(%p) get event_count_virtual %d in deconstructing ConnectNode.",
+      this,
+      event_base_get_num_events(_eventThread->_workBase,
+                                EVENT_BASE_COUNT_VIRTUAL));
   LOG_DEBUG("Node(%p) get event_count_added %d in deconstructing ConnectNode.",
-      this, event_base_get_num_events(
-        _eventThread->_workBase, EVENT_BASE_COUNT_ADDED));
+            this,
+            event_base_get_num_events(_eventThread->_workBase,
+                                      EVENT_BASE_COUNT_ADDED));
 
   if (_nlsEncoder) {
     _nlsEncoder->destroyNlsEncoder();
@@ -295,7 +309,7 @@ ConnectNode::~ConnectNode() {
   }
   _audioFrameSize = 0;
   _maxFrameSize = 0;
-  _isFrirstAudioFrame = true;
+  _isFirstAudioFrame = true;
 
 #if defined(_MSC_VER)
   CloseHandle(_mtxNode);
@@ -317,12 +331,12 @@ ConnectNode::~ConnectNode() {
   LOG_DEBUG("Node(%p) destroy ConnectNode done.", this);
 }
 
+/**
+ * @brief: 长链接模式下完成一轮交互初始化参数而非释放
+ * @return:
+ */
 void ConnectNode::initAllStatus() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
+  MUTEX_LOCK(_mtxNode);
 
   _isFirstBinaryFrame = true;
   _isStop = false;
@@ -332,14 +346,14 @@ void ConnectNode::initAllStatus() {
   _workStatus = NodeCreated;
   _exitStatus = ExitInvalid;
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
+  MUTEX_UNLOCK(_mtxNode);
 }
 
-struct event * ConnectNode::getLaunchEvent(bool init) {
+/**
+ * @brief: 获得用于启动当前node的libevent, 用于启动当前请求
+ * @return: libevent的event指针
+ */
+struct event *ConnectNode::getLaunchEvent(bool init) {
   if (_launchEvent == NULL) {
     _launchEvent = event_new(_eventThread->_workBase, -1, EV_READ,
                              WorkThread::launchEventCallback, this);
@@ -351,33 +365,36 @@ struct event * ConnectNode::getLaunchEvent(bool init) {
   } else {
     if (init) {
       event_del(_launchEvent);
-      event_assign(_launchEvent, _eventThread->_workBase, -1,
-                   EV_READ,
-                   WorkThread::launchEventCallback,
-                   this);
-      LOG_DEBUG("Node(%p) new event_assign(_launchEvent).", this);
+      int assign_ret =
+          event_assign(_launchEvent, _eventThread->_workBase, -1, EV_READ,
+                       WorkThread::launchEventCallback, this);
+      LOG_DEBUG("Node(%p) new event_assign(_launchEvent) with ret:%d.", this,
+                assign_ret);
     }
   }
   return _launchEvent;
 }
 
+/**
+ * @brief: 获得当前node的运行状态
+ * @return: 当前node的运行状态枚举值
+ */
 ConnectStatus ConnectNode::getConnectNodeStatus() {
-  ConnectStatus status;
-
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  status = _workStatus;
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
+  MUTEX_LOCK(_mtxNode);
+  ConnectStatus status = _workStatus;
+  MUTEX_UNLOCK(_mtxNode);
   return status;
+}
+
+/**
+ * @brief: 获得当前node的运行状态
+ * @return: 当前node的运行状态枚举值对应字符串
+ */
+std::string ConnectNode::getConnectNodeStatusString() {
+  MUTEX_LOCK(_mtxNode);
+  std::string ret_str = getConnectNodeStatusString(_workStatus);
+  MUTEX_UNLOCK(_mtxNode);
+  return ret_str;
 }
 
 std::string ConnectNode::getConnectNodeStatusString(ConnectStatus status) {
@@ -449,67 +466,38 @@ std::string ConnectNode::getConnectNodeStatusString(ConnectStatus status) {
   return ret_str;
 }
 
-std::string ConnectNode::getConnectNodeStatusString() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  std::string ret_str = getConnectNodeStatusString(_workStatus);
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-  return ret_str;
-}
-
+/**
+ * @brief: 设置当前node的运行状态
+ * @return:
+ */
 void ConnectNode::setConnectNodeStatus(ConnectStatus status) {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
+  MUTEX_LOCK(_mtxNode);
   _workStatus = status;
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
+#ifdef ENABLE_REQUEST_RECORDING
+  _nodeProcess.last_status = _workStatus;
 #endif
+  MUTEX_UNLOCK(_mtxNode);
 }
 
+/**
+ * @brief: 获得当前node的退出状态
+ * @return:
+ */
 ExitStatus ConnectNode::getExitStatus() {
-  ExitStatus ret = ExitInvalid;
-
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  ret = _exitStatus;
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-
+  MUTEX_LOCK(_mtxNode);
+  ExitStatus ret = _exitStatus;
+  MUTEX_UNLOCK(_mtxNode);
   return ret;
 }
 
+/**
+ * @brief: 获得当前node的退出状态
+ * @return: 当前node的退出状态枚举值对应字符串
+ */
 std::string ConnectNode::getExitStatusString() {
-  std::string ret_str = "Unknown";
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
+  MUTEX_LOCK(_mtxNode);
 
+  std::string ret_str = "Unknown";
   switch (_exitStatus) {
     case ExitInvalid:
       ret_str.assign("ExitInvalid");
@@ -524,31 +512,14 @@ std::string ConnectNode::getExitStatusString() {
       LOG_ERROR("Current invalid exit status:%d.", _exitStatus);
   }
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-
+  MUTEX_UNLOCK(_mtxNode);
   return ret_str;
 }
 
-void ConnectNode::setExitStatus(ExitStatus status) {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  _exitStatus = status;
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-}
-
+/**
+ * @brief: node运行指令对应的字符串
+ * @return:
+ */
 std::string ConnectNode::getCmdTypeString(int type) {
   std::string ret_str = "Unknown";
 
@@ -580,30 +551,24 @@ std::string ConnectNode::getCmdTypeString(int type) {
 }
 
 bool ConnectNode::updateDestroyStatus() {
-  bool ret = true;
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
+  MUTEX_LOCK(_mtxNode);
 
+  bool ret = true;
   if (!_isDestroy) {
-  #ifndef _MSC_VER
-    int result = 0;
+#ifdef __LINUX__
     if (_url._enableSysGetAddr) {
       if (_dnsThread) {
-        LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this, _dnsThread);
+        LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this,
+                 _dnsThread);
         _dnsThreadExit = true;
-        #ifndef __ANDROID__
         pthread_join(_dnsThread, NULL);
-        #endif
         LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
         _dnsThread = 0;
       } else {
         LOG_DEBUG("Node(%p) dnsThread has exited.", this);
       }
     }
-  #endif
+#endif
 
     _isDestroy = true;
     ret = false;
@@ -611,60 +576,22 @@ bool ConnectNode::updateDestroyStatus() {
     LOG_DEBUG("Node(%p) _isDestroy is true, do nothing ...", this);
   }
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-
+  MUTEX_UNLOCK(_mtxNode);
   return ret;
 }
 
-void ConnectNode::setWakeStatus(bool status) {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  _isWakeStop = status;
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-}
-
 bool ConnectNode::getWakeStatus() {
-  bool ret = false;
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  ret = _isWakeStop;
-
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-
+  MUTEX_LOCK(_mtxNode);
+  bool ret = _isWakeStop;
+  MUTEX_UNLOCK(_mtxNode);
   return ret;
 }
 
 bool ConnectNode::checkConnectCount() {
+  MUTEX_LOCK(_mtxNode);
+
   bool result = false;
-
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
-  if (_retryConnectCount < RETRY_CONNECT_COUNT) {
+  if (_retryConnectCount < RetryConnectCount) {
     _retryConnectCount++;
     result = true;
   } else {
@@ -673,12 +600,7 @@ bool ConnectNode::checkConnectCount() {
   }
   LOG_INFO("Node(%p) check connection count: %d.", this, _retryConnectCount);
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-
+  MUTEX_UNLOCK(_mtxNode);
   return result;
 }
 
@@ -688,8 +610,8 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
     return false;
   }
 
-  const char* address = _request->getRequestParam()->_url.c_str();
-  const char* token = _request->getRequestParam()->_token.c_str();
+  const char *address = _request->getRequestParam()->_url.c_str();
+  const char *token = _request->getRequestParam()->_token.c_str();
   size_t tokenSize = _request->getRequestParam()->_token.size();
 
   memset(&_url, 0x0, sizeof(struct urlAddress));
@@ -697,49 +619,28 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
   if (directIp && strnlen(directIp, 64) > 0) {
     LOG_DEBUG("Node(%p) direct ip address: %s.", this, directIp);
 
-    if (sscanf(directIp, "%[^:/]:%d", _url._address, &_url._port) == 2) {
+    if (sscanf(directIp, "%256[^:/]:%d", _url._address, &_url._port) == 2) {
       _url._directIp = true;
-    } else if (sscanf(directIp, "%s", _url._address) == 1) {
+    } else if (sscanf(directIp, "%255s", _url._address) == 1) {
       _url._directIp = true;
     } else {
-      LOG_ERROR("Node(%p) could not parse WebSocket direct ip:%s.", this, directIp);
+      LOG_ERROR("Node(%p) could not parse WebSocket direct ip:%s.", this,
+                directIp);
       return false;
     }
   }
 
   LOG_INFO("Node(%p) address: %s.", this, address);
 
-  if (sscanf(address, "%[^:/]://%[^:/]:%d/%s", _url._type, _url._host, &_url._port, _url._path) == 4) {
-    if (strcmp(_url._type, "wss") == 0 || strcmp(_url._type, "https") == 0) {
-      _url._isSsl = true;
-    }
-  } else if (sscanf(address, "%[^:/]://%[^:/]/%s", _url._type, _url._host, _url._path) == 3) {
-    if (strcmp(_url._type, "wss") == 0 || strcmp(_url._type, "https") == 0) {
-      _url._port = 443;
-      _url._isSsl = true;
-    } else {
-      _url._port = 80;
-    }
-  } else if (sscanf(address, "%[^:/]://%[^:/]:%d", _url._type, _url._host, &_url._port) == 3) {
-    _url._path[0] = '\0';
-  } else if (sscanf(address, "%[^:/]://%[^:/]", _url._type, _url._host) == 2) {
-    if (strcmp(_url._type, "wss") == 0 || strcmp(_url._type, "https") == 0) {
-      _url._port = 443;
-      _url._isSsl = true;
-    } else {
-      _url._port = 80;
-    }
-    _url._path[0] = '\0';
-  } else {
+  if (WebSocketTcp::parseUrlAddress(_url, address) != Success) {
     LOG_ERROR("Node(%p) could not parse WebSocket url: %s.", this, address);
-
     return false;
   }
 
   memcpy(_url._token, token, tokenSize);
 
-  LOG_INFO("Node(%p) type:%s, host:%s, port:%d, path:%s.",
-      this, _url._type, _url._host, _url._port, _url._path);
+  LOG_INFO("Node(%p) type:%s, host:%s, port:%d, path:%s.", this, _url._type,
+           _url._host, _url._port, _url._path);
 
   return true;
 }
@@ -749,15 +650,12 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
  * @return:
  */
 void ConnectNode::disconnectProcess() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxCloseNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxCloseNode);
-#endif
+  MUTEX_LOCK(_mtxCloseNode);
 
-  LOG_DEBUG("Node(%p) disconnectProcess begin, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_DEBUG(
+      "Node(%p) disconnectProcess begin, current node status:%s exit "
+      "status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
   if (_socketFd != INVALID_SOCKET) {
@@ -775,16 +673,12 @@ void ConnectNode::disconnectProcess() {
 
   _isConnected = false;
 
-  LOG_DEBUG("Node(%p) disconnectProcess done, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_DEBUG(
+      "Node(%p) disconnectProcess done, current node status:%s exit status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxCloseNode);
-#else
-  pthread_mutex_unlock(&_mtxCloseNode);
-#endif
+  MUTEX_UNLOCK(_mtxCloseNode);
 }
 
 /**
@@ -792,15 +686,12 @@ void ConnectNode::disconnectProcess() {
  * @return:
  */
 void ConnectNode::closeStatusConnectNode() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxCloseNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxCloseNode);
-#endif
+  MUTEX_LOCK(_mtxCloseNode);
 
-  LOG_DEBUG("Node(%p) closeStatusConnectNode begin, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_DEBUG(
+      "Node(%p) closeStatusConnectNode begin, current node status:%s exit "
+      "status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
   if (_nlsEncoder) {
@@ -813,18 +704,15 @@ void ConnectNode::closeStatusConnectNode() {
   }
   _audioFrameSize = 0;
   _maxFrameSize = 0;
-  _isFrirstAudioFrame = true;
+  _isFirstAudioFrame = true;
 
-  LOG_DEBUG("Node(%p) closeStatusConnectNode done, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_DEBUG(
+      "Node(%p) closeStatusConnectNode done, current node status:%s exit "
+      "status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxCloseNode);
-#else
-  pthread_mutex_unlock(&_mtxCloseNode);
-#endif
+  MUTEX_UNLOCK(_mtxCloseNode);
 }
 
 /**
@@ -832,15 +720,11 @@ void ConnectNode::closeStatusConnectNode() {
  * @return:
  */
 void ConnectNode::closeConnectNode() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxCloseNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxCloseNode);
-#endif
+  MUTEX_LOCK(_mtxCloseNode);
 
-  LOG_DEBUG("Node(%p) closeConnectNode begin, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_DEBUG(
+      "Node(%p) closeConnectNode begin, current node status:%s exit status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
   if (_socketFd != INVALID_SOCKET) {
@@ -896,31 +780,27 @@ void ConnectNode::closeConnectNode() {
   }
   _audioFrameSize = 0;
   _maxFrameSize = 0;
-  _isFrirstAudioFrame = true;
+  _isFirstAudioFrame = true;
 
-  LOG_INFO("Node(%p) closeConnectNode done, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_INFO(
+      "Node(%p) closeConnectNode done, current node status:%s exit status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxCloseNode);
-#else
-  pthread_mutex_unlock(&_mtxCloseNode);
-#endif
+  MUTEX_UNLOCK(_mtxCloseNode);
 }
 
-int ConnectNode::socketWrite(const uint8_t * buffer, size_t len) {
+int ConnectNode::socketWrite(const uint8_t *buffer, size_t len) {
 #if defined(__ANDROID__) || defined(__linux__)
   int wLen = send(_socketFd, (const char *)buffer, len, MSG_NOSIGNAL);
 #else
-  int wLen = send(_socketFd, (const char*)buffer, len, 0);
+  int wLen = send(_socketFd, (const char *)buffer, len, 0);
 #endif
 
   if (wLen < 0) {
     int errorCode = utility::getLastErrorCode();
     if (NLS_ERR_RW_RETRIABLE(errorCode)) {
-      //LOG_DEBUG("Node(%p) socketWrite continue.", this);
+      // LOG_DEBUG("Node(%p) socketWrite continue.", this);
 
       return Success;
     } else {
@@ -931,13 +811,13 @@ int ConnectNode::socketWrite(const uint8_t * buffer, size_t len) {
   }
 }
 
-int ConnectNode::socketRead(uint8_t * buffer, size_t len) {
-  int rLen = recv(_socketFd, (char*)buffer, len, 0);
+int ConnectNode::socketRead(uint8_t *buffer, size_t len) {
+  int rLen = recv(_socketFd, (char *)buffer, len, 0);
 
-  if (rLen <= 0) { //rLen == 0, close socket, need do
+  if (rLen <= 0) {  // rLen == 0, close socket, need do
     int errorCode = utility::getLastErrorCode();
     if (NLS_ERR_RW_RETRIABLE(errorCode)) {
-      //LOG_DEBUG("Node(%p) socketRead continue.", this);
+      // LOG_DEBUG("Node(%p) socketRead continue.", this);
 
       return Success;
     } else {
@@ -956,15 +836,14 @@ int ConnectNode::gatewayRequest() {
   }
 
   if (_enableRecvTv) {
-    int timeout_ms = _request->getRequestParam()->getRecvTimeout();
-    _recvTv.tv_sec = timeout_ms / 1000;
-    _recvTv.tv_usec = (timeout_ms - _recvTv.tv_sec * 1000) * 1000;
+    utility::TextUtils::GetTimevalFromMs(
+        &_recvTv, _request->getRequestParam()->getRecvTimeout());
     event_add(_readEvent, &_recvTv);
   } else {
     event_add(_readEvent, NULL);
   }
 
-  char tmp[NODE_FRAME_SIZE] = {0};
+  char tmp[NodeFrameSize] = {0};
   int tmpLen = _webSocket.requestPackage(
       &_url, tmp, _request->getRequestParam()->GetHttpHeader());
   if (tmpLen < 0) {
@@ -984,13 +863,13 @@ int ConnectNode::gatewayRequest() {
 int ConnectNode::gatewayResponse() {
   int ret = 0;
   int read_len = 0;
-  uint8_t *frame = (uint8_t *)calloc(READ_BUFFER_SIZE, sizeof(char));
+  uint8_t *frame = (uint8_t *)calloc(ReadBufferSize, sizeof(char));
   if (frame == NULL) {
     LOG_ERROR("Node(%p) %s %d calloc failed.", this, __func__, __LINE__);
     return -(MallocFailed);
   }
 
-  read_len = nlsReceive(frame, READ_BUFFER_SIZE);
+  read_len = nlsReceive(frame, ReadBufferSize);
   if (read_len < 0) {
     LOG_ERROR("Node(%p) nlsReceive failed, read_len:%d", this, read_len);
     free(frame);
@@ -1002,27 +881,29 @@ int ConnectNode::gatewayResponse() {
   }
 
   int frameSize = evbuffer_get_length(_readEvBuffer);
-  if (frameSize > READ_BUFFER_SIZE) {
-    frame = (uint8_t *)realloc(frame, frameSize + 1);
-    if (frame == NULL) {
+  if (frameSize > ReadBufferSize) {
+    uint8_t *tmp = (uint8_t *)realloc(frame, frameSize + 1);
+    if (NULL == tmp) {
       LOG_ERROR("Node(%p) %s %d realloc failed.", this, __func__, __LINE__);
       free(frame);
       return -(ReallocFailed);
+    } else {
+      frame = tmp;
     }
   }
 
-  evbuffer_copyout(_readEvBuffer, frame, frameSize);  //evbuffer_peek
+  evbuffer_copyout(_readEvBuffer, frame, frameSize);  // evbuffer_peek
 
-  ret = _webSocket.responsePackage((const char*)frame, frameSize);
+  ret = _webSocket.responsePackage((const char *)frame, frameSize);
   if (ret == 0) {
     evbuffer_drain(_readEvBuffer, frameSize);
   } else if (ret > 0) {
-    LOG_DEBUG("Node(%p) GateWay Middle response: %d\n %s",
-        this, frameSize, frame);
+    LOG_DEBUG("Node(%p) GateWay Middle response: %d\n %s", this, frameSize,
+              frame);
   } else {
     _nodeErrMsg = _webSocket.getFailedMsg();
-    LOG_ERROR("Node(%p) webSocket.responsePackage: %s",
-        this, _nodeErrMsg.c_str());
+    LOG_ERROR("Node(%p) webSocket.responsePackage: %s", this,
+              _nodeErrMsg.c_str());
   }
 
   if (frame) free(frame);
@@ -1051,43 +932,49 @@ int ConnectNode::addRemainAudioData() {
  * @param length	用户传入的数据字节数
  * @return: 成功发送的字节数(可能为0, 留下一包数据发送), 失败则返回负值.
  */
-int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) {
-  int ret = 0;
+int ConnectNode::addSlicedAudioDataBuffer(const uint8_t *frame, size_t length) {
   int filling_ret = 0;
 
   if (_nlsEncoder && _encoderType != ENCODER_NONE) {
-    #ifdef ENABLE_NLS_DEBUG
-    LOG_DEBUG("Node(%p) addSlicedAudioDataBuffer input data %d bytes.", this, length);
-    #endif
+#ifdef ENABLE_NLS_DEBUG
+    // LOG_DEBUG("Node(%p) addSlicedAudioDataBuffer input data %d bytes.", this,
+    //           length);
+#endif
     _maxFrameSize = _nlsEncoder->getFrameSampleBytes();
     if (_maxFrameSize <= 0) {
       return _maxFrameSize;
     }
     if (_audioFrame == NULL) {
-        _audioFrame = (unsigned char*)calloc(_maxFrameSize, sizeof(unsigned char*));
-        if (_audioFrame == NULL) {
-          LOG_ERROR("Node(%p) malloc audio_data_buffer failed.", this);
-          return -(MallocFailed);
-        #ifdef ENABLE_NLS_DEBUG
-        } else {
-          LOG_DEBUG("Node(%p) create audio frame data %d bytes.", this, _maxFrameSize);
-        #endif
-        }
-        _audioFrameSize = 0;
+      _audioFrame =
+          (unsigned char *)calloc(_maxFrameSize, sizeof(unsigned char *));
+      if (_audioFrame == NULL) {
+        LOG_ERROR("Node(%p) malloc audio_data_buffer failed.", this);
+        return -(MallocFailed);
+#ifdef ENABLE_NLS_DEBUG
+      } else {
+        LOG_DEBUG("Node(%p) create audio frame data %d bytes.", this,
+                  _maxFrameSize);
+#endif
+      }
+      _audioFrameSize = 0;
     }
 
-    size_t buffer_space_size = 0; /*buffer中空闲空间, 最大为_maxFrameSize*/
-    size_t frame_used_size = 0; /*frame已经传入buffer的字节数*/
+    int ret = 0;
+    size_t frame_used_size = 0;        /*frame已经传入buffer的字节数*/
     size_t frame_remain_size = length; /*frame未传入buffer的字节数*/
     do {
-      buffer_space_size = _maxFrameSize - _audioFrameSize;
+      size_t buffer_space_size =
+          _maxFrameSize -
+          _audioFrameSize; /*buffer中空闲空间, 最大为_maxFrameSize*/
       if (frame_remain_size < buffer_space_size) {
-        memcpy(_audioFrame + _audioFrameSize, frame + frame_used_size, frame_remain_size);
+        memcpy(_audioFrame + _audioFrameSize, frame + frame_used_size,
+               frame_remain_size);
         _audioFrameSize += frame_remain_size;
         frame_used_size += frame_remain_size;
-        frame_remain_size -= frame_remain_size;
+        frame_remain_size = 0;
       } else {
-        memcpy(_audioFrame + _audioFrameSize, frame + frame_used_size, buffer_space_size);
+        memcpy(_audioFrame + _audioFrameSize, frame + frame_used_size,
+               buffer_space_size);
         _audioFrameSize += buffer_space_size;
         frame_used_size += buffer_space_size;
         frame_remain_size -= buffer_space_size;
@@ -1099,23 +986,28 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) 
         memset(_audioFrame, 0, _maxFrameSize);
         filling_ret += _maxFrameSize;
         _audioFrameSize = 0;
-        #ifdef ENABLE_NLS_DEBUG
-        LOG_DEBUG("Node(%p) ready to push audio data(%d) into nls_buffer, has digest %dbytes, ret:%d.",
-              this, _maxFrameSize, frame_used_size, ret);
-        #endif
+#ifdef ENABLE_NLS_DEBUG
+        // LOG_DEBUG(
+        //     "Node(%p) ready to push audio data(%d) into nls_buffer, has
+        //     digest "
+        //     "%dbytes, ret:%d.",
+        //     this, _maxFrameSize, frame_used_size, ret);
+#endif
         if (ret < 0) {
           filling_ret = ret;
           break;
         }
       } else {
-        if (_isFrirstAudioFrame == false && _encoderType != ENCODER_OPU) {
+        if (_isFirstAudioFrame == false && _encoderType != ENCODER_OPU) {
           /*数据不足一包, 且非第一包数据. OPU第一包如果未满, 则会编码失败*/
           ret = addAudioDataBuffer(_audioFrame, _audioFrameSize);
           filling_ret += _audioFrameSize;
-          #ifdef ENABLE_NLS_DEBUG
-          LOG_DEBUG("Node(%p) ready to push audio data(%d) into nls_buffer, has digest %dbytes, ret:%d.",
-                this, _audioFrameSize, frame_used_size, ret);
-          #endif
+#ifdef ENABLE_NLS_DEBUG
+          // LOG_DEBUG(
+          //     "Node(%p) ready to push audio data(%d) into nls_buffer, has "
+          //     "digest %dbytes, ret:%d.",
+          //     this, _audioFrameSize, frame_used_size, ret);
+#endif
           memset(_audioFrame, 0, _maxFrameSize);
           _audioFrameSize = 0;
           if (ret < 0) {
@@ -1123,10 +1015,11 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) 
             break;
           }
         } else {
-          #ifdef ENABLE_NLS_DEBUG
-          LOG_DEBUG("Node(%p) leave audio data(%d) for the next round.",
-                this, _audioFrameSize);
-          #endif
+#ifdef ENABLE_NLS_DEBUG
+          // LOG_DEBUG("Node(%p) leave audio data(%d) for the next round.",
+          // this,
+          //           _audioFrameSize);
+#endif
           break;
         }
       }
@@ -1135,9 +1028,10 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) 
     filling_ret = addAudioDataBuffer(frame, length);
   }
 
-  #ifdef ENABLE_NLS_DEBUG
-  LOG_DEBUG("Node(%p) pushed audio data(%d:%d) into audio_data_tmp_buffer.", this, length, filling_ret);
-  #endif
+#ifdef ENABLE_NLS_DEBUG
+  // LOG_DEBUG("Node(%p) pushed audio data(%d:%d) into audio_data_tmp_buffer.",
+  //           this, length, filling_ret);
+#endif
   return filling_ret;
 }
 
@@ -1147,36 +1041,38 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t * frame, size_t length) 
  * @param frameSize	用户传入的数据字节数
  * @return: 成功发送的字节数(可能为0, 留下一包数据发送), 失败则返回负值.
  */
-int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
+int ConnectNode::addAudioDataBuffer(const uint8_t *frame, size_t frameSize) {
   REQUEST_CHECK(_request, this);
   int ret = 0;
   uint8_t *tmp = NULL;
   size_t tmpSize = 0;
   size_t length = 0;
-  struct evbuffer* buff = NULL;
-
+  struct evbuffer *buff = NULL;
+  if (frame == NULL || frameSize == 0) {
+    return -(NlsEncodingFailed);
+  }
   if (_nlsEncoder && _encoderType != ENCODER_NONE) {
-    int nSize = 0;
     uint8_t *outputBuffer = new uint8_t[frameSize];
     if (outputBuffer == NULL) {
       LOG_ERROR("Node(%p) new outputBuffer failed.", this);
       return -(NewOutputBufferFailed);
     } else {
       memset(outputBuffer, 0, frameSize);
-      nSize = _nlsEncoder->nlsEncoding(
-          frame, (int)frameSize,
-          outputBuffer, (int)frameSize);
-      #ifdef ENABLE_NLS_DEBUG
-      LOG_DEBUG("Node(%p) Opus encoder(%d) encoding %dbytes data, and return nSize:%d.",
-          this, _encoderType, frameSize, nSize);
-      #endif
+      int nSize = _nlsEncoder->nlsEncoding(frame, (int)frameSize, outputBuffer,
+                                           (int)frameSize);
+#ifdef ENABLE_NLS_DEBUG
+      // LOG_DEBUG(
+      //     "Node(%p) Opus encoder(%d) encoding %dbytes data, and return "
+      //     "nSize:%d.",
+      //     this, _encoderType, frameSize, nSize);
+#endif
       if (nSize < 0) {
         LOG_ERROR("Node(%p) Opus encoder failed:%d.", this, nSize);
-        delete [] outputBuffer;
+        delete[] outputBuffer;
         return -(NlsEncodingFailed);
       }
       _webSocket.binaryFrame(outputBuffer, nSize, &tmp, &tmpSize);
-      delete [] outputBuffer;
+      delete[] outputBuffer;
     }
   } else {
     // pack frame data
@@ -1206,35 +1102,19 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
   evbuffer_unlock(buff);
 
   if (length == 0 && _workStatus == NodeStarted) {
-    #if defined(_MSC_VER)
-    WaitForSingleObject(_mtxNode, INFINITE);
-    #else
-    pthread_mutex_lock(&_mtxNode);
-    #endif
+    MUTEX_LOCK(_mtxNode);
     if (!_isStop) {
       ret = nlsSendFrame(buff);
     }
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxNode);
-    #else
-    pthread_mutex_unlock(&_mtxNode);
-    #endif
+    MUTEX_UNLOCK(_mtxNode);
   }
 
   if (length == 0 && _workStatus == NodeWakeWording) {
-    #if defined(_MSC_VER)
-    WaitForSingleObject(_mtxNode, INFINITE);
-    #else
-    pthread_mutex_lock(&_mtxNode);
-    #endif
+    MUTEX_LOCK(_mtxNode);
     if (!_isStop) {
       ret = nlsSendFrame(buff);
     }
-    #if defined(_MSC_VER)
-    ReleaseMutex(_mtxNode);
-    #else
-    pthread_mutex_unlock(&_mtxNode);
-    #endif
+    MUTEX_UNLOCK(_mtxNode);
   }
 
   if (ret == 0) {
@@ -1246,21 +1126,10 @@ int ConnectNode::addAudioDataBuffer(const uint8_t * frame, size_t frameSize) {
     handlerTaskFailedEvent(getErrorMsg());
   } else {
     ret = frameSize;
-    _isFrirstAudioFrame = false;
+    _isFirstAudioFrame = false;
   }
 
   return ret;
-}
-
-/**
- * @brief: 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
- *         此模式start()后收到服务端结果再return出去,
- *         stop()后收到close()回调再return出去.
- * @param timeout_ms	大于0, 则启动同步调用模式
- * @return:
- */
-void ConnectNode::setSyncCallTimeout(unsigned int timeout_ms) {
-  _syncCallTimeoutMs = timeout_ms;
 }
 
 /**
@@ -1268,14 +1137,9 @@ void ConnectNode::setSyncCallTimeout(unsigned int timeout_ms) {
  * @return: 成功发送的字节数, 失败则返回负值.
  */
 int ConnectNode::sendControlDirective() {
+  MUTEX_LOCK(_mtxNode);
+
   int ret = 0;
-
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
-
   if (_workStatus == NodeStarted && _exitStatus == ExitInvalid) {
     size_t length = evbuffer_get_length(getCmdEvBuffer());
     if (length != 0) {
@@ -1284,19 +1148,15 @@ int ConnectNode::sendControlDirective() {
     }
   } else {
     if (_exitStatus == ExitStopping && _isStop == false) {
-      // LOG_DEBUG("Node(%p) audio has send done. And invoke stop command.", this);
+      // LOG_DEBUG("Node(%p) audio has send done. And invoke stop command.",
+      // this);
       addCmdDataBuffer(CmdStop);
       ret = nlsSendFrame(getCmdEvBuffer());
       _isStop = true;
     }
   }
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
-
+  MUTEX_UNLOCK(_mtxNode);
   return ret;
 }
 
@@ -1306,23 +1166,43 @@ int ConnectNode::sendControlDirective() {
  * @param message	待发送命令
  * @return:
  */
-void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
+void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
   char *cmd = NULL;
 
-  LOG_DEBUG("Node(%p) get command type: %s.", this, getCmdTypeString(type).c_str());
+  LOG_DEBUG("Node(%p) get command type: %s.", this,
+            getCmdTypeString(type).c_str());
 
   if (_request == NULL) {
     LOG_ERROR("The rquest of node(%p) is nullptr.", this);
     return;
   }
   if (_request->getRequestParam() == NULL) {
-    LOG_ERROR("The requestParam of request(%p) node(%p) is nullptr.", _request, this);
+    LOG_ERROR("The requestParam of request(%p) node(%p) is nullptr.", _request,
+              this);
     return;
   }
 
-  switch(type) {
+  switch (type) {
     case CmdStart:
+      if (_reconnection.state == NodeReconnection::TriggerReconnection) {
+        // setting tw_time_offset and tw_index_offset
+        Json::Value root;
+        Json::FastWriter writer;
+        root["tw_time_offset"] =
+            Json::Value::UInt64(_reconnection.interruption_timestamp_ms -
+                                _reconnection.first_audio_timestamp_ms);
+        root["tw_index_offset"] =
+            Json::Value::UInt64(_reconnection.tw_index_offset);
+        std::string buf = writer.write(root);
+        _request->getRequestParam()->setPayloadParam(buf.c_str());
+      }
       cmd = (char *)_request->getRequestParam()->getStartCommand();
+      if (_reconnection.state == NodeReconnection::TriggerReconnection) {
+        // cleaning tw_time_offset and tw_index_offset
+        _request->getRequestParam()->removePayloadParam("tw_time_offset");
+        _request->getRequestParam()->removePayloadParam("tw_index_offset");
+      }
+      _reconnection.state = NodeReconnection::NewReconnectionStarting;
       break;
     case CmdStControl:
       cmd = (char *)_request->getRequestParam()->getControlCommand(message);
@@ -1346,13 +1226,15 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
 
   if (cmd) {
     std::string buf_str;
-    LOG_INFO("Node(%p) get command: %s, and add into evbuffer.", this, cmdConvertForLog(cmd, &buf_str));
+    LOG_INFO("Node(%p) get command: %s, and add into evbuffer.", this,
+             utility::TextUtils::securityDisposalForLog(cmd, &buf_str,
+                                                        "appkey\":\"", 8, 'Z'));
 
     uint8_t *frame = NULL;
     size_t frameSize = 0;
-    _webSocket.textFrame((uint8_t *) cmd, strlen(cmd), &frame, &frameSize);
+    _webSocket.textFrame((uint8_t *)cmd, strlen(cmd), &frame, &frameSize);
 
-    evbuffer_add(_cmdEvBuffer, (void *) frame, frameSize);
+    evbuffer_add(_cmdEvBuffer, (void *)frame, frameSize);
 
     if (frame) free(frame);
     frame = NULL;
@@ -1365,16 +1247,15 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char* message) {
  * @param message	待发送命令
  * @return: 成功则返回发送字节数, 失败则返回负值
  */
-int ConnectNode::cmdNotify(CmdType type, const char* message) {
+int ConnectNode::cmdNotify(CmdType type, const char *message) {
   int ret = Success;
 
-  LOG_DEBUG("Node(%p) invoke CmdNotify: %s.", this, getCmdTypeString(type).c_str());
+  LOG_DEBUG("Node(%p) invoke CmdNotify: %s.", this,
+            getCmdTypeString(type).c_str());
 
   if (type == CmdStop) {
 #ifdef ENABLE_REQUEST_RECORDING
-    _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
-    _nodeProcess.stop_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
-    _nodeProcess.last_status = NodeStop;
+    updateNodeProcess("stop", NodeStop, true, 0);
 #endif
     addRemainAudioData();
     _exitStatus = ExitStopping;
@@ -1383,22 +1264,20 @@ int ConnectNode::cmdNotify(CmdType type, const char* message) {
       if (length == 0) {
         ret = sendControlDirective();
       } else {
-        LOG_DEBUG("Node(%p) invoke CmdNotify: %s, and continue send audio data %zubytes.",
+        LOG_DEBUG(
+            "Node(%p) invoke CmdNotify: %s, and continue send audio data "
+            "%zubytes.",
             this, getCmdTypeString(type).c_str(), length);
       }
     }
   } else if (type == CmdCancel) {
 #ifdef ENABLE_REQUEST_RECORDING
-    _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
-    _nodeProcess.cancel_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
-    _nodeProcess.last_status = NodeCancel;
+    updateNodeProcess("cancel", NodeCancel, true, 0);
 #endif
     _exitStatus = ExitCancel;
   } else if (type == CmdStControl) {
 #ifdef ENABLE_REQUEST_RECORDING
-    _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
-    _nodeProcess.last_ctrl_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
-    _nodeProcess.last_status = NodeSendControl;
+    updateNodeProcess("ctrl", NodeSendControl, true, 0);
 #endif
     addCmdDataBuffer(CmdStControl, message);
     if (_workStatus == NodeStarted) {
@@ -1423,10 +1302,19 @@ int ConnectNode::cmdNotify(CmdType type, const char* message) {
     handlerTaskFailedEvent(getErrorMsg());
   }
 
+#ifdef ENABLE_REQUEST_RECORDING
+  if (type == CmdStop) {
+    updateNodeProcess("stop", NodeStop, false, 0);
+  } else if (type == CmdCancel) {
+    updateNodeProcess("cancel", NodeCancel, false, 0);
+  } else if (type == CmdStControl) {
+    updateNodeProcess("ctrl", NodeSendControl, false, 0);
+  }
+#endif
   return ret;
 }
 
-int ConnectNode::nlsSend(const uint8_t * frame, size_t length) {
+int ConnectNode::nlsSend(const uint8_t *frame, size_t length) {
   int sLen = 0;
   if ((frame == NULL) || (length == 0)) {
     return 0;
@@ -1446,19 +1334,19 @@ int ConnectNode::nlsSend(const uint8_t * frame, size_t length) {
           evutil_socket_error_to_string(evutil_socket_geterror(_socketFd));
     }
 
-    LOG_ERROR("Node(%p) send failed: %s.", this,  _nodeErrMsg.c_str());
+    LOG_ERROR("Node(%p) send failed: %s.", this, _nodeErrMsg.c_str());
   }
 
   return sLen;
 }
 
 /**
- * @brief: 发送一帧数据 
+ * @brief: 发送一帧数据
  * @return: 成功发送的字节数, 失败则返回负值.
  */
-int ConnectNode::nlsSendFrame(struct evbuffer * eventBuffer) {
+int ConnectNode::nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame) {
   int sLen = 0;
-  uint8_t buffer[NODE_FRAME_SIZE] = {0};
+  uint8_t buffer[NodeFrameSize] = {0};
   size_t bufferSize = 0;
 
   evbuffer_lock(eventBuffer);
@@ -1469,12 +1357,12 @@ int ConnectNode::nlsSendFrame(struct evbuffer * eventBuffer) {
     return 0;
   }
 
-  if (length > NODE_FRAME_SIZE) {
-    bufferSize = NODE_FRAME_SIZE;
+  if (length > NodeFrameSize) {
+    bufferSize = NodeFrameSize;
   } else {
     bufferSize = length;
   }
-  evbuffer_copyout(eventBuffer, buffer, bufferSize); //evbuffer_peek
+  evbuffer_copyout(eventBuffer, buffer, bufferSize);  // evbuffer_peek
 
   if (bufferSize > 0) {
     sLen = nlsSend(buffer, bufferSize);
@@ -1485,6 +1373,15 @@ int ConnectNode::nlsSendFrame(struct evbuffer * eventBuffer) {
     evbuffer_unlock(eventBuffer);
     return -(NlsSendFailed);
   } else {
+    // send data success
+    if (audio_frame && _isFirstBinaryFrame) {
+      _isFirstBinaryFrame = false;
+#ifdef ENABLE_CONTINUED
+      _reconnection.first_audio_timestamp_ms =
+          utility::TextUtils::GetTimestampMs();
+#endif
+    }
+
     evbuffer_drain(eventBuffer, sLen);
     length = evbuffer_get_length(eventBuffer);
     if (length > 0) {
@@ -1493,9 +1390,9 @@ int ConnectNode::nlsSendFrame(struct evbuffer * eventBuffer) {
         evbuffer_unlock(eventBuffer);
         return -(EventEmpty);
       }
-      int timeout_ms = _request->getRequestParam()->getSendTimeout();
-      _sendTv.tv_sec = timeout_ms / 1000;
-      _sendTv.tv_usec = (timeout_ms - _sendTv.tv_sec * 1000) * 1000;
+
+      utility::TextUtils::GetTimevalFromMs(
+          &_sendTv, _request->getRequestParam()->getSendTimeout());
       event_add(_writeEvent, &_sendTv);
     }
     evbuffer_unlock(eventBuffer);
@@ -1516,8 +1413,8 @@ int ConnectNode::nlsReceive(uint8_t *buffer, int max_size) {
     if (_url._isSsl) {
       _nodeErrMsg = _sslHandle->getFailedMsg();
     } else {
-      _nodeErrMsg = evutil_socket_error_to_string(
-          evutil_socket_geterror(_socketFd));
+      _nodeErrMsg =
+          evutil_socket_error_to_string(evutil_socket_geterror(_socketFd));
     }
     LOG_ERROR("Node(%p) recv failed: %s.", this, _nodeErrMsg.c_str());
     return -(ReadFailed);
@@ -1535,13 +1432,13 @@ int ConnectNode::nlsReceive(uint8_t *buffer, int max_size) {
 int ConnectNode::webSocketResponse() {
   int ret = 0;
   int read_len = 0;
-  uint8_t *frame = (uint8_t *)calloc(READ_BUFFER_SIZE, sizeof(char));
+  uint8_t *frame = (uint8_t *)calloc(ReadBufferSize, sizeof(char));
   if (frame == NULL) {
     LOG_ERROR("%s %d calloc failed.", __func__, __LINE__);
     return 0;
   }
 
-  read_len = nlsReceive(frame, READ_BUFFER_SIZE);
+  read_len = nlsReceive(frame, ReadBufferSize);
   if (read_len < 0) {
     LOG_ERROR("Node(%p) nlsReceive failed, read_len:%d", this, read_len);
     free(frame);
@@ -1553,44 +1450,64 @@ int ConnectNode::webSocketResponse() {
   }
 
   bool eLoop = false;
-  size_t frameSize = 0;
-  size_t cur_data_size = 0;
   do {
     ret = 0;
-    frameSize = evbuffer_get_length(_readEvBuffer);
-    if (frameSize <= 0) {
+    size_t frameSize = evbuffer_get_length(_readEvBuffer);
+    if (frameSize == 0) {
       free(frame);
       frame = NULL;
       ret = 0;
       break;
-    } else if (frameSize > READ_BUFFER_SIZE) {
-      frame = (uint8_t *)realloc(frame, frameSize + 1);
-      if (frame == NULL) {
+    } else if (frameSize > ReadBufferSize) {
+      uint8_t *tmp = (uint8_t *)realloc(frame, frameSize + 1);
+      if (NULL == tmp) {
         LOG_ERROR("Node(%p) realloc failed.", this);
         free(frame);
         frame = NULL;
         ret = -(ReallocFailed);
         break;
       } else {
-        LOG_WARN("Node(%p) websocket frame realloc, new size:%d.", this, frameSize + 1);
+        frame = tmp;
+        LOG_WARN("Node(%p) websocket frame realloc, new size:%d.", this,
+                 frameSize + 1);
       }
     }
 
-    cur_data_size = frameSize;
+    size_t cur_data_size = frameSize;
     evbuffer_copyout(_readEvBuffer, frame, frameSize);
 
     WebSocketFrame wsFrame;
     memset(&wsFrame, 0x0, sizeof(struct WebSocketFrame));
-    if (_webSocket.receiveFullWebSocketFrame(
-          frame, frameSize, &_wsType, &wsFrame) == Success) {
+    if (_webSocket.receiveFullWebSocketFrame(frame, frameSize, &_wsType,
+                                             &wsFrame) == Success) {
       // LOG_DEBUG("Node(%p) parse websocket frame, len:%zu, frame size:%zu.",
       //     this, wsFrame.length, frameSize);
 
+      /*
+       * Will invoke callback in parseFrame.
+       * If blocking in callback, will block in parseFrame
+       */
       int result = parseFrame(&wsFrame);
       if (result) {
         LOG_ERROR("Node(%p) parse WS frame failed:%d.", this, result);
         ret = result;
         break;
+      }
+
+      /* Should check node here */
+      if (_instance == NULL) {
+        /* Maybe user has released instance */
+        ret = -(EventClientEmpty);
+        break;
+      } else {
+        /* Maybe user has released request.*/
+        NlsNodeManager *node_manager = _instance->getNodeManger();
+        int status = NodeStatusInvalid;
+        ret = node_manager->checkNodeExist(this, &status);
+        if (ret != Success) {
+          LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", this, ret);
+          break;
+        }
       }
 
       evbuffer_drain(_readEvBuffer, wsFrame.length + _wsType.headerSize);
@@ -1601,7 +1518,9 @@ int ConnectNode::webSocketResponse() {
 
     /* 解析成功并还有剩余数据, 则尝试再解析 */
     if (ret > 0 && cur_data_size > 0) {
-      LOG_DEBUG("Node(%p) current data remainder size:%d, ret:%d, receive ws frame continue...",
+      LOG_DEBUG(
+          "Node(%p) current data remainder size:%d, ret:%d, receive ws frame "
+          "continue...",
           this, cur_data_size, ret);
       eLoop = true;
     } else {
@@ -1615,104 +1534,8 @@ int ConnectNode::webSocketResponse() {
   return ret;
 }
 
-#if defined(__ANDROID__) || defined(__linux__)
-int ConnectNode::codeConvert(char *from_charset, char *to_charset,
-                             char *inbuf, size_t inlen,
-                             char *outbuf, size_t outlen) {
-#if defined(__ANDRIOD__)
-  outbuf = inbuf;
-#else
-  iconv_t cd;
-  char **pin = &inbuf;
-  char **pout = &outbuf;
-
-  cd = iconv_open(to_charset, from_charset);
-  if (cd == 0) {
-    return -(IconvOpenFailed);
-  }
-
-  memset(outbuf, 0, outlen);
-  if (iconv(cd, pin, &inlen, pout, &outlen) == (size_t)-1) {
-    return -(IconvFailed);
-  }
-
-  iconv_close(cd);
-#endif
-  return Success;
-}
-#endif
-
-std::string ConnectNode::utf8ToGbk(const std::string &strUTF8) {
-#if defined(__ANDROID__) || defined(__linux__)
-  const char *msg = strUTF8.c_str();
-  size_t inputLen = strUTF8.length();
-  size_t outputLen = inputLen * 20;
-
-  char *outbuf = new char[outputLen + 1];
-  memset(outbuf, 0x0, outputLen + 1);
-
-  char *inbuf = new char[inputLen + 1];
-  memset(inbuf, 0x0, inputLen + 1);
-  strncpy(inbuf, msg, inputLen);
-
-  int res = codeConvert(
-      (char *)"UTF-8", (char *)"GBK", inbuf, inputLen, outbuf, outputLen);
-  if (res < 0) {
-    LOG_ERROR("ENCODE: convert to utf8 error :%d .",
-        utility::getLastErrorCode());
-    return NULL;
-  }
-
-  std::string strTemp(outbuf);
-
-  delete [] outbuf;
-  outbuf = NULL;
-  delete [] inbuf;
-  inbuf = NULL;
-
-  return strTemp;
-
-#elif defined (_MSC_VER)
-
-  int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
-  unsigned short* wszGBK = new unsigned short[len + 1];
-  memset(wszGBK, 0, len * 2 + 2);
-
-  MultiByteToWideChar(CP_UTF8, 0, (char*)strUTF8.c_str(), -1, (wchar_t*)wszGBK, len);
-
-  len = WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, NULL, 0, NULL, NULL);
-
-  char* szGBK = new char[len + 1];
-  memset(szGBK, 0, len + 1);
-  WideCharToMultiByte(CP_ACP, 0, (wchar_t*)wszGBK, -1, szGBK, len, NULL, NULL);
-
-  std::string strTemp(szGBK);
-  delete[] szGBK;
-  delete[] wszGBK;
-
-  return strTemp;
-
-#else
-
-  return strUTF8;
-
-#endif
-}
-
-void ConnectNode::setInstance(NlsClient* instance) {
-  _instance = instance;
-}
-
-NlsClient* ConnectNode::getInstance() {
-  return _instance;
-}
-
-std::string ConnectNode::getNodeUUID() {
-  return _nodeUUID;
-}
-
-NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
-  NlsEvent* wsEvent = NULL;
+NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
+  NlsEvent *wsEvent = NULL;
 
   if (_request == NULL) {
     LOG_ERROR("Node(%p) this request is nullptr.", this);
@@ -1725,15 +1548,12 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
       std::vector<unsigned char> data = std::vector<unsigned char>(
           wsFrame->data, wsFrame->data + wsFrame->length);
 
-      wsEvent = new NlsEvent(data, 0,
-                             NlsEvent::Binary,
+      wsEvent = new NlsEvent(data, Success, NlsEvent::Binary,
                              _request->getRequestParam()->_task_id);
       if (wsEvent == NULL) {
         LOG_ERROR("Node(%p) new NlsEvent failed!", this);
-        handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED,
-                     MemNotEnough,
-                     NlsEvent::TaskFailed,
-                     _enableOnMessage);
+        handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED, MemNotEnough,
+                     NlsEvent::TaskFailed, _enableOnMessage);
         *ret = -(NewNlsEventFailed);
       }
     } else {
@@ -1747,23 +1567,21 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
     if (wsFrame->length > 1024) {
       std::string part_result((char *)wsFrame->data, 1024);
       LOG_INFO("Node(%p) ws frame len:%d is too long, part response(1024): %s.",
-          this, wsFrame->length, part_result.c_str());
+               this, wsFrame->length, part_result.c_str());
     } else if (wsFrame->length == 0) {
       LOG_ERROR("Node(%p) ws frame len is zero!", this);
     } else {
-      LOG_INFO("Node(%p) response(ws frame len:%d): %s",
-          this, wsFrame->length, result.c_str());
+      LOG_INFO("Node(%p) response(ws frame len:%d): %s", this, wsFrame->length,
+               result.c_str());
     }
 
     if ("GBK" == _request->getRequestParam()->_outputFormat) {
-      result = utf8ToGbk(result);
+      result = utility::TextUtils::utf8ToGbk(result);
     }
     if (result.empty()) {
       LOG_ERROR("Node(%p) response result is empty!", this);
-      handlerEvent(TASKFAILED_UTF8_JSON_STRING,
-                   Utf8ConvertError,
-                   NlsEvent::TaskFailed,
-                   _enableOnMessage);
+      handlerEvent(TASKFAILED_UTF8_JSON_STRING, Utf8ConvertError,
+                   NlsEvent::TaskFailed, _enableOnMessage);
       *ret = -(WsResponsePackageEmpty);
       return NULL;
     }
@@ -1771,90 +1589,63 @@ NlsEvent* ConnectNode::convertResult(WebSocketFrame * wsFrame, int * ret) {
     wsEvent = new NlsEvent(result);
     if (wsEvent == NULL) {
       LOG_ERROR("Node(%p) new NlsEvent failed!", this);
-      handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED,
-                   MemNotEnough,
-                   NlsEvent::TaskFailed,
-                   _enableOnMessage);
+      handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED, MemNotEnough,
+                   NlsEvent::TaskFailed, _enableOnMessage);
       *ret = -(NewNlsEventFailed);
     } else {
       *ret = wsEvent->parseJsonMsg(_enableOnMessage);
       if (*ret < 0) {
-        LOG_ERROR("Node(%p) parseJsonMsg failed! ret:%d.", this, ret);
+        LOG_ERROR("Node(%p) parseJsonMsg(%s) failed! ret:%d.", this,
+                  wsEvent->getAllResponse(), ret);
         delete wsEvent;
         wsEvent = NULL;
-        handlerEvent(TASKFAILED_PARSE_JSON_STRING,
-                     JsonStringParseFailed,
-                     NlsEvent::TaskFailed,
-                     _enableOnMessage);
+        handlerEvent(TASKFAILED_PARSE_JSON_STRING, JsonStringParseFailed,
+                     NlsEvent::TaskFailed, _enableOnMessage);
       } else {
         // LOG_DEBUG("Node(%p) parseJsonMsg success.", this);
       }
     }
   } else {
     LOG_ERROR("Node(%p) unknow WebSocketHeaderType:%d", this, wsFrame->type);
-    handlerEvent(TASKFAILED_WS_JSON_STRING,
-                 UnknownWsHeadType,
-                 NlsEvent::TaskFailed,
-                 _enableOnMessage);
+    handlerEvent(TASKFAILED_WS_JSON_STRING, UnknownWsHeadType,
+                 NlsEvent::TaskFailed, _enableOnMessage);
     *ret = -(UnknownWsFrameHeadType);
   }
 
   return wsEvent;
 }
 
-const char* ConnectNode::cmdConvertForLog(char *buf_in, std::string *buf_str) {
-  char buf_out[BUFFER_SIZE] = {0};
-  std::string tmp_str(buf_in);
-  std::string find_key = "appkey\":\"";
-  int step = 8;
-  int pos1 = 0;
-  int pos2 = tmp_str.find(find_key);
-  strncpy(buf_out, buf_in, BUFFER_SIZE - 1);
-
-  if (pos2 >= 0) {
-    for (pos1 = pos2 + find_key.length();
-         pos1 < pos2 + find_key.length() + step;
-         pos1++) {
-      buf_out[pos1] = 'Z';
-    }
-  }
-
-  *buf_str = buf_out;
-  return buf_str->c_str();
-}
-
-int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
+/**
+ * @brief: 解析websocket帧, 产出当前node的事件帧(frameEvent)
+ * @return:
+ */
+int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
   REQUEST_CHECK(_request, this);
   int result = Success;
-  NlsEvent* frameEvent = NULL;
+  NlsEvent *frameEvent = NULL;
 
   if (wsFrame->type == WebSocketHeaderType::CLOSE) {
-    if (wsFrame->closeCode == -1) {
+    LOG_INFO("Node(%p) get CLOSE wsFrame closeCode:%d.", this,
+             wsFrame->closeCode);
+    if (NodeClosed != _workStatus) {
       std::string msg((char *)wsFrame->data);
       char tmp_msg[2048] = {0};
       snprintf(tmp_msg, 2048 - 1, "{\"TaskFailed\":\"%s\"}", msg.c_str());
-      std::string closeMsg = tmp_msg;
+      std::string failedMsg = tmp_msg;
 
-      LOG_ERROR("Node(%p) close msg:%s.", this, closeMsg.c_str());
+      LOG_ERROR("Node(%p) failed msg:%s.", this, failedMsg.c_str());
 
-      frameEvent = new NlsEvent(
-          closeMsg.c_str(), wsFrame->closeCode,
-          NlsEvent::TaskFailed, _request->getRequestParam()->_task_id);
+      frameEvent = new NlsEvent(failedMsg.c_str(), wsFrame->closeCode,
+                                NlsEvent::TaskFailed,
+                                _request->getRequestParam()->_task_id);
       if (frameEvent == NULL) {
         LOG_ERROR("Node(%p) new NlsEvent failed!", this);
-        handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED,
-                     MemNotEnough,
-                     NlsEvent::TaskFailed,
-                     _enableOnMessage);
+        handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED, MemNotEnough,
+                     NlsEvent::TaskFailed, _enableOnMessage);
         return -(NewNlsEventFailed);
       }
     } else {
-      LOG_ERROR("Node(%p) get invalid wsFrame closeCode:%d.", this, wsFrame->closeCode);
-      handlerEvent(TASKFAILED_ERROR_CLOSE_STRING,
-                   UnknownWsHeadType,
-                   NlsEvent::TaskFailed,
-                   _enableOnMessage);
-      return -(InvalidWsFrameCloseCode);
+      LOG_INFO("Node(%p) NlsEvent::Close has invoked, skip CLOSE_FRAME.", this);
     }
   } else {
     frameEvent = convertResult(wsFrame, &result);
@@ -1862,25 +1653,27 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
 
   if (frameEvent == NULL) {
     if (result == -(WsFrameBodyEmpty)) {
-      LOG_WARN("Node(%p) convert result failed, result:%d. Maybe recv dirty data, skip here ...", this, result);
+      LOG_WARN(
+          "Node(%p) convert result failed, result:%d. Maybe recv dirty data, "
+          "skip here ...",
+          this, result);
       return Success;
     } else {
       LOG_ERROR("Node(%p) convert result failed, result:%d.", this, result);
       closeConnectNode();
       if (result != Success) {
-        handlerEvent(CLOSE_JSON_STRING,
-                     CLOSE_CODE,
-                     NlsEvent::Close,
+        std::string tmp_buf;
+        handlerEvent(genCloseMsg(&tmp_buf), CloseCode, NlsEvent::Close,
                      _enableOnMessage);
       }
       return -(NlsEventEmpty);
     }
   }
 
-  LOG_DEBUG("Node(%p) begin HandlerFrame, msg type:%s node status:%s exit status:%s.",
+  LOG_DEBUG(
+      "Node(%p) begin HandlerFrame, msg type:%s node status:%s exit status:%s.",
       this, frameEvent->getMsgTypeString().c_str(),
-      getConnectNodeStatusString().c_str(),
-      getExitStatusString().c_str());
+      getConnectNodeStatusString().c_str(), getExitStatusString().c_str());
 
   // invoked cancel()
   if (_exitStatus == ExitCancel) {
@@ -1892,17 +1685,19 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
 
   result = handlerFrame(frameEvent);
   if (result) {
-    if (frameEvent) delete frameEvent;
+    delete frameEvent;
     frameEvent = NULL;
     return result;
   }
 
-  LOG_DEBUG("Node(%p) HandlerFrame finish, current node status:%s, ready to set workStatus.",
+  LOG_DEBUG(
+      "Node(%p) HandlerFrame finish, current node status:%s, ready to set "
+      "workStatus.",
       this, getConnectNodeStatusString().c_str());
 
   bool closeFlag = false;
   int msg_type = frameEvent->getMsgType();
-  switch(msg_type) {
+  switch (msg_type) {
     case NlsEvent::RecognitionStarted:
     case NlsEvent::TranscriptionStarted:
       if (_request->getRequestParam()->_requestType != SpeechWakeWordDialog) {
@@ -1910,6 +1705,10 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
       } else {
         _workStatus = NodeWakeWording;
       }
+#ifdef ENABLE_CONTINUED
+      // reconnecting finished
+      _reconnection.state = NodeReconnection::NoReconnection;
+#endif
       break;
     case NlsEvent::Close:
     case NlsEvent::RecognitionCompleted:
@@ -1958,17 +1757,23 @@ int ConnectNode::parseFrame(WebSocketFrame * wsFrame) {
     } else {
       closeStatusConnectNode();
     }
-    handlerEvent(CLOSE_JSON_STRING, CLOSE_CODE,
-                 NlsEvent::Close, _enableOnMessage);
+
+    std::string tmp_buf;
+    handlerEvent(genCloseMsg(&tmp_buf), CloseCode, NlsEvent::Close,
+                 _enableOnMessage);
   }
 
   return Success;
 }
 
+/**
+ * @brief: 触发回调，将事件送给用户
+ * @return:
+ */
 int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
   if (_workStatus == NodeInvalid) {
     LOG_ERROR("Node(%p) current node status:%s is invalid, skip callback.",
-        this, getConnectNodeStatusString().c_str());
+              this, getConnectNodeStatusString().c_str());
     return -(InvaildNodeStatus);
   } else {
     if (_handler == NULL) {
@@ -1977,55 +1782,68 @@ int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
     }
 
 #ifdef ENABLE_REQUEST_RECORDING
-    int msg_type = frameEvent->getMsgType();
-    switch(msg_type) {
-      case NlsEvent::RecognitionStarted:
-      case NlsEvent::TranscriptionStarted:
-        _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
-        _nodeProcess.started_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
-        break;
-      case NlsEvent::TranscriptionCompleted:
-      case NlsEvent::RecognitionCompleted:
-      case NlsEvent::SynthesisCompleted:
-        _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
-        _nodeProcess.completed_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
-        break;
-      case NlsEvent::Binary:
-        _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
-        _nodeProcess.play_bytes += frameEvent->getBinaryData().size();
-        _nodeProcess.play_count++;
-        _nodeProcess.last_status = NodePlayAudio;
-        if (_isFirstBinaryFrame) {
-          _nodeProcess.first_binary_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
-        }
-        break;
-    }
+    updateNodeProcess("callback", frameEvent->getMsgType(), true,
+                      frameEvent->getMsgType() == NlsEvent::Binary
+                          ? frameEvent->getBinaryData().size()
+                          : 0);
 #endif
 
-    // LOG_DEBUG("Node:%p current node status:%s is valid, msg type:%s handle message ...",
+    // LOG_DEBUG("Node:%p current node status:%s is valid, msg type:%s handle
+    // message ...",
     //     this, getConnectNodeStatusString().c_str(),
     //     frameEvent->getMsgTypeString().c_str());
-    // LOG_DEBUG("Node:%p current response:%s.", this, frameEvent->getAllResponse());
+    // LOG_DEBUG("Node:%p current response:%s.", this,
+    // frameEvent->getAllResponse());
+
+    bool ignore_flag = false;
+#ifdef ENABLE_CONTINUED
+    updateTwIndexOffset(frameEvent);
+
+    ignore_flag = ignoreCallbackWhenReconnecting(frameEvent->getMsgType(),
+                                                 frameEvent->getStatusCode());
+#endif
+
     if (_enableOnMessage) {
       sendFinishCondSignal(NlsEvent::Message);
-      handlerMessage(frameEvent->getAllResponse(),
-                     NlsEvent::Message);
+      if (!ignore_flag) {
+        handlerMessage(frameEvent->getAllResponse(), NlsEvent::Message);
+      }
     } else {
       sendFinishCondSignal(frameEvent->getMsgType());
-      _handler->handlerFrame(*frameEvent);
+      if (!ignore_flag) {
+        _handler->handlerFrame(*frameEvent);
+      }
+    }
+
+#ifdef ENABLE_REQUEST_RECORDING
+    updateNodeProcess("callback", NodeInvalid, false, 0);
+#endif
+
+    if (frameEvent->getMsgType() == NlsEvent::Close) {
+#ifdef ENABLE_CONTINUED
+      nodeReconnecting();
+      if (!ignore_flag) {
+        _reconnection.reconnected_count = 0;
+        LOG_INFO("Node(%p) reconnected_count reset.", this);
+      }
+#endif
+      _retryConnectCount = 0;
     }
   }
   return Success;
 }
 
-void ConnectNode::handlerEvent(const char* error,
-                               int errorCode,
-                               NlsEvent::EventType eventType,
-                               bool ignore) {
-  LOG_DEBUG("Node(%p) 's exit status:%s, eventType:%d.",
-      this, getExitStatusString().c_str(), eventType);
+/**
+ * @brief: 事件最终处理，并进行回调
+ * @return:
+ */
+void ConnectNode::handlerEvent(const char *errorMsg, int errorCode,
+                               NlsEvent::EventType eventType, bool ignore) {
+  LOG_DEBUG("Node(%p) 's exit status:%s, eventType:%d.", this,
+            getExitStatusString().c_str(), eventType);
   if (_exitStatus == ExitCancel) {
-    LOG_WARN("Node(%p) invoke cancel command, callback won't be invoked.", this);
+    LOG_WARN("Node(%p) invoke cancel command, callback won't be invoked.",
+             this);
     return;
   }
 
@@ -2034,11 +1852,14 @@ void ConnectNode::handlerEvent(const char* error,
     return;
   }
 
-  if (errorCode != CLOSE_CODE) {
+  if (errorCode != CloseCode) {
     _nodeErrCode = errorCode;
   }
 
-  std::string error_str(error);
+  std::string error_str(errorMsg);
+  if (error_str.empty()) {
+    LOG_WARN("Node(%p) errorMsg is empty!", this);
+  }
 #ifdef ENABLE_REQUEST_RECORDING
   if (eventType == NlsEvent::Close || eventType == NlsEvent::TaskFailed) {
     if (eventType == NlsEvent::TaskFailed) {
@@ -2048,7 +1869,7 @@ void ConnectNode::handlerEvent(const char* error,
       _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
       _nodeProcess.closed_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
     }
-    error_str.assign(replenishNodeProcess(error));
+    error_str.assign(replenishNodeProcess(errorMsg));
     if (eventType == NlsEvent::TaskFailed) {
       LOG_ERROR("Node(%p) trigger message: %s", this, error_str.c_str());
     } else if (eventType == NlsEvent::Close) {
@@ -2056,9 +1877,9 @@ void ConnectNode::handlerEvent(const char* error,
     }
   }
 #endif
-  NlsEvent* useEvent = NULL;
-  useEvent = new NlsEvent(
-      error_str.c_str(), errorCode, eventType, _request->getRequestParam()->_task_id);
+  NlsEvent *useEvent = NULL;
+  useEvent = new NlsEvent(error_str.c_str(), errorCode, eventType,
+                          _request->getRequestParam()->_task_id);
   if (useEvent == NULL) {
     LOG_ERROR("Node(%p) new NlsEvent failed.", this);
     return;
@@ -2072,14 +1893,16 @@ void ConnectNode::handlerEvent(const char* error,
     LOG_ERROR("Node(%p) event type:%d 's _handler is nullptr!", this, eventType)
   } else {
     if (NodeClosed == _workStatus) {
-      LOG_WARN("Node(%p) NlsEvent::Close has invoked, skip CloseCallback.", this);
+      LOG_WARN("Node(%p) NlsEvent::Close has invoked, skip CloseCallback.",
+               this);
     } else {
       handlerFrame(useEvent);
       if (eventType == NlsEvent::Close) {
         _workStatus = NodeClosed;
         LOG_INFO("Node(%p) callback NlsEvent::Close frame done.", this);
       } else {
-        LOG_INFO("Node(%p) callback NlsEvent::%s frame done.", this, useEvent->getMsgTypeString().c_str());
+        LOG_INFO("Node(%p) callback NlsEvent::%s frame done.", this,
+                 useEvent->getMsgTypeString().c_str());
       }
     }
   }
@@ -2090,19 +1913,19 @@ void ConnectNode::handlerEvent(const char* error,
   return;
 }
 
-void ConnectNode::handlerMessage(const char* response,
+void ConnectNode::handlerMessage(const char *response,
                                  NlsEvent::EventType eventType) {
-  NlsEvent* useEvent = NULL;
-  useEvent = new NlsEvent(
-      response, 0, eventType, _request->getRequestParam()->_task_id);
+  NlsEvent *useEvent = NULL;
+  useEvent = new NlsEvent(response, Success, eventType,
+                          _request->getRequestParam()->_task_id);
   if (useEvent == NULL) {
     LOG_ERROR("Node(%p) new NlsEvent failed.", this);
     return;
   }
 
   if (_workStatus == NodeInvalid) {
-    LOG_ERROR("Node(%p) node status:%s is invalid, skip callback.",
-        this, getConnectNodeStatusString().c_str());
+    LOG_ERROR("Node(%p) node status:%s is invalid, skip callback.", this,
+              getConnectNodeStatusString().c_str());
   } else {
     _handler->handlerFrame(*useEvent);
   }
@@ -2112,50 +1935,59 @@ void ConnectNode::handlerMessage(const char* response,
   return;
 }
 
-int ConnectNode::getErrorCodeFromMsg(const char* msg) {
+/**
+ * @brief: 解析错误信息获得对应错误码
+ * @return: 错误码
+ */
+int ConnectNode::getErrorCodeFromMsg(const char *msg) {
   int code = DefaultErrorCode;
-  Json::Reader reader;
-  Json::Value root(Json::objectValue);
 
-  // parse json if existent
-  if (reader.parse(msg, root)) {
-    if (!root["header"].isNull() && root["header"].isObject()) {
-      Json::Value head = root["header"];
-      if (!head["status"].isNull() && head["status"].isInt()) {
-        code = head["status"].asInt();
-      }
-    }
-  } else {
-    if (strstr(msg, "return of SSL_read:")) {
-      if (strstr(msg, "error:00000000:lib(0):func(0):reason(0)")||
-          strstr(msg, "shutdown while in init")) {
-        code = DefaultErrorCode;
-      }
-    } else if (strstr(msg, "ACCESS_DENIED")) {
-      if (strstr(msg, "The token")) {
-        if (strstr(msg, "has expired")) {
-          code = TokenHasExpired;
-        } else if (strstr(msg, "is invalid")) {
-          code = TokenIsInvalid;
+  try {
+    Json::Reader reader;
+    Json::Value root(Json::objectValue);
+
+    // parse json if existent
+    if (reader.parse(msg, root)) {
+      if (!root["header"].isNull() && root["header"].isObject()) {
+        Json::Value head = root["header"];
+        if (!head["status"].isNull() && head["status"].isInt()) {
+          code = head["status"].asInt();
         }
-      } else if (strstr(msg, "No privilege to this voice")) {
-        code = NoPrivilegeToVoice;
-      } else if (strstr(msg, "Missing authorization header")) {
-        code = MissAuthHeader;
       }
-    } else if (strstr(msg, "Got bad status")) {
-      if (strstr(msg, "403 Forbidden")) {
-        code = HttpGotBadStatusWith403;
+    } else {
+      if (strstr(msg, "return of SSL_read:")) {
+        if (strstr(msg, "error:00000000:lib(0):func(0):reason(0)") ||
+            strstr(msg, "shutdown while in init")) {
+          code = DefaultErrorCode;
+        }
+      } else if (strstr(msg, "ACCESS_DENIED")) {
+        if (strstr(msg, "The token")) {
+          if (strstr(msg, "has expired")) {
+            code = TokenHasExpired;
+          } else if (strstr(msg, "is invalid")) {
+            code = TokenIsInvalid;
+          }
+        } else if (strstr(msg, "No privilege to this voice")) {
+          code = NoPrivilegeToVoice;
+        } else if (strstr(msg, "Missing authorization header")) {
+          code = MissAuthHeader;
+        }
+      } else if (strstr(msg, "Got bad status")) {
+        if (strstr(msg, "403 Forbidden")) {
+          code = HttpGotBadStatusWith403;
+        }
+      } else if (strstr(msg, "Operation now in progress")) {
+        code = OpNowInProgress;
+      } else if (strstr(msg, "Broken pipe")) {
+        code = BrokenPipe;
+      } else if (strstr(msg, "connect failed")) {
+        code = SysConnectFailed;
       }
-    } else if (strstr(msg, "Operation now in progress")) {
-      code = OpNowInProgress;
-    } else if (strstr(msg, "Broken pipe")) {
-      code = BrokenPipe;
-    } else if (strstr(msg, "connect failed")) {
-      code = SysConnectFailed;
     }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return code;
   }
-
   return code;
 }
 
@@ -2172,38 +2004,48 @@ void ConnectNode::handlerTaskFailedEvent(std::string failedInfo, int code) {
     }
   }
 
+#ifdef ENABLE_DNS_IP_CACHE
+  // clear IP cache
+  _eventThread->setIpCache(NULL, NULL);
+#endif
+
   handlerEvent(tmp_msg, code, NlsEvent::TaskFailed, _enableOnMessage);
-  handlerEvent(CLOSE_JSON_STRING, CLOSE_CODE, NlsEvent::Close, _enableOnMessage);
+
+  std::string tmp_buf;
+  handlerEvent(genCloseMsg(&tmp_buf), CloseCode, NlsEvent::Close,
+               _enableOnMessage);
   return;
 }
 
-#ifndef _MSC_VER
-static void *async_dns_resolve_thread_fn(void *arg) {
+#ifdef __LINUX__
+void *ConnectNode::async_dns_resolve_thread_fn(void *arg) {
   pthread_detach(pthread_self());
-  ConnectNode *node = (ConnectNode *)arg;
+  ConnectNode *node = static_cast<ConnectNode *>(arg);
   LOG_DEBUG("Node(%p) dnsThread(%lu) is working ...", node, pthread_self());
 
   if (node->_gaicbRequest[0] == NULL) {
-    node->_gaicbRequest[0] = (struct gaicb *)malloc(sizeof(*node->_gaicbRequest[0]));
+    node->_gaicbRequest[0] =
+        (struct gaicb *)malloc(sizeof(*node->_gaicbRequest[0]));
   }
+
   if (node->_gaicbRequest[0] == NULL) {
     LOG_ERROR("Node(%p) malloc _gaicbRequest failed.", arg);
   } else {
     memset(node->_gaicbRequest[0], 0, sizeof(*node->_gaicbRequest[0]));
     node->_gaicbRequest[0]->ar_name = node->_nodename;
 
-    // LOG_DEBUG("Node(%p) ready to getaddrinfo_a ...", node);
     int err = getaddrinfo_a(GAI_NOWAIT, node->_gaicbRequest, 1, NULL);
     if (err) {
-      LOG_ERROR("Node(%p) getaddrinfo_a failed, err:%d(%s).", arg, err, gai_strerror(err));
+      LOG_ERROR("Node(%p) getaddrinfo_a failed, err:%d(%s).", arg, err,
+                gai_strerror(err));
     } else {
       /* check this node is alive. */
       if (node->_request == NULL) {
         LOG_ERROR("The request of this node(%p) is nullptr.", node);
         goto dnsExit;
       }
-      NlsClient* instance = node->getInstance();
-      NlsNodeManager* node_manager = (NlsNodeManager*)instance->getNodeManger();
+      NlsClientImpl *instance = node->getInstance();
+      NlsNodeManager *node_manager = instance->getNodeManger();
       int status = NodeStatusInvalid;
       int result = node_manager->checkNodeExist(node, &status);
       if (result != Success) {
@@ -2211,13 +2053,14 @@ static void *async_dns_resolve_thread_fn(void *arg) {
         goto dnsExit;
       }
 
-      int timeout_ms = node->_request->getRequestParam()->getTimeout();  // ms
-      time_t time_s = timeout_ms / 1000;
-      time_t time_ns = (timeout_ms % 1000) * 1000000;
-      struct timespec outtime = { time_s, time_ns };
-      // LOG_DEBUG("Node(%p) ready to gai_suspend ...", node);
+      time_t timeout_ms =
+          node->getRequest()->getRequestParam()->getTimeout();  // ms
+      struct timespec outtime;
+      utility::TextUtils::GetTimespecFromMs(&outtime, timeout_ms);
+      // LOG_DEBUG("Node(%p) ready to gai_suspend.", arg);
       err = gai_suspend(node->_gaicbRequest, 1, &outtime);
-      // LOG_DEBUG("Node(%p) gai_suspend finish, err:%d(%s).", node, err, gai_strerror(err));
+      // LOG_DEBUG("Node(%p) gai_suspend finish, err:%d(%s).", node, err,
+      // gai_strerror(err));
       if (node->_dnsThreadExit) {
         LOG_WARN("Node(%p) ConnectNode is exiting, skip gai.", node);
         goto dnsExit;
@@ -2227,9 +2070,13 @@ static void *async_dns_resolve_thread_fn(void *arg) {
         goto dnsExit;
       }
       if (err) {
-        LOG_ERROR("Node(%p) gai_suspend failed, err:%d(%s).", arg, err, gai_strerror(err));
+        LOG_ERROR("Node(%p) gai_suspend failed, err:%d(%s).", arg, err,
+                  gai_strerror(err));
         if (err == EAI_SYSTEM || err == EAI_AGAIN) {
-          LOG_ERROR("Node(%p) gai_suspend err:%d is mean timeout. please try again ...", arg, err);
+          LOG_ERROR(
+              "Node(%p) gai_suspend err:%d is mean timeout. please try again "
+              "...",
+              arg, err);
         }
       } else {
         /* check this node is alive again after gai_suspend. */
@@ -2238,10 +2085,11 @@ static void *async_dns_resolve_thread_fn(void *arg) {
           LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", node, result);
           goto dnsExit;
         }
-        
+
         err = gai_error(node->_gaicbRequest[0]);
         if (err) {
-          LOG_WARN("Node(%p) cannot get addrinfo, err:%d(%s).", arg, err, gai_strerror(err));
+          LOG_WARN("Node(%p) cannot get addrinfo, err:%d(%s).", arg, err,
+                   gai_strerror(err));
         } else {
           node->_addrinfo = node->_gaicbRequest[0]->ar_result;
         }
@@ -2249,24 +2097,22 @@ static void *async_dns_resolve_thread_fn(void *arg) {
     }
 
     node->_dnsErrorCode = err;
-    // LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn event_assign ->", node);
     if (node->_dnsEvent) {
       event_del(node->_dnsEvent);
-      event_assign(node->_dnsEvent, node->_eventThread->_workBase,
-                   -1, EV_READ, WorkThread::sysDnsEventCallback, node);
+      event_assign(node->_dnsEvent, node->_eventThread->_workBase, -1, EV_READ,
+                   WorkThread::sysDnsEventCallback, node);
     } else {
-      node->_dnsEvent = event_new(node->_eventThread->_workBase,
-                                  -1, EV_READ, WorkThread::sysDnsEventCallback, node);
+      node->_dnsEvent = event_new(node->_eventThread->_workBase, -1, EV_READ,
+                                  WorkThread::sysDnsEventCallback, node);
       if (NULL == node->_dnsEvent) {
         LOG_ERROR("Node(%p) new event(_dnsEvent) failed.", node);
         goto dnsExit;
       }
     }
-    // LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn event_add ->", node);
     event_add(node->_dnsEvent, NULL);
-    // LOG_DEBUG("Node(%p) async_dns_resolve_thread_fn event_active ->", node);
     event_active(node->_dnsEvent, EV_READ, 0);
-    LOG_INFO("Node(%p) dnsThread(%lu) event_active done.", node, pthread_self());
+    LOG_INFO("Node(%p) dnsThread(%lu) event_active done.", node,
+             pthread_self());
   }
 
 dnsExit:
@@ -2284,80 +2130,60 @@ dnsExit:
  * @brief: 异步方式使用系统的getaddrinfo()方法获得dns
  * @return: 成功则为0, 否则为失败
  */
-static int native_getaddrinfo(
-    const char *nodename, const char *servname,
-    evdns_getaddrinfo_cb cb, void *arg) {
-  int err = 0;
-  ConnectNode *node = (ConnectNode *)arg;
-
-#if defined(_MSC_VER)
-  WaitForSingleObject(node->_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&node->_mtxNode);
-#endif
-
-  NlsNodeManager* node_manager = (NlsNodeManager*)node->getInstance()->getNodeManger();
+static int native_getaddrinfo(const char *nodename, const char *servname,
+                              evdns_getaddrinfo_cb cb, void *arg) {
+  ConnectNode *node = static_cast<ConnectNode *>(arg);
+  NlsNodeManager *node_manager = node->getInstance()->getNodeManger();
   int status = NodeStatusInvalid;
   int result = node_manager->checkNodeExist(node, &status);
   if (result != Success) {
     LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", node, result);
-    #if defined(_MSC_VER)
-    ReleaseMutex(node->_mtxNode);
-    #else
-    pthread_mutex_unlock(&node->_mtxNode);
-    #endif
     return result;
   } else {
-    LOG_DEBUG("Node(%p) use native_getaddrinfo, ready to create dnsThread(%lu).", node, node->_dnsThread);
+    LOG_DEBUG(
+        "Node(%p) use native_getaddrinfo, ready to create dnsThread(%lu).",
+        node, node->_dnsThread);
   }
 
-  if (node->_exitStatus == ExitCancel) {
+  if (node->getExitStatus() == ExitCancel) {
     LOG_WARN("Node(%p) is ExitCancel, skip here ...", node);
-    #if defined(_MSC_VER)
-    ReleaseMutex(node->_mtxNode);
-    #else
-    pthread_mutex_unlock(&node->_mtxNode);
-    #endif
     return -(CancelledExitStatus);
   }
 
+  MUTEX_LOCK(node->_mtxNode);
+
   node->_dnsThreadRunning = true;
-  node->_nodename = (char*)nodename;
-  node->_servname = (char*)servname;
+  node->_nodename = (char *)nodename;
+  node->_servname = (char *)servname;
 
   if (node->_dnsThread) {
     pthread_join(node->_dnsThread, NULL);
   }
-  err = pthread_create(&node->_dnsThread, NULL,
-                       &async_dns_resolve_thread_fn, arg);
+  int err = pthread_create(&node->_dnsThread, NULL,
+                           &ConnectNode::async_dns_resolve_thread_fn, arg);
   if (err) {
     node->_dnsThreadRunning = false;
     LOG_ERROR("Node(%p) dnsThread(%lu) create failed.", node, node->_dnsThread);
   } else {
-    LOG_DEBUG("Node(%p) dnsThread(%lu) create success.", node, node->_dnsThread);
+    LOG_DEBUG("Node(%p) dnsThread(%lu) create success.", node,
+              node->_dnsThread);
   }
 
-#if defined(_MSC_VER)
-  ReleaseMutex(node->_mtxNode);
-#else
-  pthread_mutex_unlock(&node->_mtxNode);
-#endif
-
+  MUTEX_UNLOCK(node->_mtxNode);
   return err;
 }
 #endif
 
 /**
  * @brief: 进行DNS解析
- * @return: 成功则为正值, 失败则为负值
+ * @return: 成功则为非负, 失败则为负值
  */
 int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
   EXIT_CANCEL_CHECK(_exitStatus, this);
-  int result = Success;
   struct evutil_addrinfo hints;
-  NlsNodeManager* node_manager = (NlsNodeManager*)_instance->getNodeManger();
+  NlsNodeManager *node_manager = _instance->getNodeManger();
   int status = NodeStatusInvalid;
-  result = node_manager->checkNodeExist(this, &status);
+  int result = node_manager->checkNodeExist(this, &status);
   if (result != Success) {
     LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", this, result);
     return result;
@@ -2365,7 +2191,9 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
 
   /* 当node处于长链接模式且已经链接, 无需进入握手阶段, 直接进入starting阶段. */
   if (_isLongConnection && _isConnected) {
-    LOG_DEBUG("Node(%p) has connected, current is longConnection and connected.", this);
+    LOG_DEBUG(
+        "Node(%p) has connected, current is longConnection and connected.",
+        this);
     _workStatus = NodeStarting;
     node_manager->updateNodeStatus(this, NodeStatusRunning);
     if (_request->getRequestParam()->_requestType == SpeechTextDialog) {
@@ -2386,8 +2214,7 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
   /* 尝试链接校验 */
   if (!checkConnectCount()) {
     LOG_ERROR("Node(%p) restart connect failed.", this);
-    handlerTaskFailedEvent(
-        TASKFAILED_CONNECT_JSON_STRING, SysConnectFailed);
+    handlerTaskFailedEvent(TASKFAILED_CONNECT_JSON_STRING, SysConnectFailed);
     return -(ConnectFailed);
   }
 
@@ -2400,9 +2227,11 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
 
   _url._enableSysGetAddr = sysGetAddr;
   if (_url._isSsl) {
-    LOG_INFO("Node(%p) _url._isSsl is True, _url._enableSysGetAddr is %d.", this, _url._enableSysGetAddr);
+    LOG_INFO("Node(%p) _url._isSsl is True, _url._enableSysGetAddr is %d.",
+             this, _url._enableSysGetAddr);
   } else {
-    LOG_INFO("Node(%p) _url._isSsl is False, _url._enableSysGetAddr is %d.", this, _url._enableSysGetAddr);
+    LOG_INFO("Node(%p) _url._isSsl is False, _url._enableSysGetAddr is %d.",
+             this, _url._enableSysGetAddr);
   }
 
   if (_url._directIp) {
@@ -2412,63 +2241,67 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
     LOG_INFO("Node(%p) _url._directIp is False.", this);
 
     if (aiFamily != AF_UNSPEC && aiFamily != AF_INET && aiFamily != AF_INET6) {
-      LOG_WARN("Node(%p) aiFamily is invalid, use default AF_INET.",
-          this, aiFamily);
+      LOG_WARN("Node(%p) aiFamily is invalid, use default AF_INET.", this,
+               aiFamily);
       aiFamily = AF_INET;
     }
 
-    memset(&hints,  0,  sizeof(hints));
-    hints.ai_family = aiFamily;
-    hints.ai_flags = EVUTIL_AI_CANONNAME;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
+#ifdef ENABLE_DNS_IP_CACHE
+    std::string tmp_ip = _eventThread->getIpFromCache(
+        (char *)_request->getRequestParam()->_url.c_str());
+    if (tmp_ip.length() > 0) {
+      LOG_INFO("Node(%p) find IP in cache, connect directly.", this);
+      // 从dns cache中获得IP进行直连
+      WorkThread::directConnect(this, (char *)tmp_ip.c_str());
+    } else
+#endif
+    {
+      memset(&hints, 0, sizeof(hints));
+      hints.ai_family = aiFamily;
+      hints.ai_flags = EVUTIL_AI_CANONNAME;
+      hints.ai_socktype = SOCK_STREAM;
+      hints.ai_protocol = IPPROTO_TCP;
 
-    LOG_INFO("Node(%p) dns url:%s, enableSysGetAddr:%d.",
-        this, _request->getRequestParam()->_url.c_str(),
-        _url._enableSysGetAddr);
+      LOG_INFO("Node(%p) dns url:%s, enableSysGetAddr:%d.", this,
+               _request->getRequestParam()->_url.c_str(),
+               _url._enableSysGetAddr);
 
-    if (_url._enableSysGetAddr) {
-    #ifndef _MSC_VER
-      /*
-       * 在内部ws协议下或者主动使用系统getaddrinfo的情况下, 使用系统的getaddrinfo
-       */
-      result = native_getaddrinfo(_url._host,
-                                  NULL,
-                                  WorkThread::dnsEventCallback,
-                                  this);
-      if (result != Success) {
-        result = -(GetAddrinfoFailed);
-      }
-    #else
-      if (NULL == _eventThread || NULL == _eventThread->_dnsBase) {
-        LOG_ERROR("Node:%p dns source is invalid.", this);
-        return -(InvalidDnsSource);
-      }
-      _dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
-                                      _url._host,
-                                      NULL,
-                                      &hints,
-                                      WorkThread::dnsEventCallback,
-                                      this);
-    #endif
-    } else {
-      if (NULL == _eventThread || NULL == _eventThread->_dnsBase) {
-        LOG_ERROR("Node(%p) dns source is invalid.", this);
-        return -(InvalidDnsSource);
-      }
-      _dnsRequest = evdns_getaddrinfo(_eventThread->_dnsBase,
-                                      _url._host,
-                                      NULL,
-                                      &hints,
-                                      WorkThread::dnsEventCallback,
-                                      this);
-      if (_dnsRequest == NULL) {
-        LOG_ERROR("Node:%p dnsRequest evdns_getaddrinfo failed!", this);
+      if (_url._enableSysGetAddr) {
+#ifdef __LINUX__
         /*
-         * No need to free user_data ordecrement n_pending_requests; that
-         * happened in the callback.
+         * 在内部ws协议下或者主动使用系统getaddrinfo_a的情况下,
+         * 使用系统的getaddrinfo_a()
          */
-        return -(InvalidDnsSource);
+        result = native_getaddrinfo(_url._host, NULL,
+                                    WorkThread::dnsEventCallback, this);
+        if (result != Success) {
+          result = -(GetAddrinfoFailed);
+        }
+#else
+        if (NULL == _eventThread || NULL == _eventThread->_dnsBase) {
+          LOG_ERROR("Node:%p dns source is invalid.", this);
+          return -(InvalidDnsSource);
+        }
+        _dnsRequest =
+            evdns_getaddrinfo(_eventThread->_dnsBase, _url._host, NULL, &hints,
+                              WorkThread::dnsEventCallback, this);
+#endif
+      } else {
+        if (NULL == _eventThread || NULL == _eventThread->_dnsBase) {
+          LOG_ERROR("Node(%p) dns source is invalid.", this);
+          return -(InvalidDnsSource);
+        }
+        _dnsRequest =
+            evdns_getaddrinfo(_eventThread->_dnsBase, _url._host, NULL, &hints,
+                              WorkThread::dnsEventCallback, this);
+        if (_dnsRequest == NULL) {
+          LOG_ERROR("Node:%p dnsRequest evdns_getaddrinfo failed!", this);
+          /*
+           * No need to free user_data ordecrement n_pending_requests; that
+           * happened in the callback.
+           */
+          return -(InvalidDnsSource);
+        }
       }
     }
   }
@@ -2485,8 +2318,8 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   evutil_socket_t sockFd = socket(aiFamily, SOCK_STREAM, 0);
   if (sockFd < 0) {
     LOG_ERROR("Node(%p) socket failed. aiFamily:%d, sockFd:%d. error mesg:%s.",
-        this, aiFamily, sockFd,
-        evutil_socket_error_to_string(evutil_socket_geterror(sockFd)));
+              this, aiFamily, sockFd,
+              evutil_socket_error_to_string(evutil_socket_geterror(sockFd)));
     return -(SocketFailed);
   } else {
     // LOG_DEBUG("Node(%p) socket success, sockFd:%d.", this, sockFd);
@@ -2495,8 +2328,8 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   struct linger so_linger;
   so_linger.l_onoff = 1;
   so_linger.l_linger = 0;
-  if (setsockopt(sockFd, SOL_SOCKET, SO_LINGER,
-      (char *)&so_linger, sizeof(struct linger)) < 0) {
+  if (setsockopt(sockFd, SOL_SOCKET, SO_LINGER, (char *)&so_linger,
+                 sizeof(struct linger)) < 0) {
     LOG_ERROR("Node(%p) set SO_LINGER failed.", this);
     return -(SetSocketoptFailed);
   }
@@ -2506,33 +2339,29 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
     return -(EvutilSocketFalied);
   }
 
-  LOG_INFO("Node(%p) new socket ip:%s port:%d Fd:%d.",
-      this, ip, _url._port, sockFd);
+  LOG_INFO("Node(%p) new socket ip:%s port:%d Fd:%d.", this, ip, _url._port,
+           sockFd);
 
   short events = EV_READ | EV_WRITE | EV_TIMEOUT | EV_FINALIZE;
-  // LOG_DEBUG("Node(%p) set events(%d) for connectEventCallback.", this, events);
+  // LOG_DEBUG("Node(%p) set events(%d) for connectEventCallback.", this,
+  // events);
   if (NULL == _connectEvent) {
-    _connectEvent = event_new(_eventThread->_workBase, sockFd,
-                              events,
-                              WorkThread::connectEventCallback,
-                              this);
+    _connectEvent = event_new(_eventThread->_workBase, sockFd, events,
+                              WorkThread::connectEventCallback, this);
     if (NULL == _connectEvent) {
       LOG_ERROR("Node(%p) new event(_connectEvent) failed.", this);
       return -(EventEmpty);
     }
   } else {
     event_del(_connectEvent);
-    event_assign(_connectEvent, _eventThread->_workBase, sockFd,
-                 events,
-                 WorkThread::connectEventCallback,
-                 this);
+    event_assign(_connectEvent, _eventThread->_workBase, sockFd, events,
+                 WorkThread::connectEventCallback, this);
   }
 
 #ifdef ENABLE_HIGH_EFFICIENCY
   if (NULL == _connectTimerEvent) {
-    _connectTimerEvent = evtimer_new(_eventThread->_workBase,
-                                     WorkThread::connectTimerEventCallback,
-                                     this);
+    _connectTimerEvent = evtimer_new(
+        _eventThread->_workBase, WorkThread::connectTimerEventCallback, this);
     if (NULL == _connectTimerEvent) {
       LOG_ERROR("Node(%p) new event(_connectTimerEvent) failed.", this);
       return -(EventEmpty);
@@ -2547,39 +2376,31 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   }
   // LOG_DEBUG("Node(%p) set events(%d) for readEventCallback", this, events);
   if (NULL == _readEvent) {
-    _readEvent = event_new(_eventThread->_workBase, sockFd,
-                           events,
-                           WorkThread::readEventCallBack,
-                           this);
+    _readEvent = event_new(_eventThread->_workBase, sockFd, events,
+                           WorkThread::readEventCallBack, this);
     if (NULL == _readEvent) {
       LOG_ERROR("Node(%p) new event(_readEvent) failed.", this);
       return -(EventEmpty);
     }
   } else {
     event_del(_readEvent);
-    event_assign(_readEvent, _eventThread->_workBase, sockFd,
-                 events,
-                 WorkThread::readEventCallBack,
-                 this);
+    event_assign(_readEvent, _eventThread->_workBase, sockFd, events,
+                 WorkThread::readEventCallBack, this);
   }
 
   events = EV_WRITE | EV_TIMEOUT | EV_FINALIZE;
   // LOG_DEBUG("Node(%p) set events(%d) for writeEventCallback", this, events);
   if (NULL == _writeEvent) {
-    _writeEvent = event_new(_eventThread->_workBase, sockFd,
-                            events,
-                            WorkThread::writeEventCallBack,
-                            this);
+    _writeEvent = event_new(_eventThread->_workBase, sockFd, events,
+                            WorkThread::writeEventCallBack, this);
     if (NULL == _writeEvent) {
       LOG_ERROR("Node(%p) new event(_writeEvent) failed.", this);
       return -(EventEmpty);
     }
   } else {
     event_del(_writeEvent);
-    event_assign(_writeEvent, _eventThread->_workBase, sockFd,
-                 events,
-                 WorkThread::writeEventCallBack,
-                 this);
+    event_assign(_writeEvent, _eventThread->_workBase, sockFd, events,
+                 WorkThread::writeEventCallBack, this);
   }
 
   _aiFamily = aiFamily;
@@ -2616,9 +2437,8 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
  */
 int ConnectNode::socketConnect() {
   int retCode = 0;
-  int connectErrCode = 0;
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
+  NlsClientImpl *client = _instance;
+  NlsNodeManager *node_manager = client->getNodeManger();
   int status = NodeStatusInvalid;
   int ret = node_manager->checkNodeExist(this, &status);
   if (ret != Success) {
@@ -2638,9 +2458,9 @@ int ConnectNode::socketConnect() {
   }
 
   if (retCode == -1) {
-    connectErrCode = utility::getLastErrorCode();
+    int connectErrCode = utility::getLastErrorCode();
     if (NLS_ERR_CONNECT_RETRIABLE(connectErrCode)) {
-      /* 
+      /*
        *  connectErrCode == 115(EINPROGRESS)
        *  means connection is in progress,
        *  normally the socket connecting timeout is 75s.
@@ -2652,19 +2472,30 @@ int ConnectNode::socketConnect() {
         LOG_ERROR("Node(%p) event is nullptr.", this);
         return -(EventEmpty);
       }
-
-      int timeout_ms = _request->getRequestParam()->getTimeout();
-      _connectTv.tv_sec = timeout_ms / 1000;
-      _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
+      time_t timeout_ms = _request->getRequestParam()->getTimeout();
+      utility::TextUtils::GetTimevalFromMs(&_connectTv, timeout_ms);
       event_add(_connectEvent, &_connectTv);
 
-      LOG_DEBUG("Node(%p) will connect later, errno:%d. timeout:%dms.",
-          this, connectErrCode, timeout_ms);
+      LOG_DEBUG("Node(%p) will connect later, errno:%d. timeout:%ldms.", this,
+                connectErrCode, timeout_ms);
       return 1;
     } else {
-      LOG_ERROR("Node(%p) connect failed:%s. retCode:%d connectErrCode:%d. retry ...",
-          this, evutil_socket_error_to_string(evutil_socket_geterror(_socketFd)),
+      LOG_ERROR(
+          "Node(%p) connect failed:%s. retCode:%d connectErrCode:%d. retry ...",
+          this,
+          evutil_socket_error_to_string(evutil_socket_geterror(_socketFd)),
           retCode, connectErrCode);
+
+#ifdef ENABLE_DNS_IP_CACHE
+      std::string tmp_ip = _eventThread->getIpFromCache(
+          (char *)_request->getRequestParam()->_url.c_str());
+      if (tmp_ip.length() == 0) {
+        LOG_ERROR("Node(%p) connect failed, clear IpCache, will dns later ...",
+                  this);
+        _eventThread->setIpCache(NULL, NULL);
+      }
+#endif
+
       return -(SocketConnectFailed);
     }
   } else {
@@ -2673,7 +2504,7 @@ int ConnectNode::socketConnect() {
     node_manager->updateNodeStatus(this, NodeStatusConnected);
     _isConnected = true;
   }
-  return 0;
+  return Success;
 }
 
 /**
@@ -2683,8 +2514,8 @@ int ConnectNode::socketConnect() {
 int ConnectNode::sslProcess() {
   EXIT_CANCEL_CHECK(_exitStatus, this);
   int ret = 0;
-  NlsClient* client = _instance;
-  NlsNodeManager* node_manager = (NlsNodeManager*)client->getNodeManger();
+  NlsClientImpl *client = _instance;
+  NlsNodeManager *node_manager = client->getNodeManger();
   int status = NodeStatusInvalid;
   ret = node_manager->checkNodeExist(this, &status);
   if (ret != Success) {
@@ -2695,12 +2526,12 @@ int ConnectNode::sslProcess() {
   if (_url._isSsl) {
     ret = _sslHandle->sslHandshake(_socketFd, _url._host);
     if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE) {
-      // current status:NodeConnected
-      // LOG_DEBUG("Node(%p) status:%s, wait ssl process ...",
-      //     this, getConnectNodeStatusString().c_str());
+// current status:NodeConnected
+// LOG_DEBUG("Node(%p) status:%s, wait ssl process ...",
+//     this, getConnectNodeStatusString().c_str());
 
-      // trigger connectEventCallback()
-      #ifdef ENABLE_HIGH_EFFICIENCY
+// trigger connectEventCallback()
+#ifdef ENABLE_HIGH_EFFICIENCY
       // connect回调和定时connect回调交替调用, 降低事件量的同时保证稳定
       if (!_connectTimerFlag) {
         if (NULL == _connectTimerEvent) {
@@ -2718,23 +2549,21 @@ int ConnectNode::sslProcess() {
         }
 
         // LOG_DEBUG("Node(%p) add events _connectEvent.", this);
-        int timeout_ms = _request->getRequestParam()->getTimeout();
-        _connectTv.tv_sec = timeout_ms / 1000;
-        _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
+        utility::TextUtils::GetTimevalFromMs(
+            &_connectTv, _request->getRequestParam()->getTimeout());
         // set _connectEvent to pending status.
         event_add(_connectEvent, &_connectTv);
         _connectTimerFlag = false;
       }
-      #else
+#else
       if (NULL == _connectEvent) {
         LOG_ERROR("Node(%p) event is nullptr.", this);
         return -(EventEmpty);
       }
-      int timeout_ms = _request->getRequestParam()->getTimeout();
-      _connectTv.tv_sec = timeout_ms / 1000;
-      _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
+      utility::TextUtils::GetTimevalFromMs(
+          &_connectTv, _request->getRequestParam()->getTimeout());
       event_add(_connectEvent, &_connectTv);
-      #endif
+#endif
 
       return 1;
     } else if (ret < 0) {
@@ -2744,7 +2573,8 @@ int ConnectNode::sslProcess() {
     } else {
       _workStatus = NodeHandshaking;
       node_manager->updateNodeStatus(this, NodeStatusHandshaking);
-      LOG_DEBUG("Node(%p) sslHandshake done, ret:%d, set node:NodeHandshaking.", this, ret);
+      LOG_DEBUG("Node(%p) sslHandshake done, ret:%d, set node:NodeHandshaking.",
+                this, ret);
       return 0;
     }
   } else {
@@ -2761,20 +2591,12 @@ int ConnectNode::sslProcess() {
  * @return:
  */
 void ConnectNode::initNlsEncoder() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
+  MUTEX_LOCK(_mtxNode);
 
   if (NULL == _nlsEncoder) {
     if (NULL == _request) {
       LOG_ERROR("The request of node(%p) is nullptr.", this);
-    #if defined(_MSC_VER)
-      ReleaseMutex(_mtxNode);
-    #else
-      pthread_mutex_unlock(&_mtxNode);
-    #endif
+      MUTEX_UNLOCK(_mtxNode);
       return;
     }
 
@@ -2788,32 +2610,24 @@ void ConnectNode::initNlsEncoder() {
       _nlsEncoder = new NlsEncoder();
       if (NULL == _nlsEncoder) {
         LOG_ERROR("Node(%p) new _nlsEncoder failed.", this);
-        #if defined(_MSC_VER)
-        ReleaseMutex(_mtxNode);
-        #else
-        pthread_mutex_unlock(&_mtxNode);
-        #endif
+        MUTEX_UNLOCK(_mtxNode);
         return;
       }
 
       int errorCode = 0;
       int ret = _nlsEncoder->createNlsEncoder(
-          _encoderType, 1,
-          _request->getRequestParam()->_sampleRate,
+          _encoderType, 1, _request->getRequestParam()->_sampleRate,
           &errorCode);
       if (ret < 0) {
-        LOG_ERROR("Node(%p) createNlsEncoder failed, errcode:%d.", this, errorCode);
+        LOG_ERROR("Node(%p) createNlsEncoder failed, errcode:%d.", this,
+                  errorCode);
         delete _nlsEncoder;
         _nlsEncoder = NULL;
       }
     }
   }
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
+  MUTEX_UNLOCK(_mtxNode);
 }
 
 /**
@@ -2821,22 +2635,17 @@ void ConnectNode::initNlsEncoder() {
  * @return:
  */
 void ConnectNode::updateParameters() {
-#if defined(_MSC_VER)
-  WaitForSingleObject(_mtxNode, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxNode);
-#endif
+  MUTEX_LOCK(_mtxNode);
 
-  if (_request->getRequestParam()->_sampleRate == SAMPLE_RATE_16K) {
-    _limitSize = BUFFER_16K_MAX_LIMIT;
+  if (_request->getRequestParam()->_sampleRate == SampleRate16K) {
+    _limitSize = Buffer16kMaxLimit;
   } else {
-    _limitSize = BUFFER_8K_MAX_LIMIT;
+    _limitSize = Buffer8kMaxLimit;
   }
 
-  int timeout_ms = _request->getRequestParam()->getTimeout();
-  _connectTv.tv_sec = timeout_ms / 1000;
-  _connectTv.tv_usec = (timeout_ms - _connectTv.tv_sec * 1000) * 1000;
-  LOG_INFO("Node(%p) set connect timeout: %dms.", this, timeout_ms);
+  time_t timeout_ms = _request->getRequestParam()->getTimeout();
+  utility::TextUtils::GetTimevalFromMs(&_connectTv, timeout_ms);
+  LOG_INFO("Node(%p) set connect timeout: %ldms.", this, timeout_ms);
 
   _enableRecvTv = _request->getRequestParam()->getEnableRecvTimeout();
   if (_enableRecvTv) {
@@ -2845,14 +2654,12 @@ void ConnectNode::updateParameters() {
     LOG_INFO("Node(%p) disable recv timeout.", this);
   }
   timeout_ms = _request->getRequestParam()->getRecvTimeout();
-  _recvTv.tv_sec = timeout_ms / 1000;
-  _recvTv.tv_usec = (timeout_ms - _recvTv.tv_sec * 1000) * 1000;
-  LOG_INFO("Node(%p) set recv timeout: %dms.", this, timeout_ms);
+  utility::TextUtils::GetTimevalFromMs(&_recvTv, timeout_ms);
+  LOG_INFO("Node(%p) set recv timeout: %ldms.", this, timeout_ms);
 
   timeout_ms = _request->getRequestParam()->getSendTimeout();
-  _sendTv.tv_sec = timeout_ms / 1000;
-  _sendTv.tv_usec = (timeout_ms - _sendTv.tv_sec * 1000) * 1000;
-  LOG_INFO("Node(%p) set send timeout: %dms.", this, timeout_ms);
+  utility::TextUtils::GetTimevalFromMs(&_sendTv, timeout_ms);
+  LOG_INFO("Node(%p) set send timeout: %ldms.", this, timeout_ms);
 
   _enableOnMessage = _request->getRequestParam()->getEnableOnMessage();
   if (_enableOnMessage) {
@@ -2861,11 +2668,7 @@ void ConnectNode::updateParameters() {
     LOG_INFO("Node(%p) disable OnMessage Callback.", this);
   }
 
-#if defined(_MSC_VER)
-  ReleaseMutex(_mtxNode);
-#else
-  pthread_mutex_unlock(&_mtxNode);
-#endif
+  MUTEX_UNLOCK(_mtxNode);
 }
 
 /**
@@ -2873,21 +2676,23 @@ void ConnectNode::updateParameters() {
  * @return:
  */
 void ConnectNode::delAllEvents() {
-  LOG_DEBUG("Node(%p) delete all events begin, current node status:%s exit status:%s.",
-      this,
-      getConnectNodeStatusString().c_str(),
+  LOG_DEBUG(
+      "Node(%p) delete all events begin, current node status:%s exit "
+      "status:%s.",
+      this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
-  /* 当Node处于Invoking状态, 即还未进入正式运行, 需要等待其进入Invoked才可进行操作 */
+  /* 当Node处于Invoking状态, 即还未进入正式运行,
+   * 需要等待其进入Invoked才可进行操作 */
   int try_count = 2000;
   while (_workStatus == NodeInvoking && try_count-- > 0) {
-  #ifdef _MSC_VER
+#ifdef _MSC_VER
     Sleep(1);
-  #else
+#else
     usleep(1000);
-  #endif
+#endif
   }
-  if (try_count <=0) {
+  if (try_count <= 0) {
     LOG_WARN("Node(%p) waiting exit NodeInvoking failed.", this);
   } else {
     LOG_WARN("Node(%p) waiting exit NodeInvoking success.", this);
@@ -2899,13 +2704,13 @@ void ConnectNode::delAllEvents() {
     try_count = 5000;
     LOG_WARN("Node(%p) waiting exit dnsThread ...", this);
     while (_dnsThreadRunning && try_count-- > 0) {
-    #ifdef _MSC_VER
+#ifdef _MSC_VER
       Sleep(1);
-    #else
+#else
       usleep(1000);
-    #endif
+#endif
     }
-    if (try_count <=0) {
+    if (try_count <= 0) {
       LOG_WARN("Node(%p) waiting exit dnsThread failed.", this);
     } else {
       LOG_WARN("Node(%p) waiting exit dnsThread success.", this);
@@ -2955,7 +2760,8 @@ void ConnectNode::delAllEvents() {
  * @return:
  */
 void ConnectNode::waitEventCallback() {
-  // LOG_DEBUG("Node:%p waiting EventCallback, current node status:%s exit status:%s",
+  // LOG_DEBUG("Node:%p waiting EventCallback, current node status:%s exit
+  // status:%s",
   //     this,
   //     getConnectNodeStatusString().c_str(),
   //     getExitStatusString().c_str());
@@ -2963,20 +2769,22 @@ void ConnectNode::waitEventCallback() {
   if (_inEventCallbackNode) {
     LOG_DEBUG("Node(%p) waiting EventCallback ...", this);
 
-  #if defined(_MSC_VER)
-    WaitForSingleObject(_mtxEventCallbackNode, INFINITE);
-  #else
+#if defined(_MSC_VER)
+    MUTEX_LOCK(_mtxEventCallbackNode);
+#else
     struct timespec outtime;
     struct timeval now;
     gettimeofday(&now, NULL);
-    outtime.tv_sec = now.tv_sec + 1;
-    outtime.tv_nsec = now.tv_usec * 1000;
-    pthread_mutex_lock(&_mtxEventCallbackNode);
-    if (ETIMEDOUT == pthread_cond_timedwait(&_cvEventCallbackNode, &_mtxEventCallbackNode, &outtime)) {
+    uint64_t time_ms =
+        now.tv_sec * 1000 + now.tv_usec / 1000 + 1000;  // plus timeout 1000ms
+    utility::TextUtils::GetTimespecFromMs(&outtime, time_ms);
+    MUTEX_LOCK(_mtxEventCallbackNode);
+    if (ETIMEDOUT == pthread_cond_timedwait(&_cvEventCallbackNode,
+                                            &_mtxEventCallbackNode, &outtime)) {
       LOG_WARN("Node(%p) waiting EventCallback timeout.", this);
     }
-    pthread_mutex_unlock(&_mtxEventCallbackNode);
-  #endif
+    MUTEX_UNLOCK(_mtxEventCallbackNode);
+#endif
     LOG_DEBUG("Node(%p) waiting EventCallback done.", this);
   }
 
@@ -2989,23 +2797,26 @@ void ConnectNode::waitEventCallback() {
  */
 void ConnectNode::waitInvokeFinish() {
   if (_syncCallTimeoutMs > 0) {
-    LOG_DEBUG("Node(%p) waiting invoke finish, timeout %dms...", this, _syncCallTimeoutMs);
+    LOG_DEBUG("Node(%p) waiting invoke finish, timeout %dms...", this,
+              _syncCallTimeoutMs);
 
 #if defined(_MSC_VER)
-    WaitForSingleObject(_mtxInvokeSyncCallNode, INFINITE);
+    MUTEX_LOCK(_mtxInvokeSyncCallNode);
 #else
     struct timespec outtime;
     struct timeval now;
     gettimeofday(&now, NULL);
-    uint64_t time_ms = now.tv_sec * 1000 + now.tv_usec / 1000 + _syncCallTimeoutMs;
-    outtime.tv_sec = time_ms / 1000;
-    outtime.tv_nsec = (time_ms % 1000) * 1000000;
-    pthread_mutex_lock(&_mtxInvokeSyncCallNode);
-    if (ETIMEDOUT == pthread_cond_timedwait(&_cvInvokeSyncCallNode, &_mtxInvokeSyncCallNode, &outtime)) {
+    uint64_t time_ms =
+        now.tv_sec * 1000 + now.tv_usec / 1000 + _syncCallTimeoutMs;
+    utility::TextUtils::GetTimespecFromMs(&outtime, time_ms);
+    MUTEX_LOCK(_mtxInvokeSyncCallNode);
+    if (ETIMEDOUT == pthread_cond_timedwait(&_cvInvokeSyncCallNode,
+                                            &_mtxInvokeSyncCallNode,
+                                            &outtime)) {
       _nodeErrCode = InvokeTimeout;
       LOG_WARN("Node(%p) waiting invoke timeout.", this);
     }
-    pthread_mutex_unlock(&_mtxInvokeSyncCallNode);
+    MUTEX_UNLOCK(_mtxInvokeSyncCallNode);
 #endif
 
     LOG_DEBUG("Node(%p) waiting invoke done.", this);
@@ -3022,110 +2833,264 @@ void ConnectNode::sendFinishCondSignal(NlsEvent::EventType eventType) {
         eventType == NlsEvent::RecognitionStarted ||
         eventType == NlsEvent::TranscriptionStarted ||
         eventType == NlsEvent::SynthesisStarted) {
-      LOG_DEBUG("Node(%p) send finish cond signal, event type:%d.", this, eventType);
+      LOG_DEBUG("Node(%p) send finish cond signal, event type:%d.", this,
+                eventType);
 
       bool useless_flag = false;
-    #ifdef _MSC_VER
+#ifdef _MSC_VER
       SET_EVENT(useless_flag, _mtxInvokeSyncCallNode);
-    #else
-      SEND_COND_SIGNAL(_mtxInvokeSyncCallNode, _cvInvokeSyncCallNode, useless_flag);
-    #endif
+#else
+      SEND_COND_SIGNAL(_mtxInvokeSyncCallNode, _cvInvokeSyncCallNode,
+                       useless_flag);
+#endif
     }
   }
 }
 
-std::string ConnectNode::getRandomUuid() {
-  char uuidBuff[48] = {0};
-#ifdef _MSC_VER
-  char* data = NULL;
-  UUID uuidhandle;
-  RPC_STATUS ret_val = UuidCreate(&uuidhandle);
-  if (ret_val != RPC_S_OK) {
-    LOG_ERROR("UuidCreate failed");
-    return uuidBuff;
+/**
+ * @brief: 生成closed事件信息, 填入任务相关信息比如task_id
+ * @return:
+ */
+const char *ConnectNode::genCloseMsg(std::string *buf_str) {
+  if (_request == NULL) {
+    return NULL;
   }
-  UuidToString(&uuidhandle, (RPC_CSTR*)&data);
-  if (data == NULL) {
-    LOG_ERROR("UuidToString data is nullptr");
-    return uuidBuff;
-  }
-  int len = strnlen(data, 36);
-  int i = 0, j = 0;
-  for (i = 0; i < len; i++) {
-    if (data[i] != '-') {
-      uuidBuff[j++] = data[i];
+
+  Json::Value root;
+  Json::FastWriter writer;
+  std::string task_id = _request->getRequestParam()->_task_id;
+
+  try {
+    root["channelClosed"] = "nls request finished.";
+    if (!task_id.empty()) {
+      root["task_id"] = task_id;
     }
-  }
-  RpcStringFree((RPC_CSTR*)&data);
-#else
-  char tmp[48] = {0};
-  uuid_t uuid;
-  uuid_generate(uuid);
-  uuid_unparse(uuid, tmp);
-  int i = 0, j = 0;
-  while (tmp[i]) {
-    if (tmp[i] != '-') {
-      uuidBuff[j++] = tmp[i];
+
+    *buf_str = writer.write(root);
+    if (buf_str->empty()) {
+      return CLOSE_JSON_STRING;
+    } else {
+      return buf_str->c_str();
     }
-    i++;
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return CLOSE_JSON_STRING;
   }
-#endif
-  return uuidBuff;
 }
 
 #ifdef ENABLE_REQUEST_RECORDING
-std::string ConnectNode::replenishNodeProcess(const char *error) {
-  if (error == NULL) {
-    return "";
+void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
+                                    size_t size) {
+  if (api == "start") {
+    if (enter) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.start_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+      _nodeProcess.last_status = NodeInvoking;
+      _nodeProcess.api_start_run.store(true);
+      _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    } else {
+      _nodeProcess.api_start_run.store(false);
+    }
+  } else if (api == "stop") {
+    if (enter) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.stop_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+      _nodeProcess.last_status = NodeStop;
+      _nodeProcess.api_stop_run.store(true);
+      _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    } else {
+      _nodeProcess.api_stop_run.store(false);
+    }
+  } else if (api == "cancel") {
+    if (enter) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.cancel_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+      _nodeProcess.last_status = NodeCancel;
+      _nodeProcess.api_cancel_run.store(true);
+      _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    } else {
+      _nodeProcess.api_cancel_run.store(false);
+    }
+  } else if (api == "sendAudio") {
+    if (enter) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.last_send_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+      _nodeProcess.last_status = NodeSendAudio;
+      _nodeProcess.recording_bytes += size;
+      _nodeProcess.send_count++;
+      _nodeProcess.api_send_run.store(true);
+      _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    } else {
+      _nodeProcess.api_send_run.store(false);
+    }
+  } else if (api == "ctrl") {
+    if (enter) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.last_ctrl_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+      _nodeProcess.last_status = NodeSendControl;
+      _nodeProcess.api_ctrl_run.store(true);
+      _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    } else {
+      _nodeProcess.api_ctrl_run.store(false);
+    }
+  } else if (api == "callback") {
+    if (enter) {
+      _nodeProcess.last_callback = (NlsEvent::EventType)status;
+      switch (_nodeProcess.last_callback) {
+        case NlsEvent::RecognitionStarted:
+        case NlsEvent::TranscriptionStarted:
+          _nodeProcess.last_op_timestamp_ms =
+              utility::TextUtils::GetTimestampMs();
+          _nodeProcess.started_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
+          break;
+        case NlsEvent::TranscriptionCompleted:
+        case NlsEvent::RecognitionCompleted:
+        case NlsEvent::SynthesisCompleted:
+          _nodeProcess.last_op_timestamp_ms =
+              utility::TextUtils::GetTimestampMs();
+          _nodeProcess.completed_timestamp_ms =
+              _nodeProcess.last_op_timestamp_ms;
+          break;
+        case NlsEvent::Binary:
+          _nodeProcess.last_op_timestamp_ms =
+              utility::TextUtils::GetTimestampMs();
+          _nodeProcess.play_bytes += size;
+          _nodeProcess.play_count++;
+          _nodeProcess.last_status = NodePlayAudio;
+          if (_isFirstBinaryFrame) {
+            _nodeProcess.first_binary_timestamp_ms =
+                _nodeProcess.last_op_timestamp_ms;
+          }
+          break;
+      }
+      _nodeProcess.last_cb_start_timestamp_ms =
+          utility::TextUtils::GetTimestampMs();
+      _nodeProcess.last_cb_end_timestamp_ms = 0;
+      _nodeProcess.last_cb_run.store(true);
+    } else {
+      _nodeProcess.last_cb_end_timestamp_ms =
+          utility::TextUtils::GetTimestampMs();
+      _nodeProcess.last_cb_run.store(false);
+    }
   }
+}
 
-  Json::Reader reader;
-  Json::Value root(Json::objectValue);
-  if (!reader.parse(error, root)) {
-    return "";
-  } else {
+const char *ConnectNode::dumpAllInfo() {
+  try {
+    Json::Value root(Json::objectValue);
     Json::FastWriter writer;
     Json::Value request_process(Json::objectValue);
     Json::Value timestamp(Json::objectValue);
     Json::Value last(Json::objectValue);
     Json::Value data(Json::objectValue);
-    timestamp["create"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.create_timestamp_ms);
-    if (_nodeProcess.start_timestamp_ms > 0) {
-      timestamp["start"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.start_timestamp_ms);
-    }
-    if (_nodeProcess.started_timestamp_ms > 0) {
-      timestamp["started"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.started_timestamp_ms);
-    }
-    if (_nodeProcess.stop_timestamp_ms > 0) {
-      timestamp["stop"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.stop_timestamp_ms);
-    }
-    if (_nodeProcess.cancel_timestamp_ms > 0) {
-      timestamp["cancel"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.cancel_timestamp_ms);
-    }
-    if (_nodeProcess.failed_timestamp_ms > 0) {
-      timestamp["failed"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.failed_timestamp_ms);
-    }
-    if (_nodeProcess.completed_timestamp_ms > 0) {
-      timestamp["completed"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.completed_timestamp_ms);
-    }
-    if (_nodeProcess.closed_timestamp_ms > 0) {
-      timestamp["closed"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.closed_timestamp_ms);
-    }
-    if (_nodeProcess.first_binary_timestamp_ms > 0) {
-      timestamp["first_binary"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.first_binary_timestamp_ms);
-    }
+    Json::Value callback(Json::objectValue);
+    Json::Value block(Json::objectValue);
 
-    last["status"] = getConnectNodeStatusString(_nodeProcess.last_status);
-    if (_nodeProcess.last_send_timestamp_ms > 0) {
-      last["send"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.last_send_timestamp_ms);
-    }
-    if (_nodeProcess.last_ctrl_timestamp_ms > 0) {
-      last["control"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.last_ctrl_timestamp_ms);
-    }
-    if (_nodeProcess.last_op_timestamp_ms > 0) {
-      last["action"] = utility::TextUtils::GetTimeFromMs(_nodeProcess.last_op_timestamp_ms);
-    }
+    timestamp = updateNodeProcess4Timestamp();
+    last = updateNodeProcess4Last();
+    data = updateNodeProcess4Data();
+    callback = updateNodeProcess4Callback();
+    block = updateNodeProcess4Block();
 
+    if (!timestamp.isNull()) {
+      root["timestamp"] = timestamp;
+    }
+    if (!last.isNull()) {
+      root["last"] = last;
+    }
+    if (!data.isNull()) {
+      root["data"] = data;
+    }
+    if (!callback.isNull()) {
+      root["callback"] = callback;
+    }
+    if (!block.isNull() && block.isObject() && !block.empty()) {
+      root["block"] = block;
+    }
+    root["sdkversion"] = NLS_SDK_VERSION_STR;
+
+#ifdef ENABLE_CONTINUED
+    Json::Value reconnection(Json::objectValue);
+    reconnection = updateNodeReconnection();
+    if (!reconnection.isNull() && reconnection.isObject() &&
+        !reconnection.empty()) {
+      root["reconnection"] = reconnection;
+    }
+#endif
+    std::string info = writer.write(root);
+    LOG_INFO("current info: %s", info.c_str());
+    return info.c_str();
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return "";
+  }
+}
+
+/**
+ * @brief: 在closed事件或TaskFailed(由SDK引发)事件中填入此请求的记录
+ * @return:
+ */
+std::string ConnectNode::replenishNodeProcess(const char *error) {
+  if (error == NULL) {
+    return "";
+  }
+
+  try {
+    Json::Reader reader;
+    Json::Value root(Json::objectValue);
+    if (!reader.parse(error, root)) {
+      return "";
+    } else {
+      Json::FastWriter writer;
+      Json::Value request_process(Json::objectValue);
+      Json::Value timestamp(Json::objectValue);
+      Json::Value last(Json::objectValue);
+      Json::Value data(Json::objectValue);
+      Json::Value callback(Json::objectValue);
+      Json::Value block(Json::objectValue);
+
+      timestamp = updateNodeProcess4Timestamp();
+      last = updateNodeProcess4Last();
+      data = updateNodeProcess4Data();
+      callback = updateNodeProcess4Callback();
+      block = updateNodeProcess4Block();
+
+      if (!timestamp.isNull()) {
+        root["timestamp"] = timestamp;
+      }
+      if (!last.isNull()) {
+        root["last"] = last;
+      }
+      if (!data.isNull()) {
+        root["data"] = data;
+      }
+      if (!callback.isNull()) {
+        root["callback"] = callback;
+      }
+      if (!block.isNull() && block.isObject() && !block.empty()) {
+        root["block"] = block;
+      }
+      root["sdkversion"] = NLS_SDK_VERSION_STR;
+
+#ifdef ENABLE_CONTINUED
+      Json::Value reconnection(Json::objectValue);
+      reconnection = updateNodeReconnection();
+      if (!reconnection.isNull() && reconnection.isObject() &&
+          !reconnection.empty()) {
+        root["reconnection"] = reconnection;
+      }
+#endif
+      return writer.write(root);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return "";
+  }
+}
+
+Json::Value ConnectNode::updateNodeProcess4Data() {
+  Json::Value data(Json::objectValue);
+  try {
     if (_nodeProcess.recording_bytes > 0) {
       data["recording_bytes"] = (Json::UInt64)_nodeProcess.recording_bytes;
     }
@@ -3138,13 +3103,284 @@ std::string ConnectNode::replenishNodeProcess(const char *error) {
     if (_nodeProcess.play_count > 0) {
       data["play_count"] = (Json::UInt64)_nodeProcess.play_count;
     }
-
-    root["timestamp"] = timestamp;
-    root["last"] = last;
-    root["data"] = data;
-    return writer.write(root);
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return data;
   }
+  return data;
+}
+
+Json::Value ConnectNode::updateNodeProcess4Last() {
+  Json::Value last(Json::objectValue);
+  try {
+    last["status"] = getConnectNodeStatusString(_nodeProcess.last_status);
+    if (_nodeProcess.last_send_timestamp_ms > 0) {
+      last["send"] = utility::TextUtils::GetTimeFromMs(
+          _nodeProcess.last_send_timestamp_ms);
+    }
+    if (_nodeProcess.last_ctrl_timestamp_ms > 0) {
+      last["control"] = utility::TextUtils::GetTimeFromMs(
+          _nodeProcess.last_ctrl_timestamp_ms);
+    }
+    if (_nodeProcess.last_op_timestamp_ms > 0) {
+      last["action"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.last_op_timestamp_ms);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return last;
+  }
+  return last;
+}
+
+Json::Value ConnectNode::updateNodeProcess4Timestamp() {
+  Json::Value timestamp(Json::objectValue);
+  try {
+    timestamp["create"] =
+        utility::TextUtils::GetTimeFromMs(_nodeProcess.create_timestamp_ms);
+    if (_nodeProcess.start_timestamp_ms > 0) {
+      timestamp["start"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.start_timestamp_ms);
+    }
+    if (_nodeProcess.started_timestamp_ms > 0) {
+      timestamp["started"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.started_timestamp_ms);
+    }
+    if (_nodeProcess.stop_timestamp_ms > 0) {
+      timestamp["stop"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.stop_timestamp_ms);
+    }
+    if (_nodeProcess.cancel_timestamp_ms > 0) {
+      timestamp["cancel"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.cancel_timestamp_ms);
+    }
+    if (_nodeProcess.failed_timestamp_ms > 0) {
+      timestamp["failed"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.failed_timestamp_ms);
+    }
+    if (_nodeProcess.completed_timestamp_ms > 0) {
+      timestamp["completed"] = utility::TextUtils::GetTimeFromMs(
+          _nodeProcess.completed_timestamp_ms);
+    }
+    if (_nodeProcess.closed_timestamp_ms > 0) {
+      timestamp["closed"] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.closed_timestamp_ms);
+    }
+    if (_nodeProcess.first_binary_timestamp_ms > 0) {
+      timestamp["first_binary"] = utility::TextUtils::GetTimeFromMs(
+          _nodeProcess.first_binary_timestamp_ms);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return timestamp;
+  }
+  return timestamp;
+}
+
+Json::Value ConnectNode::updateNodeProcess4Callback() {
+  Json::Value callback(Json::objectValue);
+  try {
+    NlsEvent event;
+    std::string cb_name = event.getMsgTypeString(_nodeProcess.last_callback);
+    if (!cb_name.empty() && cb_name != "Unknown") {
+      callback["name"] = cb_name;
+      if (_nodeProcess.last_cb_start_timestamp_ms > 0) {
+        callback["start"] = utility::TextUtils::GetTimeFromMs(
+            _nodeProcess.last_cb_start_timestamp_ms);
+      }
+      if (_nodeProcess.last_cb_end_timestamp_ms > 0) {
+        callback["end"] = utility::TextUtils::GetTimeFromMs(
+            _nodeProcess.last_cb_end_timestamp_ms);
+      }
+      if (_nodeProcess.last_cb_run.load()) {
+        callback["status"] = "running";
+      }
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return callback;
+  }
+  return callback;
+}
+
+Json::Value ConnectNode::updateNodeProcess4Block() {
+  Json::Value block(Json::objectValue);
+  try {
+    bool running_flag = false;
+    std::string timestamp_name = "";
+    std::string duration_name = "";
+    if (_nodeProcess.api_start_run.load()) {
+      block["start"] = "running";
+      timestamp_name = "start_timestamp";
+      duration_name = "start_duration_ms";
+      running_flag = true;
+    }
+    if (_nodeProcess.api_stop_run.load()) {
+      block["stop"] = "running";
+      timestamp_name = "stop_timestamp";
+      duration_name = "stop_duration_ms";
+      running_flag = true;
+    }
+    if (_nodeProcess.api_cancel_run.load()) {
+      block["cancel"] = "running";
+      timestamp_name = "cancel_timestamp";
+      duration_name = "cancel_duration_ms";
+      running_flag = true;
+    }
+    if (_nodeProcess.api_send_run.load()) {
+      block["send"] = "running";
+      timestamp_name = "send_timestamp";
+      duration_name = "send_duration_ms";
+      running_flag = true;
+    }
+    if (_nodeProcess.api_ctrl_run.load()) {
+      block["ctrl"] = "running";
+      timestamp_name = "ctrl_timestamp";
+      duration_name = "ctrl_duration_ms";
+      running_flag = true;
+    }
+    if (running_flag && _nodeProcess.last_api_timestamp_ms > 0) {
+      block[timestamp_name] =
+          utility::TextUtils::GetTimeFromMs(_nodeProcess.last_api_timestamp_ms);
+      uint64_t current = utility::TextUtils::GetTimestampMs();
+      block[duration_name] =
+          Json::Value::UInt64(current - _nodeProcess.last_api_timestamp_ms);
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return block;
+  }
+  return block;
 }
 #endif
+
+#ifdef ENABLE_CONTINUED
+Json::Value ConnectNode::updateNodeReconnection() {
+  Json::Value reconnection(Json::objectValue);
+  try {
+    if (_reconnection.first_audio_timestamp_ms > 0) {
+      reconnection["first_audio_timestamp"] = utility::TextUtils::GetTimeFromMs(
+          _reconnection.first_audio_timestamp_ms);
+    }
+    if (_reconnection.interruption_timestamp_ms > 0) {
+      reconnection["interruption_timestamp"] =
+          utility::TextUtils::GetTimeFromMs(
+              _reconnection.interruption_timestamp_ms);
+    }
+    if (_reconnection.tw_index_offset > 0) {
+      reconnection["tw_index_offset"] =
+          Json::Value::UInt64(_reconnection.tw_index_offset);
+    }
+    if (_reconnection.state != NodeReconnection::NoReconnection) {
+      reconnection["should_reconnecting"] = true;
+      reconnection["reconnected_count"] = _reconnection.reconnected_count;
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return reconnection;
+  }
+  return reconnection;
+}
+
+void ConnectNode::updateTwIndexOffset(NlsEvent *frameEvent) {
+  if (frameEvent) {
+    if (frameEvent->getMsgType() == NlsEvent::SentenceBegin) {
+      _reconnection.tw_index_offset = frameEvent->getSentenceIndex();
+    }
+  }
+}
+
+bool ConnectNode::nodeReconnecting() {
+  if (_reconnection.state == NodeReconnection::WillReconnect) {
+    struct timeval _reconnectTv;
+    utility::TextUtils::GetTimevalFromMs(
+        &_reconnectTv, NodeReconnection::reconnect_interval_ms);
+    LOG_INFO("reconnect node(%p) after %dms.", this,
+             NodeReconnection::reconnect_interval_ms);
+    int event_ret = event_add(getReconnectEvent(), &_reconnectTv);
+    if (event_ret == Success) {
+      LOG_INFO("reconnect node(%p) event_add success.", this);
+      _reconnection.state = NodeReconnection::TriggerReconnection;
+    } else {
+      LOG_WARN("reconnect node(%p) event_add failed with %d.", this, event_ret);
+    }
+    return true;
+  } else if (_reconnection.state == NodeReconnection::TriggerReconnection ||
+             _reconnection.state == NodeReconnection::NewReconnectionStarting) {
+    LOG_INFO("Node(%p) reconnection has launched(%d)", this,
+             _reconnection.state);
+  }
+  return false;
+}
+
+/**
+ * @brief: 获得用于重启当前node的libevent
+ * @return: libevent的event指针
+ */
+struct event *ConnectNode::getReconnectEvent() {
+  if (_reconnectEvent != NULL) {
+    event_del(_reconnectEvent);
+    event_free(_reconnectEvent);
+    _reconnectEvent = NULL;
+  }
+  _reconnectEvent = event_new(_eventThread->_workBase, -1, EV_READ | EV_TIMEOUT,
+                              WorkThread::launchEventCallback, this);
+  if (NULL == _reconnectEvent) {
+    LOG_ERROR("Node(%p) new event(_reconnectEvent) failed.", this);
+  } else {
+    LOG_DEBUG("Node(%p) new event(_reconnectEvent).", this);
+  }
+  return _reconnectEvent;
+}
+#endif
+
+bool ConnectNode::ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType,
+                                                 int code) {
+#ifdef ENABLE_CONTINUED
+  if (_request) {
+    if (_request->getRequestParam()->_enableReconnect) {
+      if (eventType == NlsEvent::TaskFailed) {
+        if ((code >= 50000000 && code < 60000000) || code == DefaultErrorCode ||
+            code == SysErrorCode || code == UnknownWsHeadType ||
+            code == HttpConnectFailed || code == SysConnectFailed ||
+            code == ClientError || code == ConcurrencyExceed) {
+          if (_reconnection.state == NodeReconnection::NoReconnection ||
+              _reconnection.state ==
+                  NodeReconnection::NewReconnectionStarting) {
+            _reconnection.interruption_timestamp_ms =
+                utility::TextUtils::GetTimestampMs();
+            _reconnection.reconnected_count++;
+            _reconnection.state = NodeReconnection::WillReconnect;
+          }
+        }
+      }
+
+      if (_reconnection.state == NodeReconnection::WillReconnect ||
+          _reconnection.state == NodeReconnection::TriggerReconnection) {
+        if (eventType == NlsEvent::TaskFailed || eventType == NlsEvent::Close) {
+          if (_reconnection.reconnected_count <=
+              NodeReconnection::max_try_count) {
+            NlsEvent tmp;
+            LOG_INFO(
+                "Node(%p) state(%d) get status code is %d with %s, try %d "
+                "times, should reconnecting "
+                "and "
+                "ignore callback.",
+                this, _reconnection.state, code,
+                tmp.getMsgTypeString(eventType).c_str(),
+                _reconnection.reconnected_count);
+            return true;
+          } else {
+            _reconnection.state = NodeReconnection::NoReconnection;
+            LOG_INFO("Node(%p) failed %d times, should boot normally.", this,
+                     _reconnection.reconnected_count);
+          }
+        }
+      }
+    }
+  }
+#endif
+  return false;
+}
 
 }  // namespace AlibabaNls

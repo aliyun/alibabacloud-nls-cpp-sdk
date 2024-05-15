@@ -14,122 +14,79 @@
  * limitations under the License.
  */
 
-#ifdef _MSC_VER
-#include <Rpc.h>
-#else
-#include "uuid/uuid.h"
-#endif
-#include "nlsGlobal.h"
-#include "nlog.h"
 #include "Config.h"
 #include "connectNode.h"
-#include "nlsRequestParamInfo.h"
 #include "iNlsRequestParam.h"
+#include "nlog.h"
+#include "nlsGlobal.h"
+#include "nlsRequestParamInfo.h"
+#include "text_utils.h"
 
 namespace AlibabaNls {
 
 #if defined(__ANDROID__)
-  const char g_sdk_name[] = "nls-cpp-sdk3.x-android";
+const char g_sdk_name[] = "nls-cpp-sdk3.x-android";
 #elif defined(_MSC_VER)
-  const char g_sdk_name[] = "nls-cpp-sdk3.x-windows";
-  const char g_csharp_sdk_name[] = "nls-csharp-sdk3.x-windows";
+const char g_sdk_name[] = "nls-cpp-sdk3.x-windows";
+const char g_csharp_sdk_name[] = "nls-csharp-sdk3.x-windows";
 #elif defined(__APPLE__)
-  const char g_sdk_name[] = "nls-cpp-sdk3.x-ios";
+const char g_sdk_name[] = "nls-cpp-sdk3.x-ios";
 #elif defined(__linux__)
-  const char g_sdk_name[] = "nls-cpp-sdk3.x-linux";
+const char g_sdk_name[] = "nls-cpp-sdk3.x-linux";
 #else
-  const char g_sdk_name[] = "nls-cpp-sdk3.x-unknown";
+const char g_sdk_name[] = "nls-cpp-sdk3.x-unknown";
 #endif
 
 const char g_csharp_sdk_language[] = "Csharp";
 const char g_sdk_language[] = "C++";
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
-#define RECV_TIMEOUT_MS 15000
-#define SEND_TIMEOUT_MS 5000
-#define CONNECTION_TIMEOUT_MS 5000
-
-INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName) : _mode(mode),
-    _payload(Json::objectValue), _sdk_name(sdkName) {
-  _url = "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1";
-  _token = "";
-
-  _context[D_SDK_CLIENT] = getSdkInfo();
-
+INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
+    : _enableWakeWord(false),
+      _enableRecvTimeout(false),
+      _enableOnMessage(false),
+#ifdef ENABLE_CONTINUED
+      _enableReconnect(false),
+#endif
+      _timeout(D_DEFAULT_CONNECTION_TIMEOUT_MS),
+      _recv_timeout(D_DEFAULT_RECV_TIMEOUT_MS),
+      _send_timeout(D_DEFAULT_SEND_TIMEOUT_MS),
+      _sampleRate(D_DEFAULT_VALUE_SAMPLE_RATE),
+      _requestType(SpeechNormal),
+      _url(D_DEFAULT_URL),
+      _outputFormat(D_DEFAULT_VALUE_ENCODE_UTF8),
+      _token(""),
+      _format(D_DEFAULT_VALUE_AUDIO_ENCODE),
+      _task_id(""),
+      _mode(mode),
+      _sdk_name(sdkName),
+      _startCommand(""),
+      _controlCommand(""),
+      _stopCommand(""),
+      _header(Json::objectValue),
+      _payload(Json::objectValue),
+      _context(Json::objectValue),
+      _httpHeader(Json::objectValue),
+      _httpHeaderString("") {
 #if defined(_MSC_VER)
   _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
-#else
-  _outputFormat = D_DEFAULT_VALUE_ENCODE_UTF8;
 #endif
-
   _payload[D_FORMAT] = D_DEFAULT_VALUE_AUDIO_ENCODE;
   _payload[D_SAMPLE_RATE] = D_DEFAULT_VALUE_SAMPLE_RATE;
-
-  _requestType = SpeechNormal;
-  _timeout = CONNECTION_TIMEOUT_MS;
-  _recv_timeout = RECV_TIMEOUT_MS;
-  _send_timeout = SEND_TIMEOUT_MS;
-
-  _enableWakeWord = false;
-  _enableRecvTimeout = false;
-  _enableOnMessage = false;
+  _context[D_SDK_CLIENT] = getSdkInfo();
 }
 
 INlsRequestParam::~INlsRequestParam() {}
-
-std::string INlsRequestParam::getRandomUuid() {
-  char uuidBuff[48] = {0};
-
-#ifdef _MSC_VER
-  char* data = NULL;
-  UUID uuidhandle;
-  RPC_STATUS ret_val = UuidCreate(&uuidhandle);
-  if (ret_val != RPC_S_OK) {
-    LOG_ERROR("UuidCreate failed");
-    return uuidBuff;
-  }
-
-  UuidToString(&uuidhandle, (RPC_CSTR*)&data);
-  if (data == NULL) {
-    LOG_ERROR("UuidToString data is nullptr");
-    return uuidBuff;
-  }
-
-  int len = strnlen(data, 36);
-  int i = 0, j = 0;
-  for (i = 0; i < len; i++) {
-    if (data[i] != '-') {
-      uuidBuff[j++] = data[i];
-    }
-  }
-
-  RpcStringFree((RPC_CSTR*)&data);
-#else
-  char tmp[48] = {0};
-  uuid_t uuid;
-  uuid_generate(uuid);
-  uuid_unparse(uuid, tmp);
-
-  int i = 0, j = 0;
-  while (tmp[i]) {
-    if (tmp[i] != '-') {
-      uuidBuff[j++] = tmp[i];
-    }
-    i++;
-  }
-#endif
-  return uuidBuff;
-}
 
 Json::Value INlsRequestParam::getSdkInfo() {
   Json::Value sdkInfo;
 
   if (!_sdk_name.empty() && _sdk_name.compare("csharp") == 0) {
-    #ifdef _MSC_VER
+#ifdef _MSC_VER
     sdkInfo[D_SDK_NAME] = g_csharp_sdk_name;
-    #else
+#else
     sdkInfo[D_SDK_NAME] = g_sdk_name;
-    #endif
+#endif
     sdkInfo[D_SDK_LANGUAGE] = g_csharp_sdk_language;
   } else {
     sdkInfo[D_SDK_NAME] = g_sdk_name;
@@ -144,17 +101,21 @@ const char* INlsRequestParam::getStartCommand() {
   Json::Value root;
   Json::FastWriter writer;
 
-  _task_id = getRandomUuid();
-  _header[D_TASK_ID] = _task_id;
-  // LOG_DEBUG("TaskId:%s", _task_id.c_str());
-  _header[D_MESSAGE_ID] = getRandomUuid();
+  try {
+    _task_id = utility::TextUtils::getRandomUuid();
+    _header[D_TASK_ID] = _task_id;
+    // LOG_DEBUG("TaskId:%s", _task_id.c_str());
+    _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
 
-  root[D_HEADER] = _header;
-  root[D_PAYLOAD] = _payload;
-  root[D_CONTEXT] = _context;
+    root[D_HEADER] = _header;
+    root[D_PAYLOAD] = _payload;
+    root[D_CONTEXT] = _context;
 
-  _startCommand = writer.write(root);
-
+    _startCommand = writer.write(root);
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return NULL;
+  }
   return _startCommand.c_str();
 }
 
@@ -163,32 +124,35 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
   Json::Value inputRoot;
   Json::FastWriter writer;
   Json::Reader reader;
-  std::string logInfo;
 
-  if (!reader.parse(message, inputRoot)) {
-    LOG_ERROR("Parse json(%s) failed!", message);
+  try {
+    if (!reader.parse(message, inputRoot)) {
+      LOG_ERROR("Parse json(%s) failed!", message);
+      return NULL;
+    }
+
+    if (!inputRoot.isObject()) {
+      LOG_ERROR("Json value isn't a json object.");
+      return NULL;
+    }
+
+    _header[D_TASK_ID] = _task_id;
+    LOG_DEBUG("TaskId:%s", _task_id.c_str());
+    _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
+
+    root[D_HEADER] = _header;
+    if (!inputRoot[D_PAYLOAD].isNull()) {
+      root[D_PAYLOAD] = inputRoot[D_PAYLOAD];
+    }
+    if (!inputRoot[D_CONTEXT].isNull()) {
+      root[D_CONTEXT] = inputRoot[D_CONTEXT];
+    }
+
+    _controlCommand = writer.write(root);
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
     return NULL;
   }
-
-  if (!inputRoot.isObject()) {
-    LOG_ERROR("Json value isn't a json object.");
-    return NULL;
-  }
-
-  _header[D_TASK_ID] = _task_id;
-  LOG_DEBUG("TaskId:%s", _task_id.c_str());
-  _header[D_MESSAGE_ID] = getRandomUuid();
-
-  root[D_HEADER] = _header;
-  if (!inputRoot[D_PAYLOAD].isNull()) {
-    root[D_PAYLOAD] = inputRoot[D_PAYLOAD];
-  }
-  if (!inputRoot[D_CONTEXT].isNull()) {
-    root[D_CONTEXT] = inputRoot[D_CONTEXT];
-  }
-
-  _controlCommand = writer.write(root);
-
   return _controlCommand.c_str();
 }
 
@@ -196,20 +160,24 @@ const char* INlsRequestParam::getStopCommand() {
   Json::Value root;
   Json::FastWriter writer;
 
-  _header[D_TASK_ID] = _task_id;
-  _header[D_MESSAGE_ID] = getRandomUuid();
+  try {
+    _header[D_TASK_ID] = _task_id;
+    _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
 
-  root[D_HEADER] = _header;
-  root[D_CONTEXT] = _context;
+    root[D_HEADER] = _header;
+    root[D_CONTEXT] = _context;
 
-  _stopCommand = writer.write(root);
-
+    _stopCommand = writer.write(root);
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return NULL;
+  }
   return _stopCommand.c_str();
 }
 
-const char* INlsRequestParam::getExecuteDialog() {return "";}
+const char* INlsRequestParam::getExecuteDialog() { return ""; }
 
-const char* INlsRequestParam::getStopWakeWordCommand() {return "";}
+const char* INlsRequestParam::getStopWakeWordCommand() { return ""; }
 
 int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Value root;
@@ -222,26 +190,53 @@ int INlsRequestParam::setPayloadParam(const char* value) {
     return -(SetParamsEmpty);
   }
 
-  std::string tmpValue = value;
-  if (!reader.parse(tmpValue, root)) {
-    LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
+  try {
+    std::string tmpValue = value;
+    if (!reader.parse(tmpValue, root)) {
+      LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
+      return -(JsonParseFailed);
+    }
+
+    if (!root.isObject()) {
+      LOG_ERROR("Json value isn't a json object.");
+      return -(JsonObjectError);
+    }
+
+    std::string jsonKey;
+    members = root.getMemberNames();
+    Json::Value::Members::iterator it = members.begin();
+    for (; it != members.end(); ++it) {
+      jsonKey = *it;
+      if (jsonKey.empty()) {
+        LOG_ERROR("Get empty member in %s", tmpValue.c_str());
+        continue;
+      }
+      _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
     return -(JsonParseFailed);
   }
+  return Success;
+}
 
-  if (!root.isObject()) {
-    LOG_ERROR("Json value isn't a json object.");
-    return -(JsonObjectError);
+int INlsRequestParam::removePayloadParam(const char* key) {
+  if (key == NULL) {
+    LOG_ERROR("Input key is nullptr");
+    return -(SetParamsEmpty);
   }
 
-  std::string jsonKey;
-  std::string jsonValue;
-  members = root.getMemberNames();
-  Json::Value::Members::iterator it = members.begin();
-  for (; it != members.end(); ++it) {
-    jsonKey = *it;
-    _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
+  try {
+    Json::Value root;
+    std::string tmpValue = key;
+    if (_payload.isMember(tmpValue)) {
+      _payload.removeMember(tmpValue);
+      LOG_DEBUG("remove member %s", tmpValue.c_str());
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return -(JsonParseFailed);
   }
-
   return Success;
 }
 
@@ -252,25 +247,32 @@ int INlsRequestParam::setContextParam(const char* value) {
   Json::Value::Members members;
   std::string tmpValue = value;
 
-  if (!reader.parse(tmpValue, root)) {
-    LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
+  try {
+    if (!reader.parse(tmpValue, root)) {
+      LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
+      return -(JsonParseFailed);
+    }
+
+    if (!root.isObject()) {
+      LOG_ERROR("Json value isn't a json object.");
+      return -(JsonObjectError);
+    }
+
+    std::string jsonKey;
+    members = root.getMemberNames();
+    Json::Value::Members::iterator it = members.begin();
+    for (; it != members.end(); ++it) {
+      jsonKey = *it;
+      if (jsonKey.empty()) {
+        LOG_ERROR("Get empty member in %s", tmpValue.c_str());
+        continue;
+      }
+      _context[jsonKey.c_str()] = root[jsonKey.c_str()];
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
     return -(JsonParseFailed);
   }
-
-  if (!root.isObject()) {
-    LOG_ERROR("Json value isn't a json object.");
-    return -(JsonObjectError);
-  }
-
-  std::string jsonKey;
-  std::string jsonValue;
-  members = root.getMemberNames();
-  Json::Value::Members::iterator it = members.begin();
-  for (; it != members.end(); ++it) {
-    jsonKey = *it;
-    _context[jsonKey.c_str()] = root[jsonKey.c_str()];
-  }
-
   return Success;
 }
 
@@ -295,7 +297,7 @@ void INlsRequestParam::setTextNormalization(bool value) {
   _payload[D_SR_TEXT_NORMALIZATION] = value;
 };
 
-int INlsRequestParam::setCustomizationId(const char * value) {
+int INlsRequestParam::setCustomizationId(const char* value) {
   if (value == NULL) {
     return -(SetParamsEmpty);
   }
@@ -305,7 +307,7 @@ int INlsRequestParam::setCustomizationId(const char * value) {
   return Success;
 }
 
-int INlsRequestParam::setVocabularyId(const char * value) {
+int INlsRequestParam::setVocabularyId(const char* value) {
   if (value == NULL) {
     return -(SetParamsEmpty);
   }
@@ -338,6 +340,10 @@ int INlsRequestParam::setSessionId(const char* sessionId) {
 }
 
 int INlsRequestParam::AppendHttpHeader(const char* key, const char* value) {
+  if (key == NULL || value == NULL) {
+    LOG_ERROR("key or value is nullptr!");
+    return -(InvalidInputParam);
+  }
   _httpHeader[key] = value;
   return Success;
 }
@@ -352,49 +358,43 @@ std::string INlsRequestParam::GetHttpHeader() {
     return _httpHeaderString;
   }
 
-  std::string jsonKey;
-  std::string jsonValue;
-  members = _httpHeader.getMemberNames();
-  Json::Value::Members::iterator it = members.begin();
-  for (; it != members.end(); ++it) {
-    jsonKey = *it;
+  try {
+    std::string jsonKey;
+    members = _httpHeader.getMemberNames();
+    Json::Value::Members::iterator it = members.begin();
+    for (; it != members.end(); ++it) {
+      jsonKey = *it;
+      if (jsonKey.empty()) {
+        LOG_ERROR("Get empty member!!!");
+        continue;
+      }
 
-    _httpHeaderString += jsonKey;
-    _httpHeaderString += ": ";
-    _httpHeaderString += _httpHeader[jsonKey].asString();
-    _httpHeaderString += "\r\n";
+      _httpHeaderString += jsonKey;
+      _httpHeaderString += ": ";
+      _httpHeaderString += _httpHeader[jsonKey].asString();
+      _httpHeaderString += "\r\n";
+    }
+
+    LOG_DEBUG("HttpHeader:%s", _httpHeaderString.c_str());
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return _httpHeaderString;
   }
-
-  LOG_DEBUG("HttpHeader:%s", _httpHeaderString.c_str());
   return _httpHeaderString;
 }
 
-int INlsRequestParam::getTimeout() {
-  return _timeout;
-}
+time_t INlsRequestParam::getTimeout() { return _timeout; }
 
-bool INlsRequestParam::getEnableRecvTimeout() {
- return _enableRecvTimeout;
-}
+bool INlsRequestParam::getEnableRecvTimeout() { return _enableRecvTimeout; }
 
-bool INlsRequestParam::getEnableOnMessage() {
- return _enableOnMessage;
-}
+bool INlsRequestParam::getEnableOnMessage() { return _enableOnMessage; }
 
-int INlsRequestParam::getRecvTimeout() {
-  return _recv_timeout;
-}
+time_t INlsRequestParam::getRecvTimeout() { return _recv_timeout; }
 
-int INlsRequestParam::getSendTimeout() {
-  return _send_timeout;
-}
+time_t INlsRequestParam::getSendTimeout() { return _send_timeout; }
 
-std::string INlsRequestParam::getOutputFormat() {
-  return _outputFormat;
-}
+std::string INlsRequestParam::getOutputFormat() { return _outputFormat; }
 
-std::string INlsRequestParam::getTaskId() {
-  return _task_id;
-}
+std::string INlsRequestParam::getTaskId() { return _task_id; }
 
 }  // namespace AlibabaNls

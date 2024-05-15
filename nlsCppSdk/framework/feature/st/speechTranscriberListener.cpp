@@ -15,20 +15,22 @@
  */
 
 #include "speechTranscriberListener.h"
-#include "speechTranscriberRequest.h"
+
 #include "nlog.h"
+#include "speechTranscriberRequest.h"
 
 namespace AlibabaNls {
 
 SpeechTranscriberListener::SpeechTranscriberListener(
-    SpeechTranscriberCallback* cb) : _callback(cb) {}
+    SpeechTranscriberCallback* cb)
+    : _callback(cb) {}
 
 SpeechTranscriberListener::~SpeechTranscriberListener() {}
 
 void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
   NlsEvent::EventType type = str.getMsgType();
 
-  switch(type) {
+  switch (type) {
     case NlsEvent::TranscriptionStarted:
       if (NULL != _callback->_onTranscriptionStarted) {
         _callback->_onTranscriptionStarted(
@@ -49,13 +51,14 @@ void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
       break;
     case NlsEvent::SentenceEnd:
       if (NULL != _callback->_onSentenceEnd) {
-        _callback->_onSentenceEnd(
-            &str, _callback->_paramap[NlsEvent::SentenceEnd]);
+        _callback->_onSentenceEnd(&str,
+                                  _callback->_paramap[NlsEvent::SentenceEnd]);
       }
       break;
     case NlsEvent::SentenceSemantics:
       if (NULL != _callback->_onSentenceSemantics) {
-        _callback->_onSentenceSemantics(&str, _callback->_paramap[NlsEvent::SentenceSemantics]);
+        _callback->_onSentenceSemantics(
+            &str, _callback->_paramap[NlsEvent::SentenceSemantics]);
       }
       break;
     case NlsEvent::TranscriptionCompleted:
@@ -71,13 +74,13 @@ void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
       break;
     case NlsEvent::Close:
       if (NULL != _callback->_onChannelClosed) {
-        _callback->_onChannelClosed(
-            &str, _callback->_paramap[NlsEvent::Close]);
+        _callback->_onChannelClosed(&str, _callback->_paramap[NlsEvent::Close]);
       }
       break;
     default:
       if (NULL != _callback->_onTaskFailed) {
-        _callback->_onTaskFailed(&str, _callback->_paramap[NlsEvent::TaskFailed]);
+        _callback->_onTaskFailed(&str,
+                                 _callback->_paramap[NlsEvent::TaskFailed]);
       }
       break;
   }
@@ -85,4 +88,4 @@ void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
   return;
 }
 
-}
+}  // namespace AlibabaNls

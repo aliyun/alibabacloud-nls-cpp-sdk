@@ -25,17 +25,15 @@ class SpeechSynthesizerCallback;
 
 class SpeechSynthesizerListener : public INlsRequestListener {
  public:
-
-  SpeechSynthesizerListener(SpeechSynthesizerCallback* cb);
+  explicit SpeechSynthesizerListener(SpeechSynthesizerCallback* cb);
   ~SpeechSynthesizerListener();
 
   virtual void handlerFrame(NlsEvent);
 
  private:
   SpeechSynthesizerCallback* _callback;
-
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_SYNTHESIZER_LISTENER_H
+#endif  // NLS_SDK_SPEECH_SYNTHESIZER_LISTENER_H

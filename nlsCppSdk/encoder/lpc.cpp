@@ -44,9 +44,10 @@ Carsten Bormann
 *********************************************************************/
 
 #include "lpc.h"
+
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 /* Autocorrelation LPC coeff generation algorithm invented by
    N. Levinson in 1947, modified by J. Durbin in 1959. */
@@ -55,19 +56,19 @@ Carsten Bormann
    Output: m lpc coefficients, excitation energy */
 
 float vorbis_lpc_from_data(float *data, float *lpci, int n, int m, int stride) {
-  double *aut = (double *)malloc(sizeof(*aut)*(m+1));
+  double *aut = (double *)malloc(sizeof(*aut) * (m + 1));
   if (NULL == aut) {
     return 0;
   } else {
-    memset(aut, 0, sizeof(*aut)*(m+1));
+    memset(aut, 0, sizeof(*aut) * (m + 1));
   }
-  double *lpc = (double *)malloc(sizeof(*lpc)*(m));
+  double *lpc = (double *)malloc(sizeof(*lpc) * (m));
   if (!lpc) {
     free(aut);
     aut = NULL;
     return 0;
   } else {
-    memset(lpc, 0, sizeof(*lpc)*m);
+    memset(lpc, 0, sizeof(*lpc) * m);
   }
   double error;
   double epsilon;
@@ -90,7 +91,7 @@ float vorbis_lpc_from_data(float *data, float *lpci, int n, int m, int stride) {
   while (j--) {
     double d = 0; /* double needed for accumulator depth */
     for (i = j; i < n; i++) {
-      d += (double)data[i*stride]*data[(i-j)*stride];
+      d += (double)data[i * stride] * data[(i - j) * stride];
     }
     aut[j] = d;
   }
@@ -99,13 +100,13 @@ float vorbis_lpc_from_data(float *data, float *lpci, int n, int m, int stride) {
 
   /* set our noise floor to about -100dB */
   error = aut[0] * (1. + 1e-10);
-  epsilon = 1e-9*aut[0]+1e-10;
+  epsilon = 1e-9 * aut[0] + 1e-10;
 
   for (i = 0; i < m; i++) {
-    double r = -aut[i+1];
+    double r = -aut[i + 1];
 
     if (error < epsilon) {
-      memset(lpc+i, 0, (m-i)*sizeof(*lpc));
+      memset(lpc + i, 0, (m - i) * sizeof(*lpc));
       goto done;
     }
 
@@ -114,26 +115,25 @@ float vorbis_lpc_from_data(float *data, float *lpci, int n, int m, int stride) {
        and needs reflection coefficients, save the results of 'r' from
        each iteration. */
 
-    for (j = 0; j < i; j++)
-      r -= lpc[j]*aut[i-j];
-    r/=error;
+    for (j = 0; j < i; j++) r -= lpc[j] * aut[i - j];
+    r /= error;
 
     /* Update LPC coefficients and total error */
     lpc[i] = r;
-    for (j = 0; j < i/2; j++) {
+    for (j = 0; j < i / 2; j++) {
       double tmp = lpc[j];
 
-      lpc[j]+=r*lpc[i-1-j];
-      lpc[i-1-j]+=r*tmp;
+      lpc[j] += r * lpc[i - 1 - j];
+      lpc[i - 1 - j] += r * tmp;
     }
-    if (i&1) {
-      lpc[j] += lpc[j]*r;
+    if (i & 1) {
+      lpc[j] += lpc[j] * r;
     }
 
-    error*=1.-r*r;
+    error *= 1. - r * r;
   }
 
- done:
+done:
 
   /* slightly damp the filter */
   {
@@ -156,18 +156,18 @@ float vorbis_lpc_from_data(float *data, float *lpci, int n, int m, int stride) {
   return error;
 }
 
-void vorbis_lpc_predict(float *coeff, float *prime, int m,
-                        float *data, int64_t n, int stride) {
+void vorbis_lpc_predict(float *coeff, float *prime, int m, float *data,
+                        int64_t n, int stride) {
   /* in: coeff[0...m-1] LPC coefficients
      prime[0...m-1] initial values (allocated size of n+m-1)
 out: data[0...n-1] data samples */
 
   long i, j;
-  float *work = (float *)malloc(sizeof(*work)*(m+n));
+  float *work = (float *)malloc(sizeof(*work) * (m + n));
   if (NULL == work) {
     return;
   } else {
-    memset(work, 0, sizeof(*work)*(m+n));
+    memset(work, 0, sizeof(*work) * (m + n));
   }
 
   if (!prime) {
@@ -176,7 +176,7 @@ out: data[0...n-1] data samples */
     }
   } else {
     for (i = 0; i < m; i++) {
-      work[i] = prime[i*stride];
+      work[i] = prime[i * stride];
     }
   }
 
@@ -184,10 +184,9 @@ out: data[0...n-1] data samples */
     float y = 0;
     long o = i;
     long p = m;
-    for (j = 0; j < m; j++)
-      y -= work[o++]*coeff[--p];
+    for (j = 0; j < m; j++) y -= work[o++] * coeff[--p];
 
-    data[i*stride] = work[o] = y;
+    data[i * stride] = work[o] = y;
   }
   free(work);
 }

@@ -17,16 +17,20 @@
 #ifndef NLS_SDK_REQUEST_PARAM_INFO_H
 #define NLS_SDK_REQUEST_PARAM_INFO_H
 
-
 namespace AlibabaNls {
 
 /************************common default value************************/
-#define D_DEFAULT_VALUE_ENCODE_UTF8 "UTF-8"
-#define D_DEFAULT_VALUE_ENCODE_GBK "GBK"
+#define D_DEFAULT_RECV_TIMEOUT_MS       15000
+#define D_DEFAULT_SEND_TIMEOUT_MS       5000
+#define D_DEFAULT_CONNECTION_TIMEOUT_MS 500
+#define D_DEFAULT_URL                   "wss://nls-gateway.cn-shanghai.aliyuncs.com/ws/v1"
+
+#define D_DEFAULT_VALUE_ENCODE_UTF8  "UTF-8"
+#define D_DEFAULT_VALUE_ENCODE_GBK   "GBK"
 #define D_DEFAULT_VALUE_AUDIO_ENCODE "pcm"
-#define D_DEFAULT_VALUE_SAMPLE_RATE 16000
-#define D_DEFAULT_VALUE_BOOL_TRUE "true"
-#define D_DEFAULT_VALUE_BOOL_FALSE "false"
+#define D_DEFAULT_VALUE_SAMPLE_RATE  16000
+#define D_DEFAULT_VALUE_BOOL_TRUE    "true"
+#define D_DEFAULT_VALUE_BOOL_FALSE   "false"
 
 /************************common param************************/
 #define D_HEADER      "header"
@@ -41,25 +45,21 @@ namespace AlibabaNls {
 #define D_NAME        "name"
 
 /************************speech recognizer************************/
-#define D_SR_VOICE_DETECTION         "enable_voice_detection"
-#define D_SR_MAX_START_SILENCE       "max_start_silence"
-#define D_SR_MAX_END_SILENCE         "max_end_silence"
-
-#define D_SR_INTERMEDIATE_RESULT     "enable_intermediate_result"
-#define D_SR_PUNCTUATION_PREDICTION  "enable_punctuation_prediction"
-#define D_SR_TEXT_NORMALIZATION      "enable_inverse_text_normalization"
-
-#define D_SR_CUSTOMIZATION_ID        "customization_id"
-#define D_SR_VOCABULARY_ID           "vocabulary_id"
-#define D_SR_AUDIO_ADDRESS           "audio_address"
+#define D_SR_VOICE_DETECTION        "enable_voice_detection"
+#define D_SR_MAX_START_SILENCE      "max_start_silence"
+#define D_SR_MAX_END_SILENCE        "max_end_silence"
+#define D_SR_INTERMEDIATE_RESULT    "enable_intermediate_result"
+#define D_SR_PUNCTUATION_PREDICTION "enable_punctuation_prediction"
+#define D_SR_TEXT_NORMALIZATION     "enable_inverse_text_normalization"
+#define D_SR_CUSTOMIZATION_ID       "customization_id"
+#define D_SR_VOCABULARY_ID          "vocabulary_id"
+#define D_SR_AUDIO_ADDRESS          "audio_address"
 
 /************************speech transcriber************************/
 #define D_ST_SENTENCE_DETECTION      "enable_semantic_sentence_detection"
 #define D_ST_MAX_SENTENCE_SILENCE    "max_sentence_silence"
-
 #define D_ST_ENABLE_NLP              "enable_nlp"
 #define D_ST_NLP_MODEL               "nlp_model"
-
 #define D_ST_ENABLE_WORDS            "enable_words"
 #define D_ST_IGNORE_SENTENCE_TIMEOUT "enable_ignore_sentence_timeout"
 #define D_ST_DISFLUENCY              "disfluency"
@@ -72,7 +72,6 @@ namespace AlibabaNls {
 #define D_SY_PITCH_RATE      "pitch_rate"
 #define D_SY_ENABLE_SUBTITLE "enable_subtitle"
 #define D_SY_METHOD          "method"
-
 #define D_SY_TEXT            "text"
 
 /**************************dialog assistant**************************/
@@ -80,11 +79,9 @@ namespace AlibabaNls {
 #define D_DA_QUERY                  "query"
 #define D_DA_QUERY_PARAMS           "query_params"
 #define D_DA_QUERY_CONTEXT          "query_context"
-
 #define D_DA_WAKE_WORD_VERIFICATION "enable_wake_word_verification"
 #define D_DA_WAKE_WORD              "wake_word"
 #define D_DA_WAKE_WORD_MODEL        "wake_word_model"
-
 #define D_DA_ENABLE_MUTI_GROUP      "enable_multi_group"
 
 /**************************sdk infomation**************************/
@@ -94,6 +91,6 @@ namespace AlibabaNls {
 #define D_SDK_LANGUAGE "language"
 #define D_CUSTOM_PARAM "customParam"
 
-}
+}  // namespace AlibabaNls
 
-#endif // NLS_SDK_REQUEST_PARAM_INFO_H
+#endif  // NLS_SDK_REQUEST_PARAM_INFO_H

@@ -14,30 +14,31 @@
  * limitations under the License.
  */
 
-#include <string>
-#include "nlsGlobal.h"
-#include "nlsClient.h"
 #include "iNlsRequest.h"
-#include "iNlsRequestParam.h"
-#include "iNlsRequestListener.h"
-#include "nlsEventNetWork.h"
-#include "nlsRequestParamInfo.h"
+
+#include <string>
+
 #include "connectNode.h"
+#include "iNlsRequestListener.h"
+#include "iNlsRequestParam.h"
 #include "nlog.h"
+#include "nlsClient.h"
+#include "nlsEventNetWork.h"
+#include "nlsGlobal.h"
+#include "nlsRequestParamInfo.h"
 #include "utility.h"
 
 namespace AlibabaNls {
 
-INlsRequest::INlsRequest(const char* sdkName) {
-  _threadNumber = -1;
-}
+INlsRequest::INlsRequest(const char* sdkName)
+    : _node(NULL), _listener(NULL), _requestParam(NULL), _threadNumber(-1) {}
 
 INlsRequest::~INlsRequest() {
   _node = NULL;
   _requestParam = NULL;
 }
 
-int INlsRequest::start(INlsRequest *request) {
+int INlsRequest::start(INlsRequest* request) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
@@ -47,7 +48,7 @@ int INlsRequest::start(INlsRequest *request) {
   return ret;
 }
 
-int INlsRequest::stop(INlsRequest *request) {
+int INlsRequest::stop(INlsRequest* request) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
@@ -57,7 +58,7 @@ int INlsRequest::stop(INlsRequest *request) {
   return ret;
 }
 
-int INlsRequest::cancel(INlsRequest *request) {
+int INlsRequest::cancel(INlsRequest* request) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
@@ -67,27 +68,53 @@ int INlsRequest::cancel(INlsRequest *request) {
   return ret;
 }
 
-int INlsRequest::stControl(INlsRequest *request, const char* message) {
+int INlsRequest::stControl(INlsRequest* request, const char* message) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
   return NlsEventNetWork::_eventClient->stControl(request, message);
 }
 
-int INlsRequest::sendAudio(INlsRequest *request, const uint8_t* data,
+int INlsRequest::sendAudio(INlsRequest* request, const uint8_t* data,
                            size_t dataSize, ENCODER_TYPE type) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  if (data == NULL || dataSize <= 0) {
+  if (data == NULL || dataSize == 0) {
     LOG_ERROR("Input data is empty.");
     return -(InvalidRequestParams);
   }
 
-  int ret = NlsEventNetWork::_eventClient->sendAudio(
-      request, data, dataSize, type);
+  int ret =
+      NlsEventNetWork::_eventClient->sendAudio(request, data, dataSize, type);
+
+#ifdef ENABLE_CONTINUED
+  if (request->getConnectNode() &&
+      request->getConnectNode()->_reconnection.state !=
+          NodeReconnection::NoReconnection &&
+      ret < 0) {
+    LOG_WARN("Request(%p) is reconnecting, ignore(%d) this error(%d) ...",
+             request, request->getConnectNode()->_reconnection.state, ret);
+    ret = dataSize;
+  }
+#endif
 
   return ret;
+}
+
+const char* INlsRequest::dumpAllInfo(INlsRequest* request) {
+  if (request == NULL) {
+    LOG_ERROR("Input request is empty.");
+    return NULL;
+  }
+  if (NlsEventNetWork::_eventClient == NULL) {
+    LOG_ERROR(
+        "NlsEventNetWork has destroyed, please invoke startWorkThread() "
+        "first.");
+    return NULL;
+  }
+
+  return NlsEventNetWork::_eventClient->dumpAllInfo(request);
 }
 
 ConnectNode* INlsRequest::getConnectNode() {
@@ -106,12 +133,8 @@ INlsRequestParam* INlsRequest::getRequestParam() {
   return _requestParam;
 }
 
-void INlsRequest::setThreadNumber(int num) {
-  _threadNumber = num;
-}
+void INlsRequest::setThreadNumber(int num) { _threadNumber = num; }
 
-int INlsRequest::getThreadNumber() {
-  return _threadNumber;
-}
+int INlsRequest::getThreadNumber() { return _threadNumber; }
 
 }  // namespace AlibabaNls

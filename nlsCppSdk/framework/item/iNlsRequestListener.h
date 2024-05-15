@@ -18,14 +18,14 @@
 #define NLS_SDK_SPEECH_LISTENER_H
 
 #include <string>
-#include "webSocketFrameHandleBase.h"
+
 #include "nlsEvent.h"
+#include "webSocketFrameHandleBase.h"
 
 namespace AlibabaNls {
 
 class INlsRequestListener : public HandleBaseOneParamWithReturnVoid<NlsEvent> {
  public:
-
   INlsRequestListener();
   ~INlsRequestListener();
 
@@ -34,6 +34,6 @@ class INlsRequestListener : public HandleBaseOneParamWithReturnVoid<NlsEvent> {
                             NlsEvent::EventType type, std::string taskId);
 };
 
-}
+}  // namespace AlibabaNls
 
-#endif //NLS_SDK_SPEECH_LISTENER_H
+#endif  // NLS_SDK_SPEECH_LISTENER_H

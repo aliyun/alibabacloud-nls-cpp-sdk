@@ -16,18 +16,19 @@
 
 #include <stdarg.h>
 #include <stdio.h>
-#include <iostream>
+
 #include <ctime>
+#include <iostream>
 #include <string.h>
 
 #if defined(__ANDRIOD__)
 #include <android/log.h>
 #elif defined(_MSC_VER) || defined(__linux__)
-#include "log4cpp/Category.hh"
 #include "log4cpp/Appender.hh"
+#include "log4cpp/Category.hh"
 #include "log4cpp/FileAppender.hh"
-#include "log4cpp/Priority.hh"
 #include "log4cpp/PatternLayout.hh"
+#include "log4cpp/Priority.hh"
 #include "log4cpp/RollingFileAppender.hh"
 #endif
 
@@ -38,86 +39,75 @@
 namespace AlibabaNls {
 namespace utility {
 
-using std::string;
 using std::cout;
 using std::endl;
+using std::string;
 
 #define LOG_BUFFER_SIZE      2048
 #define LOG_BUFFER_PLUS_SIZE 2560
 #define LOG_FILES_NUMBER     20
-#define LOG_FILE_BASE_SIZE   1024*1024
+#define LOG_FILE_BASE_SIZE   1024 * 1024
 #define LOG_TAG              "AliSpeechLib"
 
-#define LOG_FORMAT_STRING(a, l, f, b)  \
-          char tmpBuffer[LOG_BUFFER_SIZE] = {0}; \
-          va_list arg; \
-          va_start(arg, f); \
-          vsnprintf(tmpBuffer, LOG_BUFFER_SIZE - 1, f, arg); \
-          va_end(arg); \
-          _ssnprintf(b, LOG_BUFFER_SIZE, "[ID:%lu][%s:%d]%s", pthreadSelfId(), a, l, tmpBuffer);
+#define LOG_FORMAT_STRING(a, l, f, b)                                          \
+  char tmpBuffer[LOG_BUFFER_SIZE] = {0};                                       \
+  va_list arg;                                                                 \
+  va_start(arg, f);                                                            \
+  vsnprintf(tmpBuffer, LOG_BUFFER_SIZE - 1, f, arg);                           \
+  va_end(arg);                                                                 \
+  _ssnprintf(b, LOG_BUFFER_SIZE, "[ID:0x%lx][%s:%d]%s", pthreadSelfId(), a, l, \
+             tmpBuffer);
 
-#define LOG_WASH(in, str) { \
-          std::string delim = "%"; \
-          std::vector<std::string> str_vector; \
-          std::string tmp_str(in); \
-          int pos1 = 0; \
-          int pos2 = tmp_str.find(delim); \
-          int len = delim.length(); \
-          while (pos2 != string::npos) { \
-            str_vector.push_back(tmp_str.substr(pos1, pos2 - pos1)); \
-            pos1 = pos2 + len; \
-            pos2 = tmp_str.find(delim,pos1); \
-          } \
-          if (pos1 != tmp_str.length()) { \
-            str_vector.push_back(tmp_str.substr(pos1)); \
-          } \
-          std::vector<std::string>::iterator iter; \
-          for (iter = str_vector.begin(); iter != str_vector.end();) { \
-            str += *iter; \
-            if (++iter != str_vector.end()) { \
-              str += "%%"; \
-            } \
-          } \
-        }
+#define LOG_WASH(in, str)                                        \
+  {                                                              \
+    std::string delim = "%";                                     \
+    std::vector<std::string> str_vector;                         \
+    std::string tmp_str(in);                                     \
+    int pos1 = 0;                                                \
+    int pos2 = tmp_str.find(delim);                              \
+    int len = delim.length();                                    \
+    while (pos2 != string::npos) {                               \
+      str_vector.push_back(tmp_str.substr(pos1, pos2 - pos1));   \
+      pos1 = pos2 + len;                                         \
+      pos2 = tmp_str.find(delim, pos1);                          \
+    }                                                            \
+    if (pos1 != tmp_str.length()) {                              \
+      str_vector.push_back(tmp_str.substr(pos1));                \
+    }                                                            \
+    std::vector<std::string>::iterator iter;                     \
+    for (iter = str_vector.begin(); iter != str_vector.end();) { \
+      str += *iter;                                              \
+      if (++iter != str_vector.end()) {                          \
+        str += "%%";                                             \
+      }                                                          \
+    }                                                            \
+  }
 
-#define LOG_PRINT_COMMON(level, message) { \
-          time_t tt = time(NULL); \
-          struct tm* ptm = localtime(&tt); \
-          fprintf(stdout, "%4d-%02d-%02d %02d:%02d:%02d %s(%s): %s\n",\
-          (int)ptm->tm_year + 1900, \
-          (int)ptm->tm_mon + 1, \
-          (int)ptm->tm_mday, \
-          (int)ptm->tm_hour, \
-          (int)ptm->tm_min, \
-          (int)ptm->tm_sec, \
-          LOG_TAG, \
-          level, \
-          message); \
-        }
+#define LOG_PRINT_COMMON(level, message)                                       \
+  {                                                                            \
+    time_t tt = time(NULL);                                                    \
+    struct tm* ptm = localtime(&tt);                                           \
+    fprintf(stdout, "%4d-%02d-%02d %02d:%02d:%02d %s(%s): %s\n",               \
+            (int)ptm->tm_year + 1900, (int)ptm->tm_mon + 1, (int)ptm->tm_mday, \
+            (int)ptm->tm_hour, (int)ptm->tm_min, (int)ptm->tm_sec, LOG_TAG,    \
+            level, message);                                                   \
+  }
 
-#define LOG_PRINT_CALLBACK(level, message, callback) { \
-          if (callback) { \
-            time_t ttc = time(NULL); \
-            struct tm* ptmc = localtime(&ttc); \
-            char timestamp[128] = {0}; \
-            char log_mesg[LOG_BUFFER_PLUS_SIZE] = {0}; \
-            snprintf(timestamp, 128, \
-              "%4d-%02d-%02d %02d:%02d:%02d", \
-              (int)ptmc->tm_year + 1900, \
-              (int)ptmc->tm_mon + 1, \
-              (int)ptmc->tm_mday, \
-              (int)ptmc->tm_hour, \
-              (int)ptmc->tm_min, \
-              (int)ptmc->tm_sec \
-            ); \
-            snprintf(log_mesg, LOG_BUFFER_PLUS_SIZE, \
-              "[%s] %s", \
-              LOG_TAG, \
-              message \
-            ); \
-            callback(timestamp, level, log_mesg); \
-          } \
-        }
+#define LOG_PRINT_CALLBACK(level, message, callback)                         \
+  {                                                                          \
+    if (callback) {                                                          \
+      time_t ttc = time(NULL);                                               \
+      struct tm* ptmc = localtime(&ttc);                                     \
+      char timestamp[128] = {0};                                             \
+      char log_mesg[LOG_BUFFER_PLUS_SIZE] = {0};                             \
+      snprintf(timestamp, 128, "%4d-%02d-%02d %02d:%02d:%02d",               \
+               (int)ptmc->tm_year + 1900, (int)ptmc->tm_mon + 1,             \
+               (int)ptmc->tm_mday, (int)ptmc->tm_hour, (int)ptmc->tm_min,    \
+               (int)ptmc->tm_sec);                                           \
+      snprintf(log_mesg, LOG_BUFFER_PLUS_SIZE, "[%s] %s", LOG_TAG, message); \
+      callback(timestamp, level, log_mesg);                                  \
+    }                                                                        \
+  }
 
 #if defined(_MSC_VER)
 HANDLE NlsLog::_mtxLog = CreateMutex(NULL, FALSE, NULL);
@@ -150,7 +140,7 @@ NlsLog::~NlsLog() {
 }
 
 unsigned long NlsLog::pthreadSelfId() {
-#if defined (_MSC_VER)
+#if defined(_MSC_VER)
   return GetCurrentThreadId();
 #elif defined(__APPLE__)
   return pthread_self()->__sig;
@@ -183,19 +173,13 @@ static log4cpp::Category& getCategory() {
 #endif
 #endif
 
-void NlsLog::logConfig(const char* name, int level,
-                       size_t fileSize, size_t fileNum,
-                       LogCallbackMethod callback) {
+void NlsLog::logConfig(const char* name, int level, size_t fileSize,
+                       size_t fileNum, LogCallbackMethod callback) {
   if (name) {
-    cout << "Begin LogConfig: "
-         << _isConfig << " , "
-         << name << " , "
-         << level << " , "
-         << fileSize << endl;
+    cout << "Begin LogConfig: " << _isConfig << " , " << name << " , " << level
+         << " , " << fileSize << endl;
   } else {
-    cout << "Begin LogConfig: "
-         << _isConfig << " , "
-         << level << " , "
+    cout << "Begin LogConfig: " << _isConfig << " , " << level << " , "
          << fileSize << endl;
   }
 
@@ -205,11 +189,7 @@ void NlsLog::logConfig(const char* name, int level,
 
   _callback = callback;
 
-#ifdef _MSC_VER
-  WaitForSingleObject(_mtxLog, INFINITE);
-#else
-  pthread_mutex_lock(&_mtxLog);
-#endif
+  MUTEX_LOCK(_mtxLog);
 
   if (!_isConfig) {
 #if (!defined(__ANDRIOD__)) && (!defined(__APPLE__))
@@ -224,13 +204,11 @@ void NlsLog::logConfig(const char* name, int level,
       _logLibeventFileName += "_libevent.log";
 
       log4cpp::RollingFileAppender* rollfileAppender;
-      rollfileAppender =
-          new log4cpp::RollingFileAppender(
-            name, _logFileName,
-            fileSize * LOG_FILE_BASE_SIZE, fileNum);
+      rollfileAppender = new log4cpp::RollingFileAppender(
+          name, _logFileName, fileSize * LOG_FILE_BASE_SIZE, fileNum);
       rollfileAppender->setLayout(layout);
 
-      switch(level) {
+      switch (level) {
         case 1:
           log4cpp::Category::getRoot().setPriority(log4cpp::Priority::ERROR);
           break;
@@ -258,17 +236,13 @@ void NlsLog::logConfig(const char* name, int level,
     _isConfig = true;
   }
 
-#ifdef _MSC_VER
-  ReleaseMutex(_mtxLog);
-#else
-  pthread_mutex_unlock(&_mtxLog);
-#endif
-
+  MUTEX_UNLOCK(_mtxLog);
   cout << "LogConfig Done." << endl;
   return;
 }
 
-void NlsLog::logVerbose(const char* function, int line, const char *format, ...) {
+void NlsLog::logVerbose(const char* function, int line, const char* format,
+                        ...) {
   if (!format || !_isConfig) {
     return;
   }
@@ -278,7 +252,7 @@ void NlsLog::logVerbose(const char* function, int line, const char *format, ...)
   LOG_FORMAT_STRING(function, line, format, message);
   LOG_WASH(message, str_in);
 
-#if defined (__ANDRIOD__)
+#if defined(__ANDRIOD__)
   __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout) {
@@ -292,7 +266,7 @@ void NlsLog::logVerbose(const char* function, int line, const char *format, ...)
   LOG_PRINT_CALLBACK(AlibabaNls::LogDebug, str_in.c_str(), _callback);
 }
 
-void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
+void NlsLog::logDebug(const char* function, int line, const char* format, ...) {
   if (!format || !_isConfig) {
     return;
   }
@@ -303,22 +277,22 @@ void NlsLog::logDebug(const char* function, int line, const char *format, ...) {
   LOG_WASH(message, str_in);
 
   if (_logLevel >= 4) {
-  #if defined (__ANDRIOD__)
+#if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
-  #elif defined(_MSC_VER) || defined(__linux__)
+#elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().debug(str_in.c_str());
     } else {
       LOG_PRINT_COMMON("DEBUG", str_in.c_str());
     }
-  #else
+#else
     LOG_PRINT_COMMON("DEBUG", str_in.c_str());
-  #endif
+#endif
     LOG_PRINT_CALLBACK(AlibabaNls::LogDebug, str_in.c_str(), _callback);
   }
 }
 
-void NlsLog::logInfo(const char* function, int line, const char * format, ...) {
+void NlsLog::logInfo(const char* function, int line, const char* format, ...) {
   if (!format || !_isConfig) {
     return;
   }
@@ -329,22 +303,22 @@ void NlsLog::logInfo(const char* function, int line, const char * format, ...) {
   LOG_WASH(message, str_in);
 
   if (_logLevel >= 3) {
-  #if defined (__ANDRIOD__)
+#if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
-  #elif defined(_MSC_VER) || defined(__linux__)
+#elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().info(str_in.c_str());
     } else {
       LOG_PRINT_COMMON("INFO", str_in.c_str());
     }
-  #else
+#else
     LOG_PRINT_COMMON("INFO", str_in.c_str());
-  #endif
+#endif
     LOG_PRINT_CALLBACK(AlibabaNls::LogInfo, str_in.c_str(), _callback);
   }
 }
 
-void NlsLog::logWarn(const char* function, int line, const char * format, ...) {
+void NlsLog::logWarn(const char* function, int line, const char* format, ...) {
   if (!format || !_isConfig) {
     return;
   }
@@ -355,22 +329,22 @@ void NlsLog::logWarn(const char* function, int line, const char * format, ...) {
   LOG_WASH(message, str_in);
 
   if (_logLevel >= 2) {
-  #if defined (__ANDRIOD__)
+#if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
-  #elif defined(_MSC_VER) || defined(__linux__)
+#elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().warn(str_in.c_str());
     } else {
       LOG_PRINT_COMMON("WARN", str_in.c_str());
     }
-  #else
+#else
     LOG_PRINT_COMMON("WARN", str_in.c_str());
-  #endif
+#endif
     LOG_PRINT_CALLBACK(AlibabaNls::LogWarning, str_in.c_str(), _callback);
   }
 }
 
-void NlsLog::logError(const char* function, int line, const char * format, ...) {
+void NlsLog::logError(const char* function, int line, const char* format, ...) {
   if (!format || !_isConfig) {
     return;
   }
@@ -381,23 +355,24 @@ void NlsLog::logError(const char* function, int line, const char * format, ...) 
   LOG_WASH(message, str_in);
 
   if (_logLevel >= 1) {
-  #if defined (__ANDRIOD__)
+#if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
-  #elif defined(_MSC_VER) || defined(__linux__)
+#elif defined(_MSC_VER) || defined(__linux__)
     if (!_isStdout) {
       getCategory().error(str_in.c_str());
     } else {
       LOG_PRINT_COMMON("ERROR", str_in.c_str());
     }
-  #else
+#else
     LOG_PRINT_COMMON("ERROR", str_in.c_str());
-  #endif
+#endif
     LOG_PRINT_CALLBACK(AlibabaNls::LogError, str_in.c_str(), _callback);
   }
 }
 
-//FATAL
-void NlsLog::logException(const char* function, int line, const char *format, ...) {
+// FATAL
+void NlsLog::logException(const char* function, int line, const char* format,
+                          ...) {
   if (!format || !_isConfig) {
     return;
   }
@@ -407,7 +382,7 @@ void NlsLog::logException(const char* function, int line, const char *format, ..
   LOG_FORMAT_STRING(function, line, format, message);
   LOG_WASH(message, str_in);
 
-#if defined (__ANDRIOD__)
+#if defined(__ANDRIOD__)
   __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
   if (!_isStdout) {
@@ -437,5 +412,5 @@ void NlsLog::dumpEvents(void* evbase) {
 #endif
 }
 
-}  // utility
-}  // AlibabaNls
+}  // namespace utility
+}  // namespace AlibabaNls

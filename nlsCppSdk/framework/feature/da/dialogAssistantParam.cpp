@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-#include <string>
 #include "dialogAssistantParam.h"
-#include "nlsRequestParamInfo.h"
+
+#include <string>
+
 #include "nlog.h"
+#include "nlsRequestParamInfo.h"
 
 namespace AlibabaNls {
 
-#define D_CMD_START_RECOGNITION "StartRecognition"
-#define D_CMD_STOP_RECOGNITION "StopRecognition"
-#define D_CMD_EXECUTE_RECOGNITION "ExecuteDialog"
+#define D_CMD_START_RECOGNITION          "StartRecognition"
+#define D_CMD_STOP_RECOGNITION           "StopRecognition"
+#define D_CMD_EXECUTE_RECOGNITION        "ExecuteDialog"
 #define D_CMD_STOP_WAKEWORD_VERIFICATION "StopWakeWordVerification"
-#define D_NAMESPACE_RECOGNITION "DialogAssistant"
-#define D_NAMESPACE_RECOGNITION_V2 "DialogAssistant.v2"
+#define D_NAMESPACE_RECOGNITION          "DialogAssistant"
+#define D_NAMESPACE_RECOGNITION_V2       "DialogAssistant.v2"
 
-DialogAssistantParam::DialogAssistantParam(int version, const char* sdkName) :
-    INlsRequestParam(TypeDialog, sdkName) {
+DialogAssistantParam::DialogAssistantParam(int version, const char* sdkName)
+    : INlsRequestParam(TypeDialog, sdkName) {
   if (version == 0) {
     _header[D_NAMESPACE] = D_NAMESPACE_RECOGNITION;
   } else {
@@ -44,19 +46,16 @@ DialogAssistantParam::~DialogAssistantParam() {}
 
 const char* DialogAssistantParam::getStartCommand() {
   _header[D_NAME] = D_CMD_START_RECOGNITION;
-
   return INlsRequestParam::getStartCommand();
 }
 
 const char* DialogAssistantParam::getStopCommand() {
   _header[D_NAME] = D_CMD_STOP_RECOGNITION;
-
   return INlsRequestParam::getStopCommand();
 }
 
 const char* DialogAssistantParam::getExecuteDialog() {
   _header[D_NAME] = D_CMD_EXECUTE_RECOGNITION;
-
   return INlsRequestParam::getStartCommand();
 }
 
@@ -71,49 +70,49 @@ int DialogAssistantParam::setQueryParams(const char* value) {
   tmpValue += value;
   tmpValue += "}";
 
-  Json::Reader reader;
-  Json::Value root;
-  if (!reader.parse(tmpValue, root)) {
-    LOG_ERROR("parse json fail: %s", value);
-    return -1;
+  try {
+    Json::Reader reader;
+    Json::Value root;
+    if (!reader.parse(tmpValue, root)) {
+      LOG_ERROR("parse json fail: %s", value);
+      return -(JsonParseFailed);
+    }
+
+    if (!root.isObject()) {
+      LOG_ERROR("Params value is n't a json object.");
+      return -(JsonObjectError);
+    }
+
+    _payload[D_DA_QUERY_PARAMS] = root["key"];
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return -(JsonParseFailed);
   }
-
-  if (!root.isObject()) {
-    LOG_ERROR("Params value is n't a json object.");
-    return -1;
-  }
-
-  _payload[D_DA_QUERY_PARAMS] = root["key"];
-
-  return 0;
+  return Success;
 }
 
 int DialogAssistantParam::setQueryContext(const char* value) {
   _payload[D_DA_QUERY_CONTEXT] = value;
-
-  return 0;
+  return Success;
 }
 
 int DialogAssistantParam::setQuery(const char* value) {
   _payload[D_DA_QUERY] = value;
-
-  return 0;
+  return Success;
 }
 
 int DialogAssistantParam::setWakeWordModel(const char* value) {
   _payload[D_DA_WAKE_WORD_MODEL] = value;
-
-  return 0;
+  return Success;
 }
 
 int DialogAssistantParam::setWakeWord(const char* value) {
   _payload[D_DA_WAKE_WORD] = value;
-
-  return 0;
+  return Success;
 }
 
 void DialogAssistantParam::setEnableMultiGroup(bool value) {
   _header["enable_multi_group"] = value;
 }
 
-}
+}  // namespace AlibabaNls

@@ -15,13 +15,14 @@
  */
 
 #include "dialogAssistantListener.h"
+
 #include "dialogAssistantRequest.h"
 #include "nlog.h"
 
 namespace AlibabaNls {
 
-DialogAssistantListener::DialogAssistantListener(
-    DialogAssistantCallback* cb) : _callback(cb) {}
+DialogAssistantListener::DialogAssistantListener(DialogAssistantCallback* cb)
+    : _callback(cb) {}
 
 DialogAssistantListener::~DialogAssistantListener() {}
 
@@ -30,10 +31,10 @@ void DialogAssistantListener::handlerFrame(NlsEvent str) {
 
   if (NULL == _callback) {
     LOG_ERROR("the callback is NULL");
-    return ;
+    return;
   }
 
-  switch(type) {
+  switch (type) {
     case NlsEvent::RecognitionStarted:
       if (NULL != _callback->_onRecognitionStarted) {
         _callback->_onRecognitionStarted(
@@ -71,7 +72,8 @@ void DialogAssistantListener::handlerFrame(NlsEvent str) {
       break;
     default:
       if (NULL != _callback->_onTaskFailed) {
-        _callback->_onTaskFailed(&str, _callback->_paramap[NlsEvent::TaskFailed]);
+        _callback->_onTaskFailed(&str,
+                                 _callback->_paramap[NlsEvent::TaskFailed]);
       }
       break;
   }
@@ -79,4 +81,4 @@ void DialogAssistantListener::handlerFrame(NlsEvent str) {
   return;
 }
 
-}
+}  // namespace AlibabaNls

@@ -17,20 +17,20 @@
 #ifndef NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H
 #define NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H
 
-#include "nlsGlobal.h"
 #include "iNlsRequest.h"
+#include "nlsEvent.h"
+#include "nlsGlobal.h"
 
 #if defined(_MSC_VER)
-	#pragma warning( push )
-	#pragma warning ( disable : 4251 )
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #endif
 
 namespace AlibabaNls {
 
 class SpeechSynthesizerParam;
-class INlsRequestListener;
 
-class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerCallback {
+class SpeechSynthesizerCallback {
  public:
   SpeechSynthesizerCallback();
   ~SpeechSynthesizerCallback();
@@ -55,8 +55,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerCallback {
 
 class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
  public:
-  SpeechSynthesizerRequest(int version = 0,
-                           const char* sdkName = "cpp",
+  SpeechSynthesizerRequest(int version = 0, const char* sdkName = "cpp",
                            bool isLongConnection = false);
   ~SpeechSynthesizerRequest();
 
@@ -147,8 +146,10 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
   /**
    * @brief 合成方法method设置
    * @note 可选参数, 默认是0.
-   *       0 统计参数合成: 基于统计参数的语音合成，优点是能适应的韵律特征的范围较宽，合成器比特率低，资源占用小，性能高，音质适中
-   *       1 波形拼接合成: 基于高质量音库提取学习合成，资源占用相对较高，音质较好，更加贴近真实发音，但没有参数合成稳定
+   *       0 统计参数合成:
+   * 基于统计参数的语音合成，优点是能适应的韵律特征的范围较宽，合成器比特率低，资源占用小，性能高，音质适中
+   *       1 波形拼接合成:
+   * 基于高质量音库提取学习合成，资源占用相对较高，音质较好，更加贴近真实发音，但没有参数合成稳定
    * @param value 语调
    * @return 成功则返回0，否则返回负值错误码
    */
@@ -171,7 +172,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
 
   /**
    * @brief 设置链接超时时间
-   * @param value 超时时间(ms), 默认5000ms
+   * @param value 超时时间(ms), 默认500ms. 内部会以value(ms)尝试4次链接.
    * @return 成功则返回0，否则返回负值错误码
    */
   int setTimeout(int value);
@@ -225,6 +226,14 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
   int setEnableOnMessage(bool value);
 
   /**
+   * @brief
+   * 设置是否开启重连续传，需要明确服务是否支持重连续传，否则会导致无法正常抛出异常。
+   * @param enable 默认false, 是否开启重连续传
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setEnableContinued(bool enable);
+
+  /**
    * @brief 设置用户自定义ws阶段http header参数
    * @param key 参数名称
    * @param value 参数内容
@@ -252,6 +261,42 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
    * @return 成功则返回0，否则返回负值错误码
    */
   int cancel();
+
+  /**
+   * @brief 获得当前请求的全部运行信息
+   * @note
+   *{
+   *	"block": {
+   *    // 表示调用了stop, 已经运行了10014ms, 阻塞
+   *		"stop": "running",
+   *		"stop_duration_ms": 10014,
+   *		"stop_timestamp": "2024-04-26_15:19:44.783"
+   *	},
+   *	"callback": {
+   *    // 表示回调SentenceBegin阻塞
+   *		"name": "SentenceBegin",
+   *		"start": "2024-04-26_15:15:25.607",
+   *		"status": "running"
+   *	},
+   *	"data": {
+   *		"recording_bytes": 183764,
+   *		"send_count": 288
+   *	},
+   *	"last": {
+   *		"action": "2024-04-26_15:15:30.897",
+   *		"send": "2024-04-26_15:15:30.894",
+   *		"status": "NodeStop"
+   *	},
+   *	"timestamp": {
+   *		"create": "2024-04-26_15:15:24.862",
+   *		"start": "2024-04-26_15:15:24.862",
+   *		"started": "2024-04-26_15:15:25.124",
+   *		"stop": "2024-04-26_15:15:30.897"
+   *	}
+   *}
+   * @return
+   */
+  const char* dumpAllInfo();
 
   /**
    * @brief 设置错误回调函数
@@ -286,13 +331,15 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
    * @param _event	回调方法
    * @param para	用户传入参数, 默认为NULL
    * @return void
-   * @notice 切不可在回调中进行阻塞操作，只可做音频数据转存，否则整个流程将会有较大延迟
+   * @notice
+   * 切不可在回调中进行阻塞操作，只可做音频数据转存，否则整个流程将会有较大延迟
    */
   void setOnBinaryDataReceived(NlsCallbackMethod _event, void* para = NULL);
 
   /**
    * @brief 设置文本对应的日志信息接收回调函数
-   * @note 接收到服务端送回文本对应的日志信息，增量返回对应的字幕信息时，sdk内部线程上报该回调函数.
+   * @note
+   * 接收到服务端送回文本对应的日志信息，增量返回对应的字幕信息时，sdk内部线程上报该回调函数.
    * @param _event	回调方法
    * @param para	用户传入参数, 默认为NULL
    * @return void
@@ -308,18 +355,16 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
    */
   void setOnMessage(NlsCallbackMethod _event, void* para = NULL);
 
-
  private:
   SpeechSynthesizerParam* _synthesizerParam;
   SpeechSynthesizerCallback* _callback;
   INlsRequestListener* _listener;
-
 };
 
-}
+}  // namespace AlibabaNls
 
-#if defined (_MSC_VER)
-	#pragma warning( pop )
+#if defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 
-#endif //NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H
+#endif  // NLS_SDK_SPEECH_SYNTHESIZER_REQUEST_H

@@ -1,26 +1,36 @@
 #!/bin/bash -e
 
 echo "Command:"
-echo "./scripts/build_linux.sh <all or incr> <debug or release> <abi>"
-echo "eg: ./scripts/build_linux.sh all debug 0"
+echo "./scripts/build_linux.sh <all or incr> <debug or release> <abi> <private>"
+echo "eg: ./scripts/build_linux.sh all debug 0 0"
 
 ALL_FLAG=$1
 DEBUG_FLAG=$2
 ABI_FLAG=$3
+PRIVATE_FLAG=$4
 if [ $# == 0 ]; then
   ALL_FLAG="incr"
   DEBUG_FLAG="debug"
   ABI_FLAG=0
+  PRIVATE_FLAG=0
 fi
 if [ $# == 1 ]; then
   ALL_FLAG=$1
   DEBUG_FLAG="debug"
   ABI_FLAG=0
+  PRIVATE_FLAG=0
 fi
 if [ $# == 2 ]; then
   ALL_FLAG=$1
   DEBUG_FLAG=$2
   ABI_FLAG=0
+  PRIVATE_FLAG=0
+fi
+if [ $# == 3 ]; then
+  ALL_FLAG=$1
+  DEBUG_FLAG=$2
+  ABI_FLAG=$3
+  PRIVATE_FLAG=0
 fi
 
 git_root_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
@@ -32,6 +42,15 @@ fi
 
 if [ x${ALL_FLAG} == x"all" ];then
   rm -rf $build_folder/*
+fi
+
+if [ $PRIVATE_FLAG == 1 ];then
+  # get libvsclient.a
+  libvsclient_dir=$git_root_path/nlsCppSdk/vipServerClient/libs
+  libvsclient_path=$libvsclient_dir/x86_64/libvsclient.a
+  mkdir -p $libvsclient_dir
+  mkdir -p $libvsclient_dir/x86_64
+  wget -O $libvsclient_path https://isv-data.oss-cn-hangzhou.aliyuncs.com/ics/NLS/resources/libs/libvsclient_Linux-x86_64.a
 fi
 
 ### 1
@@ -57,12 +76,13 @@ cd $build_folder
 
 #开始编译
 echo "BUILD_CXX11_ABI:" ${ABI_FLAG}
+echo "BUILD_PRIVATE_FLAG:" ${PRIVATE_FLAG}
 if [ x${DEBUG_FLAG} == x"release" ];then
   echo "BUILD_TYPE: Release..."
-  cmake -DCMAKE_BUILD_TYPE=Release -DCXX11_ABI=${ABI_FLAG} ..
+  cmake -DCMAKE_BUILD_TYPE=Release -DCXX11_ABI=${ABI_FLAG} -DPRIVATE_CLOUD=${PRIVATE_FLAG} ..
 else
   echo "BUILD_TYPE: Debug..."
-  cmake -DCMAKE_BUILD_TYPE=Debug -DCXX11_ABI=${ABI_FLAG} ..
+  cmake -DCMAKE_BUILD_TYPE=Debug -DCXX11_ABI=${ABI_FLAG} -DPRIVATE_CLOUD=${PRIVATE_FLAG} ..
 fi
 if [ x${ALL_FLAG} == x"all" ];then
   make clean
@@ -78,8 +98,18 @@ sdk_install_folder=$install_folder/NlsSdk3.X_LINUX
 
 
 ### 2
-cd $sdk_install_folder/tmp/
 echo "生成库libalibabacloud-idst-speech.X ..."
+cd $sdk_install_folder/tmp/
+rm -f *.o
+
+if [ $PRIVATE_FLAG == 1 ];then
+  cp $libvsclient_path libvsclient.a
+  ar x libvsclient.a
+  for files in $(ls *.o)
+    do mv $files "libvsclient_"$files
+  done
+fi
+
 ar x $build_folder/nlsCppSdk/libalibabacloud-idst-speech.a
 ar x liblog4cpp.a
 ar x libjsoncpp.a
@@ -101,23 +131,24 @@ ranlib ../../../lib/libalibabacloud-idst-speech.a
 
 my_arch=$( uname -m )
 
+
 ### 3
-#gcc -shared -Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -o ../../../lib/libalibabacloud-idst-speech.so *.o
 CFLAG_PARAMS="-Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden -Wl,--exclude-libs,ALL -Wl,-z,relro,-z,now -Wl,-z,noexecstack -fstack-protector"
-LDFALG_PARAMS=""
+LDFALG_PARAMS="-lpthread -lz -ldl -lanl"
 if [ $ABI_FLAG == 1 ];then
   echo "share library with c++11"
   CFLAG_PARAMS="-std=c++11 $CFLAG_PARAMS"
 fi
-if [ x${my_arch} == x"aarch64" ];then
-  echo "ld library with pthread"
-  LDFALG_PARAMS="-lpthread"
+if [ $PRIVATE_FLAG == 1 ];then
+  LDFALG_PARAMS="$LDFALG_PARAMS -lrt"
 fi
+echo "=> gcc -shared $CFLAG_PARAMS -o ../../../lib/libalibabacloud-idst-speech.so *.o $LDFALG_PARAMS"
 gcc -shared $CFLAG_PARAMS -o ../../../lib/libalibabacloud-idst-speech.so *.o $LDFALG_PARAMS
 
 if [ x${DEBUG_FLAG} == x"release" ];then
   strip ../../../lib/libalibabacloud-idst-speech.so
 fi
+
 
 ### 4
 echo "搬动头文件和库文件..."
@@ -136,6 +167,7 @@ cp $git_root_path/nlsCppSdk/token/include/FileTrans.h $sdk_install_folder/includ
 mkdir -p $sdk_install_folder/lib
 cp $build_folder/lib/* $sdk_install_folder/lib/
 
+
 ### 5
 echo "生成DEMO..."
 cd $demo_folder
@@ -143,6 +175,7 @@ cmake -DCXX11_ABI=${ABI_FLAG} ../../demo/Linux
 make
 
 echo "编译结束..."
+
 
 ### 6
 cd $install_folder

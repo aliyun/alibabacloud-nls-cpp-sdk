@@ -17,9 +17,9 @@
 #include "utility.h"
 
 #ifdef _MSC_VER
-#include <winsock2.h>
 #include <Windows.h>
 #include <Ws2tcpip.h>
+#include <winsock2.h>
 #else
 #include <errno.h>
 #endif
