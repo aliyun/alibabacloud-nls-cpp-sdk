@@ -43,7 +43,7 @@
 #include "webSocketFrameHandleBase.h"
 #include "webSocketTcp.h"
 
-#ifdef ENABLE_REQUEST_RECORDING
+#if defined(ENABLE_REQUEST_RECORDING) || defined(ENABLE_CONTINUED)
 #include "json/json.h"
 #endif
 
@@ -215,6 +215,34 @@ struct NodeProcess {
 };
 #endif
 
+#ifdef ENABLE_CONTINUED
+/* Node运行中断自动重连的状态记录 */
+struct NodeReconnection {
+ public:
+  enum { max_try_count = 4, reconnect_interval_ms = 100 };
+  enum ReconnectionState {
+    NoReconnection = 0,       // The reconnection has not been triggered
+    WillReconnect,            // Trigger reconnection, will event_add(launch)
+    TriggerReconnection,      // Triggers a new reconnection, new node launched
+    NewReconnectionStarting,  // New node is running
+  };
+  explicit NodeReconnection() {
+    state = NoReconnection;
+    reconnected_count = 0;
+    tw_index_offset = 0;
+    interruption_timestamp_ms = 0;
+    first_audio_timestamp_ms = 0;
+  };
+  ~NodeReconnection(){};
+
+  ReconnectionState state;
+  uint32_t reconnected_count;
+  uint64_t tw_index_offset;
+  uint64_t interruption_timestamp_ms;
+  uint64_t first_audio_timestamp_ms;
+};
+#endif
+
 class ConnectNode {
  public:
   ConnectNode(INlsRequest *request,
@@ -271,7 +299,7 @@ class ConnectNode {
   /* 3.2. parse&send request */
   int sendControlDirective();
   int gatewayRequest();
-  int nlsSendFrame(struct evbuffer *eventBuffer);
+  int nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame = true);
 
   /* 4. recv response and parse */
   int gatewayResponse();
@@ -344,7 +372,12 @@ class ConnectNode {
   /* 12. design for recording process */
   void updateNodeProcess(std::string api, int status, bool enter, size_t size);
   const char *dumpAllInfo();
-  struct NodeProcess _nodeProcess;
+#endif
+
+#ifdef ENABLE_CONTINUED
+  /* 13. design for reconnection automatically */
+  struct event *getReconnectEvent();
+  struct NodeReconnection _reconnection;
 #endif
 
  private:
@@ -480,7 +513,18 @@ class ConnectNode {
   Json::Value updateNodeProcess4Timestamp();
   Json::Value updateNodeProcess4Callback();
   Json::Value updateNodeProcess4Block();
+
+  struct NodeProcess _nodeProcess;
 #endif
+
+#ifdef ENABLE_CONTINUED
+  /* 13. design for reconnection automatically */
+  Json::Value updateNodeReconnection();
+  void updateTwIndexOffset(NlsEvent *frameEvent);
+  bool nodeReconnecting();
+  struct event *_reconnectEvent;
+#endif
+  bool ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType, int code);
 };
 
 }  // namespace AlibabaNls

@@ -45,6 +45,9 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
     : _enableWakeWord(false),
       _enableRecvTimeout(false),
       _enableOnMessage(false),
+#ifdef ENABLE_CONTINUED
+      _enableReconnect(false),
+#endif
       _timeout(D_DEFAULT_CONNECTION_TIMEOUT_MS),
       _recv_timeout(D_DEFAULT_RECV_TIMEOUT_MS),
       _send_timeout(D_DEFAULT_SEND_TIMEOUT_MS),
@@ -209,6 +212,26 @@ int INlsRequestParam::setPayloadParam(const char* value) {
         continue;
       }
       _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
+    }
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return -(JsonParseFailed);
+  }
+  return Success;
+}
+
+int INlsRequestParam::removePayloadParam(const char* key) {
+  if (key == NULL) {
+    LOG_ERROR("Input key is nullptr");
+    return -(SetParamsEmpty);
+  }
+
+  try {
+    Json::Value root;
+    std::string tmpValue = key;
+    if (_payload.isMember(tmpValue)) {
+      _payload.removeMember(tmpValue);
+      LOG_DEBUG("remove member %s", tmpValue.c_str());
     }
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());

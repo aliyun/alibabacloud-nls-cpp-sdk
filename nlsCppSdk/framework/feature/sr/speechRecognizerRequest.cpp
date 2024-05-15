@@ -274,6 +274,15 @@ int SpeechRecognizerRequest::setEnableOnMessage(bool value) {
   return Success;
 }
 
+int SpeechRecognizerRequest::setEnableContinued(bool enable) {
+#ifdef ENABLE_CONTINUED
+  _recognizerParam->setEnableContinued(enable);
+  return Success;
+#else
+  return -(InvalidRequest);
+#endif
+}
+
 const char* SpeechRecognizerRequest::getOutputFormat() {
   return _recognizerParam->getOutputFormat().c_str();
 }

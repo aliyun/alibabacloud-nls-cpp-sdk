@@ -797,8 +797,11 @@ void WorkThread::launchEventCallback(evutil_socket_t fd, short which,
   INlsRequest *request = node->getRequest();
   WorkThread *pThread = node->getEventThread();
 
-  LOG_DEBUG("WorkThread(%p) Node(%p) Request(%p) trigger launchEventCallback.",
-            pThread, node, request);
+  LOG_DEBUG(
+      "WorkThread(%p) Node(%p) Request(%p) trigger launchEventCallback with "
+      "reconnection mechanism(%s).",
+      pThread, node, request,
+      request->getRequestParam()->_enableReconnect ? "true" : "false");
 
   if (node->getExitStatus() == ExitCancel) {
     LOG_WARN(

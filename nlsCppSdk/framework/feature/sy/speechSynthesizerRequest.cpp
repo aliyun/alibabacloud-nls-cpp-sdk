@@ -267,6 +267,15 @@ int SpeechSynthesizerRequest::setEnableOnMessage(bool value) {
   return Success;
 }
 
+int SpeechSynthesizerRequest::setEnableContinued(bool enable) {
+#ifdef ENABLE_CONTINUED
+  _synthesizerParam->setEnableContinued(enable);
+  return Success;
+#else
+  return -(InvalidRequest);
+#endif
+}
+
 const char* SpeechSynthesizerRequest::getOutputFormat() {
   return _synthesizerParam->getOutputFormat().c_str();
 }

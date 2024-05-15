@@ -280,7 +280,15 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @param value 默认false, 即默认不开启服务器返回消息回调
    * @return 成功则返回0，否则返回负值错误码
    */
-  int setEnableOnMessage(bool value);
+  int setEnableOnMessage(bool enable);
+
+  /**
+   * @brief
+   * 设置是否开启重连续传，需要明确服务是否支持重连续传，否则会导致无法正常抛出异常。
+   * @param enable 默认false, 是否开启重连续传
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setEnableContinued(bool enable);
 
   /**
    * @brief 设置用户自定义ws阶段http header参数

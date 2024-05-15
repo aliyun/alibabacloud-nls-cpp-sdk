@@ -436,7 +436,7 @@ int NlsEventNetWork::stop(INlsRequest *request) {
 
   int ret = node->cmdNotify(CmdStop, NULL);
 
-  if (node->getSyncCallTimeout() > 0) {
+  if (ret == Success && node->getSyncCallTimeout() > 0) {
     node->waitInvokeFinish();
     int error_code = node->getErrorCode();
     if (error_code != Success) {

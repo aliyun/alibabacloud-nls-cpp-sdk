@@ -238,6 +238,14 @@ class NLS_SDK_CLIENT_EXPORT SpeechRecognizerRequest : public INlsRequest {
   int setEnableOnMessage(bool value);
 
   /**
+   * @brief
+   * 设置是否开启重连续传，需要明确服务是否支持重连续传，否则会导致无法正常抛出异常。
+   * @param enable 默认false, 是否开启重连续传
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setEnableContinued(bool enable);
+
+  /**
    * @brief 启动SpeechRecognizerRequest
    * @note 异步操作。成功返回started事件。失败返回TaskFailed事件。
    * @return 成功则返回0，否则返回负值错误码

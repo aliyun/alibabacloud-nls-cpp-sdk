@@ -91,6 +91,9 @@ class INlsRequestParam {
   };
 
   inline void setEnableOnMessage(bool enable) { _enableOnMessage = enable; };
+#ifdef ENABLE_CONTINUED
+  inline void setEnableContinued(bool enable) { _enableReconnect = enable; };
+#endif
 
   void setIntermediateResult(bool value);
   void setPunctuationPrediction(bool value);
@@ -99,6 +102,7 @@ class INlsRequestParam {
   int setEnableWakeWordVerification(bool value);
   int setContextParam(const char* value);
   int setPayloadParam(const char* value);
+  int removePayloadParam(const char* key);
   int setSessionId(const char* sessionId);
 
   virtual const char* getStartCommand();
@@ -126,6 +130,9 @@ class INlsRequestParam {
   bool _enableWakeWord;
   bool _enableRecvTimeout;
   bool _enableOnMessage;
+#ifdef ENABLE_CONTINUED
+  bool _enableReconnect;
+#endif
 
   time_t _timeout;
   time_t _recv_timeout;

@@ -105,6 +105,9 @@ ConnectNode::ConnectNode(INlsRequest *request,
       _connectEvent(NULL),
       _readEvent(NULL),
       _writeEvent(NULL),
+#ifdef ENABLE_CONTINUED
+      _reconnectEvent(NULL),
+#endif
       _inEventCallbackNode(false) {
   _binaryEvBuffer = evbuffer_new();
   if (_binaryEvBuffer == NULL) {
@@ -243,6 +246,12 @@ ConnectNode::~ConnectNode() {
     event_free(_launchEvent);
     _launchEvent = NULL;
   }
+#ifdef ENABLE_CONTINUED
+  if (_reconnectEvent) {
+    event_free(_reconnectEvent);
+    _reconnectEvent = NULL;
+  }
+#endif
 
   if (_dnsRequest && _dnsRequestCallbackStatus == 1) {
     LOG_DEBUG(
@@ -356,9 +365,11 @@ struct event *ConnectNode::getLaunchEvent(bool init) {
   } else {
     if (init) {
       event_del(_launchEvent);
-      event_assign(_launchEvent, _eventThread->_workBase, -1, EV_READ,
-                   WorkThread::launchEventCallback, this);
-      LOG_DEBUG("Node(%p) new event_assign(_launchEvent).", this);
+      int assign_ret =
+          event_assign(_launchEvent, _eventThread->_workBase, -1, EV_READ,
+                       WorkThread::launchEventCallback, this);
+      LOG_DEBUG("Node(%p) new event_assign(_launchEvent) with ret:%d.", this,
+                assign_ret);
     }
   }
   return _launchEvent;
@@ -1173,7 +1184,25 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
 
   switch (type) {
     case CmdStart:
+      if (_reconnection.state == NodeReconnection::TriggerReconnection) {
+        // setting tw_time_offset and tw_index_offset
+        Json::Value root;
+        Json::FastWriter writer;
+        root["tw_time_offset"] =
+            Json::Value::UInt64(_reconnection.interruption_timestamp_ms -
+                                _reconnection.first_audio_timestamp_ms);
+        root["tw_index_offset"] =
+            Json::Value::UInt64(_reconnection.tw_index_offset);
+        std::string buf = writer.write(root);
+        _request->getRequestParam()->setPayloadParam(buf.c_str());
+      }
       cmd = (char *)_request->getRequestParam()->getStartCommand();
+      if (_reconnection.state == NodeReconnection::TriggerReconnection) {
+        // cleaning tw_time_offset and tw_index_offset
+        _request->getRequestParam()->removePayloadParam("tw_time_offset");
+        _request->getRequestParam()->removePayloadParam("tw_index_offset");
+      }
+      _reconnection.state = NodeReconnection::NewReconnectionStarting;
       break;
     case CmdStControl:
       cmd = (char *)_request->getRequestParam()->getControlCommand(message);
@@ -1315,7 +1344,7 @@ int ConnectNode::nlsSend(const uint8_t *frame, size_t length) {
  * @brief: 发送一帧数据
  * @return: 成功发送的字节数, 失败则返回负值.
  */
-int ConnectNode::nlsSendFrame(struct evbuffer *eventBuffer) {
+int ConnectNode::nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame) {
   int sLen = 0;
   uint8_t buffer[NodeFrameSize] = {0};
   size_t bufferSize = 0;
@@ -1344,6 +1373,15 @@ int ConnectNode::nlsSendFrame(struct evbuffer *eventBuffer) {
     evbuffer_unlock(eventBuffer);
     return -(NlsSendFailed);
   } else {
+    // send data success
+    if (audio_frame && _isFirstBinaryFrame) {
+      _isFirstBinaryFrame = false;
+#ifdef ENABLE_CONTINUED
+      _reconnection.first_audio_timestamp_ms =
+          utility::TextUtils::GetTimestampMs();
+#endif
+    }
+
     evbuffer_drain(eventBuffer, sLen);
     length = evbuffer_get_length(eventBuffer);
     if (length > 0) {
@@ -1589,7 +1627,7 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
   if (wsFrame->type == WebSocketHeaderType::CLOSE) {
     LOG_INFO("Node(%p) get CLOSE wsFrame closeCode:%d.", this,
              wsFrame->closeCode);
-    if (wsFrame->closeCode == -1) {
+    if (NodeClosed != _workStatus) {
       std::string msg((char *)wsFrame->data);
       char tmp_msg[2048] = {0};
       snprintf(tmp_msg, 2048 - 1, "{\"TaskFailed\":\"%s\"}", msg.c_str());
@@ -1606,6 +1644,8 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
                      NlsEvent::TaskFailed, _enableOnMessage);
         return -(NewNlsEventFailed);
       }
+    } else {
+      LOG_INFO("Node(%p) NlsEvent::Close has invoked, skip CLOSE_FRAME.", this);
     }
   } else {
     frameEvent = convertResult(wsFrame, &result);
@@ -1665,6 +1705,10 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
       } else {
         _workStatus = NodeWakeWording;
       }
+#ifdef ENABLE_CONTINUED
+      // reconnecting finished
+      _reconnection.state = NodeReconnection::NoReconnection;
+#endif
       break;
     case NlsEvent::Close:
     case NlsEvent::RecognitionCompleted:
@@ -1722,6 +1766,10 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
   return Success;
 }
 
+/**
+ * @brief: 触发回调，将事件送给用户
+ * @return:
+ */
 int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
   if (_workStatus == NodeInvalid) {
     LOG_ERROR("Node(%p) current node status:%s is invalid, skip callback.",
@@ -1746,21 +1794,49 @@ int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
     //     frameEvent->getMsgTypeString().c_str());
     // LOG_DEBUG("Node:%p current response:%s.", this,
     // frameEvent->getAllResponse());
+
+    bool ignore_flag = false;
+#ifdef ENABLE_CONTINUED
+    updateTwIndexOffset(frameEvent);
+
+    ignore_flag = ignoreCallbackWhenReconnecting(frameEvent->getMsgType(),
+                                                 frameEvent->getStatusCode());
+#endif
+
     if (_enableOnMessage) {
       sendFinishCondSignal(NlsEvent::Message);
-      handlerMessage(frameEvent->getAllResponse(), NlsEvent::Message);
+      if (!ignore_flag) {
+        handlerMessage(frameEvent->getAllResponse(), NlsEvent::Message);
+      }
     } else {
       sendFinishCondSignal(frameEvent->getMsgType());
-      _handler->handlerFrame(*frameEvent);
+      if (!ignore_flag) {
+        _handler->handlerFrame(*frameEvent);
+      }
     }
 
 #ifdef ENABLE_REQUEST_RECORDING
     updateNodeProcess("callback", NodeInvalid, false, 0);
 #endif
+
+    if (frameEvent->getMsgType() == NlsEvent::Close) {
+#ifdef ENABLE_CONTINUED
+      nodeReconnecting();
+      if (!ignore_flag) {
+        _reconnection.reconnected_count = 0;
+        LOG_INFO("Node(%p) reconnected_count reset.", this);
+      }
+#endif
+      _retryConnectCount = 0;
+    }
   }
   return Success;
 }
 
+/**
+ * @brief: 事件最终处理，并进行回调
+ * @return:
+ */
 void ConnectNode::handlerEvent(const char *errorMsg, int errorCode,
                                NlsEvent::EventType eventType, bool ignore) {
   LOG_DEBUG("Node(%p) 's exit status:%s, eventType:%d.", this,
@@ -2928,10 +3004,19 @@ const char *ConnectNode::dumpAllInfo() {
     if (!callback.isNull()) {
       root["callback"] = callback;
     }
-    if (!block.isNull()) {
+    if (!block.isNull() && block.isObject() && !block.empty()) {
       root["block"] = block;
     }
     root["sdkversion"] = NLS_SDK_VERSION_STR;
+
+#ifdef ENABLE_CONTINUED
+    Json::Value reconnection(Json::objectValue);
+    reconnection = updateNodeReconnection();
+    if (!reconnection.isNull() && reconnection.isObject() &&
+        !reconnection.empty()) {
+      root["reconnection"] = reconnection;
+    }
+#endif
     std::string info = writer.write(root);
     LOG_INFO("current info: %s", info.c_str());
     return info.c_str();
@@ -2982,10 +3067,19 @@ std::string ConnectNode::replenishNodeProcess(const char *error) {
       if (!callback.isNull()) {
         root["callback"] = callback;
       }
-      if (!block.isNull()) {
+      if (!block.isNull() && block.isObject() && !block.empty()) {
         root["block"] = block;
       }
       root["sdkversion"] = NLS_SDK_VERSION_STR;
+
+#ifdef ENABLE_CONTINUED
+      Json::Value reconnection(Json::objectValue);
+      reconnection = updateNodeReconnection();
+      if (!reconnection.isNull() && reconnection.isObject() &&
+          !reconnection.empty()) {
+        root["reconnection"] = reconnection;
+      }
+#endif
       return writer.write(root);
     }
   } catch (const std::exception &e) {
@@ -2995,7 +3089,6 @@ std::string ConnectNode::replenishNodeProcess(const char *error) {
 }
 
 Json::Value ConnectNode::updateNodeProcess4Data() {
-  Json::Reader reader;
   Json::Value data(Json::objectValue);
   try {
     if (_nodeProcess.recording_bytes > 0) {
@@ -3018,7 +3111,6 @@ Json::Value ConnectNode::updateNodeProcess4Data() {
 }
 
 Json::Value ConnectNode::updateNodeProcess4Last() {
-  Json::Reader reader;
   Json::Value last(Json::objectValue);
   try {
     last["status"] = getConnectNodeStatusString(_nodeProcess.last_status);
@@ -3042,7 +3134,6 @@ Json::Value ConnectNode::updateNodeProcess4Last() {
 }
 
 Json::Value ConnectNode::updateNodeProcess4Timestamp() {
-  Json::Reader reader;
   Json::Value timestamp(Json::objectValue);
   try {
     timestamp["create"] =
@@ -3087,7 +3178,6 @@ Json::Value ConnectNode::updateNodeProcess4Timestamp() {
 }
 
 Json::Value ConnectNode::updateNodeProcess4Callback() {
-  Json::Reader reader;
   Json::Value callback(Json::objectValue);
   try {
     NlsEvent event;
@@ -3114,7 +3204,6 @@ Json::Value ConnectNode::updateNodeProcess4Callback() {
 }
 
 Json::Value ConnectNode::updateNodeProcess4Block() {
-  Json::Reader reader;
   Json::Value block(Json::objectValue);
   try {
     bool running_flag = false;
@@ -3164,5 +3253,134 @@ Json::Value ConnectNode::updateNodeProcess4Block() {
   return block;
 }
 #endif
+
+#ifdef ENABLE_CONTINUED
+Json::Value ConnectNode::updateNodeReconnection() {
+  Json::Value reconnection(Json::objectValue);
+  try {
+    if (_reconnection.first_audio_timestamp_ms > 0) {
+      reconnection["first_audio_timestamp"] = utility::TextUtils::GetTimeFromMs(
+          _reconnection.first_audio_timestamp_ms);
+    }
+    if (_reconnection.interruption_timestamp_ms > 0) {
+      reconnection["interruption_timestamp"] =
+          utility::TextUtils::GetTimeFromMs(
+              _reconnection.interruption_timestamp_ms);
+    }
+    if (_reconnection.tw_index_offset > 0) {
+      reconnection["tw_index_offset"] =
+          Json::Value::UInt64(_reconnection.tw_index_offset);
+    }
+    if (_reconnection.state != NodeReconnection::NoReconnection) {
+      reconnection["should_reconnecting"] = true;
+      reconnection["reconnected_count"] = _reconnection.reconnected_count;
+    }
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return reconnection;
+  }
+  return reconnection;
+}
+
+void ConnectNode::updateTwIndexOffset(NlsEvent *frameEvent) {
+  if (frameEvent) {
+    if (frameEvent->getMsgType() == NlsEvent::SentenceBegin) {
+      _reconnection.tw_index_offset = frameEvent->getSentenceIndex();
+    }
+  }
+}
+
+bool ConnectNode::nodeReconnecting() {
+  if (_reconnection.state == NodeReconnection::WillReconnect) {
+    struct timeval _reconnectTv;
+    utility::TextUtils::GetTimevalFromMs(
+        &_reconnectTv, NodeReconnection::reconnect_interval_ms);
+    LOG_INFO("reconnect node(%p) after %dms.", this,
+             NodeReconnection::reconnect_interval_ms);
+    int event_ret = event_add(getReconnectEvent(), &_reconnectTv);
+    if (event_ret == Success) {
+      LOG_INFO("reconnect node(%p) event_add success.", this);
+      _reconnection.state = NodeReconnection::TriggerReconnection;
+    } else {
+      LOG_WARN("reconnect node(%p) event_add failed with %d.", this, event_ret);
+    }
+    return true;
+  } else if (_reconnection.state == NodeReconnection::TriggerReconnection ||
+             _reconnection.state == NodeReconnection::NewReconnectionStarting) {
+    LOG_INFO("Node(%p) reconnection has launched(%d)", this,
+             _reconnection.state);
+  }
+  return false;
+}
+
+/**
+ * @brief: 获得用于重启当前node的libevent
+ * @return: libevent的event指针
+ */
+struct event *ConnectNode::getReconnectEvent() {
+  if (_reconnectEvent != NULL) {
+    event_del(_reconnectEvent);
+    event_free(_reconnectEvent);
+    _reconnectEvent = NULL;
+  }
+  _reconnectEvent = event_new(_eventThread->_workBase, -1, EV_READ | EV_TIMEOUT,
+                              WorkThread::launchEventCallback, this);
+  if (NULL == _reconnectEvent) {
+    LOG_ERROR("Node(%p) new event(_reconnectEvent) failed.", this);
+  } else {
+    LOG_DEBUG("Node(%p) new event(_reconnectEvent).", this);
+  }
+  return _reconnectEvent;
+}
+#endif
+
+bool ConnectNode::ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType,
+                                                 int code) {
+#ifdef ENABLE_CONTINUED
+  if (_request) {
+    if (_request->getRequestParam()->_enableReconnect) {
+      if (eventType == NlsEvent::TaskFailed) {
+        if ((code >= 50000000 && code < 60000000) || code == DefaultErrorCode ||
+            code == SysErrorCode || code == UnknownWsHeadType ||
+            code == HttpConnectFailed || code == SysConnectFailed ||
+            code == ClientError || code == ConcurrencyExceed) {
+          if (_reconnection.state == NodeReconnection::NoReconnection ||
+              _reconnection.state ==
+                  NodeReconnection::NewReconnectionStarting) {
+            _reconnection.interruption_timestamp_ms =
+                utility::TextUtils::GetTimestampMs();
+            _reconnection.reconnected_count++;
+            _reconnection.state = NodeReconnection::WillReconnect;
+          }
+        }
+      }
+
+      if (_reconnection.state == NodeReconnection::WillReconnect ||
+          _reconnection.state == NodeReconnection::TriggerReconnection) {
+        if (eventType == NlsEvent::TaskFailed || eventType == NlsEvent::Close) {
+          if (_reconnection.reconnected_count <=
+              NodeReconnection::max_try_count) {
+            NlsEvent tmp;
+            LOG_INFO(
+                "Node(%p) state(%d) get status code is %d with %s, try %d "
+                "times, should reconnecting "
+                "and "
+                "ignore callback.",
+                this, _reconnection.state, code,
+                tmp.getMsgTypeString(eventType).c_str(),
+                _reconnection.reconnected_count);
+            return true;
+          } else {
+            _reconnection.state = NodeReconnection::NoReconnection;
+            LOG_INFO("Node(%p) failed %d times, should boot normally.", this,
+                     _reconnection.reconnected_count);
+          }
+        }
+      }
+    }
+  }
+#endif
+  return false;
+}
 
 }  // namespace AlibabaNls

@@ -179,6 +179,8 @@ add_definitions(-DENABLE_HIGH_EFFICIENCY)
 add_definitions(-DENABLE_REQUEST_RECORDING)
 #增加DNS IP缓存机制, 以降低DNS资源占用
 add_definitions(-DENABLE_DNS_IP_CACHE)
+#增加运行中断自动重连的功能
+add_definitions(-DENABLE_CONTINUED)
 
 #添加VipServer相关配置
 message(STATUS "PRIVATE_CLOUD: ${PRIVATE_CLOUD}")

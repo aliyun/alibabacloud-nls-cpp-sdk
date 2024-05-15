@@ -193,6 +193,9 @@ int g_threads = 1;
 int g_cpu = 1;
 int g_sync_timeout = 0;
 bool g_save_audio = false;
+bool g_on_message_flag = false;
+bool g_continued_flag = false;
+bool g_loop_file_flag = false;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 
@@ -1138,10 +1141,14 @@ void* pthreadFunction(void* arg) {
     request->setOnTaskFailed(onTaskFailed, cbParam);
     // 设置识别通道关闭回调函数
     request->setOnChannelClosed(onChannelClosed, cbParam);
-    // 设置所有服务端返回信息回调函数
-    // request->setOnMessage(onMessage, cbParam);
-    // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
-    // request->setEnableOnMessage(true);
+    if (g_on_message_flag) {
+      // 设置所有服务端返回信息回调函数
+      request->setOnMessage(onMessage, cbParam);
+      // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
+      request->setEnableOnMessage(true);
+    }
+    // 是否开启重连机制
+    request->setEnableContinued(g_continued_flag);
 
     /*
      * 3. 设置request的相关参数
@@ -1325,6 +1332,10 @@ void* pthreadFunction(void* arg) {
       size_t nlen = fs.gcount();
       if (nlen == 0) {
         std::cout << "fs empty..." << std::endl;
+        if (g_loop_file_flag) {
+          fs.clear();
+          fs.seekg(0, std::ios::beg);
+        }
         continue;
       }
       if (g_save_audio) {
@@ -1394,6 +1405,11 @@ void* pthreadFunction(void* arg) {
         if (sleepMs * 1000 > tmp_us) {
           usleep(sleepMs * 1000 - tmp_us);
         }
+      }
+
+      if (g_loop_file_flag && fs.eof()) {
+        fs.clear();
+        fs.seekg(0, std::ios::beg);
       }
     }  // while - sendAudio
 
@@ -1577,10 +1593,14 @@ void* pthreadLongConnectionFunction(void* arg) {
   request->setOnTaskFailed(onTaskFailed, cbParam);
   // 设置识别通道关闭回调函数
   request->setOnChannelClosed(onChannelClosed, cbParam);
-  // 设置所有服务端返回信息回调函数
-  // request->setOnMessage(onMessage, cbParam);
-  // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
-  // request->setEnableOnMessage(true);
+  if (g_on_message_flag) {
+    // 设置所有服务端返回信息回调函数
+    request->setOnMessage(onMessage, cbParam);
+    // 开启所有服务端返回信息回调函数, 其他回调(除了OnBinaryDataRecved)失效
+    request->setEnableOnMessage(true);
+  }
+  // 是否开启重连机制
+  request->setEnableContinued(g_continued_flag);
 
   /*
    * 3. 设置request的相关参数
@@ -1756,6 +1776,10 @@ void* pthreadLongConnectionFunction(void* arg) {
       size_t nlen = fs.gcount();
       if (nlen == 0) {
         std::cout << "fs empty..." << std::endl;
+        if (g_loop_file_flag) {
+          fs.clear();
+          fs.seekg(0, std::ios::beg);
+        }
         continue;
       }
       if (g_save_audio) {
@@ -1817,6 +1841,11 @@ void* pthreadLongConnectionFunction(void* arg) {
         if (sleepMs * 1000 > tmp_us) {
           usleep(sleepMs * 1000 - tmp_us);
         }
+      }
+
+      if (g_loop_file_flag && fs.eof()) {
+        fs.clear();
+        fs.seekg(0, std::ios::beg);
       }
     }  // while - sendAudio
 
@@ -2386,6 +2415,22 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         g_save_audio = false;
       }
+    } else if (!strcmp(argv[index], "--message")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        g_on_message_flag = true;
+      } else {
+        g_on_message_flag = false;
+      }
+    } else if (!strcmp(argv[index], "--continued")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        g_continued_flag = true;
+      } else {
+        g_continued_flag = false;
+      }
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -2418,6 +2463,14 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_audio_path = argv[index];
+    } else if (!strcmp(argv[index], "--loopAudioFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        g_loop_file_flag = true;
+      } else {
+        g_loop_file_flag = false;
+      }
     } else if (!strcmp(argv[index], "--maxSilence")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -2491,8 +2544,11 @@ int main(int argc, char* argv[]) {
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
         << "  --noSleep <use sleep after sendAudio(), default 0>\n"
         << "  --audioFile <the absolute path of audio file>\n"
+        << "  --loopAudioFile <loop reading the file>\n"
         << "  --frameSize <audio data size, 640 ~ 16384bytes>\n"
         << "  --save <save input audio flag, default 0>\n"
+        << "  --message <open onMessage callback, default 0>\n"
+        << "  --continued <open continued mechanism, default 0>\n"
         << "  --intermedia <enable intermediat result, default 0>\n"
         << "  --maxSilence <max silence time of sentence>\n"
         << "  --loop <loop count>\n"

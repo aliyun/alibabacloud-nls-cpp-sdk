@@ -475,6 +475,8 @@ enum NlsErrorCode {
    */
   FileDownloadFailed = 41050002,
 
+  ConcurrencyExceed = 43040001,
+
   /*
    * get status code(50000000) from SERVICE
    * msg: Gateway:SERVER_ERROR:Server error!

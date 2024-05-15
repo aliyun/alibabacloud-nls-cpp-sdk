@@ -88,6 +88,17 @@ int INlsRequest::sendAudio(INlsRequest* request, const uint8_t* data,
   int ret =
       NlsEventNetWork::_eventClient->sendAudio(request, data, dataSize, type);
 
+#ifdef ENABLE_CONTINUED
+  if (request->getConnectNode() &&
+      request->getConnectNode()->_reconnection.state !=
+          NodeReconnection::NoReconnection &&
+      ret < 0) {
+    LOG_WARN("Request(%p) is reconnecting, ignore(%d) this error(%d) ...",
+             request, request->getConnectNode()->_reconnection.state, ret);
+    ret = dataSize;
+  }
+#endif
+
   return ret;
 }
 

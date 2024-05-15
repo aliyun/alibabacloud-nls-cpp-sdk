@@ -312,9 +312,18 @@ int SpeechTranscriberRequest::setOutputFormat(const char* value) {
   return Success;
 }
 
-int SpeechTranscriberRequest::setEnableOnMessage(bool value) {
-  _transcriberParam->setEnableOnMessage(value);
+int SpeechTranscriberRequest::setEnableOnMessage(bool enable) {
+  _transcriberParam->setEnableOnMessage(enable);
   return Success;
+}
+
+int SpeechTranscriberRequest::setEnableContinued(bool enable) {
+#ifdef ENABLE_CONTINUED
+  _transcriberParam->setEnableContinued(enable);
+  return Success;
+#else
+  return -(InvalidRequest);
+#endif
 }
 
 const char* SpeechTranscriberRequest::getOutputFormat() {
