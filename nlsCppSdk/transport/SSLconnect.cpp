@@ -223,6 +223,7 @@ int SSLconnect::sslWrite(const uint8_t *buffer, size_t len) {
                  sslErrMsg, errno_code, sslError);
         LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Write failed, %s.", this,
                   _errorMsg);
+        MUTEX_UNLOCK(_mtxSSL);
         return -(SslWriteFailed);
       } else {
         memset(_errorMsg, 0x0, MaxSslErrorLength);
@@ -282,7 +283,7 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
     // LOG_WARN("Read maybe failed, get_ssl_error:%d", sslError);
     if (sslError == SSL_ERROR_WANT_READ || sslError == SSL_ERROR_WANT_WRITE ||
         sslError == SSL_ERROR_WANT_X509_LOOKUP) {
-      LOG_WARN("SSL(%p) Read could not complete. Will be invoked later.", this);
+      //LOG_DEBUG("SSL(%p) Read could not complete. Will be invoked later.", this);
       MUTEX_UNLOCK(_mtxSSL);
       return 0;
     } else if (sslError == SSL_ERROR_SYSCALL) {
@@ -313,6 +314,7 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
                  sslErrMsg, errno_code, sslError);
         LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Read failed, %s.", this,
                   _errorMsg);
+        MUTEX_UNLOCK(_mtxSSL);
         return -(SslReadSysError);
       } else {
         memset(_errorMsg, 0x0, MaxSslErrorLength);

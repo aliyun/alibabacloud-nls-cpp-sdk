@@ -108,6 +108,8 @@ int WebSocketTcp::requestPackage(urlAddress* url, char* buffer,
   }
 
   int contentSize = 0;
+  const int token_bytes = strnlen(url->_token, TokenSize);
+  const int ws_key_bytes = strnlen(getSecWsKey(), 128) - 18;
   if (httpHeader.empty()) {
     contentSize = _ssnprintf(
         buffer, BufferSize, "GET /%s HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s: %s\r\n%s",
@@ -131,14 +133,21 @@ int WebSocketTcp::requestPackage(urlAddress* url, char* buffer,
     return -(WsRequestPackageEmpty);
   }
 
-  std::string key_buf_str;
-  std::string token_buf_str;
-  key_buf_str = utility::TextUtils::securityDisposalForLog(
-      buffer, &key_buf_str, "Sec-WebSocket-Key:", 8, 'X');
-  token_buf_str = utility::TextUtils::securityDisposalForLog(
-      (char*)key_buf_str.c_str(), &token_buf_str, "X-NLS-Token:", 8, 'Y');
-  LOG_DEBUG("WS(%p) Http Request:\n%s", this, token_buf_str.c_str());
-
+  const int default_step = 4;
+  const int token_step =
+      token_bytes < default_step ? token_bytes : default_step;
+  const int ws_key_step =
+      ws_key_bytes < default_step ? ws_key_step : default_step;
+  if (token_step > 0 && ws_key_step > 0) {
+    std::string key_buf_str;
+    std::string token_buf_str;
+    key_buf_str = utility::TextUtils::securityDisposalForLog(
+        buffer, &key_buf_str, "Sec-WebSocket-Key:", ws_key_step, 'X');
+    token_buf_str = utility::TextUtils::securityDisposalForLog(
+        (char*)key_buf_str.c_str(), &token_buf_str, "X-NLS-Token:", token_step,
+        'Y');
+    LOG_DEBUG("WS(%p) Http Request:\n%s", this, token_buf_str.c_str());
+  }
   return contentSize;
 }
 
