@@ -28,14 +28,16 @@ enum NlsRequestType {
   SpeechExecuteDialog,
   SpeechWakeWordDialog,
   SpeechTextDialog,
-  SpeechSynthesizer
+  SpeechSynthesizer,
+  FlowingSynthesizer
 };
 
 //语音类型
 enum NlsType {
-  TypeAsr = 0,  /* 一句话识别 */
-  TypeRealTime, /* 实时语音识别 */
-  TypeTts,      /* 语音合成 */
+  TypeAsr = 0,        /* 一句话识别 */
+  TypeRealTime,       /* 实时语音识别 */
+  TypeTts,            /* 语音合成 */
+  TypeStreamInputTts, /* 流式文本语音合成 */
   TypeDialog,
   TypeNone
 };
@@ -110,6 +112,7 @@ class INlsRequestParam {
   virtual const char* getControlCommand(const char* message);
   virtual const char* getExecuteDialog();
   virtual const char* getStopWakeWordCommand();
+  virtual const char* getRunFlowingSynthesisCommand(const char* text);
 
   virtual int setCustomizationId(const char* value);
   virtual int setVocabularyId(const char* value);
@@ -121,6 +124,7 @@ class INlsRequestParam {
   virtual time_t getSendTimeout();
   virtual bool getEnableOnMessage();
   virtual std::string getTaskId();
+  virtual NlsRequestType getNlsRequestType();
 
  public:
   int AppendHttpHeader(const char* key, const char* value);
@@ -152,6 +156,7 @@ class INlsRequestParam {
   std::string _sdk_name;
 
   std::string _startCommand;
+  std::string _runFlowingSynthesisCommand;
   std::string _controlCommand;
   std::string _stopCommand;
 

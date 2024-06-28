@@ -51,7 +51,8 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
     MetaInfo,
     DialogResultGenerated,
     Close = 16, /*语音功能通道连接关闭*/
-    Message
+    Message,
+    SentenceSynthesis,
   };
 
   NlsEvent();

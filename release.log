@@ -154,3 +154,10 @@
 -----2024/06/17 Version:3.1.19b-----
 1: 修复securityDisposalForLog()中内存越界崩溃的问题
 2: 修复SSL死锁导致getInstance()死锁的问题
+
+-----2024/05/24 Version:3.2.0a-----
+1: 增加流式输入语音合成功能
+2: 语音合成增加Started回调, 在建连成功时触发
+3: 修复securityDisposalForLog()中内存越界崩溃的问题
+4: 修复SSL死锁导致getInstance()死锁的问题
+5: 增加OpenSSL SNI指定, 解决可能存在的握手时服务器不知道发送哪份CA的问题

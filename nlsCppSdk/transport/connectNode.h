@@ -103,7 +103,9 @@ enum CmdType {
   CmdTextDialog,
   CmdExecuteDialog,
   CmdWarkWord,
-  CmdCancel
+  CmdCancel,
+  CmdSendText,
+  CmdSendPing,
 };
 
 /* Node处于的退出状态 */
@@ -136,6 +138,7 @@ enum ConnectStatus {
   NodeSendAudio,
   NodeSendControl,
   NodePlayAudio,
+  NodeSendText
 };
 
 #ifdef ENABLE_REQUEST_RECORDING
@@ -380,6 +383,9 @@ class ConnectNode {
   struct NodeReconnection _reconnection;
 #endif
 
+  /* 14. others */
+  void sendFakeSynthesisStarted();
+
  private:
   enum ConnectNodeConstValue {
     RetryConnectCount = 4,
@@ -525,6 +531,9 @@ class ConnectNode {
   struct event *_reconnectEvent;
 #endif
   bool ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType, int code);
+
+  /* 14. others */
+  const char *genSynthesisStartedMsg();
 };
 
 }  // namespace AlibabaNls

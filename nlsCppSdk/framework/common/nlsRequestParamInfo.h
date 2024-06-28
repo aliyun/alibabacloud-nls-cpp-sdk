@@ -65,7 +65,7 @@ namespace AlibabaNls {
 #define D_ST_DISFLUENCY              "disfluency"
 #define D_ST_SPEECH_NOISE_THRESHOLD  "speech_noise_threshold"
 
-/************************speech synthesizer************************/
+/************speech synthesizer / flowing synthesizer**************/
 #define D_SY_VOICE           "voice"
 #define D_SY_VOLUME          "volume"
 #define D_SY_SPEECH_RATE     "speech_rate"

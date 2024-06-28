@@ -375,6 +375,8 @@ int NlsEvent::parseMsgType(std::string name) {
     _msgType = NlsEvent::SentenceSemantics;
   } else if (name == "MetaInfo") {
     _msgType = NlsEvent::MetaInfo;
+  } else if (name == "SentenceSynthesis") {
+    _msgType = NlsEvent::SentenceSynthesis;
   } else {
     //    LOG_ERROR("EVENT: type is invalid. [%s].", _msg.c_str());
     return -(InvalidNlsEventMsgType);
@@ -461,6 +463,9 @@ std::string NlsEvent::getMsgTypeString(int type) {
       break;
     case Message:
       ret_str.assign("Message");
+      break;
+    case SentenceSynthesis:
+      ret_str.assign("SentenceSynthesis");
       break;
   }
 

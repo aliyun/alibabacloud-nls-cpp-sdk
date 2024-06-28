@@ -27,6 +27,7 @@
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
+#include "fss/flowingSynthesizerRequest.h"
 #include "utility.h"
 
 #ifdef ENABLE_VIPSERVER
@@ -334,6 +335,51 @@ void NlsClientImpl::releaseDialogAssistantRequestImpl(
 
     ConnectNode *node = request->getConnectNode();
     if (node && request->getConnectNode()->getExitStatus() == ExitInvalid) {
+      request->cancel();
+    }
+
+    releaseRequest(request);
+  }
+}
+
+FlowingSynthesizerRequest *NlsClientImpl::createFlowingSynthesizerRequestImpl(
+    const char *sdkName, bool isLongConnection) {
+  FlowingSynthesizerRequest *request =
+      new FlowingSynthesizerRequest(sdkName, isLongConnection);
+  if (request) {
+    int ret = _nodeManager->addRequestIntoInfoWithInstance((void *)request,
+                                                           (void *)this);
+    if (ret != Success) {
+      LOG_ERROR(
+          "Request(%p) checkRequestWithInstance failed(%d), this request has "
+          "released.",
+          request, ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
+}
+
+void NlsClientImpl::releaseFlowingSynthesizerRequestImpl(
+    FlowingSynthesizerRequest *request) {
+  if (request) {
+    int ret = Success;
+    /* check this request belong to this NlsClientImpl */
+    ret = _nodeManager->checkRequestWithInstance((void *)request, (void *)this);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) is invalid.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid &&
+        node->getConnectNodeStatus() != NodeClosed) {
+      LOG_DEBUG(
+          "Request(%p) Node(%p) invoke cancel by "
+          "releaseFlowingSynthesizerRequest.",
+          request, node);
       request->cancel();
     }
 

@@ -62,6 +62,9 @@ class NlsClientImpl {
       DaVersion version = DaV1, const char* sdkName = "cpp",
       bool isLongConnection = false);
   void releaseDialogAssistantRequestImpl(DialogAssistantRequest* request);
+  FlowingSynthesizerRequest* createFlowingSynthesizerRequestImpl(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+  void releaseFlowingSynthesizerRequestImpl(FlowingSynthesizerRequest* request);
 
 #if defined(__linux__)
   int vipServerListGetUrlImpl(const std::string& vipServerDomainList,

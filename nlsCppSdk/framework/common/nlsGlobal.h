@@ -91,6 +91,7 @@ enum NlsRetCode {
   InvokeStopFailed,         /* 请求状态机不对, 导致stop失败 */
   InvokeCancelFailed,       /* 请求状态机不对, 导致stop失败 */
   InvokeStControlFailed,    /* 请求状态机不对, 导致stControl失败 */
+  InvokeSendTextFailed,     /* 请求状态机不对, 导致sendText失败 */
   InvokeTimeout,            /* 调用超时 */
 
   /* nls event */

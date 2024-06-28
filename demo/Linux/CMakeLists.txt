@@ -60,6 +60,11 @@ add_executable(syMT speechSynthesizerMonkeyTest.cpp)
 target_link_libraries(syMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
+# 流式文本输入语音合成
+add_executable(fsDemo profile_scan.cpp flowingSynthesizerDemo.cpp)
+target_link_libraries(fsDemo
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
+
 # 对话助手
 add_executable(daDemo dialogAssistantDemo.cpp)
 target_link_libraries(daDemo

@@ -246,6 +246,31 @@ void NlsClient::releaseDialogAssistantRequest(DialogAssistantRequest *request) {
   MUTEX_UNLOCK(_mtxNlsClient);
 }
 
+FlowingSynthesizerRequest *NlsClient::createFlowingSynthesizerRequest(
+    const char *sdkName, bool isLongConnection) {
+  MUTEX_LOCK(_mtxNlsClient);
+  FlowingSynthesizerRequest *request = NULL;
+  if (_instance) {
+    request = _instance->_impl->createFlowingSynthesizerRequestImpl(
+        sdkName, isLongConnection);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+  return request;
+}
+
+void NlsClient::releaseFlowingSynthesizerRequest(
+    FlowingSynthesizerRequest *request) {
+  MUTEX_LOCK(_mtxNlsClient);
+  if (_instance) {
+    _instance->_impl->releaseFlowingSynthesizerRequestImpl(request);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+}
+
 #if defined(__linux__)
 int NlsClient::vipServerListGetUrl(const std::string &vipServerDomainList,
                                    const std::string &targetDomain,

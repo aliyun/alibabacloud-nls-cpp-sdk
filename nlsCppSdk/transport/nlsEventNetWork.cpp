@@ -551,6 +551,104 @@ int NlsEventNetWork::stControl(INlsRequest *request, const char *message) {
   return ret;
 }
 
+int NlsEventNetWork::sendText(INlsRequest *request, const char *text) {
+  MUTEX_LOCK(_mtxThread);
+
+  if (_eventClient == NULL) {
+    LOG_ERROR(
+        "NlsEventNetWork has destroyed, please invoke startWorkThread() "
+        "first.");
+    MUTEX_UNLOCK(_mtxThread);
+    return -(EventClientEmpty);
+  }
+
+  ConnectNode *node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!",
+              request);
+    MUTEX_UNLOCK(_mtxThread);
+    return -(NodeEmpty);
+  }
+
+  /* Node也许处于Starting状态还未到Started状态, 可等待一会. */
+  int try_count = 500;
+  while (try_count-- > 0 && node->getConnectNodeStatus() == NodeStarting) {
+#ifdef _MSC_VER
+    Sleep(1);
+#else
+    usleep(1000);
+#endif
+  }
+
+  /* invoke sendText
+   * Node未处于started状态, 或处于退出状态, 则当前不可调用sendText.
+   */
+  if (node->getConnectNodeStatus() != NodeStarted ||
+      node->getExitStatus() != ExitInvalid) {
+    LOG_ERROR(
+        "Request(%p) node(%p) invoke sendText command failed, current status "
+        "is invalid. node status:%s, exit status:%s.",
+        request, node, node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+    MUTEX_UNLOCK(_mtxThread);
+    return -(InvokeSendTextFailed);
+  }
+
+  int ret = node->cmdNotify(CmdSendText, text);
+
+  MUTEX_UNLOCK(_mtxThread);
+  return ret;
+}
+
+int NlsEventNetWork::sendPing(INlsRequest *request) {
+  MUTEX_LOCK(_mtxThread);
+
+  if (_eventClient == NULL) {
+    LOG_ERROR(
+        "NlsEventNetWork has destroyed, please invoke startWorkThread() "
+        "first.");
+    MUTEX_UNLOCK(_mtxThread);
+    return -(EventClientEmpty);
+  }
+
+  ConnectNode *node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!",
+              request);
+    MUTEX_UNLOCK(_mtxThread);
+    return -(NodeEmpty);
+  }
+
+  /* Node也许处于Starting状态还未到Started状态, 可等待一会. */
+  int try_count = 500;
+  while (try_count-- > 0 && node->getConnectNodeStatus() == NodeStarting) {
+#ifdef _MSC_VER
+    Sleep(1);
+#else
+    usleep(1000);
+#endif
+  }
+
+  /* invoke sendPing
+   * Node未处于started状态, 或处于退出状态, 则当前不可调用sendPing.
+   */
+  if (node->getConnectNodeStatus() != NodeStarted ||
+      node->getExitStatus() != ExitInvalid) {
+    LOG_ERROR(
+        "Request(%p) node(%p) invoke sendPing command failed, current status "
+        "is invalid. node status:%s, exit status:%s.",
+        request, node, node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+    MUTEX_UNLOCK(_mtxThread);
+    return -(InvokeSendTextFailed);
+  }
+
+  int ret = node->cmdNotify(CmdSendPing, NULL);
+
+  MUTEX_UNLOCK(_mtxThread);
+  return ret;
+}
+
 const char *NlsEventNetWork::dumpAllInfo(INlsRequest *request) {
 #ifdef ENABLE_REQUEST_RECORDING
   MUTEX_LOCK(_mtxThread);

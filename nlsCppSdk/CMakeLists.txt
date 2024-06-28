@@ -150,6 +150,7 @@ set(UTILS_INCLUDE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/da
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss
     )
 set(UTILS_SOURCE_DIR
     ${UTILS_SOURCE_DIR}
@@ -171,6 +172,9 @@ set(UTILS_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy/speechSynthesizerRequest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy/speechSynthesizerParam.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/sy/speechSynthesizerListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/flowingSynthesizerRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/flowingSynthesizerParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/flowingSynthesizerListener.cpp
     )
 
 #源文件-token

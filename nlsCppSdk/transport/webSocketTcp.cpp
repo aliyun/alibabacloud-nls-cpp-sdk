@@ -35,12 +35,12 @@
 
 namespace AlibabaNls {
 
-#define HTTP_STATUS_CODE "HTTP/1.1 "
-#define HTTP_STATUS_CODE_END " "
-#define HTTP_HEADER_END_STRING "\r\n\r\n"
-#define HTTP_CONTENT_LENGTH "Content-Length: "
+#define HTTP_STATUS_CODE        "HTTP/1.1 "
+#define HTTP_STATUS_CODE_END    " "
+#define HTTP_HEADER_END_STRING  "\r\n\r\n"
+#define HTTP_CONTENT_LENGTH     "Content-Length: "
 #define HTTP_CONTENT_LENGTH_END "\r\n"
-#define SEC_WS_VER "13"
+#define SEC_WS_VER              "13"
 
 //#define OPU_DEBUG
 
@@ -266,6 +266,8 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
     case WsHeadSize:
       // LOG_DEBUG("WsHeadSize.");
       retCode = decodeHeaderSizeWebSocketFrame(frame, frameSize, wsType);
+      // LOG_DEBUG("WS(%p) Parse decodeHeaderSizeWebSocketFrame
+      // wsType->opCode:%d.", this, wsType->opCode);
       if (retCode < 0) {
         LOG_ERROR("WS(%p) Parse WsHeadSize Failed, retCode:%d.", this, retCode);
         return retCode;
@@ -274,15 +276,27 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
     case WsHeadBody:
       // LOG_DEBUG("WsHeadBody.");
       retCode = decodeHeaderBodyWebSocketFrame(frame, frameSize, wsType);
+      // LOG_DEBUG("WS(%p) Parse decodeHeaderBodyWebSocketFrame
+      // wsType->opCode:%d.", this, wsType->opCode);
       if (retCode < 0) {
-        LOG_ERROR("WS(%p) Parse WsHeadBody Failed, retCode:%d.", this, retCode);
-        return retCode;
+        if (wsType->opCode == WebSocketHeaderType::PONG) {
+          LOG_DEBUG("This WS(%p) is PONG, please ignore this warn.", this);
+          retCode = Success;
+        } else {
+          LOG_ERROR(
+              "WS(%p) Parse WsHeadBody Failed, retCode:%d, "
+              "wsType->headerSize:%d, frameSize:%d.",
+              this, retCode, wsType->headerSize, frameSize);
+          return retCode;
+        }
       }
       _rStatus = WsContentBody;
     case WsContentBody:
       // LOG_DEBUG("WsContentBody.");
       retCode =
           decodeFrameBodyWebSocketFrame(frame, frameSize, wsType, resultDate);
+      // LOG_DEBUG("WS(%p) Parse decodeFrameBodyWebSocketFrame wsType->opCode:%d
+      // with retCode:%d.", this, wsType->opCode, retCode);
       if (retCode < 0) {
         // LOG_ERROR("WS(%p) Parse WsContentBody Failed, retCode:%d.", this,
         // retCode);
@@ -374,6 +388,10 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(uint8_t* buffer, size_t length,
 int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t* buffer, size_t length,
                                                 WebSocketHeaderType* wsType,
                                                 WebSocketFrame* receivedData) {
+  if (wsType->opCode == WebSocketHeaderType::PONG) {
+    return Success;
+  }
+
   if ((wsType->N + wsType->headerSize) > length) {
     // LOG_ERROR("Size: %d %u %zu", wsType->N, wsType->headerSize, length);
     return -(InvalidWsFrameBody);
@@ -432,6 +450,10 @@ int WebSocketTcp::textFrame(const uint8_t* buffer, size_t length,
                             uint8_t** frame, size_t* frameSize) {
   return framePackage(WebSocketHeaderType::TEXT_FRAME, buffer, length, frame,
                       frameSize);
+}
+
+int WebSocketTcp::pingFrame(uint8_t** frame, size_t* frameSize) {
+  return framePackage(WebSocketHeaderType::PING, NULL, 0, frame, frameSize);
 }
 
 int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
@@ -501,12 +523,14 @@ int WebSocketTcp::framePackage(WebSocketHeaderType::OpCodeType codeType,
     return -(MallocFailed);
   }
   memcpy(*frame, header, headlen);
-  memcpy(*frame + headlen, (uint8_t*)buffer, length);
+  if (buffer && length > 0) {
+    memcpy(*frame + headlen, (uint8_t*)buffer, length);
+  }
 
 #ifdef OPU_DEBUG
   std::ofstream ofs;
   ofs.open("./out.opus", std::ios::out | std::ios::app | std::ios::binary);
-  if (ofs.is_open()) {
+  if (ofs.is_open() && buffer) {
     ofs.write((const char*)buffer, length);
     ofs.flush();
     ofs.close();

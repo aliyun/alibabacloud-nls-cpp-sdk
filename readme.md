@@ -51,6 +51,7 @@ NlsSdk3.X_LINUX
 │   │── ftDemo         录音文件识别Demo binary文件  
 │   │── srDemo         一句话识别Demo binary文件  
 │   │── stDemo         实时识别Demo binary文件  
+│   │── fsDemo         流式输入语音合成Demo binary文件  
 │   └── syDemo         语音合成Demo binary文件  
 │── demo  
 │   │── build_linux_demo.sh           一键编译当前Demo  
@@ -58,6 +59,7 @@ NlsSdk3.X_LINUX
 │   │── dialogAssistantDemo.cpp       对话Demo源码  
 │   │── speechRecognizerDemo.cpp      一句话识别Demo源码  
 │   │── speechSynthesizerDemo.cpp     语音合成Demo源码  
+│   │── flowingSynthesizerDemo.cpp    流式输入语音合成Demo源码  
 │   │── speechTranscriberDemo.cpp     实时识别Demo源码  
 │   └── fileTransferDemo.cpp          录音文件转写Demo源码  
 │   │── resource            测试资源（测试音频文件）  
@@ -75,6 +77,7 @@ NlsSdk3.X_LINUX
 │   │── dialogAssistantRequest.h  
 │   │── speechRecognizerRequest.h  
 │   │── speechSynthesizerRequest.h  
+│   │── flowingSynthesizerRequest.h  
 │   └── speechTranscriberRequest.h  
 │── lib                     库（原libalibabacloud-idst-common.so已合并入libalibabacloud-idst-speech.so）  
 │   │── libalibabacloud-idst-speech.a  

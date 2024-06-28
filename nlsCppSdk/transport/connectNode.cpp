@@ -545,6 +545,12 @@ std::string ConnectNode::getCmdTypeString(int type) {
     case CmdCancel:
       ret_str.assign("CmdCancel");
       break;
+    case CmdSendText:
+      ret_str.assign("CmdSendText");
+      break;
+    case CmdSendPing:
+      ret_str.assign("CmdSendPing");
+      break;
   }
 
   return ret_str;
@@ -1219,6 +1225,13 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
     case CmdCancel:
       LOG_DEBUG("Node(%p) add cancel command, do nothing.", this);
       return;
+    case CmdSendText:
+      cmd = (char *)_request->getRequestParam()->getRunFlowingSynthesisCommand(
+          message);
+      break;
+    case CmdSendPing:
+      cmd = "{ping}";
+      break;
     default:
       LOG_WARN("Node(%p) add unknown command, do nothing.", this);
       return;
@@ -1232,7 +1245,11 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
 
     uint8_t *frame = NULL;
     size_t frameSize = 0;
-    _webSocket.textFrame((uint8_t *)cmd, strlen(cmd), &frame, &frameSize);
+    if (type == CmdSendPing) {
+      _webSocket.pingFrame(&frame, &frameSize);
+    } else {
+      _webSocket.textFrame((uint8_t *)cmd, strlen(cmd), &frame, &frameSize);
+    }
 
     evbuffer_add(_cmdEvBuffer, (void *)frame, frameSize);
 
@@ -1293,6 +1310,17 @@ int ConnectNode::cmdNotify(CmdType type, const char *message) {
       addCmdDataBuffer(CmdWarkWord);
       ret = nlsSendFrame(_cmdEvBuffer);
     }
+  } else if (type == CmdSendText) {
+#ifdef ENABLE_REQUEST_RECORDING
+    updateNodeProcess("send_text", NodeSendText, true, 0);
+#endif
+    addCmdDataBuffer(CmdSendText, message);
+    if (_workStatus == NodeStarted) {
+      ret = nlsSendFrame(_cmdEvBuffer);
+    }
+  } else if (type == CmdSendPing) {
+    addCmdDataBuffer(CmdSendPing, NULL);
+    ret = nlsSendFrame(_cmdEvBuffer);
   } else {
     LOG_ERROR("Node(%p) invoke unknown command.", this);
   }
@@ -1309,6 +1337,8 @@ int ConnectNode::cmdNotify(CmdType type, const char *message) {
     updateNodeProcess("cancel", NodeCancel, false, 0);
   } else if (type == CmdStControl) {
     updateNodeProcess("ctrl", NodeSendControl, false, 0);
+  } else if (type == CmdSendText) {
+    updateNodeProcess("send_text", NodeSendText, false, 0);
   }
 #endif
   return ret;
@@ -1480,8 +1510,15 @@ int ConnectNode::webSocketResponse() {
     memset(&wsFrame, 0x0, sizeof(struct WebSocketFrame));
     if (_webSocket.receiveFullWebSocketFrame(frame, frameSize, &_wsType,
                                              &wsFrame) == Success) {
-      // LOG_DEBUG("Node(%p) parse websocket frame, len:%zu, frame size:%zu.",
-      //     this, wsFrame.length, frameSize);
+      // LOG_DEBUG("Node(%p) parse websocket frame, len:%zu, frame size:%zu,
+      // _wsType.opCode:%d, wsFrame.type:%d.",
+      //     this, wsFrame.length, frameSize, _wsType.opCode, wsFrame.type);
+
+      if (_wsType.opCode == WebSocketHeaderType::PONG) {
+        LOG_DEBUG("Node(%p) receive PONG.", this);
+        // memset(&_wsType, 0x0, sizeof(struct WebSocketHeaderType));
+        wsFrame.type = _wsType.opCode;
+      }
 
       /*
        * Will invoke callback in parseFrame.
@@ -1647,6 +1684,9 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
     } else {
       LOG_INFO("Node(%p) NlsEvent::Close has invoked, skip CLOSE_FRAME.", this);
     }
+  } else if (wsFrame->type == WebSocketHeaderType::PONG) {
+    LOG_DEBUG("Node(%p) get PONG.", this);
+    return Success;
   } else {
     frameEvent = convertResult(wsFrame, &result);
   }
@@ -1700,6 +1740,7 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
   switch (msg_type) {
     case NlsEvent::RecognitionStarted:
     case NlsEvent::TranscriptionStarted:
+    case NlsEvent::SynthesisStarted:
       if (_request->getRequestParam()->_requestType != SpeechWakeWordDialog) {
         _workStatus = NodeStarted;
       } else {
@@ -2878,6 +2919,47 @@ const char *ConnectNode::genCloseMsg(std::string *buf_str) {
   }
 }
 
+/**
+ * @brief: 生成SynthesisStarted事件信息, 填入任务相关信息比如task_id
+ * @return:
+ */
+const char *ConnectNode::genSynthesisStartedMsg() {
+  if (_request == NULL) {
+    return NULL;
+  }
+
+  /* fake:
+   * {
+   *   "header":{
+   *     "namespace":"SpeechSynthesizer",
+   *     "name":"SynthesisStarted",
+   *     "status":20000000,
+   *     "message_id":"94b682af3ee549349d25085e76d53610",
+   *     "task_id":"0d528c2bdba942689fd291b6b7760fd2",
+   *     "status_text":"Gateway:SUCCESS:Success."
+   *   }
+   * }
+   */
+  std::string fake_cmd = "";
+  Json::Value root, header;
+  Json::FastWriter writer;
+  std::string task_id = _request->getRequestParam()->getTaskId();
+  try {
+    header["namespace"] = "SpeechSynthesizer";
+    header["name"] = "SynthesisStarted";
+    header["status"] = 20000000;
+    header["task_id"] = task_id;
+    header["status_text"] = "Gateway:SUCCESS:Success.";
+    root["header"] = header;
+    fake_cmd = writer.write(root);
+  } catch (const std::exception &e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return NULL;
+  }
+  LOG_DEBUG("Node(%p) send %s to user", this, fake_cmd.c_str());
+  return fake_cmd.c_str();
+}
+
 #ifdef ENABLE_REQUEST_RECORDING
 void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
                                     size_t size) {
@@ -2933,6 +3015,15 @@ void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
     } else {
       _nodeProcess.api_ctrl_run.store(false);
     }
+  } else if (api == "send_text") {
+    if (enter) {
+      _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
+      _nodeProcess.last_status = NodeSendText;
+      _nodeProcess.api_ctrl_run.store(true);
+      _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
+    } else {
+      _nodeProcess.api_ctrl_run.store(false);
+    }
   } else if (api == "callback") {
     if (enter) {
       _nodeProcess.last_callback = (NlsEvent::EventType)status;
@@ -2978,13 +3069,14 @@ void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
 const char *ConnectNode::dumpAllInfo() {
   try {
     Json::Value root(Json::objectValue);
-    Json::FastWriter writer;
     Json::Value request_process(Json::objectValue);
     Json::Value timestamp(Json::objectValue);
     Json::Value last(Json::objectValue);
     Json::Value data(Json::objectValue);
     Json::Value callback(Json::objectValue);
     Json::Value block(Json::objectValue);
+    Json::StreamWriterBuilder writerBuilder;
+    writerBuilder["indentation"] = "";
 
     timestamp = updateNodeProcess4Timestamp();
     last = updateNodeProcess4Last();
@@ -3017,7 +3109,7 @@ const char *ConnectNode::dumpAllInfo() {
       root["reconnection"] = reconnection;
     }
 #endif
-    std::string info = writer.write(root);
+    std::string info = Json::writeString(writerBuilder, root);
     LOG_INFO("current info: %s", info.c_str());
     return info.c_str();
   } catch (const std::exception &e) {
@@ -3041,13 +3133,14 @@ std::string ConnectNode::replenishNodeProcess(const char *error) {
     if (!reader.parse(error, root)) {
       return "";
     } else {
-      Json::FastWriter writer;
       Json::Value request_process(Json::objectValue);
       Json::Value timestamp(Json::objectValue);
       Json::Value last(Json::objectValue);
       Json::Value data(Json::objectValue);
       Json::Value callback(Json::objectValue);
       Json::Value block(Json::objectValue);
+      Json::StreamWriterBuilder writerBuilder;
+      writerBuilder["indentation"] = "";
 
       timestamp = updateNodeProcess4Timestamp();
       last = updateNodeProcess4Last();
@@ -3080,7 +3173,7 @@ std::string ConnectNode::replenishNodeProcess(const char *error) {
         root["reconnection"] = reconnection;
       }
 #endif
-      return writer.write(root);
+      return Json::writeString(writerBuilder, root);
     }
   } catch (const std::exception &e) {
     LOG_ERROR("Json failed: %s", e.what());
@@ -3333,6 +3426,19 @@ struct event *ConnectNode::getReconnectEvent() {
   return _reconnectEvent;
 }
 #endif
+
+void ConnectNode::sendFakeSynthesisStarted() {
+  // send SynthesisStarted if speechSynthesizer
+  if (_request->getRequestParam()->getNlsRequestType() == SpeechSynthesizer) {
+    NlsEvent *useEvent = new NlsEvent(genSynthesisStartedMsg(), Success,
+                                      NlsEvent::SynthesisStarted,
+                                      _request->getRequestParam()->_task_id);
+    if (useEvent) {
+      handlerFrame(useEvent);
+      delete useEvent;
+    }
+  }
+}
 
 bool ConnectNode::ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType,
                                                  int code) {
