@@ -1444,7 +1444,7 @@ int ConnectNode::webSocketResponse() {
     free(frame);
     return -(NlsReceiveFailed);
   } else if (read_len == 0) {
-    LOG_WARN("Node(%p) nlsReceive empty, read_len:%d", this, read_len);
+    // LOG_DEBUG("Node(%p) nlsReceive empty, read_len:%d", this, read_len);
     free(frame);
     return 0;
   }

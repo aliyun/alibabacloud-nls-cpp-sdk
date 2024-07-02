@@ -334,6 +334,11 @@ int TextUtils::CharsCalculate(const char *text) {
 /**
  * @brief: 对完整发送字符串中敏感信息进行遮掩,
  * 防止日志中显示敏感信息导致账号泄露
+ * @param buf_in 需要调整的日志buffer
+ * @param buf_str 调整后的日志
+ * @param key 日志buffer中需要调整的key
+ * @param step 调整key的value中的step个字符
+ * @param c 调整字符为c
  * @return:
  */
 const char *TextUtils::securityDisposalForLog(char *buf_in,
@@ -345,8 +350,9 @@ const char *TextUtils::securityDisposalForLog(char *buf_in,
     char *buf_out = new char[buf_in_size + 1];
     if (buf_out) {
       std::string tmp_str(buf_in);
-      std::string find_key = key;
+      std::string find_key = key; /* Sec-WebSocket-Key: or X-NLS-Token: */
       int pos2 = tmp_str.find(find_key);
+      memset(buf_out, 0, buf_in_size + 1);
       strncpy(buf_out, buf_in, buf_in_size);
 
       if (pos2 >= 0) {

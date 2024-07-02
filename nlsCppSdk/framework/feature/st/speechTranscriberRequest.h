@@ -276,7 +276,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
   int setSpeechNoiseThreshold(float value);
 
   /**
-   * @brief 设置开启服务器返回消息回调
+   * @brief 设置开启服务器返回消息回调。听悟实时推流功能请开启此功能。
    * @param value 默认false, 即默认不开启服务器返回消息回调
    * @return 成功则返回0，否则返回负值错误码
    */
