@@ -49,6 +49,8 @@ class NlsEventNetWork {
   int start(INlsRequest *request);
   int sendAudio(INlsRequest *request, const uint8_t *data, size_t dataSize,
                 ENCODER_TYPE type);
+  int sendText(INlsRequest *request, const char *text);
+  int sendPing(INlsRequest *request);
   int stop(INlsRequest *request);
   int cancel(INlsRequest *request);
   int stControl(INlsRequest *request, const char *message);

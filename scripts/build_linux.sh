@@ -157,6 +157,7 @@ cp $git_root_path/nlsCppSdk/framework/feature/sr/speechRecognizerRequest.h $sdk_
 cp $git_root_path/nlsCppSdk/framework/feature/st/speechTranscriberRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/feature/sy/speechSynthesizerRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/feature/da/dialogAssistantRequest.h $sdk_install_folder/include/
+cp $git_root_path/nlsCppSdk/framework/feature/fss/flowingSynthesizerRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/item/iNlsRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/common/nlsClient.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/common/nlsGlobal.h $sdk_install_folder/include/
@@ -188,6 +189,7 @@ cp $git_root_path/demo/Linux/dialogAssistantDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/speechRecognizerDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/speechSynthesizerDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/speechTranscriberDemo.cpp $sdk_install_folder/demo
+cp $git_root_path/demo/Linux/flowingSynthesizerDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/*.h $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/build_linux_demo.sh $sdk_install_folder/demo
 cp $git_root_path/version $sdk_install_folder/

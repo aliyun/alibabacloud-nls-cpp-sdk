@@ -289,6 +289,11 @@ void SpeechSynthesizerRequest::setOnTaskFailed(NlsCallbackMethod _event,
   _callback->setOnTaskFailed(_event, para);
 }
 
+void SpeechSynthesizerRequest::setOnSynthesisStarted(NlsCallbackMethod _event,
+                                                     void* para) {
+  _callback->setOnSynthesisStarted(_event, para);
+}
+
 void SpeechSynthesizerRequest::setOnSynthesisCompleted(NlsCallbackMethod _event,
                                                        void* para) {
   _callback->setOnSynthesisCompleted(_event, para);

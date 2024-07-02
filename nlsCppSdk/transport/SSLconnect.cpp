@@ -100,6 +100,14 @@ int SSLconnect::sslHandshake(int socketFd, const char *hostname) {
       LOG_ERROR("SSL(%p) Invoke SSL_new failed:%s.", this, _errorMsg);
       MUTEX_UNLOCK(_mtxSSL);
       return -(SslNewFailed);
+    } else {
+      if (hostname) {
+        if (!SSL_set_tlsext_host_name(_ssl, hostname)) {
+          LOG_ERROR("Error setting SNI host name");
+        } else {
+          LOG_INFO("Set SNI %s success", hostname);
+        }
+      }
     }
 
     ret = SSL_set_fd(_ssl, socketFd);
@@ -283,7 +291,8 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
     // LOG_WARN("Read maybe failed, get_ssl_error:%d", sslError);
     if (sslError == SSL_ERROR_WANT_READ || sslError == SSL_ERROR_WANT_WRITE ||
         sslError == SSL_ERROR_WANT_X509_LOOKUP) {
-      //LOG_DEBUG("SSL(%p) Read could not complete. Will be invoked later.", this);
+      // LOG_DEBUG("SSL(%p) Read could not complete. Will be invoked later.",
+      // this);
       MUTEX_UNLOCK(_mtxSSL);
       return 0;
     } else if (sslError == SSL_ERROR_SYSCALL) {

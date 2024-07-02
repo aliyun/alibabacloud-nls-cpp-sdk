@@ -33,6 +33,7 @@ class SpeechRecognizerRequest;
 class SpeechTranscriberRequest;
 class SpeechSynthesizerRequest;
 class DialogAssistantRequest;
+class FlowingSynthesizerRequest;
 
 enum LogLevel { LogError = 1, LogWarning, LogInfo, LogDebug };
 
@@ -130,6 +131,22 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return
    */
   void releaseDialogAssistantRequest(DialogAssistantRequest* request);
+
+  /**
+   * @brief 创建流式文本输入语音合成对象
+   * @param type tts类型
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @return 成功则FlowingSynthesizerRequest对象，否则返回NULL
+   */
+  FlowingSynthesizerRequest* createFlowingSynthesizerRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+
+  /**
+   * @brief 销毁流式文本输入语音合成对象
+   * @param request  createFlowingSynthesizerRequest所建立的request对象
+   * @return
+   */
+  void releaseFlowingSynthesizerRequest(FlowingSynthesizerRequest* request);
 
   /**
    * @brief 当前版本信息

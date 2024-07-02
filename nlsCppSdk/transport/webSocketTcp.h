@@ -96,6 +96,7 @@ class WebSocketTcp {
                   size_t* frameSize);
   int textFrame(const uint8_t* buffer, size_t length, uint8_t** frame,
                 size_t* frameSize);
+  int pingFrame(uint8_t** frame, size_t* frameSize);
 
   int receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
                                 WebSocketHeaderType* ws, WebSocketFrame* rData);

@@ -102,6 +102,20 @@ int INlsRequest::sendAudio(INlsRequest* request, const uint8_t* data,
   return ret;
 }
 
+int INlsRequest::sendText(INlsRequest* request, const char* text) {
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
+
+  return NlsEventNetWork::_eventClient->sendText(request, text);
+}
+
+int INlsRequest::sendPing(INlsRequest* request) {
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
+
+  return NlsEventNetWork::_eventClient->sendPing(request);
+}
+
 const char* INlsRequest::dumpAllInfo(INlsRequest* request) {
   if (request == NULL) {
     LOG_ERROR("Input request is empty.");

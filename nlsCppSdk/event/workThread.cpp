@@ -1155,6 +1155,9 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
           node->addCmdDataBuffer(CmdStart);
         }
         ret = node->nlsSendFrame(node->getCmdEvBuffer());
+        if (ret >= 0) {
+          node->sendFakeSynthesisStarted();
+        }
       } else if (ret == -(NlsReceiveEmpty)) {
         LOG_WARN("Node(%p) nlsReceive empty, try again...", node);
         return Success;

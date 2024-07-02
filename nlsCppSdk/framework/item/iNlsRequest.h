@@ -43,6 +43,8 @@ class INlsRequest {
   int stControl(INlsRequest*, const char*);
   int sendAudio(INlsRequest*, const uint8_t*, size_t,
                 ENCODER_TYPE type = ENCODER_NONE);
+  int sendText(INlsRequest*, const char*);
+  int sendPing(INlsRequest*);
 
   const char* dumpAllInfo(INlsRequest*);
 
