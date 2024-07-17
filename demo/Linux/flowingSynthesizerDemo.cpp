@@ -42,10 +42,10 @@
 
 #define SELF_TESTING_TRIGGER
 #define SAMPLE_RATE_16K 16000
-#define LOOP_TIMEOUT    60
+#define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
 #define DEFAULT_STRING_LEN 512
-#define AUDIO_TEXT_LENGTH  2048
+#define AUDIO_TEXT_LENGTH 2048
 
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
@@ -175,6 +175,7 @@ std::string g_api_version = "";
 std::string g_url = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
+std::string g_voice = "xiaoyun";
 int g_threads = 1;
 int g_cpu = 1;
 int g_sync_timeout = 0;
@@ -320,13 +321,14 @@ std::vector<std::string> splitString(
     size_t minPos = std::string::npos;
     size_t delimiterLength = 0;
 
-    for (const auto& delimiter : delimiters) {
-      auto position = str.find(delimiter, startPos);
+    for (std::vector<std::string>::const_iterator it = delimiters.begin();
+         it != delimiters.end(); ++it) {
+      std::size_t position = str.find(*it, startPos);
       // 查找最近的分隔符
       if (position != std::string::npos &&
           (minPos == std::string::npos || position < minPos)) {
         minPos = position;
-        delimiterLength = delimiter.size();
+        delimiterLength = it->size();
       }
     }
 
@@ -935,7 +937,7 @@ void* pthreadFunc(void* arg) {
      * 1. 创建流式文本语音合成FlowingSynthesizerRequest对象.
      *
      * 流式文本语音合成文档详见:
-     * https://help.aliyun.com/zh/isi/developer-reference/streaming-text-to-speech-synthesis/?spm=a2c4g.11186623.0.0.638b1f016dQylG
+     * https://help.aliyun.com/zh/isi/developer-reference/streaming-text-to-speech-synthesis/
      */
 
     AlibabaNls::FlowingSynthesizerRequest* request =
@@ -974,7 +976,7 @@ void* pthreadFunc(void* arg) {
      * 3. 设置request的相关参数
      */
     // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
-    request->setVoice("xiaoyun");
+    request->setVoice(g_voice.c_str());
     // 音量, 范围是0~100, 可选参数, 默认50
     request->setVolume(50);
     // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
@@ -1093,11 +1095,14 @@ void* pthreadFunc(void* arg) {
      */
     std::string text_str(tst->text);
     if (!text_str.empty()) {
-      std::vector<std::string> delimiters = {"。", "！", "；", "？", "\n"};
+      const char* delims[] = {"。", "！", "；", "？", "\n"};
+      std::vector<std::string> delimiters(
+          delims, delims + sizeof(delims) / sizeof(delims[0]));
       std::vector<std::string> sentences = splitString(text_str, delimiters);
-      for (const auto& sentence : sentences) {
-        std::cout << "sendText: " << sentence << std::endl;
-        ret = request->sendText(sentence.c_str());
+      for (std::vector<std::string>::const_iterator it = sentences.begin();
+           it != sentences.end(); ++it) {
+        std::cout << "sendText: " << *it << std::endl;
+        ret = request->sendText(it->c_str());
         if (ret < 0) {
           break;
         }
@@ -1274,7 +1279,7 @@ void* pthreadLongConnectionFunc(void* arg) {
    * 3. 设置request的相关参数
    */
   // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
-  request->setVoice("xiaoyun");
+  request->setVoice(g_voice.c_str());
   // 音量, 范围是0~100, 可选参数, 默认50
   request->setVolume(50);
   // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
@@ -1394,11 +1399,14 @@ void* pthreadLongConnectionFunc(void* arg) {
      */
     std::string text_str(tst->text);
     if (!text_str.empty()) {
-      std::vector<std::string> delimiters = {"。", "！", "；", "？", "\n"};
+      const char* delims[] = {"。", "！", "；", "？", "\n"};
+      std::vector<std::string> delimiters(
+          delims, delims + sizeof(delims) / sizeof(delims[0]));
       std::vector<std::string> sentences = splitString(text_str, delimiters);
-      for (const auto& sentence : sentences) {
-        std::cout << "sendText: " << sentence << std::endl;
-        ret = request->sendText(sentence.c_str());
+      for (std::vector<std::string>::const_iterator it = sentences.begin();
+           it != sentences.end(); ++it) {
+        std::cout << "sendText: " << *it << std::endl;
+        ret = request->sendText(it->c_str());
         if (ret < 0) {
           break;
         }
@@ -1503,7 +1511,7 @@ void* pthreadLongConnectionFunc(void* arg) {
  * 示例代码为同时开启4个线程合成4个文件;
  * 免费用户并发连接不能超过2个;
  */
-#define AUDIO_TEXT_NUMS        4
+#define AUDIO_TEXT_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int flowingSynthesizerMultFile(const char* appkey, int threads) {
   /**
@@ -1923,6 +1931,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_sync_timeout = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--voice")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_voice = argv[index];
     }
     index++;
   }
@@ -1977,6 +1989,7 @@ int main(int argc, char* argv[]) {
         << "  --format <audio format pcm opu or opus, default wav>\n"
         << "  --save <save audio flag, default 0>\n"
         << "  --subtitle <enable subtitle, default 0>\n"
+        << "  --voice <set voice, default xiaoyun>\n"
         << "  --text <set text for synthesizing>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
         << "  --sampleRate <sample rate, 16K or 8K>\n"
@@ -1998,6 +2011,7 @@ int main(int argc, char* argv[]) {
   std::cout << " appKey: " << g_appkey << std::endl;
   std::cout << " akId: " << g_akId << std::endl;
   std::cout << " akSecret: " << g_akSecret << std::endl;
+  std::cout << " voice: " << g_voice << std::endl;
   std::cout << " domain for token: " << g_domain << std::endl;
   std::cout << " apiVersion for token: " << g_api_version << std::endl;
   std::cout << " domain for vipServer: " << g_vipServerDomain << std::endl;

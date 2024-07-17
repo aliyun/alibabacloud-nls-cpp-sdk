@@ -79,7 +79,7 @@ class WorkThread {
   static int nodeResponseProcess(ConnectNode *node);
 
   static void insertListNode(WorkThread *thread, INlsRequest *request);
-  static void freeListNode(WorkThread *thread, INlsRequest *request);
+  static bool freeListNode(WorkThread *thread, INlsRequest *request);
 
   static void setInstance(NlsClientImpl *instance);
 

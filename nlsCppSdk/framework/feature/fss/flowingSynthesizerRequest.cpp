@@ -178,11 +178,13 @@ FlowingSynthesizerRequest::~FlowingSynthesizerRequest() {
 
   delete _flowingSynthesizerParam;
   _flowingSynthesizerParam = NULL;
+  _requestParam = NULL;
 
   LOG_INFO("Request(%p) destroy SpeechSynthesizerRequest Done.", this);
 }
 
 int FlowingSynthesizerRequest::start() {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setNlsRequestType(FlowingSynthesizer);
   return INlsRequest::start(this);
 }
@@ -201,93 +203,111 @@ const char* FlowingSynthesizerRequest::dumpAllInfo() {
 
 int FlowingSynthesizerRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setPayloadParam(value);
 }
 
 int FlowingSynthesizerRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setContextParam(value);
 }
 
 int FlowingSynthesizerRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setUrl(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setAppKey(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setToken(value);
   return 0;
 }
 
 int FlowingSynthesizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setFormat(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setSampleRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setSampleRate(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setPitchRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setPitchRate(value);
 }
 
 int FlowingSynthesizerRequest::setEnableSubtitle(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setEnableSubtitle(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setSpeechRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setSpeechRate(value);
 }
 
 int FlowingSynthesizerRequest::setVolume(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setVolume(value);
 }
 
 int FlowingSynthesizerRequest::setVoice(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setVoice(value);
 }
 
 int FlowingSynthesizerRequest::setTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setTimeout(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setRecvTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setRecvTimeout(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setSendTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setSendTimeout(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setOutputFormat(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setEnableOnMessage(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setEnableOnMessage(value);
   return Success;
 }
 
 int FlowingSynthesizerRequest::setEnableContinued(bool enable) {
 #ifdef ENABLE_CONTINUED
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   _flowingSynthesizerParam->setEnableContinued(enable);
   return Success;
 #else
@@ -296,10 +316,18 @@ int FlowingSynthesizerRequest::setEnableContinued(bool enable) {
 }
 
 const char* FlowingSynthesizerRequest::getOutputFormat() {
+  if (_flowingSynthesizerParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return NULL;
+  }
   return _flowingSynthesizerParam->getOutputFormat().c_str();
 }
 
 const char* FlowingSynthesizerRequest::getTaskId() {
+  if (_flowingSynthesizerParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return NULL;
+  }
   return _flowingSynthesizerParam->getTaskId().c_str();
 }
 

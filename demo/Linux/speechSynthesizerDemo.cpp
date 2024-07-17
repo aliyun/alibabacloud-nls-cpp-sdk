@@ -41,10 +41,10 @@
 
 #define SELF_TESTING_TRIGGER
 #define SAMPLE_RATE_16K 16000
-#define LOOP_TIMEOUT    60
+#define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
 #define DEFAULT_STRING_LEN 512
-#define AUDIO_TEXT_LENGTH  1024
+#define AUDIO_TEXT_LENGTH 1024
 
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
@@ -171,6 +171,7 @@ std::string g_api_version = "";
 std::string g_url = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
+std::string g_voice = "xiaoyun";
 int g_threads = 1;
 int g_cpu = 1;
 bool g_save_audio = false;
@@ -895,7 +896,7 @@ void* pthreadFunc(void* arg) {
     // https://help.aliyun.com/document_detail/130509.html
     request->setText(tst->text);
     // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
-    request->setVoice("siqi");
+    request->setVoice(g_voice.c_str());
     // 访问个性化音色，访问的Voice必须是个人定制音色
     // request->setPayloadParam("{\"enable_ptts\":true}");
     // 音量, 范围是0~100, 可选参数, 默认50
@@ -1134,7 +1135,7 @@ void* pthreadLongConnectionFunc(void* arg) {
   // 长文本语音合成文档详见: https://help.aliyun.com/document_detail/130509.html
   request->setText(tst->text);
   // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
-  request->setVoice("siqi");
+  request->setVoice(g_voice.c_str());
   // 访问个性化音色，访问的Voice必须是个人定制音色
   // request->setPayloadParam("{\"enable_ptts\":true}");
   // 音量, 范围是0~100, 可选参数, 默认50
@@ -1285,7 +1286,7 @@ void* pthreadLongConnectionFunc(void* arg) {
  * 示例代码为同时开启4个线程合成4个文件;
  * 免费用户并发连接不能超过2个;
  */
-#define AUDIO_TEXT_NUMS        4
+#define AUDIO_TEXT_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechSynthesizerMultFile(const char* appkey, int threads) {
   /**
@@ -1685,6 +1686,10 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         enableSubtitle = false;
       }
+    } else if (!strcmp(argv[index], "--voice")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_voice = argv[index];
     }
     index++;
   }
@@ -1738,6 +1743,7 @@ int main(int argc, char* argv[]) {
         << "  --format <audio format pcm opu or opus, default wav>\n"
         << "  --save <save audio flag, default 0>\n"
         << "  --subtitle <enable subtitle, default 0>\n"
+        << "  --voice <set voice, default xiaoyun>\n"
         << "  --text <set text for synthesizing>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
         << "  --sampleRate <sample rate, 16K or 8K>\n"
@@ -1759,6 +1765,7 @@ int main(int argc, char* argv[]) {
   std::cout << " appKey: " << g_appkey << std::endl;
   std::cout << " akId: " << g_akId << std::endl;
   std::cout << " akSecret: " << g_akSecret << std::endl;
+  std::cout << " voice: " << g_voice << std::endl;
   std::cout << " domain for token: " << g_domain << std::endl;
   std::cout << " apiVersion for token: " << g_api_version << std::endl;
   std::cout << " domain for vipServer: " << g_vipServerDomain << std::endl;

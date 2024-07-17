@@ -37,6 +37,13 @@ namespace utility {
       return -(RequestEmpty);               \
     }                                       \
   } while (0)
+#define INPUT_REQUEST_PARAM_CHECK(x)              \
+  do {                                            \
+    if (x == NULL) {                              \
+      LOG_ERROR("Input request param is empty."); \
+      return -(InvalidRequest);                   \
+    }                                             \
+  } while (0)
 #define REQUEST_CHECK(x, y)                                     \
   do {                                                          \
     if (x == NULL) {                                            \

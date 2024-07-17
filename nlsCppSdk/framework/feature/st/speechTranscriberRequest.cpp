@@ -182,6 +182,7 @@ SpeechTranscriberRequest::~SpeechTranscriberRequest() {
 
   delete _transcriberParam;
   _transcriberParam = NULL;
+  _requestParam = NULL;
 
   LOG_INFO("Request(%p) destroy SpeechTranscriberRequest Done.", this);
 }
@@ -210,115 +211,137 @@ const char* SpeechTranscriberRequest::dumpAllInfo() {
 
 int SpeechTranscriberRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setPayloadParam(value);
 }
 
 int SpeechTranscriberRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setContextParam(value);
 }
 
 int SpeechTranscriberRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setToken(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setUrl(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setAppKey(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setFormat(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setSampleRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setSampleRate(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setIntermediateResult(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setIntermediateResult(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setPunctuationPrediction(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setPunctuationPrediction(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setInverseTextNormalization(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setTextNormalization(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::AppendHttpHeaderParam(const char* key,
                                                     const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->AppendHttpHeader(key, value);
 }
 
 int SpeechTranscriberRequest::setSemanticSentenceDetection(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setSentenceDetection(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setMaxSentenceSilence(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setMaxSentenceSilence(value);
 }
 
 int SpeechTranscriberRequest::setCustomizationId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setCustomizationId(value);
 }
 
 int SpeechTranscriberRequest::setVocabularyId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setVocabularyId(value);
 }
 
 int SpeechTranscriberRequest::setTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setTimeout(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setEnableRecvTimeout(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setEnableRecvTimeout(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setRecvTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setRecvTimeout(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setSendTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setSendTimeout(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setOutputFormat(value);
   return Success;
 }
 
 int SpeechTranscriberRequest::setEnableOnMessage(bool enable) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setEnableOnMessage(enable);
   return Success;
 }
 
 int SpeechTranscriberRequest::setEnableContinued(bool enable) {
 #ifdef ENABLE_CONTINUED
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setEnableContinued(enable);
   return Success;
 #else
@@ -327,40 +350,55 @@ int SpeechTranscriberRequest::setEnableContinued(bool enable) {
 }
 
 const char* SpeechTranscriberRequest::getOutputFormat() {
+  if (_transcriberParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return NULL;
+  }
   return _transcriberParam->getOutputFormat().c_str();
 }
 
 const char* SpeechTranscriberRequest::getTaskId() {
+  if (_transcriberParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return NULL;
+  }
   return _transcriberParam->getTaskId().c_str();
 }
 
 int SpeechTranscriberRequest::setNlpModel(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setNlpModel(value);
 }
 
 int SpeechTranscriberRequest::setEnableNlp(bool enable) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setEnableNlp(enable);
 }
 
 int SpeechTranscriberRequest::setSessionId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setSessionId(value);
 }
 
 int SpeechTranscriberRequest::setEnableWords(bool enable) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setEnableWords(enable);
 }
 
 int SpeechTranscriberRequest::setEnableIgnoreSentenceTimeout(bool enable) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setEnableIgnoreSentenceTimeout(enable);
 }
 
 int SpeechTranscriberRequest::setDisfluency(bool enable) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setDisfluency(enable);
 }
 
 int SpeechTranscriberRequest::setSpeechNoiseThreshold(float value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   return _transcriberParam->setSpeechNoiseThreshold(value);
 }
 

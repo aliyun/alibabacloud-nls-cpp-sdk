@@ -230,10 +230,10 @@ void WorkThread::insertListNode(WorkThread *thread, INlsRequest *request) {
   return;
 }
 
-void WorkThread::freeListNode(WorkThread *thread, INlsRequest *request) {
+bool WorkThread::freeListNode(WorkThread *thread, INlsRequest *request) {
   if (thread == NULL || request == NULL) {
     LOG_ERROR("thread or request is nullptr.");
-    return;
+    return false;
   }
 
   MUTEX_LOCK(thread->_mtxList);
@@ -246,6 +246,7 @@ void WorkThread::freeListNode(WorkThread *thread, INlsRequest *request) {
   }
 
   MUTEX_UNLOCK(thread->_mtxList);
+  return true;
 }
 
 /**
@@ -269,9 +270,9 @@ void WorkThread::destroyConnectNode(ConnectNode *node) {
   NlsNodeManager *node_manager = client->getNodeManger();
   int status = NodeStatusInvalid;
 
-  freeListNode(node->getEventThread(), node->getRequest());
+  bool success = freeListNode(node->getEventThread(), node->getRequest());
 
-  if (node->updateDestroyStatus()) {
+  if (success && node->updateDestroyStatus()) {
     INlsRequest *request = node->getRequest();
     if (request) {
       LOG_DEBUG("Node(%p) destroy request.", node);

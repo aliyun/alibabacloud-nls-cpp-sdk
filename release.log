@@ -161,3 +161,5 @@
 3: 修复securityDisposalForLog()中内存越界崩溃的问题
 4: 修复SSL死锁导致getInstance()死锁的问题
 5: 增加OpenSSL SNI指定, 解决可能存在的握手时服务器不知道发送哪份CA的问题
+6: 解决gcc5以下版本编译不过的问题
+7: 解决CreateXXXRequest()->ReleaseXXXRequest()会崩溃的问题
