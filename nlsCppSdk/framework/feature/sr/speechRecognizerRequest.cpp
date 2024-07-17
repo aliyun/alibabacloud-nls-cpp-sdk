@@ -140,6 +140,7 @@ SpeechRecognizerRequest::~SpeechRecognizerRequest() {
 
   delete _recognizerParam;
   _recognizerParam = NULL;
+  _requestParam = NULL;
 
   LOG_INFO("Request(%p) destroy SpeechRecognizerRequest Done.", this);
 }
@@ -161,121 +162,144 @@ const char* SpeechRecognizerRequest::dumpAllInfo() {
 
 int SpeechRecognizerRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   return _recognizerParam->setPayloadParam(value);
 }
 
 int SpeechRecognizerRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   return _recognizerParam->setContextParam(value);
 }
 
 int SpeechRecognizerRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setToken(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setUrl(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setAppKey(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setFormat(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setSampleRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setSampleRate(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setIntermediateResult(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setIntermediateResult(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setPunctuationPrediction(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setPunctuationPrediction(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setInverseTextNormalization(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setTextNormalization(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setEnableVoiceDetection(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setEnableVoiceDetection(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setMaxStartSilence(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setMaxStartSilence(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setMaxEndSilence(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setMaxEndSilence(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::AppendHttpHeaderParam(const char* key,
                                                    const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   return _recognizerParam->AppendHttpHeader(key, value);
 }
 
 int SpeechRecognizerRequest::setCustomizationId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   return _recognizerParam->setCustomizationId(value);
 }
 
 int SpeechRecognizerRequest::setVocabularyId(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   return _recognizerParam->setVocabularyId(value);
 }
 
 int SpeechRecognizerRequest::setTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setTimeout(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setEnableRecvTimeout(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setEnableRecvTimeout(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setRecvTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setRecvTimeout(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setSendTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setSendTimeout(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setOutputFormat(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setEnableOnMessage(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setEnableOnMessage(value);
   return Success;
 }
 
 int SpeechRecognizerRequest::setEnableContinued(bool enable) {
 #ifdef ENABLE_CONTINUED
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setEnableContinued(enable);
   return Success;
 #else
@@ -284,15 +308,24 @@ int SpeechRecognizerRequest::setEnableContinued(bool enable) {
 }
 
 const char* SpeechRecognizerRequest::getOutputFormat() {
+  if (_recognizerParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return NULL;
+  }
   return _recognizerParam->getOutputFormat().c_str();
 }
 
 const char* SpeechRecognizerRequest::getTaskId() {
+  if (_recognizerParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return NULL;
+  }
   return _recognizerParam->getTaskId().c_str();
 }
 
 int SpeechRecognizerRequest::setAudioAddress(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
   _recognizerParam->setAudioAddress(value);
   return Success;
 }

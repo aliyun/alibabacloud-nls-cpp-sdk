@@ -33,6 +33,17 @@ if [ $# == 3 ]; then
   PRIVATE_FLAG=0
 fi
 
+if [ "$#" -lt 3 ]; then
+  gcc_version=$(gcc -dumpversion)
+  gcc_major_version=$(echo $gcc_version | cut -d. -f1)
+  if [ "$gcc_major_version" -lt 5 ]; then
+    ABI_FLAG=0
+  else
+    ABI_FLAG=1
+  fi
+  echo "当前GCC版本:" $gcc_version " 将ABI_FLAG设置为:" $ABI_FLAG
+fi
+
 git_root_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 build_folder=$git_root_path/build
 audio_resource_folder=$git_root_path/resource/audio
@@ -137,7 +148,10 @@ CFLAG_PARAMS="-Wl,-Bsymbolic -Wl,-Bsymbolic-functions -fPIC -fvisibility=hidden 
 LDFALG_PARAMS="-lpthread -lz -ldl -lanl"
 if [ $ABI_FLAG == 1 ];then
   echo "share library with c++11"
-  CFLAG_PARAMS="-std=c++11 $CFLAG_PARAMS"
+  CFLAG_PARAMS="-std=c++11 $CFLAG_PARAMS -D_GLIBCXX_USE_CXX11_ABI=1"
+  LDFALG_PARAMS="$LDFALG_PARAMS -lstdc++"
+else
+  CFLAG_PARAMS="$CFLAG_PARAMS -D_GLIBCXX_USE_CXX11_ABI=0"
 fi
 if [ $PRIVATE_FLAG == 1 ];then
   LDFALG_PARAMS="$LDFALG_PARAMS -lrt"

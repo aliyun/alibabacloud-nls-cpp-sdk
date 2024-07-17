@@ -215,7 +215,9 @@ ConnectNode::~ConnectNode() {
 #endif
 
   closeConnectNode();
-  _eventThread->freeListNode(_eventThread, _request);
+  if (_eventThread) {
+    _eventThread->freeListNode(_eventThread, _request);
+  }
   _request = NULL;
 
   if (_sslHandle) {
@@ -253,50 +255,57 @@ ConnectNode::~ConnectNode() {
   }
 #endif
 
-  if (_dnsRequest && _dnsRequestCallbackStatus == 1) {
+  if (_eventThread) {
+    if (_dnsRequest && _dnsRequestCallbackStatus == 1) {
+      LOG_DEBUG(
+          "Node(%p) cancel _dnsRequest(%p), current "
+          "event_count_active_added_virtual:%d",
+          this, _dnsRequest,
+          event_base_get_num_events(_eventThread->_workBase,
+                                    EVENT_BASE_COUNT_ACTIVE |
+                                        EVENT_BASE_COUNT_ADDED |
+                                        EVENT_BASE_COUNT_VIRTUAL));
+      LOG_DEBUG(
+          "Node(%p) cancel _dnsRequest(%p), current event_count_active:%d",
+          this, _dnsRequest,
+          event_base_get_num_events(_eventThread->_workBase,
+                                    EVENT_BASE_COUNT_ACTIVE));
+      LOG_DEBUG(
+          "Node(%p) cancel _dnsRequest(%p), current event_count_virtual:%d",
+          this, _dnsRequest,
+          event_base_get_num_events(_eventThread->_workBase,
+                                    EVENT_BASE_COUNT_VIRTUAL));
+      LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_added:%d",
+                this, _dnsRequest,
+                event_base_get_num_events(_eventThread->_workBase,
+                                          EVENT_BASE_COUNT_ADDED));
+      evdns_getaddrinfo_cancel(_dnsRequest);
+    }
     LOG_DEBUG(
-        "Node(%p) cancel _dnsRequest(%p), current "
-        "event_count_active_added_virtual:%d",
-        this, _dnsRequest,
+        "Node(%p) get event_count_active_added_virtual %d in deconstructing "
+        "ConnectNode.",
+        this,
         event_base_get_num_events(_eventThread->_workBase,
                                   EVENT_BASE_COUNT_ACTIVE |
                                       EVENT_BASE_COUNT_ADDED |
                                       EVENT_BASE_COUNT_VIRTUAL));
-    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_active:%d",
-              this, _dnsRequest,
-              event_base_get_num_events(_eventThread->_workBase,
-                                        EVENT_BASE_COUNT_ACTIVE));
-    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_virtual:%d",
-              this, _dnsRequest,
-              event_base_get_num_events(_eventThread->_workBase,
-                                        EVENT_BASE_COUNT_VIRTUAL));
-    LOG_DEBUG("Node(%p) cancel _dnsRequest(%p), current event_count_added:%d",
-              this, _dnsRequest,
-              event_base_get_num_events(_eventThread->_workBase,
-                                        EVENT_BASE_COUNT_ADDED));
-    evdns_getaddrinfo_cancel(_dnsRequest);
+    LOG_DEBUG(
+        "Node(%p) get event_count_active %d in deconstructing ConnectNode.",
+        this,
+        event_base_get_num_events(_eventThread->_workBase,
+                                  EVENT_BASE_COUNT_ACTIVE));
+    LOG_DEBUG(
+        "Node(%p) get event_count_virtual %d in deconstructing ConnectNode.",
+        this,
+        event_base_get_num_events(_eventThread->_workBase,
+                                  EVENT_BASE_COUNT_VIRTUAL));
+    LOG_DEBUG(
+        "Node(%p) get event_count_added %d in deconstructing ConnectNode.",
+        this,
+        event_base_get_num_events(_eventThread->_workBase,
+                                  EVENT_BASE_COUNT_ADDED));
   }
-  LOG_DEBUG(
-      "Node(%p) get event_count_active_added_virtual %d in deconstructing "
-      "ConnectNode.",
-      this,
-      event_base_get_num_events(_eventThread->_workBase,
-                                EVENT_BASE_COUNT_ACTIVE |
-                                    EVENT_BASE_COUNT_ADDED |
-                                    EVENT_BASE_COUNT_VIRTUAL));
-  LOG_DEBUG("Node(%p) get event_count_active %d in deconstructing ConnectNode.",
-            this,
-            event_base_get_num_events(_eventThread->_workBase,
-                                      EVENT_BASE_COUNT_ACTIVE));
-  LOG_DEBUG(
-      "Node(%p) get event_count_virtual %d in deconstructing ConnectNode.",
-      this,
-      event_base_get_num_events(_eventThread->_workBase,
-                                EVENT_BASE_COUNT_VIRTUAL));
-  LOG_DEBUG("Node(%p) get event_count_added %d in deconstructing ConnectNode.",
-            this,
-            event_base_get_num_events(_eventThread->_workBase,
-                                      EVENT_BASE_COUNT_ADDED));
+  _eventThread = NULL;
 
   if (_nlsEncoder) {
     _nlsEncoder->destroyNlsEncoder();
@@ -1195,10 +1204,9 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
         Json::Value root;
         Json::FastWriter writer;
         root["tw_time_offset"] =
-            Json::Value::UInt64(_reconnection.interruption_timestamp_ms -
-                                _reconnection.first_audio_timestamp_ms);
-        root["tw_index_offset"] =
-            Json::Value::UInt64(_reconnection.tw_index_offset);
+            Json::UInt64(_reconnection.interruption_timestamp_ms -
+                         _reconnection.first_audio_timestamp_ms);
+        root["tw_index_offset"] = (Json::UInt64)_reconnection.tw_index_offset;
         std::string buf = writer.write(root);
         _request->getRequestParam()->setPayloadParam(buf.c_str());
       }
@@ -2968,30 +2976,30 @@ void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
       _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
       _nodeProcess.start_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
       _nodeProcess.last_status = NodeInvoking;
-      _nodeProcess.api_start_run.store(true);
+      _nodeProcess.api_start_run = true;
       _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
     } else {
-      _nodeProcess.api_start_run.store(false);
+      _nodeProcess.api_start_run = false;
     }
   } else if (api == "stop") {
     if (enter) {
       _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
       _nodeProcess.stop_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
       _nodeProcess.last_status = NodeStop;
-      _nodeProcess.api_stop_run.store(true);
+      _nodeProcess.api_stop_run = true;
       _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
     } else {
-      _nodeProcess.api_stop_run.store(false);
+      _nodeProcess.api_stop_run = false;
     }
   } else if (api == "cancel") {
     if (enter) {
       _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
       _nodeProcess.cancel_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
       _nodeProcess.last_status = NodeCancel;
-      _nodeProcess.api_cancel_run.store(true);
+      _nodeProcess.api_cancel_run = true;
       _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
     } else {
-      _nodeProcess.api_cancel_run.store(false);
+      _nodeProcess.api_cancel_run = false;
     }
   } else if (api == "sendAudio") {
     if (enter) {
@@ -3000,29 +3008,29 @@ void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
       _nodeProcess.last_status = NodeSendAudio;
       _nodeProcess.recording_bytes += size;
       _nodeProcess.send_count++;
-      _nodeProcess.api_send_run.store(true);
+      _nodeProcess.api_send_run = true;
       _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
     } else {
-      _nodeProcess.api_send_run.store(false);
+      _nodeProcess.api_send_run = false;
     }
   } else if (api == "ctrl") {
     if (enter) {
       _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
       _nodeProcess.last_ctrl_timestamp_ms = _nodeProcess.last_op_timestamp_ms;
       _nodeProcess.last_status = NodeSendControl;
-      _nodeProcess.api_ctrl_run.store(true);
+      _nodeProcess.api_ctrl_run = true;
       _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
     } else {
-      _nodeProcess.api_ctrl_run.store(false);
+      _nodeProcess.api_ctrl_run = false;
     }
   } else if (api == "send_text") {
     if (enter) {
       _nodeProcess.last_op_timestamp_ms = utility::TextUtils::GetTimestampMs();
       _nodeProcess.last_status = NodeSendText;
-      _nodeProcess.api_ctrl_run.store(true);
+      _nodeProcess.api_ctrl_run = true;
       _nodeProcess.last_api_timestamp_ms = utility::TextUtils::GetTimestampMs();
     } else {
-      _nodeProcess.api_ctrl_run.store(false);
+      _nodeProcess.api_ctrl_run = false;
     }
   } else if (api == "callback") {
     if (enter) {
@@ -3057,11 +3065,11 @@ void ConnectNode::updateNodeProcess(std::string api, int status, bool enter,
       _nodeProcess.last_cb_start_timestamp_ms =
           utility::TextUtils::GetTimestampMs();
       _nodeProcess.last_cb_end_timestamp_ms = 0;
-      _nodeProcess.last_cb_run.store(true);
+      _nodeProcess.last_cb_run = true;
     } else {
       _nodeProcess.last_cb_end_timestamp_ms =
           utility::TextUtils::GetTimestampMs();
-      _nodeProcess.last_cb_run.store(false);
+      _nodeProcess.last_cb_run = false;
     }
   }
 }
@@ -3285,7 +3293,7 @@ Json::Value ConnectNode::updateNodeProcess4Callback() {
         callback["end"] = utility::TextUtils::GetTimeFromMs(
             _nodeProcess.last_cb_end_timestamp_ms);
       }
-      if (_nodeProcess.last_cb_run.load()) {
+      if (_nodeProcess.last_cb_run) {
         callback["status"] = "running";
       }
     }
@@ -3302,31 +3310,31 @@ Json::Value ConnectNode::updateNodeProcess4Block() {
     bool running_flag = false;
     std::string timestamp_name = "";
     std::string duration_name = "";
-    if (_nodeProcess.api_start_run.load()) {
+    if (_nodeProcess.api_start_run) {
       block["start"] = "running";
       timestamp_name = "start_timestamp";
       duration_name = "start_duration_ms";
       running_flag = true;
     }
-    if (_nodeProcess.api_stop_run.load()) {
+    if (_nodeProcess.api_stop_run) {
       block["stop"] = "running";
       timestamp_name = "stop_timestamp";
       duration_name = "stop_duration_ms";
       running_flag = true;
     }
-    if (_nodeProcess.api_cancel_run.load()) {
+    if (_nodeProcess.api_cancel_run) {
       block["cancel"] = "running";
       timestamp_name = "cancel_timestamp";
       duration_name = "cancel_duration_ms";
       running_flag = true;
     }
-    if (_nodeProcess.api_send_run.load()) {
+    if (_nodeProcess.api_send_run) {
       block["send"] = "running";
       timestamp_name = "send_timestamp";
       duration_name = "send_duration_ms";
       running_flag = true;
     }
-    if (_nodeProcess.api_ctrl_run.load()) {
+    if (_nodeProcess.api_ctrl_run) {
       block["ctrl"] = "running";
       timestamp_name = "ctrl_timestamp";
       duration_name = "ctrl_duration_ms";
@@ -3337,7 +3345,7 @@ Json::Value ConnectNode::updateNodeProcess4Block() {
           utility::TextUtils::GetTimeFromMs(_nodeProcess.last_api_timestamp_ms);
       uint64_t current = utility::TextUtils::GetTimestampMs();
       block[duration_name] =
-          Json::Value::UInt64(current - _nodeProcess.last_api_timestamp_ms);
+          Json::UInt64(current - _nodeProcess.last_api_timestamp_ms);
     }
   } catch (const std::exception &e) {
     LOG_ERROR("Json failed: %s", e.what());
@@ -3362,7 +3370,7 @@ Json::Value ConnectNode::updateNodeReconnection() {
     }
     if (_reconnection.tw_index_offset > 0) {
       reconnection["tw_index_offset"] =
-          Json::Value::UInt64(_reconnection.tw_index_offset);
+          (Json::UInt64)_reconnection.tw_index_offset;
     }
     if (_reconnection.state != NodeReconnection::NoReconnection) {
       reconnection["should_reconnecting"] = true;

@@ -153,11 +153,13 @@ SpeechSynthesizerRequest::~SpeechSynthesizerRequest() {
 
   delete _synthesizerParam;
   _synthesizerParam = NULL;
+  _requestParam = NULL;
 
   LOG_INFO("Request(%p) destroy SpeechSynthesizerRequest Done.", this);
 }
 
 int SpeechSynthesizerRequest::start() {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setNlsRequestType(SpeechSynthesizer);
   return INlsRequest::start(this);
 }
@@ -172,103 +174,123 @@ const char* SpeechSynthesizerRequest::dumpAllInfo() {
 
 int SpeechSynthesizerRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setPayloadParam(value);
 }
 
 int SpeechSynthesizerRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setContextParam(value);
 }
 
 int SpeechSynthesizerRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setUrl(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setAppKey(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setToken(value);
   return 0;
 }
 
 int SpeechSynthesizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setFormat(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setSampleRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setSampleRate(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setText(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   LOG_DEBUG("Request(%p) setText(%dbytes): %s", this, strlen(value), value);
   return _synthesizerParam->setText(value);
 }
 
 int SpeechSynthesizerRequest::setMethod(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setMethod(value);
 }
 
 int SpeechSynthesizerRequest::setPitchRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setPitchRate(value);
 }
 
 int SpeechSynthesizerRequest::setEnableSubtitle(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setEnableSubtitle(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setSpeechRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setSpeechRate(value);
 }
 
 int SpeechSynthesizerRequest::setVolume(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setVolume(value);
 }
 
 int SpeechSynthesizerRequest::setVoice(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->setVoice(value);
 }
 
 int SpeechSynthesizerRequest::setTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setTimeout(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setRecvTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setRecvTimeout(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setSendTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setSendTimeout(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setOutputFormat(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setEnableOnMessage(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setEnableOnMessage(value);
   return Success;
 }
 
 int SpeechSynthesizerRequest::setEnableContinued(bool enable) {
 #ifdef ENABLE_CONTINUED
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   _synthesizerParam->setEnableContinued(enable);
   return Success;
 #else
@@ -321,6 +343,7 @@ void SpeechSynthesizerRequest::setOnMessage(NlsCallbackMethod _event,
 
 int SpeechSynthesizerRequest::AppendHttpHeaderParam(const char* key,
                                                     const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
   return _synthesizerParam->AppendHttpHeader(key, value);
 }
 

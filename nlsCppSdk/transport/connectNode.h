@@ -27,7 +27,6 @@
 #endif
 
 #include <stdint.h>
-#include <atomic>
 #include <queue>
 #include <string>
 
@@ -55,13 +54,13 @@ class NlsEventNetWork;
 
 #if defined(_MSC_VER)
 
-#define NLS_ERR_IS_EAGAIN(e)    ((e) == WSAEWOULDBLOCK || (e) == EAGAIN)
+#define NLS_ERR_IS_EAGAIN(e) ((e) == WSAEWOULDBLOCK || (e) == EAGAIN)
 #define NLS_ERR_RW_RETRIABLE(e) ((e) == WSAEWOULDBLOCK || (e) == WSAEINTR)
 #define NLS_ERR_CONNECT_RETRIABLE(e)                                    \
   ((e) == WSAEWOULDBLOCK || (e) == WSAEINTR || (e) == WSAEINPROGRESS || \
    (e) == WSAEINVAL)
 #define NLS_ERR_ACCEPT_RETRIABLE(e) EVUTIL_ERR_RW_RETRIABLE(e)
-#define NLS_ERR_CONNECT_REFUSED(e)  ((e) == WSAECONNREFUSED)
+#define NLS_ERR_CONNECT_REFUSED(e) ((e) == WSAECONNREFUSED)
 
 #else
 
@@ -72,7 +71,7 @@ class NlsEventNetWork;
 #define NLS_ERR_IS_EAGAIN(e) ((e) == EAGAIN || (e) == EWOULDBLOCK)
 #endif /*EAGAIN == EWOULDBLOCK*/
 /* True iff e is an error that means a read/write operation can be retried. */
-#define NLS_ERR_RW_RETRIABLE(e)      ((e) == EINTR || NLS_ERR_IS_EAGAIN(e))
+#define NLS_ERR_RW_RETRIABLE(e) ((e) == EINTR || NLS_ERR_IS_EAGAIN(e))
 /* True iff e is an error that means an connect can be retried. */
 #define NLS_ERR_CONNECT_RETRIABLE(e) ((e) == EINTR || (e) == EINPROGRESS)
 /* True iff e is an error that means a accept can be retried. */
@@ -83,7 +82,7 @@ class NlsEventNetWork;
 
 #endif /*#if defined(_MSC_VER)*/
 
-#define CLOSE_JSON_STRING              "{\"channelClosed\": \"nls request finished.\"}"
+#define CLOSE_JSON_STRING "{\"channelClosed\": \"nls request finished.\"}"
 #define TASKFAILED_CONNECT_JSON_STRING "connect failed."
 #define TASKFAILED_PARSE_JSON_STRING \
   "{\"TaskFailed\": \"JSON: Json parse failed.\"}"
@@ -167,18 +166,18 @@ struct NodeProcess {
     play_count = 0;
 
     /* about API */
-    api_start_run.store(false);
-    api_stop_run.store(false);
-    api_cancel_run.store(false);
-    api_send_run.store(false);
-    api_ctrl_run.store(false);
+    api_start_run = false;
+    api_stop_run = false;
+    api_cancel_run = false;
+    api_send_run = false;
+    api_ctrl_run = false;
     last_api_timestamp_ms = 0;
 
     /* about CALLBACK */
     last_callback = NlsEvent::TaskFailed;
     last_cb_start_timestamp_ms = 0;
     last_cb_end_timestamp_ms = 0;
-    last_cb_run.store(false);
+    last_cb_run = false;
   };
   ~NodeProcess(){};
 
@@ -203,18 +202,18 @@ struct NodeProcess {
   uint64_t play_count;
 
   /* about API */
-  std::atomic_bool api_start_run;
-  std::atomic_bool api_stop_run;
-  std::atomic_bool api_cancel_run;
-  std::atomic_bool api_send_run;
-  std::atomic_bool api_ctrl_run;
+  bool api_start_run;
+  bool api_stop_run;
+  bool api_cancel_run;
+  bool api_send_run;
+  bool api_ctrl_run;
   uint64_t last_api_timestamp_ms;
 
   /* about CALLBACK */
   NlsEvent::EventType last_callback;
   uint64_t last_cb_start_timestamp_ms;
   uint64_t last_cb_end_timestamp_ms;
-  std::atomic_bool last_cb_run;
+  bool last_cb_run;
 };
 #endif
 

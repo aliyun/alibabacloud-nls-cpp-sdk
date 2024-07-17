@@ -164,15 +164,17 @@ DialogAssistantRequest::~DialogAssistantRequest() {
 
   delete _dialogAssistantParam;
   _dialogAssistantParam = NULL;
+  _requestParam = NULL;
 
   LOG_INFO("Request(%p) Destroy DialogAssistantRequest.", this);
 }
 
 int DialogAssistantRequest::start() {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   if (_dialogAssistantParam->_enableWakeWord) {
-    _requestParam->setNlsRequestType(SpeechWakeWordDialog);
+    _dialogAssistantParam->setNlsRequestType(SpeechWakeWordDialog);
   } else {
-    _requestParam->setNlsRequestType(SpeechExecuteDialog);
+    _dialogAssistantParam->setNlsRequestType(SpeechExecuteDialog);
   }
   return INlsRequest::start(this);
 }
@@ -187,7 +189,8 @@ int DialogAssistantRequest::StopWakeWordVerification() {
 }
 
 int DialogAssistantRequest::queryText() {
-  _requestParam->setNlsRequestType(SpeechTextDialog);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
+  _dialogAssistantParam->setNlsRequestType(SpeechTextDialog);
   return INlsRequest::start(this);
 }
 
@@ -202,94 +205,113 @@ const char* DialogAssistantRequest::dumpAllInfo() {
 
 int DialogAssistantRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setPayloadParam(value);
 }
 
 int DialogAssistantRequest::setContextParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setContextParam(value);
 }
 
 int DialogAssistantRequest::setToken(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setToken(value);
   return 0;
 }
 
 int DialogAssistantRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setUrl(value);
   return 0;
 }
 
 int DialogAssistantRequest::setAppKey(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setAppKey(value);
   return 0;
 }
 
 int DialogAssistantRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setFormat(value);
   return 0;
 }
 
 int DialogAssistantRequest::setSampleRate(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setSampleRate(value);
   return 0;
 }
 
 int DialogAssistantRequest::setTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setTimeout(value);
   return 0;
 }
 
 int DialogAssistantRequest::setRecvTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setRecvTimeout(value);
   return 0;
 }
 
 int DialogAssistantRequest::setSendTimeout(int value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setSendTimeout(value);
   return 0;
 }
 
 int DialogAssistantRequest::setOutputFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   _dialogAssistantParam->setOutputFormat(value);
   return 0;
 }
 
 int DialogAssistantRequest::setSessionId(const char* sessionId) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setSessionId(sessionId);
 }
 
 int DialogAssistantRequest::setQueryContext(const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setQueryContext(value);
 }
 
 int DialogAssistantRequest::setQuery(const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setQuery(value);
 }
 
 int DialogAssistantRequest::setQueryParams(const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setQueryParams(value);
 }
 
 int DialogAssistantRequest::AppendHttpHeaderParam(const char* key,
                                                   const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->AppendHttpHeader(key, value);
 }
 
 int DialogAssistantRequest::setWakeWordModel(const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setWakeWordModel(value);
 }
 
 int DialogAssistantRequest::setWakeWord(const char* value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setWakeWord(value);
 }
 
 int DialogAssistantRequest::setEnableWakeWordVerification(bool value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setEnableWakeWordVerification(value);
 }
 
@@ -329,6 +351,10 @@ void DialogAssistantRequest::setOnChannelClosed(NlsCallbackMethod _event,
 }
 
 void DialogAssistantRequest::setEnableMultiGroup(bool value) {
+  if (_dialogAssistantParam == NULL) {
+    LOG_ERROR("Input request param is empty.");
+    return;
+  }
   _dialogAssistantParam->setEnableMultiGroup(value);
 }
 
