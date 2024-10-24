@@ -25,8 +25,8 @@
 #include <string>
 
 #include "nlsClient.h"
-#include "nodeManager.h"
 #include "nlsGlobal.h"
+#include "nodeManager.h"
 
 namespace AlibabaNls {
 
@@ -73,6 +73,12 @@ class NlsClientImpl {
 #endif
 
   NlsNodeManager* getNodeManger();
+
+#if defined(_MSC_VER)
+  HANDLE _mtxReleaseRequestGuard;
+#else
+  pthread_mutex_t _mtxReleaseRequestGuard;
+#endif
 
  private:
   enum NlsClientConstValue {

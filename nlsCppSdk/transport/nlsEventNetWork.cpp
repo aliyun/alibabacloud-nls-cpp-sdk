@@ -54,7 +54,7 @@ NlsEventNetWork::NlsEventNetWork()
       _workThreadsNumber(0),
       _currentCpuNumber(0),
       _addrInFamily(0),
-      _directIp({0}),
+      _directIp(),
       _enableSysGetAddr(false),
       _syncCallTimeoutMs(0),
       _instance(NULL) {}
@@ -272,7 +272,7 @@ int NlsEventNetWork::start(INlsRequest *request) {
     node->setSyncCallTimeout(_syncCallTimeoutMs);
     work_thread->updateParameters(node);
 
-    LOG_DEBUG("Request(%p) node(%p) ready to invoke event_add LauchEvent ...",
+    LOG_DEBUG("Request(%p) node(%p) ready to invoke event_add LaunchEvent ...",
               request, node);
     int event_ret = event_add(node->getLaunchEvent(true), NULL);
     if (event_ret != Success) {
@@ -644,6 +644,55 @@ int NlsEventNetWork::sendPing(INlsRequest *request) {
   }
 
   int ret = node->cmdNotify(CmdSendPing, NULL);
+
+  MUTEX_UNLOCK(_mtxThread);
+  return ret;
+}
+
+int NlsEventNetWork::sendFlush(INlsRequest *request) {
+  MUTEX_LOCK(_mtxThread);
+
+  if (_eventClient == NULL) {
+    LOG_ERROR(
+        "NlsEventNetWork has destroyed, please invoke startWorkThread() "
+        "first.");
+    MUTEX_UNLOCK(_mtxThread);
+    return -(EventClientEmpty);
+  }
+
+  ConnectNode *node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!",
+              request);
+    MUTEX_UNLOCK(_mtxThread);
+    return -(NodeEmpty);
+  }
+
+  /* Node也许处于Starting状态还未到Started状态, 可等待一会. */
+  int try_count = 500;
+  while (try_count-- > 0 && node->getConnectNodeStatus() == NodeStarting) {
+#ifdef _MSC_VER
+    Sleep(1);
+#else
+    usleep(1000);
+#endif
+  }
+
+  /* invoke sendFlush
+   * Node未处于started状态, 或处于退出状态, 则当前不可调用sendFlush.
+   */
+  if (node->getConnectNodeStatus() != NodeStarted ||
+      node->getExitStatus() != ExitInvalid) {
+    LOG_ERROR(
+        "Request(%p) node(%p) invoke sendFlush command failed, current status "
+        "is invalid. node status:%s, exit status:%s.",
+        request, node, node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+    MUTEX_UNLOCK(_mtxThread);
+    return -(InvokeSendTextFailed);
+  }
+
+  int ret = node->cmdNotify(CmdSendFlush, NULL);
 
   MUTEX_UNLOCK(_mtxThread);
   return ret;

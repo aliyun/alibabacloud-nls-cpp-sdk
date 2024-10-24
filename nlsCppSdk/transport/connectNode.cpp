@@ -40,6 +40,7 @@
 #include <sys/time.h>
 #endif
 
+#include "Config.h"
 #include "connectNode.h"
 #include "iNlsRequest.h"
 #include "iNlsRequestParam.h"
@@ -50,10 +51,9 @@
 #include "text_utils.h"
 #include "utility.h"
 #include "workThread.h"
-#include "Config.h"
 #ifdef ENABLE_REQUEST_RECORDING
-#include "text_utils.h"
 #include "json/json.h"
+#include "text_utils.h"
 #endif
 
 namespace AlibabaNls {
@@ -108,7 +108,9 @@ ConnectNode::ConnectNode(INlsRequest *request,
 #ifdef ENABLE_CONTINUED
       _reconnectEvent(NULL),
 #endif
-      _inEventCallbackNode(false) {
+      _inEventCallbackNode(false),
+      _releasingFlag(false),
+      _waitEventCallbackAbnormally(false) {
   _binaryEvBuffer = evbuffer_new();
   if (_binaryEvBuffer == NULL) {
     LOG_ERROR("_binaryEvBuffer is nullptr");
@@ -187,9 +189,9 @@ ConnectNode::ConnectNode(INlsRequest *request,
   _nodeUUID = utility::TextUtils::getRandomUuid();
 
   LOG_INFO(
-      "Node(%p) create ConnectNode done with long connection flag:%d, the UUID "
+      "Node(%p) create ConnectNode done with long connection flag:%s, the UUID "
       "is %s",
-      this, _isLongConnection, _nodeUUID.c_str());
+      this, _isLongConnection ? "True" : "False", _nodeUUID.c_str());
 }
 
 ConnectNode::~ConnectNode() {
@@ -214,6 +216,7 @@ ConnectNode::~ConnectNode() {
   }
 #endif
 
+  waitEventCallback();
   closeConnectNode();
   if (_eventThread) {
     _eventThread->freeListNode(_eventThread, _request);
@@ -279,7 +282,14 @@ ConnectNode::~ConnectNode() {
                 this, _dnsRequest,
                 event_base_get_num_events(_eventThread->_workBase,
                                           EVENT_BASE_COUNT_ADDED));
-      evdns_getaddrinfo_cancel(_dnsRequest);
+
+      if (_waitEventCallbackAbnormally && _workStatus == NodeConnecting) {
+        LOG_WARN(
+            "Node(%p) is in an exception and NodeConnecting, skipping "
+            "evdns_getaddrinfo_cancel.");
+      } else {
+        evdns_getaddrinfo_cancel(_dnsRequest);
+      }
     }
     LOG_DEBUG(
         "Node(%p) get event_count_active_added_virtual %d in deconstructing "
@@ -469,6 +479,9 @@ std::string ConnectNode::getConnectNodeStatusString(ConnectStatus status) {
     case NodePlayAudio:
       ret_str.assign("NodePlayAudio");
       break;
+    case NodeSendText:
+      ret_str.assign("NodeSendText");
+      break;
     default:
       LOG_ERROR("Current invalid node status:%d.", status);
   }
@@ -559,6 +572,9 @@ std::string ConnectNode::getCmdTypeString(int type) {
       break;
     case CmdSendPing:
       ret_str.assign("CmdSendPing");
+      break;
+    case CmdSendFlush:
+      ret_str.assign("CmdSendFlush");
       break;
   }
 
@@ -665,7 +681,27 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
  * @return:
  */
 void ConnectNode::disconnectProcess() {
-  MUTEX_LOCK(_mtxCloseNode);
+  bool lock_ret = true;
+  MUTEX_TRY_LOCK(_mtxCloseNode, 2000, lock_ret);
+  if (!lock_ret) {
+    LOG_ERROR("Node(%p) disconnectProcess, deadlock has occurred", this);
+
+    if (_releasingFlag || _exitStatus == ExitCancel) {
+      LOG_ERROR(
+          "Node(%p) in the process of releasing/canceling, skip "
+          "disconnectProcess.",
+          this);
+
+      _isConnected = false;
+
+      LOG_DEBUG(
+          "Node(%p) disconnectProcess done, current node status:%s exit "
+          "status:%s.",
+          this, getConnectNodeStatusString().c_str(),
+          getExitStatusString().c_str());
+      return;
+    }
+  }
 
   LOG_DEBUG(
       "Node(%p) disconnectProcess begin, current node status:%s exit "
@@ -693,7 +729,9 @@ void ConnectNode::disconnectProcess() {
       this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
-  MUTEX_UNLOCK(_mtxCloseNode);
+  if (lock_ret) {
+    MUTEX_UNLOCK(_mtxCloseNode);
+  }
 }
 
 /**
@@ -735,7 +773,35 @@ void ConnectNode::closeStatusConnectNode() {
  * @return:
  */
 void ConnectNode::closeConnectNode() {
-  MUTEX_LOCK(_mtxCloseNode);
+  bool lock_ret = true;
+  MUTEX_TRY_LOCK(_mtxCloseNode, 2000, lock_ret);
+  if (!lock_ret) {
+    LOG_ERROR("Node(%p) closeConnectNode, deadlock has occurred", this);
+
+    if (_releasingFlag || _exitStatus == ExitCancel) {
+      LOG_ERROR(
+          "Node(%p) in the process of releasing/canceling, skip "
+          "closeConnectNode.",
+          this);
+
+      _isConnected = false;
+
+      if (_audioFrame) {
+        free(_audioFrame);
+        _audioFrame = NULL;
+      }
+      _audioFrameSize = 0;
+      _maxFrameSize = 0;
+      _isFirstAudioFrame = true;
+
+      LOG_INFO(
+          "Node(%p) closeConnectNode done, current node status:%s exit "
+          "status:%s.",
+          this, getConnectNodeStatusString().c_str(),
+          getExitStatusString().c_str());
+      return;
+    }
+  }
 
   LOG_DEBUG(
       "Node(%p) closeConnectNode begin, current node status:%s exit status:%s.",
@@ -802,7 +868,9 @@ void ConnectNode::closeConnectNode() {
       this, getConnectNodeStatusString().c_str(),
       getExitStatusString().c_str());
 
-  MUTEX_UNLOCK(_mtxCloseNode);
+  if (lock_ret) {
+    MUTEX_UNLOCK(_mtxCloseNode);
+  }
 }
 
 int ConnectNode::socketWrite(const uint8_t *buffer, size_t len) {
@@ -1238,7 +1306,10 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
           message);
       break;
     case CmdSendPing:
-      cmd = "{ping}";
+      cmd = (char *)"{ping}";
+      break;
+    case CmdSendFlush:
+      cmd = (char *)_request->getRequestParam()->getFlushFlowingTextCommand();
       break;
     default:
       LOG_WARN("Node(%p) add unknown command, do nothing.", this);
@@ -1328,6 +1399,9 @@ int ConnectNode::cmdNotify(CmdType type, const char *message) {
     }
   } else if (type == CmdSendPing) {
     addCmdDataBuffer(CmdSendPing, NULL);
+    ret = nlsSendFrame(_cmdEvBuffer);
+  } else if (type == CmdSendFlush) {
+    addCmdDataBuffer(CmdSendFlush, NULL);
     ret = nlsSendFrame(_cmdEvBuffer);
   } else {
     LOG_ERROR("Node(%p) invoke unknown command.", this);
@@ -1470,6 +1544,12 @@ int ConnectNode::nlsReceive(uint8_t *buffer, int max_size) {
 int ConnectNode::webSocketResponse() {
   int ret = 0;
   int read_len = 0;
+
+  if (_releasingFlag) {
+    LOG_WARN("Node(%p) is releasing!!! skipping ...", this);
+    return -(InvalidStatusWhenReleasing);
+  }
+
   uint8_t *frame = (uint8_t *)calloc(ReadBufferSize, sizeof(char));
   if (frame == NULL) {
     LOG_ERROR("%s %d calloc failed.", __func__, __LINE__);
@@ -1521,6 +1601,12 @@ int ConnectNode::webSocketResponse() {
       // LOG_DEBUG("Node(%p) parse websocket frame, len:%zu, frame size:%zu,
       // _wsType.opCode:%d, wsFrame.type:%d.",
       //     this, wsFrame.length, frameSize, _wsType.opCode, wsFrame.type);
+
+      if (_releasingFlag) {
+        LOG_WARN("Node(%p) is releasing!!! skipping ...", this);
+        ret = -(InvalidStatusWhenReleasing);
+        break;
+      }
 
       if (_wsType.opCode == WebSocketHeaderType::PONG) {
         LOG_DEBUG("Node(%p) receive PONG.", this);
@@ -1611,13 +1697,14 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
     std::string result((char *)wsFrame->data, wsFrame->length);
     if (wsFrame->length > 1024) {
       std::string part_result((char *)wsFrame->data, 1024);
-      LOG_INFO("Node(%p) ws frame len:%d is too long, part response(1024): %s.",
-               this, wsFrame->length, part_result.c_str());
+      LOG_DEBUG(
+          "Node(%p) ws frame len:%d is too long, part response(1024): %s.",
+          this, wsFrame->length, part_result.c_str());
     } else if (wsFrame->length == 0) {
       LOG_ERROR("Node(%p) ws frame len is zero!", this);
     } else {
-      LOG_INFO("Node(%p) response(ws frame len:%d): %s", this, wsFrame->length,
-               result.c_str());
+      LOG_DEBUG("Node(%p) response(ws frame len:%d): %s", this, wsFrame->length,
+                result.c_str());
     }
 
     if ("GBK" == _request->getRequestParam()->_outputFormat) {
@@ -2276,11 +2363,11 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
 
   _url._enableSysGetAddr = sysGetAddr;
   if (_url._isSsl) {
-    LOG_INFO("Node(%p) _url._isSsl is True, _url._enableSysGetAddr is %d.",
-             this, _url._enableSysGetAddr);
+    LOG_INFO("Node(%p) _url._isSsl is True, _url._enableSysGetAddr is %s.",
+             this, _url._enableSysGetAddr ? "True" : "False");
   } else {
-    LOG_INFO("Node(%p) _url._isSsl is False, _url._enableSysGetAddr is %d.",
-             this, _url._enableSysGetAddr);
+    LOG_INFO("Node(%p) _url._isSsl is False, _url._enableSysGetAddr is %s.",
+             this, _url._enableSysGetAddr ? "True" : "False");
   }
 
   if (_url._directIp) {
@@ -2311,9 +2398,9 @@ int ConnectNode::dnsProcess(int aiFamily, char *directIp, bool sysGetAddr) {
       hints.ai_socktype = SOCK_STREAM;
       hints.ai_protocol = IPPROTO_TCP;
 
-      LOG_INFO("Node(%p) dns url:%s, enableSysGetAddr:%d.", this,
+      LOG_INFO("Node(%p) dns url:%s, enableSysGetAddr:%s.", this,
                _request->getRequestParam()->_url.c_str(),
-               _url._enableSysGetAddr);
+               _url._enableSysGetAddr ? "True" : "False");
 
       if (_url._enableSysGetAddr) {
 #ifdef __LINUX__
@@ -2768,6 +2855,12 @@ void ConnectNode::delAllEvents() {
 
   waitEventCallback();
 
+  bool del_all_events_lock_ret = true;
+  MUTEX_TRY_LOCK(_mtxCloseNode, 2000, del_all_events_lock_ret);
+  if (!del_all_events_lock_ret) {
+    LOG_ERROR("Node(%p) delAllEvents, deadlock has occurred", this);
+  }
+
   if (_dnsEvent) {
     event_del(_dnsEvent);
     event_free(_dnsEvent);
@@ -2798,6 +2891,10 @@ void ConnectNode::delAllEvents() {
     _connectTimerEvent = NULL;
   }
 #endif
+
+  if (del_all_events_lock_ret) {
+    MUTEX_UNLOCK(_mtxCloseNode);
+  }
 
   waitEventCallback();
 
@@ -2831,10 +2928,12 @@ void ConnectNode::waitEventCallback() {
     if (ETIMEDOUT == pthread_cond_timedwait(&_cvEventCallbackNode,
                                             &_mtxEventCallbackNode, &outtime)) {
       LOG_WARN("Node(%p) waiting EventCallback timeout.", this);
+      _waitEventCallbackAbnormally = true;
     }
     MUTEX_UNLOCK(_mtxEventCallbackNode);
 #endif
-    LOG_DEBUG("Node(%p) waiting EventCallback done.", this);
+    LOG_DEBUG("Node(%p) waiting EventCallback done with abnormal flag(%s).",
+              this, _waitEventCallbackAbnormally ? "true" : "false");
   }
 
   // LOG_DEBUG("Node(%p) wait all EventCallback exit done.", this);

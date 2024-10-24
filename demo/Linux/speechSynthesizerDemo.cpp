@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/io.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -172,13 +173,16 @@ std::string g_url = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_voice = "xiaoyun";
+std::string g_log_file = "log-synthesizer";
+int g_log_count = 20;
 int g_threads = 1;
 int g_cpu = 1;
 bool g_save_audio = false;
 std::string g_text = "";
-std::string g_format = "wav";
+std::string g_format = "pcm";
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
+int g_setrlimit = 0; /*设置文件描述符的限制*/
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
@@ -902,7 +906,7 @@ void* pthreadFunc(void* arg) {
     // 音量, 范围是0~100, 可选参数, 默认50
     request->setVolume(50);
     // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
-    request->setFormat("wav");
+    request->setFormat(g_format.c_str());
     // 音频采样率, 包含8000, 16000. 可选参数, 默认是16000
     request->setSampleRate(sample_rate);
     // 语速, 范围是-500~500, 可选参数, 默认是0
@@ -1141,7 +1145,7 @@ void* pthreadLongConnectionFunc(void* arg) {
   // 音量, 范围是0~100, 可选参数, 默认50
   request->setVolume(50);
   // 音频编码格式, 可选参数, 默认是wav. 支持的格式pcm, wav, mp3
-  request->setFormat("wav");
+  request->setFormat(g_format.c_str());
   // 音频采样率, 包含8000, 16000. 可选参数, 默认是16000
   request->setSampleRate(sample_rate);
   // 语速, 范围是-500~500, 可选参数, 默认是0
@@ -1690,6 +1694,18 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_voice = argv[index];
+    } else if (!strcmp(argv[index], "--setrlimit")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_setrlimit = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--logFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_file = argv[index];
+    } else if (!strcmp(argv[index], "--logFileCount")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_count = atoi(argv[index]);
     }
     index++;
   }
@@ -1702,6 +1718,9 @@ int parse_argv(int argc, char* argv[]) {
   }
   if (g_appkey.empty() && getenv("NLS_APPKEY_ENV")) {
     g_appkey.assign(getenv("NLS_APPKEY_ENV"));
+  }
+  if (g_token.empty() && getenv("NLS_TOKEN")) {
+    g_token.assign(getenv("NLS_TOKEN"));
   }
 
   if ((g_token.empty() && (g_akId.empty() || g_akSecret.empty())) ||
@@ -1738,17 +1757,22 @@ int main(int argc, char* argv[]) {
            "123.123.123.123:80,124.124.124.124:81>\n"
         << "  --vipServerTargetDomain <the target domain of vipServer, eg: "
            "default.gateway.vipserver>\n"
-        << "  --threads <Thread Numbers, default 1>\n"
-        << "  --time <Timeout secs, default 60 seconds>\n"
-        << "  --format <audio format pcm opu or opus, default wav>\n"
-        << "  --save <save audio flag, default 0>\n"
+        << "  --threads <The number of requests running at the same time, "
+           "default 1>\n"
+        << "  --time <The time of the test run, in seconds>\n"
+        << "  --format <The returned audio format, which can be pcm wav and "
+           "mp3, default pcm>\n"
+        << "  --save <The audio data from server is saved, default 0>\n"
         << "  --subtitle <enable subtitle, default 0>\n"
         << "  --voice <set voice, default xiaoyun>\n"
         << "  --text <set text for synthesizing>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-        << "  --sampleRate <sample rate, 16K or 8K>\n"
+        << "  --sampleRate <sample rate, default 16000>\n"
         << "  --long <long connection: 1, short connection: 0, default 0>\n"
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
+        << "  --setrlimit <Set the limits of the file descriptor>\n"
+        << "  --logFile <log file>\n"
+        << "  --logFileCount <The count of log file>\n"
         << "eg:\n"
         << "  ./syDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./syDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
@@ -1800,7 +1824,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
 #ifdef LOG_TRIGGER
     ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        "log-synthesizer", AlibabaNls::LogDebug, 400, 50, NULL);
+        g_log_file.c_str(), AlibabaNls::LogDebug, 100, g_log_count, NULL);
     if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;
@@ -1819,6 +1843,18 @@ int main(int argc, char* argv[]) {
     // 可调用此接口主动启用系统的getaddrinfo来解决这个问题.
     if (sysAddrinfo) {
       AlibabaNls::NlsClient::getInstance()->setUseSysGetAddrInfo(true);
+    }
+
+    if (g_setrlimit) {
+      struct rlimit lim;
+      // 设置软限制
+      lim.rlim_cur = g_setrlimit;      // 设置软限制
+      lim.rlim_max = g_setrlimit * 2;  // 设置硬限制
+      if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+        perror("setrlimit");
+        std::cout << "setrlimit failed ... " << std::endl;
+        return 1;
+      }
     }
 
     std::cout << "startWorkThread begin... " << std::endl;

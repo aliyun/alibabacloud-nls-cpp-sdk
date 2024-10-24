@@ -28,9 +28,9 @@
 #define NLS_SDK_CLIENT_EXPORT NLS_SDK_DECL_IMPORT
 #endif
 
-#define NLS_EXTERN_C    extern "C"
-#define NLS_EXPORTS     NLS_SDK_DECL_EXPORT
-#define NLS_CDECL       __cdecl
+#define NLS_EXTERN_C extern "C"
+#define NLS_EXPORTS NLS_SDK_DECL_EXPORT
+#define NLS_CDECL __cdecl
 #define NLSAPI(rettype) NLS_EXTERN_C NLS_EXPORTS rettype NLS_CDECL
 
 typedef int(NLS_CDECL* NlsCallbackDelegate)(void*);
@@ -82,17 +82,18 @@ enum NlsRetCode {
   OggOpusStopFailed,         /* OggOpus停止失败 */
 
   /* nls client */
-  EventClientEmpty = 150,   /* 主工作线程空指针, 已释放 */
-  SelectThreadFailed,       /* 工作线程选择失败, 未初始化 */
-  StartCommandFailed = 160, /* 发送start命令失败 */
-  InvokeStartFailed,        /* 请求状态机不对, 导致start失败 */
-  InvokeSendAudioFailed,    /* 请求状态机不对, 导致sendAudio失败 */
-  InvalidOpusFrameSize,     /* opus帧长无效, 默认为640字节 */
-  InvokeStopFailed,         /* 请求状态机不对, 导致stop失败 */
-  InvokeCancelFailed,       /* 请求状态机不对, 导致stop失败 */
-  InvokeStControlFailed,    /* 请求状态机不对, 导致stControl失败 */
-  InvokeSendTextFailed,     /* 请求状态机不对, 导致sendText失败 */
-  InvokeTimeout,            /* 调用超时 */
+  EventClientEmpty = 150,     /* 主工作线程空指针, 已释放 */
+  SelectThreadFailed,         /* 工作线程选择失败, 未初始化 */
+  StartCommandFailed = 160,   /* 发送start命令失败 */
+  InvokeStartFailed,          /* 请求状态机不对, 导致start失败 */
+  InvokeSendAudioFailed,      /* 请求状态机不对, 导致sendAudio失败 */
+  InvalidOpusFrameSize,       /* opus帧长无效, 默认为640字节 */
+  InvokeStopFailed,           /* 请求状态机不对, 导致stop失败 */
+  InvokeCancelFailed,         /* 请求状态机不对, 导致stop失败 */
+  InvokeStControlFailed,      /* 请求状态机不对, 导致stControl失败 */
+  InvokeSendTextFailed,       /* 请求状态机不对, 导致sendText失败 */
+  InvokeTimeout,              /* 调用超时 */
+  InvalidStatusWhenReleasing, /* 请求状态机不对, 处于释放阶段 */
 
   /* nls event */
   NlsEventEmpty = 200,          /* NLS事件为空 */

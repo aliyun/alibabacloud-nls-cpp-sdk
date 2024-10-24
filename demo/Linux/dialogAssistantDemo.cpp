@@ -37,7 +37,7 @@
 #define SELF_TESTING_TRIGGER
 #define FRAME_SIZE 640
 //#define FRAME_SIZE 3200
-#define SAMPLE_RATE  16000
+#define SAMPLE_RATE 16000
 #define LOOP_TIMEOUT 60
 
 // 自定义线程参数
@@ -806,7 +806,7 @@ void* AudioDialogPthreadFunc(void* arg) {
  * 示例代码为同时开启4个线程识别4个文件;
  * 免费用户并发连接不能超过2个;
  */
-#define AUDIO_FILE_NUMS        4
+#define AUDIO_FILE_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int dialogAssistantMultFile(const char* appkey, int threads) {
   /**
@@ -979,7 +979,7 @@ int main(int argc, char* argv[]) {
   // 此处表示SDK日志输出至log-recognizer.txt, LogDebug表示输出所有级别日志.
   // 需要最早调用
   int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-      "log-dialogAssistant", AlibabaNls::LogDebug, 1000);
+      "log-dialogAssistant", AlibabaNls::LogDebug, 100, 20, NULL);
   if (ret < 0) {
     std::cout << "set log failed." << std::endl;
     return -1;

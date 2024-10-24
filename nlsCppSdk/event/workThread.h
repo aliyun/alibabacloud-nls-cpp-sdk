@@ -50,7 +50,6 @@ class WorkThread {
   virtual ~WorkThread();
 
   static void launchEventCallback(evutil_socket_t fd, short which, void *arg);
-  static void notifyEventCallback(evutil_socket_t fd, short which, void *arg);
   static void connectEventCallback(evutil_socket_t socketFd, short event,
                                    void *arg);
 #ifdef ENABLE_HIGH_EFFICIENCY

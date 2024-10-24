@@ -32,6 +32,7 @@ include_directories(${NLS_DEMO_LIST})
 link_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/lib)
 
 set(NLS_DEMO_EXT_FLAG pthread)
+# set(NLS_DEMO_EXT_FLAG ${NLS_DEMO_EXT_FLAG} ldap)
 
 # 一句话识别
 add_executable(srDemo profile_scan.cpp speechRecognizerDemo.cpp)

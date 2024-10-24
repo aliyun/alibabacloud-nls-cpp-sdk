@@ -222,3 +222,10 @@ tar -zcPf $tar_file".tar.gz" NlsSdk3.X_LINUX
 echo "打包结束..."
 
 cp $audio_resource_folder/* $build_folder/demo/
+
+### 7
+mkdir -p $build_folder/demo/tests
+cp -f $git_root_path/demo/Linux/run_functional_test.sh $build_folder/demo/tests/
+chmod a+x $build_folder/demo/tests/run_functional_test.sh
+cp -f $git_root_path/demo/Linux/run_pressure_test.sh $build_folder/demo/tests/
+chmod a+x $build_folder/demo/tests/run_pressure_test.sh

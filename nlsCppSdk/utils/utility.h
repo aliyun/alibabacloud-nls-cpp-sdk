@@ -95,6 +95,34 @@ namespace utility {
   } while (0)
 #endif
 #ifdef _MSC_VER
+#define MUTEX_TRY_LOCK(a, ms, r)      \
+  do {                                \
+    WaitForSingleObject(a, INFINITE); \
+    r = true;                         \
+    break;                            \
+  } while (0)
+#else
+#define MUTEX_TRY_LOCK(a, ms, r)                  \
+  do {                                            \
+    int count = ms / 10;                          \
+    if (count == 0) count = 1;                    \
+    while (1) {                                   \
+      if (count-- > 0) {                          \
+        int lock_ret = pthread_mutex_trylock(&a); \
+        if (lock_ret == 0) {                      \
+          r = true;                               \
+          break;                                  \
+        } else {                                  \
+          usleep(10 * 1000);                      \
+        }                                         \
+      } else {                                    \
+        r = false;                                \
+        break;                                    \
+      }                                           \
+    }                                             \
+  } while (0)
+#endif
+#ifdef _MSC_VER
 #define MUTEX_UNLOCK(a) \
   do {                  \
     ReleaseMutex(a);    \

@@ -36,14 +36,14 @@
 #include "speechRecognizerRequest.h"
 
 #define SELF_TESTING_TRIGGER
-#define FRAME_16K_20MS     640
-#define FRAME_16K_100MS    3200
-#define FRAME_8K_20MS      320
-#define SAMPLE_RATE_8K     8000
-#define SAMPLE_RATE_16K    16000
+#define FRAME_16K_20MS 640
+#define FRAME_16K_100MS 3200
+#define FRAME_8K_20MS 320
+#define SAMPLE_RATE_8K 8000
+#define SAMPLE_RATE_16K 16000
 #define DEFAULT_STRING_LEN 128
 
-#define LOOP_TIMEOUT       60
+#define LOOP_TIMEOUT 60
 
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
@@ -248,7 +248,7 @@ void OnRecognitionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  OnRecognitionStarted invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestStarted;
   }
@@ -273,7 +273,7 @@ void OnRecognitionResultChanged(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  OnRecognitionResultChanged invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     if (tmpParam->tParam->status == RequestStarted) {
       tmpParam->tParam->status = RequestRunning;
@@ -323,7 +323,7 @@ void OnRecognitionTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  OnRecognitionTaskFailed invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestFailed;
   }
@@ -376,7 +376,7 @@ void OnRecognitionChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  OnRecognitionChannelClosed invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestClosed;
   }
@@ -443,7 +443,7 @@ void* pthreadFunction(void* arg) {
         cbParam->tParam->status != RequestInvalid) {
       std::cout << "pthreadFunc invalid request status:"
                 << cbParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
 
     struct timeval now;
@@ -462,6 +462,15 @@ void* pthreadFunction(void* arg) {
       break;
     } else {
       cbParam->tParam->status = RequestCreated;
+    }
+
+    gettimeofday(&now, NULL);
+    std::srand(now.tv_usec);
+    if (rand() % 100 == 1) {
+      std::cout << "Release after create() directly ..." << std::endl;
+      AlibabaNls::NlsClient::getInstance()->releaseRecognizerRequest(request);
+      cbParam->tParam->status = RequestReleased;
+      continue;
     }
 
     // 设置start()成功回调函数
@@ -554,6 +563,7 @@ void* pthreadFunction(void* arg) {
 
     gettimeofday(&now, NULL);
     std::srand(now.tv_usec);
+    if (max_msleep <= 0) max_msleep = 1;
     int sleepMs = rand() % max_msleep;
     usleep(sleepMs * 1000);
 
@@ -635,6 +645,7 @@ void* pthreadFunction(void* arg) {
       cbParam->tParam->status = RequestStop;
       gettimeofday(&now, NULL);
       std::srand(now.tv_usec);
+      if (max_msleep <= 0) max_msleep = 1;
       sleepMs = rand() % max_msleep;
       usleep(sleepMs * 1000);
     } else {
@@ -669,7 +680,7 @@ void* pthreadFunction(void* arg) {
  * 免费用户并发连接不能超过2个;
  * notice: Linux高并发用户注意系统最大文件打开数限制, 详见README.md
  */
-#define AUDIO_FILE_NUMS        4
+#define AUDIO_FILE_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechRecognizerMultFile(const char* appkey, int threads) {
   /**
@@ -922,8 +933,8 @@ int main(int argc, char* argv[]) {
   // 需要最早调用
   if (logLevel > 0) {
     int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        "log-recognizerMT", (AlibabaNls::LogLevel)logLevel, 400,
-        50);  //"log-recognizer"
+        "log-recognizerMT", (AlibabaNls::LogLevel)logLevel, 100,
+        20);  //"log-recognizer"
     if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;

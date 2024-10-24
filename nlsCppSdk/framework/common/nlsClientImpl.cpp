@@ -24,10 +24,10 @@
 #include "nlsClientImpl.h"
 #include "nlsEventNetWork.h"
 
+#include "fss/flowingSynthesizerRequest.h"
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
-#include "fss/flowingSynthesizerRequest.h"
 #include "utility.h"
 
 #ifdef ENABLE_VIPSERVER
@@ -51,8 +51,8 @@ pthread_mutex_t _mtx = PTHREAD_MUTEX_INITIALIZER;
 
 NlsClientImpl::NlsClientImpl(bool sslInitial)
     : _nodeManager(NULL),
-      _aiFamily({0}),
-      _directHostIp({0}),
+      _aiFamily(),
+      _directHostIp(),
       _enableSysGetAddr(false),
       _syncCallTimeoutMs(0) {
   strncpy(_aiFamily, "AF_INET", 16);
@@ -67,12 +67,24 @@ NlsClientImpl::NlsClientImpl(bool sslInitial)
 
   _nodeManager = new NlsNodeManager();
 
+#if defined(_MSC_VER)
+  _mtxReleaseRequestGuard = CreateMutex(NULL, FALSE, NULL);
+#else
+  pthread_mutex_init(&_mtxReleaseRequestGuard, NULL);
+#endif
+
 #ifdef ENABLE_VIPSERVER
   VipClientApi::CreateApi();
 #endif
 }
 
-NlsClientImpl::~NlsClientImpl() {}
+NlsClientImpl::~NlsClientImpl() {
+#if defined(_MSC_VER)
+  CloseHandle(_mtxReleaseRequestGuard);
+#else
+  pthread_mutex_destroy(&_mtxReleaseRequestGuard);
+#endif
+}
 
 void NlsClientImpl::releaseInstanceImpl() {
   LOG_INFO("Release NlsClientImpl instance:%p.", this);
@@ -401,9 +413,35 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
   int status = NodeStatusInvalid;
   int ret = _nodeManager->checkRequestExist(request, &status);
   if (ret != Success) {
-    LOG_ERROR("Request(%p) checkRequestExist failed, %d.", request, ret);
+    LOG_ERROR("Request(%p) checkRequestExist0 failed, %d.", request, ret);
     return;
   }
+
+  /* 准备移出request, 上锁保护, 防止其他线程也同时在释放 */
+  bool release_lock_ret = true;
+  NlsClientImpl *cur_instance = request->getConnectNode()->getInstance();
+  if (cur_instance != NULL) {
+    MUTEX_TRY_LOCK(cur_instance->_mtxReleaseRequestGuard, 2000,
+                   release_lock_ret);
+    if (!release_lock_ret) {
+      LOG_ERROR("Request(%p) lock destroy failed, deadlock has occurred",
+                request);
+    }
+  } else {
+    LOG_INFO("Request(%p) just only created ...", request);
+    release_lock_ret = false;
+  }
+
+  ret = _nodeManager->checkRequestExist(request, &status);
+  if (ret != Success) {
+    LOG_ERROR("Request(%p) checkRequestExist1 failed, %d.", request, ret);
+    if (release_lock_ret) {
+      MUTEX_UNLOCK(cur_instance->_mtxReleaseRequestGuard);
+    }
+    return;
+  }
+
+  request->getConnectNode()->_releasingFlag = true;
 
   LOG_INFO("Begin release, request(%p) node(%p) node status:%s exit status:%s.",
            request, request->getConnectNode(),
@@ -420,6 +458,10 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
     LOG_ERROR("Release request(%p) is invalid, skip ...", request);
   }
   request = NULL;
+
+  if (release_lock_ret) {
+    MUTEX_UNLOCK(cur_instance->_mtxReleaseRequestGuard);
+  }
   return;
 }
 

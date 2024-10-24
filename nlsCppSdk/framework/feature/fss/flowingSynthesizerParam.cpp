@@ -22,16 +22,20 @@
 
 #include "nlog.h"
 #include "nlsRequestParamInfo.h"
+#include "text_utils.h"
 
 namespace AlibabaNls {
 
-#define D_CMD_START_SYNTHESIZER         "StartSynthesis"
+#define D_CMD_START_SYNTHESIZER "StartSynthesis"
 #define D_NAMESPACE_FLOWING_SYNTHESIZER "FlowingSpeechSynthesizer"
-#define D_CMD_RUN_SYNTHESIS             "RunSynthesis"
-#define D_CMD_STOP_SYNTHESIS            "StopSynthesis"
+#define D_CMD_RUN_SYNTHESIS "RunSynthesis"
+#define D_CMD_FLUSH_TEXT "FlushText"
+#define D_CMD_STOP_SYNTHESIS "StopSynthesis"
 
 FlowingSynthesizerParam::FlowingSynthesizerParam(const char* sdkName)
-    : INlsRequestParam(TypeStreamInputTts, sdkName) {
+    : INlsRequestParam(TypeStreamInputTts, sdkName),
+      _runFlowingSynthesisCommand(""),
+      _flushFlowingTextCommand("") {
   _header[D_NAMESPACE] = D_NAMESPACE_FLOWING_SYNTHESIZER;
 }
 
@@ -76,8 +80,43 @@ const char* FlowingSynthesizerParam::getStopCommand() {
 
 const char* FlowingSynthesizerParam::getRunFlowingSynthesisCommand(
     const char* text) {
+  Json::Value root;
+  Json::FastWriter writer;
   _header[D_NAME] = D_CMD_RUN_SYNTHESIS;
-  return INlsRequestParam::getRunFlowingSynthesisCommand(text);
+
+  try {
+    _header[D_TASK_ID] = _task_id;
+    _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
+    _payload[D_SY_TEXT] = text;
+
+    root[D_HEADER] = _header;
+    root[D_PAYLOAD] = _payload;
+
+    _runFlowingSynthesisCommand = writer.write(root);
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return NULL;
+  }
+  return _runFlowingSynthesisCommand.c_str();
+}
+
+const char* FlowingSynthesizerParam::getFlushFlowingTextCommand() {
+  Json::Value root;
+  Json::FastWriter writer;
+  _header[D_NAME] = D_CMD_FLUSH_TEXT;
+
+  try {
+    _header[D_TASK_ID] = _task_id;
+    _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
+
+    root[D_HEADER] = _header;
+
+    _flushFlowingTextCommand = writer.write(root);
+  } catch (const std::exception& e) {
+    LOG_ERROR("Json failed: %s", e.what());
+    return NULL;
+  }
+  return _flushFlowingTextCommand.c_str();
 }
 
 }  // namespace AlibabaNls

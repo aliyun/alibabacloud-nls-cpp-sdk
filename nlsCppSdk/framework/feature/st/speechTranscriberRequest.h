@@ -85,7 +85,7 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
 
   /**
    * @brief 设置音频数据编码格式
-   * @note  可选参数，目前支持pcm, opu. 默认是pcm
+   * @note  可选参数，目前支持pcm, opus. 默认是pcm
    * @param value	音频数据编码字符串
    * @return 成功则返回0，否则返回负值错误码
    */

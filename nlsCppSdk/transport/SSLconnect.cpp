@@ -29,7 +29,7 @@ namespace AlibabaNls {
 
 SSL_CTX *SSLconnect::_sslCtx = NULL;
 
-SSLconnect::SSLconnect() : _ssl(NULL), _sslTryAgain(0), _errorMsg({0}) {
+SSLconnect::SSLconnect() : _ssl(NULL), _sslTryAgain(0), _errorMsg() {
 #if defined(_MSC_VER)
   _mtxSSL = CreateMutex(NULL, FALSE, NULL);
 #else

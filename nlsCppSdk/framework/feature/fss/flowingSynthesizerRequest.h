@@ -229,7 +229,8 @@ class NLS_SDK_CLIENT_EXPORT FlowingSynthesizerRequest : public INlsRequest {
   int start();
 
   /**
-   * @brief 此接口废弃，调用与否都会正常停止FlowingSynthesizerRequest链接操作
+   * @brief 正常停止FlowingSynthesizerRequest, 表示送完待合成文本,
+   * 开始等待收完所有合成音频。
    * @note 异步操作。失败返回TaskFailed。
    * @return 成功则返回0，否则返回负值错误码
    */
@@ -250,6 +251,13 @@ class NLS_SDK_CLIENT_EXPORT FlowingSynthesizerRequest : public INlsRequest {
    * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
    */
   int sendText(const char* text);
+
+  /**
+   * @brief 表示送完待合成文本, 立即开始合成音频。
+   * @note 异步操作。失败返回TaskFailed。
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int sendFlush();
 
   /**
    * @brief 获得当前请求的全部运行信息
