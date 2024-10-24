@@ -35,11 +35,11 @@
 #include "nlog.h"
 #include "nlsClientImpl.h"
 #include "nlsGlobal.h"
+#include "nlsRequestParamInfo.h"
 #include "nodeManager.h"
+#include "text_utils.h"
 #include "utility.h"
 #include "workThread.h"
-#include "nlsRequestParamInfo.h"
-#include "text_utils.h"
 
 namespace AlibabaNls {
 
@@ -56,7 +56,7 @@ WorkThread::WorkThread()
       _dnsBase(NULL),
       _workThreadId(0),
       _addrInFamily(AF_INET),
-      _directIp({0}),
+      _directIp(),
       _enableSysGetAddr(false) {
 #if defined(_MSC_VER)
   _mtxList = CreateMutex(NULL, FALSE, NULL);
@@ -207,7 +207,9 @@ WorkThread::~WorkThread() {
   LOG_DEBUG(
       "Destroy WorkThread(%p) join _workThreadId:0x%lx, please waiting ...",
       this, _workThreadId);
-  pthread_join(_workThreadId, NULL);
+  if (_workThreadId != 0) {
+    pthread_join(_workThreadId, NULL);
+  }
   pthread_mutex_destroy(&_mtxList);
 #endif
 
@@ -276,6 +278,15 @@ void WorkThread::destroyConnectNode(ConnectNode *node) {
     INlsRequest *request = node->getRequest();
     if (request) {
       LOG_DEBUG("Node(%p) destroy request.", node);
+
+      /* 准备移出request, 上锁保护, 防止其他线程也同时在释放 */
+      bool release_lock_ret = true;
+      MUTEX_TRY_LOCK(client->_mtxReleaseRequestGuard, 2000, release_lock_ret);
+      if (!release_lock_ret) {
+        LOG_ERROR("Request(%p) lock destroy failed, deadlock has occurred",
+                  request);
+      }
+
       int ret = node_manager->checkRequestExist(request, &status);
       if (ret != -(RequestEmpty)) {
         node_manager->removeRequestFromInfo(request, false);
@@ -285,6 +296,10 @@ void WorkThread::destroyConnectNode(ConnectNode *node) {
       }
       request = NULL;
       node->setRequest(NULL);
+
+      if (release_lock_ret) {
+        MUTEX_UNLOCK(client->_mtxReleaseRequestGuard);
+      }
     } else {
       LOG_WARN("The request of node(%p) is nullptr.", node);
     }
@@ -340,6 +355,8 @@ void *WorkThread::loopEventCallback(void *arg) {
     event_base_free(eventParam->_workBase);
     eventParam->_workBase = NULL;
   }
+
+  eventParam->_workThreadId = 0;
 
   LOG_DEBUG("workThread(%p) loopEventCallback exit.", arg);
 
@@ -542,6 +559,8 @@ void WorkThread::connectEventCallback(evutil_socket_t socketFd, short event,
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
                    node->_inEventCallbackNode);
 #endif
+
+  LOG_DEBUG("Node(%p) connectEventCallback done.", node);
   return;
 
 HandshakeProcessFailed:
@@ -573,6 +592,8 @@ ConnectProcessFailed:
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
                    node->_inEventCallbackNode);
 #endif
+
+  LOG_DEBUG("Node(%p) connectEventCallback done with failure.", node);
   return;
 }
 
@@ -627,6 +648,9 @@ void WorkThread::readEventCallBack(evutil_socket_t socketFd, short what,
       return;
     } else if (ret == -(EventClientEmpty)) {
       LOG_ERROR("Instance has released, skip all operation.");
+      return;
+    } else if (ret == -(InvalidStatusWhenReleasing)) {
+      LOG_ERROR("Node(%p) is releasing, skip all operation.", node);
       return;
     }
   } else if (what == EV_TIMEOUT) {
@@ -757,7 +781,11 @@ void WorkThread::directConnect(void *arg, char *ip) {
       // connect  EINPROGRESS
       return;
     } else {
-      LOG_ERROR("Node(%p) goto DirectConnectRetry.", node);
+      LOG_ERROR(
+          "Node(%p) goto DirectConnectRetry with ret:%d and node status:%s "
+          "exit status:%s.",
+          node, ret, node->getConnectNodeStatusString().c_str(),
+          node->getExitStatusString().c_str());
 #ifdef ENABLE_DNS_IP_CACHE
       node->getEventThread()->setIpCache(NULL, NULL);
 #endif
@@ -797,6 +825,12 @@ void WorkThread::launchEventCallback(evutil_socket_t fd, short which,
 
   INlsRequest *request = node->getRequest();
   WorkThread *pThread = node->getEventThread();
+  if (pThread == NULL) {
+    LOG_ERROR("The WorkThread of Node(%p) is nullptr, skipping ...", node);
+    return;
+  }
+
+  node->_inEventCallbackNode = true;
 
   LOG_DEBUG(
       "WorkThread(%p) Node(%p) Request(%p) trigger launchEventCallback with "
@@ -804,12 +838,20 @@ void WorkThread::launchEventCallback(evutil_socket_t fd, short which,
       pThread, node, request,
       request->getRequestParam()->_enableReconnect ? "true" : "false");
 
-  if (node->getExitStatus() == ExitCancel) {
+  if (node->getExitStatus() == ExitCancel ||
+      node->getExitStatus() == ExitStopping) {
     LOG_WARN(
-        "WorkThread(%p) Node(%p) is canceling, current node status:%s, skip "
+        "WorkThread(%p) Node(%p) is canceling/stopping, current node "
+        "status:%s, skip "
         "here.",
         pThread, node, node->getConnectNodeStatusString().c_str());
     node->setConnectNodeStatus(NodeInvoked);
+#ifdef _MSC_VER
+    SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+    SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
+                     node->_inEventCallbackNode);
+#endif
     return;
   }
 
@@ -830,6 +872,12 @@ void WorkThread::launchEventCallback(evutil_socket_t fd, short which,
     destroyConnectNode(node);
   }
 
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
+                   node->_inEventCallbackNode);
+#endif
   return;
 }
 
@@ -881,9 +929,14 @@ void WorkThread::dnsEventCallback(int errorCode,
       return;
     }
   }
+
+  WorkThread *pThread = node->getEventThread();
+  if (pThread == NULL) {
+    LOG_ERROR("The WorkThread of Node(%p) is nullptr, skipping ...", node);
+    return;
+  }
   node->_dnsRequestCallbackStatus = 1;
   node->_inEventCallbackNode = true;
-  WorkThread *pThread = node->getEventThread();
   if (errorCode) {
     LOG_ERROR("WorkThread(%p) Node(%p) %s dns failed: %s.", pThread, node,
               node->getUrlAddress()._host, evutil_gai_strerror(errorCode));
@@ -892,6 +945,13 @@ void WorkThread::dnsEventCallback(int errorCode,
                          node->getEventThread()->_directIp,
                          node->getEventThread()->_enableSysGetAddr) < 0) {
       destroyConnectNode(node);
+    }
+
+    // check node again!!!
+    ret = node_manager->checkNodeExist(node, &status);
+    if (ret != Success) {
+      LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
+      return;
     }
 #ifdef _MSC_VER
     SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
@@ -932,6 +992,13 @@ void WorkThread::dnsEventCallback(int errorCode,
                       pThread, node);
             if (nodeRequestProcess(node) < 0) {
               destroyConnectNode(node);
+            }
+
+            // check node again!!!
+            ret = node_manager->checkNodeExist(node, &status);
+            if (ret != Success) {
+              LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
+              return;
             }
 #ifdef _MSC_VER
             SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
@@ -983,6 +1050,13 @@ void WorkThread::dnsEventCallback(int errorCode,
             if (nodeRequestProcess(node) < 0) {
               destroyConnectNode(node);
             }
+
+            // check node again!!!
+            ret = node_manager->checkNodeExist(node, &status);
+            if (ret != Success) {
+              LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
+              return;
+            }
 #ifdef _MSC_VER
             SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
 #else
@@ -1011,6 +1085,13 @@ void WorkThread::dnsEventCallback(int errorCode,
   }  // for
 
   evutil_freeaddrinfo(address);
+
+  // check node again!!!
+  ret = node_manager->checkNodeExist(node, &status);
+  if (ret != Success) {
+    LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
+    return;
+  }
 #ifdef _MSC_VER
   SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
 #else
@@ -1030,6 +1111,12 @@ ConnectRetry:
     destroyConnectNode(node);
   }
 
+  // check node again!!!
+  ret = node_manager->checkNodeExist(node, &status);
+  if (ret != Success) {
+    LOG_ERROR("checkNodeExist failed, ret:%d.", ret);
+    return;
+  }
 #ifdef _MSC_VER
   SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
 #else
@@ -1137,6 +1224,10 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
     LOG_ERROR("Node(%p) checkNodeExist failed, result:%d.", node, result);
     return result;
   }
+  if (node->_releasingFlag) {
+    LOG_ERROR("Node(%p) is releasing!!! skipping ...", node);
+    return -(InvalidStatusWhenReleasing);
+  }
 
   ConnectStatus workStatus = node->getConnectNodeStatus();
   // LOG_DEBUG("Node(%p) current node status:%s.",
@@ -1210,6 +1301,10 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
   if (ret < 0) {
     if (ret == -(EventClientEmpty)) {
       LOG_ERROR("Instance has released, skip all operation.");
+      return ret;
+    }
+    if (ret == -(InvalidStatusWhenReleasing)) {
+      LOG_ERROR("Node(%p) is releasing, skip all operation.", node);
       return ret;
     }
 

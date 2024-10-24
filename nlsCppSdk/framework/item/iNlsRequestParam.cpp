@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "iNlsRequestParam.h"
 #include "Config.h"
 #include "connectNode.h"
-#include "iNlsRequestParam.h"
 #include "nlog.h"
 #include "nlsGlobal.h"
 #include "nlsRequestParamInfo.h"
@@ -61,7 +61,6 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
       _mode(mode),
       _sdk_name(sdkName),
       _startCommand(""),
-      _runFlowingSynthesisCommand(""),
       _controlCommand(""),
       _stopCommand(""),
       _header(Json::objectValue),
@@ -181,24 +180,10 @@ const char* INlsRequestParam::getExecuteDialog() { return ""; }
 const char* INlsRequestParam::getStopWakeWordCommand() { return ""; }
 
 const char* INlsRequestParam::getRunFlowingSynthesisCommand(const char* text) {
-  Json::Value root;
-  Json::FastWriter writer;
-
-  try {
-    _header[D_TASK_ID] = _task_id;
-    _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
-    _payload[D_SY_TEXT] = text;
-
-    root[D_HEADER] = _header;
-    root[D_PAYLOAD] = _payload;
-
-    _runFlowingSynthesisCommand = writer.write(root);
-  } catch (const std::exception& e) {
-    LOG_ERROR("Json failed: %s", e.what());
-    return NULL;
-  }
-  return _runFlowingSynthesisCommand.c_str();
+  return "";
 }
+
+const char* INlsRequestParam::getFlushFlowingTextCommand() { return ""; }
 
 int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Value root;

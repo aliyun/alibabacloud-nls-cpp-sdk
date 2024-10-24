@@ -17,10 +17,10 @@
 #include "flowingSynthesizerRequest.h"
 
 #include "connectNode.h"
-#include "iNlsRequestListener.h"
-#include "nlog.h"
 #include "flowingSynthesizerListener.h"
 #include "flowingSynthesizerParam.h"
+#include "iNlsRequestListener.h"
+#include "nlog.h"
 #include "utility.h"
 
 namespace AlibabaNls {
@@ -195,6 +195,10 @@ int FlowingSynthesizerRequest::cancel() { return INlsRequest::cancel(this); }
 
 int FlowingSynthesizerRequest::sendText(const char* text) {
   return INlsRequest::sendText(this, text);
+}
+
+int FlowingSynthesizerRequest::sendFlush() {
+  return INlsRequest::sendFlush(this);
 }
 
 const char* FlowingSynthesizerRequest::dumpAllInfo() {

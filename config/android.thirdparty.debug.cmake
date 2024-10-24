@@ -69,7 +69,7 @@ set(OPENSSL_EXTERNAL_COMPILER_FLAGS
     )
 option(OPENSSL_ENABLE "Enable Openssl." ON)
 
-set(LIBEVENT_C_FLAGS "-fPIC -fvisibility=hidden")
+set(LIBEVENT_C_FLAGS "-fPIC -fvisibility=hidden -g -ggdb")
 set(LIBEVENT_EXTERNAL_COMPILER_FLAGS
     URL ${LIBEVENT_URL}
     URL_HASH MD5=${LIBEVENT_URL_HASH}

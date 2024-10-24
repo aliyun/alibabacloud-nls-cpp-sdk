@@ -163,3 +163,18 @@
 5: 增加OpenSSL SNI指定, 解决可能存在的握手时服务器不知道发送哪份CA的问题
 6: 解决gcc5以下版本编译不过的问题
 7: 解决CreateXXXRequest()->ReleaseXXXRequest()会崩溃的问题
+
+-----2024/07/26 Version:3.2.0b/c-----
+1: 流式TTS增加sendFlush()接口, 不推荐用户使用此接口
+
+-----2024/08/08 Version:3.2.0d-----
+1: 修复联网超时的同时进行释放, 有概率出现死锁的问题
+2: 部分LOG_INFO降低到LOG_DEBUG隐藏敏感日志
+
+-----2024/09/19 Version:3.2.0e-----
+1: 修复cancel后释放, delAllEvent和closeConnectNode同时进行event_free导致崩溃的问题
+2: 修复stop后马上释放有概率崩溃的问题
+3: 修复一种异常情况可能的死锁问题
+
+-----2024/10/10 Version:3.2.0f-----
+1: 修复create后release崩溃的问题

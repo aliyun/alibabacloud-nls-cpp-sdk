@@ -116,6 +116,13 @@ int INlsRequest::sendPing(INlsRequest* request) {
   return NlsEventNetWork::_eventClient->sendPing(request);
 }
 
+int INlsRequest::sendFlush(INlsRequest* request) {
+  INPUT_REQUEST_CHECK(request);
+  EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
+
+  return NlsEventNetWork::_eventClient->sendFlush(request);
+}
+
 const char* INlsRequest::dumpAllInfo(INlsRequest* request) {
   if (request == NULL) {
     LOG_ERROR("Input request is empty.");

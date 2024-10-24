@@ -41,6 +41,8 @@ std::string g_fileLinkUrl =
     "0574ee2e-f494-45a5-820f-63aee583045a.wav";
 bool g_sync = true;
 int g_threads = 1;
+std::string g_log_file = "log-filetransfer";
+int g_log_count = 20;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -92,6 +94,14 @@ int parse_argv(int argc, char *argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--logFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_file = argv[index];
+    } else if (!strcmp(argv[index], "--logFileCount")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_count = atoi(argv[index]);
     }
     index++;
   }
@@ -331,6 +341,8 @@ int main(int argc, char *argv[]) {
               << "  --akId <AccessKey ID>\n"
               << "  --akSecret <AccessKey Secret>\n"
               << "  --fileLinkUrl <your file link url>\n"
+              << "  --logFile <log file>\n"
+              << "  --logFileCount <The count of log file>\n"
               << "eg:\n"
               << "  ./ftDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
                  "--fileLinkUrl xxxxxxxxx\n"
@@ -351,7 +363,7 @@ int main(int argc, char *argv[]) {
 
   /* 此为启动Log记录, 非必须 */
   AlibabaNls::NlsClient::getInstance()->setLogConfig(
-      "log-filetransfer", AlibabaNls::LogDebug, 100, 10);
+      g_log_file.c_str(), AlibabaNls::LogDebug, 100, g_log_count);
 
   if (g_sync) {
     fileTransferSync();

@@ -35,14 +35,14 @@
 #include "nlsToken.h"
 #include "speechSynthesizerRequest.h"
 
-#define SAMPLE_RATE_8K  8000
+#define SAMPLE_RATE_8K 8000
 #define SAMPLE_RATE_16K 16000
 #define SELF_TESTING_TRIGGER
 #define LOOP_TIMEOUT 60
 #define LOG_TRIGGER
 //#define TTS_AUDIO_DUMP
 #define DEFAULT_STRING_LEN 128
-#define AUDIO_TEXT_LENGTH  1024
+#define AUDIO_TEXT_LENGTH 1024
 
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
@@ -115,7 +115,7 @@ static int run_cancel = 0;
 static int run_success = 0;
 static int run_fail = 0;
 static int max_msleep = 500;
-
+static int special_type = 0;
 static bool sysAddrinfo = false;
 
 void signal_handler_int(int signo) {
@@ -251,7 +251,7 @@ void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status == RequestReleased) {
       std::cout << "OnSynthesisTaskFailed invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestFailed;
   }
@@ -277,7 +277,7 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status == RequestReleased) {
       std::cout << "OnSynthesisChannelClosed invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestClosed;
   }
@@ -324,7 +324,7 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
           tmpParam->tParam->status == RequestReleased) {
         std::cout << "OnBinaryDataRecved invalid request status:"
                   << tmpParam->tParam->status << std::endl;
-        abort();
+        // abort();
       }
       tmpParam->tParam->status = RequestRunning;
     }
@@ -346,7 +346,7 @@ void OnMetaInfo(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status == RequestReleased) {
       std::cout << "OnMetaInfo invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestRunning;
   }
@@ -407,7 +407,7 @@ void* pthreadFunc(void* arg) {
     if (tst->status != RequestReleased && tst->status != RequestInvalid) {
       std::cout << "pthreadFunc invalid request status:" << tst->status
                 << std::endl;
-      abort();
+      // abort();
     }
 
     /*
@@ -424,8 +424,9 @@ void* pthreadFunc(void* arg) {
      */
     int chars_cnt =
         AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(tst->text);
-    std::cout << "pid:" << pthread_self() << " this text contains " << chars_cnt
-              << "chars" << std::endl;
+    // std::cout << "pid:" << pthread_self() << " this text contains " <<
+    // chars_cnt
+    //           << "chars" << std::endl;
 
     AlibabaNls::SpeechSynthesizerRequest* request =
         AlibabaNls::NlsClient::getInstance()->createSynthesizerRequest();
@@ -434,6 +435,16 @@ void* pthreadFunc(void* arg) {
       break;
     } else {
       cbParam.tParam->status = RequestCreated;
+    }
+
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    std::srand(now.tv_usec);
+    if (rand() % 100 == 1) {
+      std::cout << "Release after create() directly ..." << std::endl;
+      AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
+      cbParam.tParam->status = RequestReleased;
+      continue;
     }
 
     // 设置音频合成结束回调函数
@@ -491,8 +502,8 @@ void* pthreadFunc(void* arg) {
      * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
     std::string ts = timestamp_str();
-    std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
-              << std::endl;
+    // std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
+    //           << std::endl;
     int ret = request->start();
     ts = timestamp_str();
     run_cnt++;
@@ -510,9 +521,30 @@ void* pthreadFunc(void* arg) {
       }
       continue;
     } else {
-      std::cout << "start success. pid " << pthread_self() << " " << ts.c_str()
-                << std::endl;
+      // std::cout << "start success. pid " << pthread_self() << " " <<
+      // ts.c_str()
+      //           << std::endl;
       cbParam.tParam->status = RequestStart;
+    }
+
+    struct timespec outtime;
+    if (special_type == 1) {
+      gettimeofday(&now, NULL);
+      std::srand(now.tv_usec);
+      if (max_msleep <= 0) max_msleep = 1;
+      int sleepMs = rand() % max_msleep;
+      // std::cout << "sleep " << sleepMs << "ms." << std::endl;
+      usleep(sleepMs * 1000);
+
+      ret = request->cancel();
+      cbParam.tParam->status = RequestCancelled;
+      AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
+      // std::cout << "release done." << std::endl;
+      cbParam.tParam->status = RequestReleased;
+      if (loop_count > 0 && testCount >= loop_count) {
+        global_run = false;
+      }
+      continue;
     }
 
     /*
@@ -520,8 +552,6 @@ void* pthreadFunc(void* arg) {
      * stop()为无意义接口，调用与否都会跑完全程.
      * cancel()立即停止工作, 且不会有回调返回, 失败返回TaskFailed事件。
      */
-    struct timeval now;
-    struct timespec outtime;
     gettimeofday(&now, NULL);
     std::srand(now.tv_usec);
     int type = rand() % 3;
@@ -537,20 +567,22 @@ void* pthreadFunc(void* arg) {
     if (ret == 0) {
       gettimeofday(&now, NULL);
       std::srand(now.tv_usec);
+      if (max_msleep <= 0) max_msleep = 1;
       int sleepMs = rand() % max_msleep;
       usleep(sleepMs * 1000);
-      std::cout << "usleep " << sleepMs << "ms" << std::endl;
+      // std::cout << "usleep " << sleepMs << "ms" << std::endl;
     } else {
       std::cout << "ret is " << ret << ", pid " << pthread_self() << std::endl;
     }
     gettimeofday(&now, NULL);
-    std::cout << "stop finished. pid " << pthread_self()
-              << " tv: " << now.tv_sec << std::endl;
+    // std::cout << "stop finished. pid " << pthread_self()
+    //           << " tv: " << now.tv_sec << std::endl;
 
     AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
     cbParam.tParam->status = RequestReleased;
-    std::cout << "release Synthesizer success. pid " << pthread_self() << "\n"
-              << std::endl;
+    // std::cout << "release Synthesizer success. pid " << pthread_self() <<
+    // "\n"
+    //           << std::endl;
 
     if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
@@ -568,7 +600,7 @@ void* pthreadFunc(void* arg) {
  * 示例代码为同时开启4个线程合成4个文件;
  * 免费用户并发连接不能超过2个;
  */
-#define AUDIO_TEXT_NUMS        4
+#define AUDIO_TEXT_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechSynthesizerMultFile(const char* appkey, int threads) {
   /**
@@ -713,12 +745,23 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       sample_rate = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--special")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      special_type = atoi(argv[index]);
     }
     index++;
   }
-  if ((g_token.empty() && (g_akId.empty() || g_akSecret.empty())) ||
-      g_appkey.empty()) {
-    std::cout << "short of params..." << std::endl;
+
+  if (g_akId.empty() || g_akSecret.empty()) {
+    std::cout << "short of params ... akId or akSecret is empty" << std::endl;
+    if (g_token.empty()) {
+      std::cout << "short of params ... token is empty" << std::endl;
+      return 1;
+    }
+  }
+  if (g_appkey.empty()) {
+    std::cout << "short of params ... appkey is empty" << std::endl;
     return 1;
   }
   return 0;
@@ -743,13 +786,14 @@ int main(int argc, char* argv[]) {
         << "      internal: "
            "ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
         << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
-        << "  --threads <Thread Numbers, default 1>\n"
-        << "  --time <Timeout secs, default 60 seconds>\n"
-        << "  --type <audio format pcm opu or opus>\n"
+        << "  --threads <The number of requests running at the same time, "
+           "default 1>\n"
+        << "  --time <The time of the test run, in seconds>\n"
+        << "  --msleep <The maximum sleep time after start(), or after "
+           "stop()/cancel() to release()>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-        << "  --sampleRate <sample rate, 16K or 8K>\n"
+        << "  --sampleRate <sample rate, default 16000>\n"
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
-        << "  --msleep <max msleep for random>\n"
         << "eg:\n"
         << "  ./syMT --appkey xxxxxx --token xxxxxx\n"
         << "  ./syMT --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx --threads "
@@ -776,7 +820,7 @@ int main(int argc, char* argv[]) {
   // 需要最早调用
 #ifdef LOG_TRIGGER
   int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-      "log-synthesizerMT", AlibabaNls::LogDebug, 600, 50);
+      "log-synthesizerMT", AlibabaNls::LogDebug, 100, 20);
   if (ret < 0) {
     std::cout << "set log failed." << std::endl;
     return -1;

@@ -26,7 +26,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -34,11 +34,11 @@
 #include <string>
 #include <vector>
 
+#include "flowingSynthesizerRequest.h"
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"
 #include "profile_scan.h"
-#include "flowingSynthesizerRequest.h"
 
 #define SELF_TESTING_TRIGGER
 #define SAMPLE_RATE_16K 16000
@@ -176,11 +176,14 @@ std::string g_url = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_voice = "xiaoyun";
+std::string g_log_file = "log-flowingSynthesizer";
+int g_log_count = 20;
 int g_threads = 1;
 int g_cpu = 1;
 int g_sync_timeout = 0;
 bool g_save_audio = false;
 std::string g_text = "";
+std::string g_text_file = "";
 std::string g_format = "wav";
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
@@ -206,6 +209,7 @@ static PROFILE_INFO* g_sys_info = NULL;
 static bool longConnection = false;
 static bool sysAddrinfo = false;
 static bool enableSubtitle = false;
+static bool sendFlushFlag = false;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -673,7 +677,7 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
   std::vector<unsigned char> data =
       cbEvent->getBinaryData();  // getBinaryData() 获取文本合成的二进制音频数据
-#if 1
+#if 0
   std::string ts = timestamp_str();
   std::cout
       << "  OnBinaryDataRecved: " << ts.c_str() << ", "
@@ -811,7 +815,7 @@ void* autoCloseFunc(void* arg) {
         cur = cur_profile_scan;
       }
       PROFILE_INFO cur_sys_info;
-      get_profile_info("syDemo", &cur_sys_info);
+      get_profile_info("fsDemo", &cur_sys_info);
       std::cout << cur << ": cur_usr_name: " << cur_sys_info.usr_name
                 << " CPU: " << cur_sys_info.ave_cpu_percent << "%"
                 << " MEM: " << cur_sys_info.ave_mem_percent << "%" << std::endl;
@@ -852,7 +856,7 @@ void* autoCloseFunc(void* arg) {
 
     if (global_sys) {
       PROFILE_INFO cur_sys_info;
-      get_profile_info("syDemo", &cur_sys_info);
+      get_profile_info("fsDemo", &cur_sys_info);
 
       if (g_ave_percent.ave_cpu_percent == 0) {
         strcpy(g_ave_percent.usr_name, cur_sys_info.usr_name);
@@ -931,6 +935,18 @@ void* pthreadFunc(void* arg) {
   ParamCallBack cbParam(tst);
   cbParam.userId = pthread_self();
   strcpy(cbParam.userInfo, "User.");
+
+  int total_count = 0;
+  if (!g_text_file.empty()) {
+    std::ifstream file(g_text_file.c_str());
+    if (file.is_open()) {
+      std::string line;
+      while (std::getline(file, line)) {
+        total_count++;
+      }
+      file.close();
+    }
+  }
 
   while (global_run) {
     /*
@@ -1094,11 +1110,27 @@ void* pthreadFunc(void* arg) {
      * 5. 模拟大模型流式返回文本结果，进行逐个语音合成
      */
     std::string text_str(tst->text);
+    if (!g_text_file.empty() && total_count > 0) {
+      std::ifstream file(g_text_file.c_str());
+      if (file.is_open()) {
+        std::string line;
+        std::srand(std::time(0));
+        int randomIndex = std::rand() % total_count;
+        while (std::getline(file, line)) {
+          if (randomIndex-- <= 0) {
+            text_str = line;
+            break;
+          }
+        }
+        file.close();
+      }
+    }
     if (!text_str.empty()) {
       const char* delims[] = {"。", "！", "；", "？", "\n"};
       std::vector<std::string> delimiters(
           delims, delims + sizeof(delims) / sizeof(delims[0]));
       std::vector<std::string> sentences = splitString(text_str, delimiters);
+      std::cout << "total text: " << text_str << std::endl;
       for (std::vector<std::string>::const_iterator it = sentences.begin();
            it != sentences.end(); ++it) {
         std::cout << "sendText: " << *it << std::endl;
@@ -1106,7 +1138,12 @@ void* pthreadFunc(void* arg) {
         if (ret < 0) {
           break;
         }
+        if (sendFlushFlag) {
+          request->sendFlush();
+        }
         usleep(500 * 1000);
+
+        if (!global_run) break;
       }  // for
       if (ret < 0) {
         std::cout << "sendText failed. pid:" << pthread_self() << std::endl;
@@ -1152,7 +1189,7 @@ void* pthreadFunc(void* arg) {
          * the last directive is 'XXXX'!" 所以需要设置一个超时机制.
          */
         gettimeofday(&now, NULL);
-        outtime.tv_sec = now.tv_sec + 30;
+        outtime.tv_sec = now.tv_sec + 60;
         outtime.tv_nsec = now.tv_usec * 1000;
         // 等待closed事件后再进行释放, 否则会出现崩溃
         pthread_mutex_lock(&(cbParam.mtxWord));
@@ -1332,6 +1369,18 @@ void* pthreadLongConnectionFunc(void* arg) {
   // const char* output_format = request->getOutputFormat();
   // std::cout << "text format: " << output_format << std::endl;
 
+  int total_count = 0;
+  if (!g_text_file.empty()) {
+    std::ifstream file(g_text_file.c_str());
+    if (file.is_open()) {
+      std::string line;
+      while (std::getline(file, line)) {
+        total_count++;
+      }
+      file.close();
+    }
+  }
+
   /*
    * 4. 当前request循环多轮语音合成
    */
@@ -1398,11 +1447,27 @@ void* pthreadLongConnectionFunc(void* arg) {
      * 5. 模拟大模型流式返回文本结果，进行逐个语音合成
      */
     std::string text_str(tst->text);
+    if (!g_text_file.empty() && total_count > 0) {
+      std::ifstream file(g_text_file.c_str());
+      if (file.is_open()) {
+        std::string line;
+        std::srand(std::time(0));
+        int randomIndex = std::rand() % total_count;
+        while (std::getline(file, line)) {
+          if (randomIndex-- <= 0) {
+            text_str = line;
+            break;
+          }
+        }
+        file.close();
+      }
+    }
     if (!text_str.empty()) {
       const char* delims[] = {"。", "！", "；", "？", "\n"};
       std::vector<std::string> delimiters(
           delims, delims + sizeof(delims) / sizeof(delims[0]));
       std::vector<std::string> sentences = splitString(text_str, delimiters);
+      std::cout << "total text: " << text_str << std::endl;
       for (std::vector<std::string>::const_iterator it = sentences.begin();
            it != sentences.end(); ++it) {
         std::cout << "sendText: " << *it << std::endl;
@@ -1410,7 +1475,12 @@ void* pthreadLongConnectionFunc(void* arg) {
         if (ret < 0) {
           break;
         }
+        if (sendFlushFlag) {
+          request->sendFlush();
+        }
         usleep(500 * 1000);
+
+        if (!global_run) break;
       }  // for
       if (ret < 0) {
         std::cout << "sendText failed. pid:" << pthread_self() << std::endl;
@@ -1456,7 +1526,7 @@ void* pthreadLongConnectionFunc(void* arg) {
          * the last directive is 'XXXX'!" 所以需要设置一个超时机制.
          */
         gettimeofday(&now, NULL);
-        outtime.tv_sec = now.tv_sec + 30;
+        outtime.tv_sec = now.tv_sec + 60;
         outtime.tv_nsec = now.tv_usec * 1000;
         // 等待closed事件后再进行释放, 否则会出现崩溃
         pthread_mutex_lock(&(cbParam.mtxWord));
@@ -1919,6 +1989,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_text = argv[index];
+    } else if (!strcmp(argv[index], "--textFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_text_file = argv[index];
     } else if (!strcmp(argv[index], "--subtitle")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -1935,6 +2009,22 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_voice = argv[index];
+    } else if (!strcmp(argv[index], "--flush")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        sendFlushFlag = true;
+      } else {
+        sendFlushFlag = false;
+      }
+    } else if (!strcmp(argv[index], "--logFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_file = argv[index];
+    } else if (!strcmp(argv[index], "--logFileCount")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_count = atoi(argv[index]);
     }
     index++;
   }
@@ -1991,10 +2081,14 @@ int main(int argc, char* argv[]) {
         << "  --subtitle <enable subtitle, default 0>\n"
         << "  --voice <set voice, default xiaoyun>\n"
         << "  --text <set text for synthesizing>\n"
+        << "  --textFile <set text file path for synthesizing>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
         << "  --sampleRate <sample rate, 16K or 8K>\n"
         << "  --long <long connection: 1, short connection: 0, default 0>\n"
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
+        << "  --flush <will sendFlush() after sendText()>\n"
+        << "  --logFile <log file>\n"
+        << "  --logFileCount <The count of log file>\n"
         << "eg:\n"
         << "  ./fsDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./fsDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
@@ -2020,6 +2114,8 @@ int main(int argc, char* argv[]) {
   std::cout << " threads: " << g_threads << std::endl;
   std::cout << " loop timeout: " << loop_timeout << std::endl;
   std::cout << " loop count: " << loop_count << std::endl;
+  std::cout << " text: " << g_text << std::endl;
+  std::cout << " text file: " << g_text_file << std::endl;
   std::cout << "\n" << std::endl;
 
   pthread_mutex_init(&params_mtx, NULL);
@@ -2046,7 +2142,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
 #ifdef LOG_TRIGGER
     ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        "log-flowingSynthesizer", AlibabaNls::LogDebug, 400, 50, NULL);
+        g_log_file.c_str(), AlibabaNls::LogDebug, 100, g_log_count, NULL);
     if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;

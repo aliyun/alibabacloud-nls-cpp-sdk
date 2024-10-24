@@ -21,11 +21,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/io.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -40,12 +41,12 @@
 #include "speechTranscriberRequest.h"
 
 #define SELF_TESTING_TRIGGER
-#define FRAME_16K_20MS  640
+#define FRAME_16K_20MS 640
 #define SAMPLE_RATE_16K 16000
 
 #define OPERATION_TIMEOUT_S 2
-#define LOOP_TIMEOUT        60
-#define DEFAULT_STRING_LEN  512
+#define LOOP_TIMEOUT 60
+#define DEFAULT_STRING_LEN 512
 
 // 自定义线程参数
 struct ParamStruct {
@@ -189,6 +190,10 @@ std::string g_url = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_audio_path = "";
+std::string g_audio_dir = "";
+std::vector<std::string> g_wav_files;
+std::string g_log_file = "log-transcriber";
+int g_log_count = 20;
 int g_threads = 1;
 int g_cpu = 1;
 int g_sync_timeout = 0;
@@ -198,6 +203,7 @@ bool g_continued_flag = false;
 bool g_loop_file_flag = false;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
+int g_setrlimit = 0; /*设置文件描述符的限制*/
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
@@ -249,6 +255,37 @@ std::string timestamp_str() {
   buf[63] = '\0';
   std::string tmp = buf;
   return tmp;
+}
+
+void findWavFiles(const std::string& directory,
+                  std::vector<std::string>& wavFiles) {
+  DIR* dir;
+  struct dirent* ent;
+
+  // 打开目录
+  if ((dir = opendir(directory.c_str())) != NULL) {
+    // 读取目录中的每个文件
+    while ((ent = readdir(dir)) != NULL) {
+      std::string fileName = ent->d_name;
+      // 检查文件名是否以 .wav 结尾
+      if (fileName.size() >= 4 &&
+          fileName.substr(fileName.size() - 4) == ".wav") {
+        wavFiles.push_back(directory + "/" + fileName);
+      }
+    }
+    closedir(dir);
+  } else {
+    std::cerr << "无法打开目录: " << directory << std::endl;
+  }
+}
+
+std::string getWavFile(std::vector<std::string>& wavFiles) {
+  if (!wavFiles.empty()) {
+    std::srand(std::time(0));
+    int randomIndex = std::rand() % wavFiles.size();  // 随机索引
+    return wavFiles[randomIndex];
+  }
+  return "";
 }
 
 static void vectorStartStore(unsigned long pid) {
@@ -1060,7 +1097,7 @@ void* autoCloseFunc(void* arg) {
  *                   |                               |
  *           request->stop()                         |
  *                   |                               |
- *           收到onChannelClosed回调                 |
+ *           收到onChannelClosed回调                  |
  *                   |                               |
  *           releaseTranscriberRequest(request)  ----|
  *        进行循环。
@@ -1081,10 +1118,13 @@ void* pthreadFunction(void* arg) {
   pthread_mutex_init(&(tst->mtx), NULL);
 
   // 打开音频文件, 获取数据
-  std::ifstream fs;
-  fs.open(tst->fileName, std::ios::binary | std::ios::in);
-  if (!fs) {
-    std::cout << tst->fileName << " isn't exist.." << std::endl;
+  std::string cur_file_name = getWavFile(g_wav_files);
+  if (cur_file_name.empty()) {
+    cur_file_name = tst->fileName;
+  }
+  std::ifstream fs(cur_file_name.c_str());
+  if (!fs.is_open()) {
+    std::cout << cur_file_name << " isn't exist.." << std::endl;
     return NULL;
   } else {
     fs.seekg(0, std::ios::end);
@@ -1189,8 +1229,8 @@ void* pthreadFunction(void* arg) {
     // 设置链接超时500ms
     request->setTimeout(500);
     // 获取返回文本的编码格式
-    const char* output_format = request->getOutputFormat();
-    std::cout << "text format: " << output_format << std::endl;
+    // const char* output_format = request->getOutputFormat();
+    // std::cout << "text format: " << output_format << std::endl;
 
     // 参数设置, 如指定声学模型
     // request->setPayloadParam("{\"model\":\"test-regression-model\"}");
@@ -1638,8 +1678,8 @@ void* pthreadLongConnectionFunction(void* arg) {
     request->setUrl(tst->url);
   }
   // 获取返回文本的编码格式
-  const char* output_format = request->getOutputFormat();
-  std::cout << "text format: " << output_format << std::endl;
+  // const char* output_format = request->getOutputFormat();
+  // std::cout << "text format: " << output_format << std::endl;
 
   // 参数设置, 如指定声学模型
   // request->setPayloadParam("{\"model\":\"test-regression-model\"}");
@@ -1683,10 +1723,13 @@ void* pthreadLongConnectionFunction(void* arg) {
    */
   do {
     // 打开音频文件, 获取数据
-    std::ifstream fs;
-    fs.open(tst->fileName, std::ios::binary | std::ios::in);
-    if (!fs) {
-      std::cout << tst->fileName << " isn't exist.." << std::endl;
+    std::string cur_file_name = getWavFile(g_wav_files);
+    if (cur_file_name.empty()) {
+      cur_file_name = tst->fileName;
+    }
+    std::ifstream fs(cur_file_name.c_str());
+    if (!fs.is_open()) {
+      std::cout << cur_file_name << " isn't exist.." << std::endl;
       break;
     } else {
       fs.seekg(0, std::ios::end);
@@ -1964,7 +2007,7 @@ void* pthreadLongConnectionFunction(void* arg) {
  * 免费用户并发连接不能超过2个;
  * notice: Linux高并发用户注意系统最大文件打开数限制, 详见README.md
  */
-#define AUDIO_FILE_NUMS        4
+#define AUDIO_FILE_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechTranscriberMultFile(const char* appkey, int threads) {
   /**
@@ -2395,6 +2438,8 @@ int parse_argv(int argc, char* argv[]) {
         encoder_type = ENCODER_OPU;
       } else if (strcmp(argv[index], "opus") == 0) {
         encoder_type = ENCODER_OPUS;
+      } else {
+        return 1;
       }
     } else if (!strcmp(argv[index], "--log")) {
       index++;
@@ -2463,6 +2508,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_audio_path = argv[index];
+    } else if (!strcmp(argv[index], "--audioDir")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_audio_dir = argv[index];
     } else if (!strcmp(argv[index], "--loopAudioFile")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -2487,6 +2536,18 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         enableIntermediateResult = false;
       }
+    } else if (!strcmp(argv[index], "--setrlimit")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_setrlimit = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--logFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_file = argv[index];
+    } else if (!strcmp(argv[index], "--logFileCount")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_count = atoi(argv[index]);
     }
     index++;
   }
@@ -2535,27 +2596,38 @@ int main(int argc, char* argv[]) {
            "123.123.123.123:80,124.124.124.124:81>\n"
         << "  --vipServerTargetDomain <the target domain of vipServer, eg: "
            "default.gateway.vipserver>\n"
-        << "  --threads <Thread Numbers, default 1>\n"
-        << "  --time <Timeout secs, default 60 seconds>\n"
-        << "  --type <audio type, default pcm>\n"
+        << "  --threads <The number of requests running at the same time, "
+           "default 1>\n"
+        << "  --time <The time of the test run, in seconds>\n"
+        << "  --loop <The number of requests run>\n"
+        << "  --type <The audio format that is transmitted to the server, "
+           "which can be opus and pcm, the default opus>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-        << "  --sampleRate <sample rate, 16K or 8K>\n"
+        << "  --sampleRate <sample rate, 16000 or 8000, default is 16000.>\n"
         << "  --long <long connection: 1, short connection: 0, default 0>\n"
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
-        << "  --noSleep <use sleep after sendAudio(), default 0>\n"
-        << "  --audioFile <the absolute path of audio file>\n"
-        << "  --loopAudioFile <loop reading the file>\n"
-        << "  --frameSize <audio data size, 640 ~ 16384bytes>\n"
-        << "  --save <save input audio flag, default 0>\n"
-        << "  --message <open onMessage callback, default 0>\n"
-        << "  --continued <open continued mechanism, default 0>\n"
-        << "  --intermedia <enable intermediat result, default 0>\n"
-        << "  --maxSilence <max silence time of sentence>\n"
-        << "  --loop <loop count>\n"
-        << "  --maxSilence <max sentence silence time>\n"
-        << "  --NlsScan <profile scan number>\n"
+        << "  --noSleep <Use sleep after sendAudio(), default 0>\n"
+        << "  --audioFile <The absolute path of the audio file used for the "
+           "audio input for the test>\n"
+        << "  --audioDir <>\n"
+        << "  --logFile <log file>\n"
+        << "  --logFileCount <The count of log file>\n"
+        << "  --loopAudioFile <Loop reading data from audio files simulates "
+           "long-lasting real-time speech recognition, default 0.>\n"
+        << "  --frameSize <The number of bytes that are fed into the SDK each "
+           "time, 640 ~ 16384bytes>\n"
+        << "  --save <The audio data sent to the SDK is saved, default 0>\n"
+        << "  --message <Use onMessage for callbacks, default 0>\n"
+        << "  --continued <Enable the reconnection mechanism within the SDK, "
+           "default 0>\n"
+        << "  --intermedia <Turn on intermedia recognition results, default "
+           "0>\n"
+        << "  --maxSilence <Maximum silence time, in milliseconds, "
+           "200~6000(ms), default is 800ms>\n"
+        << "  --NlsScan <Profile scan number of CPUs>\n"
         << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, "
            "invoke is async.>\n"
+        << "  --setrlimit <Set the limits of the file descriptor>\n"
         << "eg:\n"
         << "  ./stDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 4 --time 3600\n"
@@ -2602,6 +2674,10 @@ int main(int argc, char* argv[]) {
     profile_scan = 0;
   }
 
+  if (!g_audio_dir.empty()) {
+    findWavFiles(g_audio_dir, g_wav_files);
+  }
+
   for (cur_profile_scan = -1; cur_profile_scan < profile_scan;
        cur_profile_scan++) {
     if (cur_profile_scan == 0) continue;
@@ -2611,7 +2687,7 @@ int main(int argc, char* argv[]) {
     // 需要最早调用
     if (logLevel > 0) {
       int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-          "log-transcriber", (AlibabaNls::LogLevel)logLevel, 400, 50);
+          g_log_file.c_str(), (AlibabaNls::LogLevel)logLevel, 100, g_log_count);
       if (ret < 0) {
         std::cout << "set log failed." << std::endl;
         return -1;
@@ -2641,6 +2717,18 @@ int main(int argc, char* argv[]) {
     //   start()/stop() 调用返回即表示交互启动/结束。
     if (g_sync_timeout > 0) {
       AlibabaNls::NlsClient::getInstance()->setSyncCallTimeout(g_sync_timeout);
+    }
+
+    if (g_setrlimit) {
+      struct rlimit lim;
+      // 设置软限制
+      lim.rlim_cur = g_setrlimit;      // 设置软限制
+      lim.rlim_max = g_setrlimit * 2;  // 设置硬限制
+      if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+        perror("setrlimit");
+        std::cout << "setrlimit failed ... " << std::endl;
+        return 1;
+      }
     }
 
     std::cout << "startWorkThread begin... " << std::endl;

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <dirent.h>
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -36,15 +37,15 @@
 #include "speechTranscriberRequest.h"
 
 #define SELF_TESTING_TRIGGER
-#define FRAME_16K_20MS      640
-#define FRAME_16K_100MS     3200
-#define FRAME_8K_20MS       320
-#define SAMPLE_RATE_8K      8000
-#define SAMPLE_RATE_16K     16000
+#define FRAME_16K_20MS 640
+#define FRAME_16K_100MS 3200
+#define FRAME_8K_20MS 320
+#define SAMPLE_RATE_8K 8000
+#define SAMPLE_RATE_16K 16000
 
 #define OPERATION_TIMEOUT_S 5
-#define LOOP_TIMEOUT        60
-#define DEFAULT_STRING_LEN  128
+#define LOOP_TIMEOUT 60
+#define DEFAULT_STRING_LEN 128
 
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
@@ -120,6 +121,10 @@ std::string g_domain = "";
 std::string g_api_version = "";
 std::string g_url = "";
 std::string g_audio_path = "";
+std::string g_audio_dir = "";
+std::vector<std::string> g_wav_files;
+std::string g_log_file = "log-transcriberMT";
+int g_log_count = 20;
 int g_threads = 1;
 int g_cpu = 1;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
@@ -139,6 +144,7 @@ static int run_cancel = 0;
 static int run_success = 0;
 static int run_fail = 0;
 static int max_msleep = 500;
+static int special_type = 0;
 
 static bool longConnection = false;
 static bool sysAddrinfo = false;
@@ -166,6 +172,37 @@ std::string timestamp_str() {
   buf[63] = '\0';
   std::string tmp = buf;
   return tmp;
+}
+
+void findWavFiles(const std::string& directory,
+                  std::vector<std::string>& wavFiles) {
+  DIR* dir;
+  struct dirent* ent;
+
+  // 打开目录
+  if ((dir = opendir(directory.c_str())) != NULL) {
+    // 读取目录中的每个文件
+    while ((ent = readdir(dir)) != NULL) {
+      std::string fileName = ent->d_name;
+      // 检查文件名是否以 .wav 结尾
+      if (fileName.size() >= 4 &&
+          fileName.substr(fileName.size() - 4) == ".wav") {
+        wavFiles.push_back(directory + "/" + fileName);
+      }
+    }
+    closedir(dir);
+  } else {
+    std::cerr << "无法打开目录: " << directory << std::endl;
+  }
+}
+
+std::string getWavFile(std::vector<std::string>& wavFiles) {
+  if (!wavFiles.empty()) {
+    std::srand(std::time(0));
+    int randomIndex = std::rand() % wavFiles.size();  // 随机索引
+    return wavFiles[randomIndex];
+  }
+  return "";
 }
 
 /**
@@ -256,7 +293,7 @@ void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  onTranscriptionStarted invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestStarted;
   }
@@ -279,7 +316,7 @@ void onSentenceBegin(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       tmpParam->tParam->status != RequestStop) {
     std::cout << "  onSentenceBegin invalid request status:"
               << tmpParam->tParam->status << std::endl;
-    abort();
+    // abort();
   }
   if (tmpParam->tParam->status == RequestStarted) {
     tmpParam->tParam->status = RequestRunning;
@@ -304,7 +341,7 @@ void onSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       tmpParam->tParam->status != RequestStop) {
     std::cout << "  onSentenceEnd invalid request status:"
               << tmpParam->tParam->status << std::endl;
-    abort();
+    // abort();
   }
   if (tmpParam->tParam->status == RequestStarted) {
     tmpParam->tParam->status = RequestRunning;
@@ -333,7 +370,7 @@ void onTranscriptionResultChanged(AlibabaNls::NlsEvent* cbEvent,
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  onTranscriptionResultChanged invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     if (tmpParam->tParam->status == RequestStarted) {
       tmpParam->tParam->status = RequestRunning;
@@ -400,7 +437,7 @@ void onTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "  onTaskFailed invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestFailed;
   }
@@ -456,7 +493,7 @@ void onChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->status != RequestStop) {
       std::cout << "onChannelClosed invalid request status:"
                 << tmpParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
     tmpParam->tParam->status = RequestClosed;
   }
@@ -487,7 +524,7 @@ void* autoCloseFunc(void* arg) {
  *                   |                               |
  *           request->stop()                         |
  *                   |                               |
- *           收到onChannelClosed回调                 |
+ *           收到onChannelClosed回调                  |
  *                   |                               |
  *           releaseTranscriberRequest(request)  ----|
  *        进行循环。
@@ -496,8 +533,9 @@ void* pthreadFunction(void* arg) {
   int testCount = 0;
   uint64_t sendAudio_us = 0;
   uint32_t sendAudio_cnt = 0;
-  uint32_t sendAudio_cnt_max = 0;
-  uint32_t sendAudio_cnt_limit = 0;
+  uint32_t sendAudio_cnt_max = 0;  // 读取音频文件调用sendAudio()发送完的次数
+  uint32_t sendAudio_cnt_limit =
+      0;  // 读取音频文件调用sendAudio()发送次数, 然后退出
   int audioFileTimeLen = 0;
 
   ParamStruct* tst = static_cast<ParamStruct*>(arg);
@@ -509,10 +547,14 @@ void* pthreadFunction(void* arg) {
   pthread_mutex_init(&(tst->mtx), NULL);
 
   /* 打开音频文件, 获取数据 */
-  std::ifstream fs;
+  std::string cur_file_name = getWavFile(g_wav_files);
+  if (cur_file_name.empty()) {
+    cur_file_name = tst->fileName;
+  }
+  std::ifstream fs(cur_file_name.c_str());
   fs.open(tst->fileName, std::ios::binary | std::ios::in);
-  if (!fs) {
-    std::cout << tst->fileName << " isn't exist.." << std::endl;
+  if (!fs.is_open()) {
+    std::cout << cur_file_name << " isn't exist.." << std::endl;
     return NULL;
   } else {
     fs.seekg(0, std::ios::end);
@@ -537,7 +579,7 @@ void* pthreadFunction(void* arg) {
         cbParam->tParam->status != RequestInvalid) {
       std::cout << "pthreadFunc invalid request status:"
                 << cbParam->tParam->status << std::endl;
-      abort();
+      // abort();
     }
 
     struct timeval now;
@@ -560,6 +602,15 @@ void* pthreadFunction(void* arg) {
       return NULL;
     } else {
       cbParam->tParam->status = RequestCreated;
+    }
+
+    gettimeofday(&now, NULL);
+    std::srand(now.tv_usec);
+    if (rand() % 100 == 1) {
+      std::cout << "Release after create() directly ..." << std::endl;
+      AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
+      cbParam->tParam->status = RequestReleased;
+      continue;
     }
 
     // 设置识别启动回调函数
@@ -594,8 +645,8 @@ void* pthreadFunction(void* arg) {
       request->setUrl(tst->url);
     }
     // 获取返回文本的编码格式
-    const char* output_format = request->getOutputFormat();
-    std::cout << "text format: " << output_format << std::endl;
+    // const char* output_format = request->getOutputFormat();
+    // std::cout << "text format: " << output_format << std::endl;
 
     // 参数设置, 如指定声学模型
     // request->setPayloadParam("{\"model\":\"test-regression-model\"}");
@@ -657,14 +708,27 @@ void* pthreadFunction(void* arg) {
       continue;
     } else {
       cbParam->tParam->status = RequestStart;
-      std::cout << "start() success." << std::endl;
+      // std::cout << "start() success." << std::endl;
     }
 
     gettimeofday(&now, NULL);
     std::srand(now.tv_usec);
+    if (max_msleep <= 0) max_msleep = 1;
     int sleepMs = rand() % max_msleep;
-    std::cout << "sleep " << sleepMs << "ms." << std::endl;
+    // std::cout << "sleep " << sleepMs << "ms." << std::endl;
     usleep(sleepMs * 1000);
+
+    if (special_type == 1) {
+      ret = request->cancel();
+      cbParam->tParam->status = RequestCancelled;
+      AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
+      // std::cout << "release done." << std::endl;
+      cbParam->tParam->status = RequestReleased;
+      if (loop_count > 0 && testCount >= loop_count) {
+        global_run = false;
+      }
+      continue;
+    }
 
     sendAudio_us = 0;
     sendAudio_cnt = 0;
@@ -672,10 +736,11 @@ void* pthreadFunction(void* arg) {
 
     gettimeofday(&now, NULL);
     std::srand(now.tv_usec);
+    if (sendAudio_cnt_max <= 0) sendAudio_cnt_max = 1;
     sendAudio_cnt_limit = rand() % sendAudio_cnt_max;
-    std::cout << " sendAudio max count:" << sendAudio_cnt_max << std::endl;
-    std::cout << " sendAudio limited count:" << sendAudio_cnt_limit
-              << std::endl;
+    // std::cout << " sendAudio max count:" << sendAudio_cnt_max << std::endl;
+    // std::cout << " sendAudio limited count:" << sendAudio_cnt_limit
+    //           << std::endl;
 
     while (!fs.eof()) {
       uint8_t data[frame_size];
@@ -684,7 +749,7 @@ void* pthreadFunction(void* arg) {
       fs.read((char*)data, sizeof(uint8_t) * frame_size);
       size_t nlen = fs.gcount();
       if (nlen == 0) {
-        std::cout << "fs empty..." << std::endl;
+        // std::cout << "fs empty..." << std::endl;
         continue;
       }
 
@@ -718,7 +783,7 @@ void* pthreadFunction(void* arg) {
           (tv1.tv_sec - tv0.tv_sec) * 1000000 + tv1.tv_usec - tv0.tv_usec;
       sendAudio_us += tmp_us;
       if (sendAudio_cnt++ >= sendAudio_cnt_limit) {
-        std::cout << " break ..." << std::endl;
+        // std::cout << " break ..." << std::endl;
         break;
       }
 
@@ -750,12 +815,14 @@ void* pthreadFunction(void* arg) {
      * stop()为异步操作.
      */
     if (sendAudio_cnt > 0) {
-      std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt) << "us"
-                << std::endl;
+      // std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt) <<
+      // "us"
+      //           << std::endl;
     }
 
     gettimeofday(&now, NULL);
     std::srand(now.tv_usec);
+    if (max_msleep <= 0) max_msleep = 1;
     sleepMs = rand() % max_msleep;
     usleep(sleepMs * 1000);
 
@@ -765,16 +832,17 @@ void* pthreadFunction(void* arg) {
       // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
       ret = request->stop();
       cbParam->tParam->status = RequestStop;
-      std::cout << "stop done. ret " << ret << "\n" << std::endl;
+      // std::cout << "stop done. ret " << ret << "\n" << std::endl;
     } else if (type == 1) {
       std::cout << "cancel ->" << std::endl;
       ret = request->cancel();
       cbParam->tParam->status = RequestCancelled;
-      std::cout << "cancel done. ret " << ret << "\n" << std::endl;
+      // std::cout << "cancel done. ret " << ret << "\n" << std::endl;
     }
 
     gettimeofday(&now, NULL);
     std::srand(now.tv_usec);
+    if (max_msleep <= 0) max_msleep = 1;
     sleepMs = rand() % max_msleep;
     usleep(sleepMs * 1000);
 
@@ -806,7 +874,7 @@ void* pthreadFunction(void* arg) {
  * 免费用户并发连接不能超过2个;
  * notice: Linux高并发用户注意系统最大文件打开数限制, 详见README.md
  */
-#define AUDIO_FILE_NUMS        4
+#define AUDIO_FILE_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechTranscriberMultFile(const char* appkey, int threads) {
   /**
@@ -964,6 +1032,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       max_msleep = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--special")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      special_type = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--long")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
@@ -992,16 +1064,34 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       g_audio_path = argv[index];
+    } else if (!strcmp(argv[index], "--audioDir")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_audio_dir = argv[index];
     } else if (!strcmp(argv[index], "--maxSilence")) {
       index++;
       if (invalied_argv(index, argc)) return 1;
       max_sentence_silence = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--logFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_file = argv[index];
+    } else if (!strcmp(argv[index], "--logFileCount")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_count = atoi(argv[index]);
     }
     index++;
   }
-  if ((g_token.empty() && (g_akId.empty() || g_akSecret.empty())) ||
-      g_appkey.empty()) {
-    std::cout << "short of params..." << std::endl;
+  if (g_akId.empty() || g_akSecret.empty()) {
+    std::cout << "short of params ... akId or akSecret is empty" << std::endl;
+    if (g_token.empty()) {
+      std::cout << "short of params ... token is empty" << std::endl;
+      return 1;
+    }
+  }
+  if (g_appkey.empty()) {
+    std::cout << "short of params ... appkey is empty" << std::endl;
     return 1;
   }
   return 0;
@@ -1026,19 +1116,29 @@ int main(int argc, char* argv[]) {
         << "      internal: "
            "ws://nls-gateway.cn-shanghai-internal.aliyuncs.com/ws/v1\n"
         << "      mcos: wss://mcos-cn-shanghai.aliyuncs.com/ws/v1\n"
-        << "  --threads <Thread Numbers, default 1>\n"
-        << "  --time <Timeout secs, default 60 seconds>\n"
-        << "  --type <audio type, default pcm>\n"
+        << "  --threads <The number of requests running at the same time, "
+           "default 1>\n"
+        << "  --time <The time of the test run, in seconds>\n"
+        << "  --loop <The number of requests run>\n"
+        << "  --type <The audio format that is transmitted to the server, "
+           "which can be opus and pcm, the default opus>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
-        << "  --sampleRate <sample rate, 16K or 8K>\n"
+        << "  --sampleRate <sample rate, 16000 or 8000, default is 16000.>\n"
         << "  --long <long connection: 1, short connection: 0, default 0>\n"
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
         << "  --noSleep <use sleep after sendAudio(), default 0>\n"
-        << "  --audioFile <the absolute path of audio file>\n"
-        << "  --maxSilence <max silence time of sentence>\n"
-        << "  --loop <loop count>\n"
-        << "  --maxSilence <max sentence silence time>\n"
-        << "  --NlsScan <profile scan number>\n"
+        << "  --audioFile <The absolute path of the audio file used for the "
+           "audio input for the test>\n"
+        << "  --audioDir <>\n"
+        << "  --maxSilence <Maximum silence time, in milliseconds, "
+           "200~6000(ms), default is 800ms>\n"
+        << "  --msleep <The maximum sleep time after start() to sendAudio(), "
+           "or after sendAudio() to stop()/cancel()>\n"
+        << "  --special <Special test content, default 0. 1: cancel()/stop() "
+           "after start().>\n"
+        << "  --NlsScan <Profile scan number of CPUs>\n"
+        << "  --logFile <log file>\n"
+        << "  --logFileCount <The count of log file>\n"
         << "eg:\n"
         << "  ./stMT --appkey xxxxxx --token xxxxxx\n"
         << "  ./stMT --appkey xxxxxx --token xxxxxx --threads 4 --time 3600\n"
@@ -1070,12 +1170,16 @@ int main(int argc, char* argv[]) {
 
   pthread_mutex_init(&params_mtx, NULL);
 
+  if (!g_audio_dir.empty()) {
+    findWavFiles(g_audio_dir, g_wav_files);
+  }
+
   // 根据需要设置SDK输出日志, 可选.
   // 此处表示SDK日志输出至log-Transcriber.txt， LogDebug表示输出所有级别日志
   // 需要最早调用
   if (logLevel > 0) {
     int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        "log-transcriberMT", (AlibabaNls::LogLevel)logLevel, 600, 50);
+        g_log_file.c_str(), (AlibabaNls::LogLevel)logLevel, 100, g_log_count);
     if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;

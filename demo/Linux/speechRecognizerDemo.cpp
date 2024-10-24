@@ -40,8 +40,8 @@
 #include "speechRecognizerRequest.h"
 
 #define SELF_TESTING_TRIGGER
-#define FRAME_16K_20MS     640
-#define SAMPLE_RATE_16K    16000
+#define FRAME_16K_20MS 640
+#define SAMPLE_RATE_16K 16000
 #define DEFAULT_STRING_LEN 512
 
 #define LOOP_TIMEOUT 60
@@ -176,6 +176,8 @@ std::string g_url = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_audio_path = "";
+std::string g_log_file = "log-recognizer";
+int g_log_count = 20;
 int g_threads = 1;
 int g_cpu = 1;
 int g_sync_timeout = 0;
@@ -1734,7 +1736,7 @@ void *pthreadLongConnectionFunction(void *arg) {
  * 免费用户并发连接不能超过2个;
  * notice: Linux高并发用户注意系统最大文件打开数限制, 详见README.md
  */
-#define AUDIO_FILE_NUMS        4
+#define AUDIO_FILE_NUMS 4
 #define AUDIO_FILE_NAME_LENGTH 32
 int speechRecognizerMultFile(const char *appkey, int threads) {
   /**
@@ -2232,6 +2234,14 @@ int parse_argv(int argc, char *argv[]) {
       } else {
         enableIntermediateResult = false;
       }
+    } else if (!strcmp(argv[index], "--logFile")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_file = argv[index];
+    } else if (!strcmp(argv[index], "--logFileCount")) {
+      index++;
+      if (invalied_argv(index, argc)) return 1;
+      g_log_count = atoi(argv[index]);
     }
     index++;
   }
@@ -2295,6 +2305,8 @@ int main(int argc, char *argv[]) {
         << "  --loop <loop count>\n"
         << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, "
            "invoke is async.>\n"
+        << "  --logFile <log file>\n"
+        << "  --logFileCount <The count of log file>\n"
         << "eg:\n"
         << "  ./srDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./srDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
@@ -2347,8 +2359,8 @@ int main(int argc, char *argv[]) {
     // 需要最早调用
     if (logLevel > 0) {
       int ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-          "log-recognizer", (AlibabaNls::LogLevel)logLevel, 400,
-          50);  //"log-recognizer"
+          g_log_file.c_str(), (AlibabaNls::LogLevel)logLevel, 100,
+          g_log_count);  //"log-recognizer"
       if (ret < 0) {
         std::cout << "set log failed." << std::endl;
         return -1;

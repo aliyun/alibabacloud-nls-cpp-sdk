@@ -113,6 +113,7 @@ class INlsRequestParam {
   virtual const char* getExecuteDialog();
   virtual const char* getStopWakeWordCommand();
   virtual const char* getRunFlowingSynthesisCommand(const char* text);
+  virtual const char* getFlushFlowingTextCommand();
 
   virtual int setCustomizationId(const char* value);
   virtual int setVocabularyId(const char* value);
@@ -156,7 +157,6 @@ class INlsRequestParam {
   std::string _sdk_name;
 
   std::string _startCommand;
-  std::string _runFlowingSynthesisCommand;
   std::string _controlCommand;
   std::string _stopCommand;
 

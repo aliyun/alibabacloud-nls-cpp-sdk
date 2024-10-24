@@ -105,6 +105,7 @@ enum CmdType {
   CmdCancel,
   CmdSendText,
   CmdSendPing,
+  CmdSendFlush,
 };
 
 /* Node处于的退出状态 */
@@ -344,7 +345,7 @@ class ConnectNode {
 
   static void *async_dns_resolve_thread_fn(void *arg);
 #endif
-  int _dnsRequestCallbackStatus;
+  int _dnsRequestCallbackStatus; /* 1:开始DNS; 2:结束DNS */
 
   /* 9. design for thread safe */
 #if defined(_MSC_VER)
@@ -357,7 +358,9 @@ class ConnectNode {
   pthread_mutex_t _mtxEventCallbackNode;
   pthread_cond_t _cvEventCallbackNode; /*释放过程中等待事件回调结束*/
 #endif
-  bool _inEventCallbackNode; /*是否处于事件回调中*/
+  bool _inEventCallbackNode;         /*是否处于事件回调中*/
+  bool _releasingFlag;               /*处于释放中*/
+  bool _waitEventCallbackAbnormally; /*处于异常状态*/
 
   /* 10. design for sync call */
   inline void setSyncCallTimeout(unsigned int timeout_ms) {

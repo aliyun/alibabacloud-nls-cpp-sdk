@@ -37,6 +37,11 @@ class FlowingSynthesizerParam : public INlsRequestParam {
   const char* getStartCommand();
   const char* getStopCommand();
   const char* getRunFlowingSynthesisCommand(const char* text);
+  const char* getFlushFlowingTextCommand();
+
+ private:
+  std::string _runFlowingSynthesisCommand;
+  std::string _flushFlowingTextCommand;
 };
 
 }  // namespace AlibabaNls
