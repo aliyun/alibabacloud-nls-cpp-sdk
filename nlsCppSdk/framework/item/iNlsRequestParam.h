@@ -113,7 +113,7 @@ class INlsRequestParam {
   virtual const char* getExecuteDialog();
   virtual const char* getStopWakeWordCommand();
   virtual const char* getRunFlowingSynthesisCommand(const char* text);
-  virtual const char* getFlushFlowingTextCommand();
+  virtual const char* getFlushFlowingTextCommand(const char* parameters);
 
   virtual int setCustomizationId(const char* value);
   virtual int setVocabularyId(const char* value);

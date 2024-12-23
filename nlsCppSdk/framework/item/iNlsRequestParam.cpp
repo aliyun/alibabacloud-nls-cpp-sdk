@@ -132,7 +132,7 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
     }
 
     if (!inputRoot.isObject()) {
-      LOG_ERROR("Json value isn't a json object.");
+      LOG_ERROR("Json value(%s) isn't a json object.", message);
       return NULL;
     }
 
@@ -183,7 +183,10 @@ const char* INlsRequestParam::getRunFlowingSynthesisCommand(const char* text) {
   return "";
 }
 
-const char* INlsRequestParam::getFlushFlowingTextCommand() { return ""; }
+const char* INlsRequestParam::getFlushFlowingTextCommand(
+    const char* parameters) {
+  return "";
+}
 
 int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Value root;
@@ -204,7 +207,7 @@ int INlsRequestParam::setPayloadParam(const char* value) {
     }
 
     if (!root.isObject()) {
-      LOG_ERROR("Json value isn't a json object.");
+      LOG_ERROR("Json value(%s) isn't a json object.", tmpValue.c_str());
       return -(JsonObjectError);
     }
 
@@ -260,7 +263,7 @@ int INlsRequestParam::setContextParam(const char* value) {
     }
 
     if (!root.isObject()) {
-      LOG_ERROR("Json value isn't a json object.");
+      LOG_ERROR("Json value(%s) isn't a json object.", tmpValue.c_str());
       return -(JsonObjectError);
     }
 

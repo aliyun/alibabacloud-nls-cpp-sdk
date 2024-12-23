@@ -2366,7 +2366,7 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   return 0;
 }
 
-int invalied_argv(int index, int argc) {
+int invalid_argv(int index, int argc) {
   if (index >= argc) {
     std::cout << "invalid params..." << std::endl;
     return 1;
@@ -2379,59 +2379,59 @@ int parse_argv(int argc, char* argv[]) {
   while (index < argc) {
     if (!strcmp(argv[index], "--appkey")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_appkey = argv[index];
     } else if (!strcmp(argv[index], "--akId")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akId = argv[index];
     } else if (!strcmp(argv[index], "--akSecret")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akSecret = argv[index];
     } else if (!strcmp(argv[index], "--token")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_token = argv[index];
     } else if (!strcmp(argv[index], "--tokenDomain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_domain = argv[index];
     } else if (!strcmp(argv[index], "--tokenApiVersion")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_api_version = argv[index];
     } else if (!strcmp(argv[index], "--url")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_url = argv[index];
     } else if (!strcmp(argv[index], "--vipServerDomain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_vipServerDomain = argv[index];
     } else if (!strcmp(argv[index], "--vipServerTargetDomain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_vipServerTargetDomain = argv[index];
     } else if (!strcmp(argv[index], "--threads")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--cpu")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_cpu = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--time")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--loop")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       loop_count = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--type")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (strcmp(argv[index], "pcm") == 0) {
         encoder_type = ENCODER_NONE;
       } else if (strcmp(argv[index], "opu") == 0) {
@@ -2443,18 +2443,18 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--log")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       logLevel = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--sampleRate")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       sample_rate = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--frameSize")) {
       index++;
       frame_size = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--save")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         g_save_audio = true;
       } else {
@@ -2462,7 +2462,7 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--message")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         g_on_message_flag = true;
       } else {
@@ -2470,7 +2470,7 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--continued")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         g_continued_flag = true;
       } else {
@@ -2478,11 +2478,11 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       profile_scan = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--long")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         longConnection = true;
       } else {
@@ -2490,7 +2490,7 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--sys")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         sysAddrinfo = true;
       } else {
@@ -2498,7 +2498,7 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--noSleep")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         noSleepFlag = true;
       } else {
@@ -2506,15 +2506,15 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--audioFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_audio_path = argv[index];
     } else if (!strcmp(argv[index], "--audioDir")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_audio_dir = argv[index];
     } else if (!strcmp(argv[index], "--loopAudioFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         g_loop_file_flag = true;
       } else {
@@ -2522,15 +2522,15 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--maxSilence")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       max_sentence_silence = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--sync_timeout")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_sync_timeout = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--intermedia")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         enableIntermediateResult = true;
       } else {
@@ -2538,15 +2538,15 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--setrlimit")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_setrlimit = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--logFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_log_file = argv[index];
     } else if (!strcmp(argv[index], "--logFileCount")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_log_count = atoi(argv[index]);
     }
     index++;

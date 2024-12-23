@@ -37,7 +37,7 @@ class FlowingSynthesizerParam : public INlsRequestParam {
   const char* getStartCommand();
   const char* getStopCommand();
   const char* getRunFlowingSynthesisCommand(const char* text);
-  const char* getFlushFlowingTextCommand();
+  const char* getFlushFlowingTextCommand(const char* parameters);
 
  private:
   std::string _runFlowingSynthesisCommand;

@@ -116,11 +116,11 @@ int INlsRequest::sendPing(INlsRequest* request) {
   return NlsEventNetWork::_eventClient->sendPing(request);
 }
 
-int INlsRequest::sendFlush(INlsRequest* request) {
+int INlsRequest::sendFlush(INlsRequest* request, const char* parameters) {
   INPUT_REQUEST_CHECK(request);
   EVENT_CLIENT_CHECK(NlsEventNetWork::_eventClient);
 
-  return NlsEventNetWork::_eventClient->sendFlush(request);
+  return NlsEventNetWork::_eventClient->sendFlush(request, parameters);
 }
 
 const char* INlsRequest::dumpAllInfo(INlsRequest* request) {
