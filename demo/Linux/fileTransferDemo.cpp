@@ -51,7 +51,7 @@ void signal_handler_quit(int signo) {
   std::cout << "\nget quit mesg\n" << std::endl;
 }
 
-int invalied_argv(int index, int argc) {
+int invalid_argv(int index, int argc) {
   if (index >= argc) {
     std::cout << "invalid params..." << std::endl;
     return 1;
@@ -64,27 +64,27 @@ int parse_argv(int argc, char *argv[]) {
   while (index < argc) {
     if (!strcmp(argv[index], "--appkey")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_appkey = argv[index];
     } else if (!strcmp(argv[index], "--akId")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akId = argv[index];
     } else if (!strcmp(argv[index], "--akSecret")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akSecret = argv[index];
     } else if (!strcmp(argv[index], "--stsToken")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_stsToken = argv[index];
     } else if (!strcmp(argv[index], "--fileLinkUrl")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_fileLinkUrl = argv[index];
     } else if (!strcmp(argv[index], "--sync")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         g_sync = true;
       } else {
@@ -92,15 +92,15 @@ int parse_argv(int argc, char *argv[]) {
       }
     } else if (!strcmp(argv[index], "--threads")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--logFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_log_file = argv[index];
     } else if (!strcmp(argv[index], "--logFileCount")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_log_count = atoi(argv[index]);
     }
     index++;

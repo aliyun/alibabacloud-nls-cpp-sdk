@@ -45,7 +45,7 @@ void signal_handler_quit(int signo) {
   std::cout << "\nget quit mesg\n" << std::endl;
 }
 
-int invalied_argv(int index, int argc) {
+int invalid_argv(int index, int argc) {
   if (index >= argc) {
     std::cout << "invalid params..." << std::endl;
     return 1;
@@ -58,19 +58,19 @@ int parse_argv(int argc, char* argv[]) {
   while (index < argc) {
     if (!strcmp(argv[index], "--akId")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akId = argv[index];
     } else if (!strcmp(argv[index], "--akSecret")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akSecret = argv[index];
     } else if (!strcmp(argv[index], "--domain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_domain = argv[index];
     } else if (!strcmp(argv[index], "--apiVersion")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_api_version = argv[index];
     }
     index++;

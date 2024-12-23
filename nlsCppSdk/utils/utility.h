@@ -30,6 +30,16 @@ namespace utility {
   if (x == NULL) {                  \
     return -(InvalidInputParam);    \
   };
+#define INPUT_PARAM_JSON_STRING_CHECK(x)                  \
+  do {                                                    \
+    if (x != NULL) {                                      \
+      Json::Reader json_check_reader;                     \
+      Json::Value json_check_root(Json::objectValue);     \
+      if (!json_check_reader.parse(x, json_check_root)) { \
+        return -(JsonParseFailed);                        \
+      }                                                   \
+    }                                                     \
+  } while (0)
 #define INPUT_REQUEST_CHECK(x)              \
   do {                                      \
     if (x == NULL) {                        \

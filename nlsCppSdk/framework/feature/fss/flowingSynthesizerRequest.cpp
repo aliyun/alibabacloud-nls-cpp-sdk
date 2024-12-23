@@ -197,8 +197,9 @@ int FlowingSynthesizerRequest::sendText(const char* text) {
   return INlsRequest::sendText(this, text);
 }
 
-int FlowingSynthesizerRequest::sendFlush() {
-  return INlsRequest::sendFlush(this);
+int FlowingSynthesizerRequest::sendFlush(const char* parameters) {
+  INPUT_PARAM_JSON_STRING_CHECK(parameters);
+  return INlsRequest::sendFlush(this, parameters);
 }
 
 const char* FlowingSynthesizerRequest::dumpAllInfo() {

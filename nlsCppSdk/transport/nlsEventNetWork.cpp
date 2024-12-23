@@ -649,7 +649,7 @@ int NlsEventNetWork::sendPing(INlsRequest *request) {
   return ret;
 }
 
-int NlsEventNetWork::sendFlush(INlsRequest *request) {
+int NlsEventNetWork::sendFlush(INlsRequest *request, const char *parameters) {
   MUTEX_LOCK(_mtxThread);
 
   if (_eventClient == NULL) {
@@ -692,7 +692,7 @@ int NlsEventNetWork::sendFlush(INlsRequest *request) {
     return -(InvokeSendTextFailed);
   }
 
-  int ret = node->cmdNotify(CmdSendFlush, NULL);
+  int ret = node->cmdNotify(CmdSendFlush, parameters);
 
   MUTEX_UNLOCK(_mtxThread);
   return ret;

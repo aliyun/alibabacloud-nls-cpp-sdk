@@ -45,7 +45,7 @@ class INlsRequest {
                 ENCODER_TYPE type = ENCODER_NONE);
   int sendText(INlsRequest*, const char*);
   int sendPing(INlsRequest*);
-  int sendFlush(INlsRequest*);
+  int sendFlush(INlsRequest*, const char*);
 
   const char* dumpAllInfo(INlsRequest*);
 

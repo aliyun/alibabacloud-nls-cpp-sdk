@@ -51,7 +51,7 @@ class NlsEventNetWork {
                 ENCODER_TYPE type);
   int sendText(INlsRequest *request, const char *text);
   int sendPing(INlsRequest *request);
-  int sendFlush(INlsRequest *request);
+  int sendFlush(INlsRequest *request, const char *parameters);
   int stop(INlsRequest *request);
   int cancel(INlsRequest *request);
   int stControl(INlsRequest *request, const char *message);

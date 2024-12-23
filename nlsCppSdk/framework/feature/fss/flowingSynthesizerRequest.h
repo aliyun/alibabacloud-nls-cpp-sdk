@@ -255,9 +255,10 @@ class NLS_SDK_CLIENT_EXPORT FlowingSynthesizerRequest : public INlsRequest {
   /**
    * @brief 表示送完待合成文本, 立即开始合成音频。
    * @note 异步操作。失败返回TaskFailed。
+   * @param parameters json格式字符串, 用于传入flush的额外参数
    * @return 成功则返回0，否则返回负值错误码
    */
-  int sendFlush();
+  int sendFlush(const char* parameters = NULL);
 
   /**
    * @brief 获得当前请求的全部运行信息

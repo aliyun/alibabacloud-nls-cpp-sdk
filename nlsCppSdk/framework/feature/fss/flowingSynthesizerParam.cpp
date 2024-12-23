@@ -100,14 +100,21 @@ const char* FlowingSynthesizerParam::getRunFlowingSynthesisCommand(
   return _runFlowingSynthesisCommand.c_str();
 }
 
-const char* FlowingSynthesizerParam::getFlushFlowingTextCommand() {
-  Json::Value root;
+const char* FlowingSynthesizerParam::getFlushFlowingTextCommand(
+    const char* parameters) {
+  Json::Reader reader;
+  Json::Value root, payload;
   Json::FastWriter writer;
   _header[D_NAME] = D_CMD_FLUSH_TEXT;
 
   try {
     _header[D_TASK_ID] = _task_id;
     _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
+    root[D_HEADER] = _header;
+
+    if (parameters != NULL && reader.parse(parameters, payload)) {
+      root[D_PAYLOAD] = payload;
+    }
 
     root[D_HEADER] = _header;
 

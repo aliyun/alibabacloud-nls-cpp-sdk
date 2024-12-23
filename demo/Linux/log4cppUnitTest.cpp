@@ -167,7 +167,7 @@ void onExternalLogCallback(const char* timestamp, int level,
   std::cout << "  log message:" << message << std::endl;
 }
 
-int invalied_argv(int index, int argc) {
+int invalid_argv(int index, int argc) {
   if (index >= argc) {
     std::cout << "invalid params..." << std::endl;
     return 1;
@@ -180,19 +180,19 @@ int parse_argv(int argc, char* argv[]) {
   while (index < argc) {
     if (!strcmp(argv[index], "--threads")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--time")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--loop")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       loop_count = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--vocabFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_vocab_path = argv[index];
     }
     index++;

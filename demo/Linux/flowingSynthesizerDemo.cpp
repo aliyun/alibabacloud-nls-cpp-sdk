@@ -210,6 +210,7 @@ static bool longConnection = false;
 static bool sysAddrinfo = false;
 static bool enableSubtitle = false;
 static bool sendFlushFlag = false;
+static bool enableLongSilence = false;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -1139,7 +1140,11 @@ void* pthreadFunc(void* arg) {
           break;
         }
         if (sendFlushFlag) {
-          request->sendFlush();
+          if (enableLongSilence) {
+            request->sendFlush("{\"enable_long_silence\":true}");
+          } else {
+            request->sendFlush();
+          }
         }
         usleep(500 * 1000);
 
@@ -1476,7 +1481,11 @@ void* pthreadLongConnectionFunc(void* arg) {
           break;
         }
         if (sendFlushFlag) {
-          request->sendFlush();
+          if (enableLongSilence) {
+            request->sendFlush("{\"enable_long_silence\":true}");
+          } else {
+            request->sendFlush();
+          }
         }
         usleep(500 * 1000);
 
@@ -1883,7 +1892,7 @@ int flowingSynthesizerMultFile(const char* appkey, int threads) {
   return 0;
 }
 
-int invalied_argv(int index, int argc) {
+int invalid_argv(int index, int argc) {
   if (index >= argc) {
     std::cout << "invalid params..." << std::endl;
     return 1;
@@ -1896,66 +1905,66 @@ int parse_argv(int argc, char* argv[]) {
   while (index < argc) {
     if (!strcmp(argv[index], "--appkey")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_appkey = argv[index];
     } else if (!strcmp(argv[index], "--akId")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akId = argv[index];
     } else if (!strcmp(argv[index], "--akSecret")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_akSecret = argv[index];
     } else if (!strcmp(argv[index], "--token")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_token = argv[index];
     } else if (!strcmp(argv[index], "--tokenDomain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_domain = argv[index];
     } else if (!strcmp(argv[index], "--tokenApiVersion")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_api_version = argv[index];
     } else if (!strcmp(argv[index], "--url")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_url = argv[index];
     } else if (!strcmp(argv[index], "--vipServerDomain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_vipServerDomain = argv[index];
     } else if (!strcmp(argv[index], "--vipServerTargetDomain")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_vipServerTargetDomain = argv[index];
     } else if (!strcmp(argv[index], "--threads")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_threads = atoi(argv[index]);
       if (g_threads < 1) {
         g_threads = 1;
       }
     } else if (!strcmp(argv[index], "--cpu")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_cpu = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--time")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       loop_timeout = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--loop")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       loop_count = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--NlsScan")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       profile_scan = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--long")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         longConnection = true;
       } else {
@@ -1963,7 +1972,7 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--sys")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         sysAddrinfo = true;
       } else {
@@ -1971,15 +1980,15 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--sampleRate")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       sample_rate = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--format")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_format = argv[index];
     } else if (!strcmp(argv[index], "--save")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         g_save_audio = true;
       } else {
@@ -1987,15 +1996,15 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--text")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_text = argv[index];
     } else if (!strcmp(argv[index], "--textFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_text_file = argv[index];
     } else if (!strcmp(argv[index], "--subtitle")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         enableSubtitle = true;
       } else {
@@ -2003,27 +2012,35 @@ int parse_argv(int argc, char* argv[]) {
       }
     } else if (!strcmp(argv[index], "--sync_timeout")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_sync_timeout = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--voice")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_voice = argv[index];
     } else if (!strcmp(argv[index], "--flush")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       if (atoi(argv[index])) {
         sendFlushFlag = true;
       } else {
         sendFlushFlag = false;
       }
+    } else if (!strcmp(argv[index], "--enable_long_silence")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        enableLongSilence = true;
+      } else {
+        enableLongSilence = false;
+      }
     } else if (!strcmp(argv[index], "--logFile")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_log_file = argv[index];
     } else if (!strcmp(argv[index], "--logFileCount")) {
       index++;
-      if (invalied_argv(index, argc)) return 1;
+      if (invalid_argv(index, argc)) return 1;
       g_log_count = atoi(argv[index]);
     }
     index++;

@@ -88,6 +88,8 @@ ConnectNode::ConnectNode(INlsRequest *request,
       _exitStatus(ExitInvalid),
       _instance(NULL),
       _syncCallTimeoutMs(0),
+      _nodeErrCode(Success),
+      _limitSize(Buffer16kMaxLimit),
 #ifdef __LINUX__
       _nodename(NULL),
       _servname(NULL),
@@ -1309,7 +1311,8 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
       cmd = (char *)"{ping}";
       break;
     case CmdSendFlush:
-      cmd = (char *)_request->getRequestParam()->getFlushFlowingTextCommand();
+      cmd = (char *)_request->getRequestParam()->getFlushFlowingTextCommand(
+          message);
       break;
     default:
       LOG_WARN("Node(%p) add unknown command, do nothing.", this);
@@ -1401,7 +1404,7 @@ int ConnectNode::cmdNotify(CmdType type, const char *message) {
     addCmdDataBuffer(CmdSendPing, NULL);
     ret = nlsSendFrame(_cmdEvBuffer);
   } else if (type == CmdSendFlush) {
-    addCmdDataBuffer(CmdSendFlush, NULL);
+    addCmdDataBuffer(CmdSendFlush, message);
     ret = nlsSendFrame(_cmdEvBuffer);
   } else {
     LOG_ERROR("Node(%p) invoke unknown command.", this);
