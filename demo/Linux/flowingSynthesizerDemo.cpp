@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <cstdlib>
 #include <ctime>
 #include <fstream>
@@ -234,6 +235,22 @@ std::string timestamp_str() {
   buf[63] = '\0';
   std::string tmp = buf;
   return tmp;
+}
+
+bool isNotEmptyAndNotSpace(const char* str) {
+  if (str == NULL) {
+    return false;
+  }
+  size_t length = strlen(str);
+  if (length == 0) {
+    return false;
+  }
+  for (size_t i = 0; i < length; ++i) {
+    if (!std::isspace(static_cast<unsigned char>(str[i]))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 static void vectorSetParams(unsigned long pid, bool add,
@@ -1095,6 +1112,8 @@ void* pthreadFunc(void* arg) {
           // start()调用超时，cancel()取消当次请求。
           request->cancel();
           run_cancel++;
+          AlibabaNls::NlsClient::getInstance()
+              ->releaseFlowingSynthesizerRequest(request);
           break;
         }
         pthread_mutex_unlock(&(cbParam.mtxWord));
@@ -1134,30 +1153,33 @@ void* pthreadFunc(void* arg) {
       std::cout << "total text: " << text_str << std::endl;
       for (std::vector<std::string>::const_iterator it = sentences.begin();
            it != sentences.end(); ++it) {
-        std::cout << "sendText: " << *it << std::endl;
-        ret = request->sendText(it->c_str());
-        if (ret < 0) {
-          break;
-        }
-        if (sendFlushFlag) {
-          if (enableLongSilence) {
-            request->sendFlush("{\"enable_long_silence\":true}");
-          } else {
-            request->sendFlush();
+        if (isNotEmptyAndNotSpace(it->c_str())) {
+          std::cout << "sendText: " << *it << std::endl;
+          ret = request->sendText(it->c_str());
+          if (ret < 0) {
+            break;
           }
+          if (sendFlushFlag) {
+            if (enableLongSilence) {
+              request->sendFlush("{\"enable_long_silence\":true}");
+            } else {
+              request->sendFlush();
+            }
+          }
+          usleep(500 * 1000);
         }
-        usleep(500 * 1000);
 
         if (!global_run) break;
       }  // for
       if (ret < 0) {
-        std::cout << "sendText failed. pid:" << pthread_self() << std::endl;
+        std::cout << "sendText failed. pid:" << pthread_self()
+                  << ". ret: " << ret << std::endl;
         const char* request_info = request->dumpAllInfo();
         if (request_info) {
           std::cout << "  all info: " << request_info << std::endl;
         }
         AlibabaNls::NlsClient::getInstance()->releaseFlowingSynthesizerRequest(
-            request);  // start()失败，释放request对象
+            request);
         break;
       }
     }
@@ -1200,8 +1222,10 @@ void* pthreadFunc(void* arg) {
         pthread_mutex_lock(&(cbParam.mtxWord));
         if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam.cvWord),
                                                 &(cbParam.mtxWord), &outtime)) {
-          std::cout << "stop timeout" << std::endl;
+          std::cout << "stop timeout, release this request" << std::endl;
           pthread_mutex_unlock(&(cbParam.mtxWord));
+          AlibabaNls::NlsClient::getInstance()
+              ->releaseFlowingSynthesizerRequest(request);
           break;
         }
         pthread_mutex_unlock(&(cbParam.mtxWord));
@@ -1283,7 +1307,7 @@ void* pthreadLongConnectionFunc(void* arg) {
    * 1. 创建流式文本语音合成FlowingSynthesizerRequest对象.
    *
    * 流式文本语音合成文档详见:
-   * https://help.aliyun.com/zh/isi/developer-reference/streaming-text-to-speech-synthesis/?spm=a2c4g.11186623.0.0.638b1f016dQylG
+   * https://help.aliyun.com/zh/isi/developer-reference/streaming-text-to-speech-synthesis
    */
   AlibabaNls::FlowingSynthesizerRequest* request =
       AlibabaNls::NlsClient::getInstance()->createFlowingSynthesizerRequest(
@@ -1475,19 +1499,21 @@ void* pthreadLongConnectionFunc(void* arg) {
       std::cout << "total text: " << text_str << std::endl;
       for (std::vector<std::string>::const_iterator it = sentences.begin();
            it != sentences.end(); ++it) {
-        std::cout << "sendText: " << *it << std::endl;
-        ret = request->sendText(it->c_str());
-        if (ret < 0) {
-          break;
-        }
-        if (sendFlushFlag) {
-          if (enableLongSilence) {
-            request->sendFlush("{\"enable_long_silence\":true}");
-          } else {
-            request->sendFlush();
+        if (isNotEmptyAndNotSpace(it->c_str())) {
+          std::cout << "sendText: " << *it << std::endl;
+          ret = request->sendText(it->c_str());
+          if (ret < 0) {
+            break;
           }
+          if (sendFlushFlag) {
+            if (enableLongSilence) {
+              request->sendFlush("{\"enable_long_silence\":true}");
+            } else {
+              request->sendFlush();
+            }
+          }
+          usleep(500 * 1000);
         }
-        usleep(500 * 1000);
 
         if (!global_run) break;
       }  // for

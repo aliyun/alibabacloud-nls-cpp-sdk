@@ -106,11 +106,17 @@ fi
 
 function build_resources {
   echo "oss cp " $OSS_TEST_AUDIO_SOURCE " to " $workspace_path/audio
-  ossutil64 cp -rf $OSS_TEST_AUDIO_SOURCE $workspace_path/audio
-  echo "oss cp " $OSS_TEST_TEXT_SOURCE " to " $workspace_path
-  ossutil64 cp -f $OSS_TEST_TEXT_SOURCE $workspace_path
+  if [ ! -d "$workspace_path/audio" ]; then
+    ossutil64 cp -rf $OSS_TEST_AUDIO_SOURCE $workspace_path/audio
+  fi
+  echo "oss cp " $OSS_TEST_TEXT_SOURCE " to " $workspace_path/testcases_mix_300_500.txt
+  if [ ! -e "$workspace_path/testcases_mix_300_500.txt" ]; then
+    ossutil64 cp -f $OSS_TEST_TEXT_SOURCE $workspace_path/testcases_mix_300_500.txt
+  fi
   echo "mv " $workspace_path/testcases_mix_300_500.txt " to " $txt_test_path
-  mv $workspace_path/testcases_mix_300_500.txt $txt_test_path
+  if [ ! -e "$txt_test_path" ]; then
+    mv $workspace_path/testcases_mix_300_500.txt $txt_test_path
+  fi
 }
 
 echo "资源下载 >>>"
@@ -185,6 +191,7 @@ run_streaminput_tts_test() {
   cur_voice=$6
   cur_log_file=$7
   cur_background=$8
+  cur_special_type=$9
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -193,9 +200,13 @@ run_streaminput_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format pcm
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --textFile $txt_test_path >
+   --logFileCount $RUN_LOG_COUNT --textFile $txt_test_path --special $cur_special_type >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
-  if [ "$cur_background" -eq 1 ]; then
+  if [ "$cur_background" -eq 2 ]; then
+    run_cmd=$run_cmd" --setrlimit $cur_threads"
+  fi
+  run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
+  if [ "$cur_background" -eq 1 ] || [ "$cur_background" -eq 2 ]; then
     run_cmd=$run_cmd" &"
   fi
   run_cmd="("$run_cmd") || exit 1"
@@ -445,10 +456,13 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
   fs_workspace_path=$workspace_result_path/fs
   mkdir -p $fs_workspace_path
   fs_demo_path=$git_root_path/fsDemo
+  fs_monkey_path=$git_root_path/fsMT
   run_1h=3600
+  run_168h=604800
+  run_24h=86400
   run_time_s=$run_1h
   run_log=log-FlowingSynthesizer
-  run_voice=cosyvoice-zeyou-a7b8064
+  run_voice=zhixiaomei
 
   if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 1 ] && [ "$END_STEP" -ge 1 ]; }; then
     echo "  >>> 1. 开始压测流式语音合成 1h性能压测 预发环境"
@@ -456,8 +470,64 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_streaminput_tts_test fsS 1 $fs_demo_path 5 $run_time_s $run_voice $run_log 1
+    run_log=log-FlowingSynthesizer
+    run_streaminput_tts_test fsS 1 $fs_demo_path 5 $run_time_s $run_voice $run_log 1 0
     echo "  <<< 1. 开始压测流式语音合成 1h性能压测 预发环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 2 ] && [ "$END_STEP" -ge 2 ]; }; then
+    echo "  >>> 2. 开始压测流式语音合成 3并发24h*7 MONKEY测试 上海生产环境"
+    run_time_s=$run_168h
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
+    NLS_URL=$NLS_SH_URL
+    run_log=log-FlowingSynthesizerMonkey
+    run_streaminput_tts_test fsM 2 $fs_monkey_path 2 $run_time_s $run_voice $run_log 1 0
+    echo "  <<< 2. 开始压测流式语音合成 3并发24h*7 MONKEY测试 上海生产环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 3 ] && [ "$END_STEP" -ge 3 ]; }; then
+    echo "  >>> 3. 开始压测流式语音合成 3并发24h*1 链接时随机释放专项测试 start后0-2000ms随机释放 上海生产环境"
+    run_time_s=$run_24h
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
+    NLS_URL=$NLS_SH_URL
+    run_log=log-FlowingSynthesizerMonkey
+    run_streaminput_tts_test fsM 3 $fs_monkey_path 3 $run_time_s $run_voice $run_log 1 1
+    echo "  <<< 3. 开始压测流式语音合成 3并发24h*1 链接时随机释放专项测试 start后0-2000ms随机释放 上海生产环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 4 ] && [ "$END_STEP" -ge 4 ]; }; then
+    echo "  >>> 4. 开始压测流式语音合成 100并发模拟高并发弱网场景1h压测 预发环境"
+    run_time_s=$run_1h
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
+    NLS_URL=$NLS_PRE_URL
+    run_log=log-FlowingSynthesizer
+    run_streaminput_tts_test fsS 4 $fs_demo_path 100 $run_time_s $run_voice $run_log 1 0
+    echo "  <<< 4. 开始压测流式语音合成 100并发模拟高并发弱网场景1h压测 预发环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 5 ] && [ "$END_STEP" -ge 5 ]; }; then
+    echo "  >>> 5. 开始压测流式语音合成 client端限制上下行带宽模拟弱网场景24h压测 预发环境"
+    run_time_s=$run_24h
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
+    NLS_URL=$NLS_PRE_URL
+    run_log=log-FlowingSynthesizer
+    run_streaminput_tts_test fsS 5 $fs_demo_path 50 $run_time_s $run_voice $run_log 1 0
+    echo "  <<< 5. 开始压测流式语音合成 client端限制上下行带宽模拟弱网场景24h压测 预发环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 6 ] && [ "$END_STEP" -ge 6 ]; }; then
+    echo "  >>> 6. 开始压测流式语音合成 client端限制socket数模拟弱网场景24h压测 预发环境"
+    run_time_s=$run_24h
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
+    NLS_URL=$NLS_PRE_URL
+    run_log=log-FlowingSynthesizer
+    run_streaminput_tts_test fsS 6 $fs_demo_path 50 $run_time_s $run_voice $run_log 2 0
+    echo "  <<< 6. 开始压测流式语音合成 client端限制socket数模拟弱网场景24h压测 预发环境"
   fi
 fi
 

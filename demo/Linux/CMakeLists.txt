@@ -39,7 +39,7 @@ add_executable(srDemo profile_scan.cpp speechRecognizerDemo.cpp)
 target_link_libraries(srDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
-add_executable(srMT profile_scan.cpp speechRecognizerMonkeyTest.cpp)
+add_executable(srMT speechRecognizerMonkeyTest.cpp)
 target_link_libraries(srMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
@@ -48,7 +48,7 @@ add_executable(stDemo profile_scan.cpp speechTranscriberDemo.cpp)
 target_link_libraries(stDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
-add_executable(stMT profile_scan.cpp speechTranscriberMonkeyTest.cpp)
+add_executable(stMT speechTranscriberMonkeyTest.cpp)
 target_link_libraries(stMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
@@ -64,6 +64,10 @@ target_link_libraries(syMT
 # 流式文本输入语音合成
 add_executable(fsDemo profile_scan.cpp flowingSynthesizerDemo.cpp)
 target_link_libraries(fsDemo
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
+
+add_executable(fsMT flowingSynthesizerMonkeyTest.cpp)
+target_link_libraries(fsMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 对话助手

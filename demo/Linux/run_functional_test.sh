@@ -88,11 +88,17 @@ fi
 
 function build_resources {
   echo "oss cp " $OSS_TEST_AUDIO_SOURCE " to " $workspace_path/audio
-  ossutil64 cp -rf $OSS_TEST_AUDIO_SOURCE $workspace_path/audio
-  echo "oss cp " $OSS_TEST_TEXT_SOURCE " to " $workspace_path
-  ossutil64 cp -f $OSS_TEST_TEXT_SOURCE $workspace_path
+  if [ ! -d "$workspace_path/audio" ]; then
+    ossutil64 cp -rf $OSS_TEST_AUDIO_SOURCE $workspace_path/audio
+  fi
+  echo "oss cp " $OSS_TEST_TEXT_SOURCE " to " $workspace_path/testcases_mix_300_500.txt
+  if [ ! -e "$workspace_path/testcases_mix_300_500.txt" ]; then
+    ossutil64 cp -f $OSS_TEST_TEXT_SOURCE $workspace_path/testcases_mix_300_500.txt
+  fi
   echo "mv " $workspace_path/testcases_mix_300_500.txt " to " $txt_test_path
-  mv $workspace_path/testcases_mix_300_500.txt $txt_test_path
+  if [ ! -e "$txt_test_path" ]; then
+    mv $workspace_path/testcases_mix_300_500.txt $txt_test_path
+  fi
 }
 
 echo "资源下载 >>>"
