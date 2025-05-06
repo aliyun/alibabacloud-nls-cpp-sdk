@@ -29,7 +29,11 @@ set(NLS_DEMO_LIST
     ${CMAKE_SOURCE_DIR}/../../nlsCppSdk/utils
     )
 include_directories(${NLS_DEMO_LIST})
-link_directories(${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/lib)
+
+set(NLS_DEMO_LINK
+    ${CMAKE_SOURCE_DIR}/../../build/install/NlsSdk3.X_LINUX/lib
+    )
+link_directories(${NLS_DEMO_LINK})
 
 set(NLS_DEMO_EXT_FLAG pthread)
 # set(NLS_DEMO_EXT_FLAG ${NLS_DEMO_EXT_FLAG} ldap)

@@ -97,7 +97,16 @@ struct ParamStruct {
   uint64_t s200Value;
   uint64_t s500Value;
   uint64_t s1000Value;
+  uint64_t s1500Value;
   uint64_t s2000Value;
+  uint64_t sToValue;
+
+  uint32_t connectWithSSL;
+  uint32_t connectWithDirectIP;
+  uint32_t connectWithIpCache;
+  uint32_t connectWithLongConnect;
+  uint32_t connectWithPrestartedPool;
+  uint32_t connectWithPreconnectedPool;
 
   pthread_mutex_t mtx;
 };
@@ -187,6 +196,7 @@ std::string g_token = "";
 std::string g_domain = "";
 std::string g_api_version = "";
 std::string g_url = "";
+std::string g_directIp = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_audio_path = "";
@@ -195,6 +205,7 @@ std::vector<std::string> g_wav_files;
 std::string g_log_file = "log-transcriber";
 int g_log_count = 20;
 int g_threads = 1;
+int g_lived_threads = 0;
 int g_cpu = 1;
 int g_sync_timeout = 0;
 bool g_save_audio = false;
@@ -204,6 +215,8 @@ bool g_loop_file_flag = false;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 int g_setrlimit = 0; /*设置文件描述符的限制*/
+int g_start_gradually_ms = 0;
+int g_break_time_each_round_s = 0;
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
@@ -232,6 +245,7 @@ static bool longConnection = false;
 static bool sysAddrinfo = false;
 static bool noSleepFlag = false;
 static bool enableIntermediateResult = false;
+static bool simplifyLog = false;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -255,6 +269,25 @@ std::string timestamp_str() {
   buf[63] = '\0';
   std::string tmp = buf;
   return tmp;
+}
+
+std::string findConnectType(const char* input) {
+  const char* key = "\"connect_type\":\"";
+  const char* start = strstr(input, key);
+  if (start != NULL) {
+    start += strlen(key);
+    const char* end = strchr(start, '\"');
+    if (end != NULL) {
+      size_t length = end - start;
+      char* value = new char[length + 1];
+      strncpy(value, start, length);
+      value[length] = '\0';
+      std::string result(value);
+      delete[] value;
+      return result;
+    }
+  }
+  return "";
 }
 
 void findWavFiles(const std::string& directory,
@@ -516,15 +549,16 @@ void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   std::cout << "onTranscriptionStarted:"
             << "  status code: " << cbEvent->getStatusCode()
             << "  task id: " << cbEvent->getTaskId()
-            << "  onTranscriptionStarted: All response:"
-            << cbEvent->getAllResponse() << std::endl;
+            << "  all response:" << cbEvent->getAllResponse() << std::endl;
 
   if (cbParam) {
     ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
     if (!tmpParam->tParam) return;
-    std::cout << "  onTranscriptionStarted Max Time: "
-              << tmpParam->tParam->startMaxValue
-              << "  userId: " << tmpParam->userId << std::endl;
+    if (!simplifyLog) {
+      std::cout << "  onTranscriptionStarted Max Time: "
+                << tmpParam->tParam->startMaxValue
+                << "  userId: " << tmpParam->userId << std::endl;
+    }
 
     gettimeofday(&(tmpParam->startedTv), NULL);
 
@@ -545,22 +579,6 @@ void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     if (timeValue > tmpParam->tParam->startMaxValue) {
       tmpParam->tParam->startMaxValue = timeValue;
     }
-
-    unsigned long long tmp = timeValue;
-    if (tmp <= 50) {
-      tmpParam->tParam->s50Value++;
-    } else if (tmp <= 100) {
-      tmpParam->tParam->s100Value++;
-    } else if (tmp <= 200) {
-      tmpParam->tParam->s200Value++;
-    } else if (tmp <= 500) {
-      tmpParam->tParam->s500Value++;
-    } else if (tmp <= 1000) {
-      tmpParam->tParam->s1000Value++;
-    } else {
-      tmpParam->tParam->s2000Value++;
-    }
-
     // min
     if (tmpParam->tParam->startMinValue == 0) {
       tmpParam->tParam->startMinValue = timeValue;
@@ -569,12 +587,29 @@ void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->startMinValue = timeValue;
       }
     }
-
     // ave
     tmpParam->tParam->startTotalValue += timeValue;
     if (tmpParam->tParam->startedConsumed > 0) {
       tmpParam->tParam->startAveValue =
           tmpParam->tParam->startTotalValue / tmpParam->tParam->startedConsumed;
+    }
+
+    if (timeValue > 2000) {
+      tmpParam->tParam->sToValue++;
+    } else if (timeValue <= 2000 && timeValue > 1500) {
+      tmpParam->tParam->s2000Value++;
+    } else if (timeValue <= 1500 && timeValue > 1000) {
+      tmpParam->tParam->s1500Value++;
+    } else if (timeValue <= 1000 && timeValue > 500) {
+      tmpParam->tParam->s1000Value++;
+    } else if (timeValue <= 500 && timeValue > 200) {
+      tmpParam->tParam->s500Value++;
+    } else if (timeValue <= 200 && timeValue > 100) {
+      tmpParam->tParam->s200Value++;
+    } else if (timeValue <= 100 && timeValue > 50) {
+      tmpParam->tParam->s100Value++;
+    } else if (timeValue <= 50) {
+      tmpParam->tParam->s50Value++;
     }
 
     // first package flag init
@@ -603,22 +638,24 @@ void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void onSentenceBegin(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 #if 1
   ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
-  std::cout << "onSentenceBegin CbParam: " << tmpParam->userId << ", "
-            << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
-  std::cout
-      << "  onSentenceBegin: "
-      << "status code: "
-      << cbEvent
-             ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-      << ", task id: "
-      << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
-      << ", index: " << cbEvent->getSentenceIndex()  //句子编号，从1开始递增
-      << ", time: "
-      << cbEvent->getSentenceTime()  //当前已处理的音频时长，单位是毫秒
-      << std::endl;
+  if (!simplifyLog) {
+    std::cout << "onSentenceBegin CbParam: " << tmpParam->userId << ", "
+              << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+    std::cout
+        << "  onSentenceBegin: "
+        << "status code: "
+        << cbEvent
+               ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
+        << ", task id: "
+        << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
+        << ", index: " << cbEvent->getSentenceIndex()  //句子编号，从1开始递增
+        << ", time: "
+        << cbEvent->getSentenceTime()  //当前已处理的音频时长，单位是毫秒
+        << std::endl;
 
-  std::cout << "  onSentenceBegin: All response:" << cbEvent->getAllResponse()
-            << std::endl;  // 获取服务端返回的全部信息
+    std::cout << "  onSentenceBegin: All response:" << cbEvent->getAllResponse()
+              << std::endl;  // 获取服务端返回的全部信息
+  }
 #endif
 }
 
@@ -631,39 +668,41 @@ void onSentenceBegin(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void onSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 #if 1
   ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
-  std::cout << "onSentenceEnd CbParam: " << tmpParam->userId << ", "
-            << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+  if (!simplifyLog) {
+    std::cout << "onSentenceEnd CbParam: " << tmpParam->userId << ", "
+              << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
 
-  std::cout
-      << "  onSentenceEnd: "
-      << "status code: "
-      << cbEvent
-             ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-      << ", task id: "
-      << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
-      << ", result: " << cbEvent->getResult()  // 当前句子的完成识别结果
-      << ", index: " << cbEvent->getSentenceIndex()  // 当前句子的索引编号
-      << ", begin_time: "
-      << cbEvent->getSentenceBeginTime()  // 对应的SentenceBegin事件的时间
-      << ", time: " << cbEvent->getSentenceTime()  // 当前句子的音频时长
-      << ", confidence: "
-      << cbEvent
-             ->getSentenceConfidence()  // 结果置信度,取值范围[0.0,1.0]，值越大表示置信度越高
-      << ", stashResult begin_time: "
-      << cbEvent->getStashResultBeginTime()  //下一句话开始时间
-      << ", stashResult current_time: "
-      << cbEvent->getStashResultCurrentTime()  //下一句话当前时间
-      << ", stashResult Sentence_id: "
-      << cbEvent->getStashResultSentenceId()  // sentence Id
-      << std::endl;
+    std::cout
+        << "  onSentenceEnd: "
+        << "status code: "
+        << cbEvent
+               ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
+        << ", task id: "
+        << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
+        << ", result: " << cbEvent->getResult()  // 当前句子的完成识别结果
+        << ", index: " << cbEvent->getSentenceIndex()  // 当前句子的索引编号
+        << ", begin_time: "
+        << cbEvent->getSentenceBeginTime()  // 对应的SentenceBegin事件的时间
+        << ", time: " << cbEvent->getSentenceTime()  // 当前句子的音频时长
+        << ", confidence: "
+        << cbEvent
+               ->getSentenceConfidence()  // 结果置信度,取值范围[0.0,1.0]，值越大表示置信度越高
+        << ", stashResult begin_time: "
+        << cbEvent->getStashResultBeginTime()  //下一句话开始时间
+        << ", stashResult current_time: "
+        << cbEvent->getStashResultCurrentTime()  //下一句话当前时间
+        << ", stashResult Sentence_id: "
+        << cbEvent->getStashResultSentenceId()  // sentence Id
+        << std::endl;
 
-  /* 这里的start_time表示调用start后开始sendAudio传递Abytes音频时
-   * 发现这句话的起点. 即调用start后传递start_time出现这句话的起点.
-   * 这里的end_time表示调用start后开始sendAudio传递Bbytes音频时
-   * 发现这句话的结尾. 即调用start后传递end_time出现这句话的结尾.
-   */
-  std::cout << "  onSentenceEnd: All response:" << cbEvent->getAllResponse()
-            << std::endl;  // 获取服务端返回的全部信息
+    /* 这里的start_time表示调用start后开始sendAudio传递Abytes音频时
+     * 发现这句话的起点. 即调用start后传递start_time出现这句话的起点.
+     * 这里的end_time表示调用start后开始sendAudio传递Bbytes音频时
+     * 发现这句话的结尾. 即调用start后传递end_time出现这句话的结尾.
+     */
+    std::cout << "  onSentenceEnd: All response:" << cbEvent->getAllResponse()
+              << std::endl;  // 获取服务端返回的全部信息
+  }
 
   struct SentenceParamStruct param;
   param.sentenceId = cbEvent->getSentenceIndex();
@@ -686,9 +725,11 @@ void onTranscriptionResultChanged(AlibabaNls::NlsEvent* cbEvent,
                                   void* cbParam) {
   if (cbParam) {
     ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
-    std::cout << "onTranscriptionResultChanged userId: " << tmpParam->userId
-              << ", " << tmpParam->userInfo
-              << std::endl;  // 仅表示自定义参数示例
+    if (!simplifyLog) {
+      std::cout << "onTranscriptionResultChanged userId: " << tmpParam->userId
+                << ", " << tmpParam->userInfo
+                << std::endl;  // 仅表示自定义参数示例
+    }
 
     if (tmpParam->tParam->firstFlag == false) {
       tmpParam->tParam->firstConsumed++;
@@ -728,19 +769,22 @@ void onTranscriptionResultChanged(AlibabaNls::NlsEvent* cbEvent,
     }  // firstFlag
   }
 
-  std::cout
-      << "  onTranscriptionResultChanged: "
-      << "status code: "
-      << cbEvent
-             ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-      << ", task id: "
-      << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
-      << ", result: " << cbEvent->getResult()  // 当前句子的中间识别结果
-      << ", index: " << cbEvent->getSentenceIndex()  // 当前句子的索引编号
-      << ", time: " << cbEvent->getSentenceTime()  // 当前句子的音频时长
-      << std::endl;
-  // std::cout << "onTranscriptionResultChanged: All response:"
-  //     << cbEvent->getAllResponse() << std::endl; // 获取服务端返回的全部信息
+  if (!simplifyLog) {
+    std::cout
+        << "  onTranscriptionResultChanged: "
+        << "status code: "
+        << cbEvent
+               ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
+        << ", task id: "
+        << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
+        << ", result: " << cbEvent->getResult()  // 当前句子的中间识别结果
+        << ", index: " << cbEvent->getSentenceIndex()  // 当前句子的索引编号
+        << ", time: " << cbEvent->getSentenceTime()  // 当前句子的音频时长
+        << std::endl;
+    // std::cout << "onTranscriptionResultChanged: All response:"
+    //     << cbEvent->getAllResponse() << std::endl; //
+    //     获取服务端返回的全部信息
+  }
 }
 
 /**
@@ -756,22 +800,21 @@ void onTranscriptionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
   std::cout
       << "onTranscriptionCompleted: "
-      << " task id: " << cbEvent->getTaskId() << ", "
-      << "status code: "
+      << " task id: " << cbEvent->getTaskId() << ", status code: "
       << cbEvent
              ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-      << std::endl;
-  std::cout << "  onTranscriptionCompleted: All response:"
-            << cbEvent->getAllResponse()
-            << std::endl;  // 获取服务端返回的全部信息
+      << ", All response:" << cbEvent->getAllResponse()
+      << std::endl;  // 获取服务端返回的全部信息
 
   if (cbParam) {
     ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
     if (!tmpParam->tParam) return;
 
-    std::cout << "  onTranscriptionCompleted Max Time: "
-              << tmpParam->tParam->endMaxValue
-              << " userId: " << tmpParam->userId << std::endl;
+    if (!simplifyLog) {
+      std::cout << "  onTranscriptionCompleted Max Time: "
+                << tmpParam->tParam->endMaxValue
+                << " userId: " << tmpParam->userId << std::endl;
+    }
 
     gettimeofday(&(tmpParam->completedTv), NULL);
     tmpParam->tParam->completedConsumed++;
@@ -900,7 +943,8 @@ void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
  * @return
  */
 void onChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
-  std::cout << "OnChannelClosed: All response: " << cbEvent->getAllResponse()
+  const char* allResponse = cbEvent->getAllResponse();
+  std::cout << "OnChannelClosed: All response: " << allResponse
             << std::endl;  // getResponse() 可以通道关闭信息
 
   if (cbParam) {
@@ -943,52 +987,71 @@ void onChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
           tmpParam->tParam->closeTotalValue / tmpParam->tParam->closeConsumed;
     }
 
-    std::cout << "  OnChannelCloseed: userId " << tmpParam->userId << ", "
-              << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+    if (!simplifyLog) {
+      std::cout << "  OnChannelCloseed: userId " << tmpParam->userId << ", "
+                << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
 
-    int vec_len = tmpParam->sentenceParam.size();
-    if (vec_len > 0) {
-      std::cout << "  \n=================================" << std::endl;
-      std::cout << "  |  max sentence silence: " << max_sentence_silence << "ms"
-                << std::endl;
-      std::cout << "  |  frame size: " << frame_size << "bytes" << std::endl;
-      std::cout << "  --------------------------------" << std::endl;
-      unsigned long long timeValue0 =
-          tmpParam->startTv.tv_sec * 1000 + tmpParam->startTv.tv_usec / 1000;
-      std::cout << "  |  start tv: " << timeValue0 << "ms" << std::endl;
-
-      unsigned long long timeValue1 = tmpParam->startedTv.tv_sec * 1000 +
-                                      tmpParam->startedTv.tv_usec / 1000;
-      std::cout << "  |  started tv: " << timeValue1 << "ms" << std::endl;
-      std::cout << "  |    started duration: " << timeValue1 - timeValue0
-                << "ms" << std::endl;
-
-      unsigned long long timeValue2 = tmpParam->startAudioTv.tv_sec * 1000 +
-                                      tmpParam->startAudioTv.tv_usec / 1000;
-      std::cout << "  |  start audio tv: " << timeValue2 << "ms" << std::endl;
-      std::cout << "  |    start audio duration: " << timeValue2 - timeValue0
-                << "ms" << std::endl;
-      std::cout << "  --------------------------------" << std::endl;
-      for (int i = 0; i < vec_len; i++) {
-        struct SentenceParamStruct tmp = tmpParam->sentenceParam[i];
-        std::cout << "  |  index: " << tmp.sentenceId << std::endl;
-        std::cout << "  |  sentence duration: " << tmp.beginTime << " - "
-                  << tmp.endTime << "ms = " << (tmp.endTime - tmp.beginTime)
+      int vec_len = tmpParam->sentenceParam.size();
+      if (vec_len > 0) {
+        std::cout << "  \n=================================" << std::endl;
+        std::cout << "  |  max sentence silence: " << max_sentence_silence
                   << "ms" << std::endl;
-        unsigned long long endTimeValue =
-            tmp.endTv.tv_sec * 1000 + tmp.endTv.tv_usec / 1000;
-        std::cout << "  |  end tv duration: " << timeValue2 << " - "
-                  << endTimeValue << "ms = " << (endTimeValue - timeValue2)
-                  << "ms" << std::endl;
-        std::cout << "  |  text: " << tmp.text << std::endl;
+        std::cout << "  |  frame size: " << frame_size << "bytes" << std::endl;
         std::cout << "  --------------------------------" << std::endl;
-      }
-      std::cout << "  =================================\n" << std::endl;
+        unsigned long long timeValue0 =
+            tmpParam->startTv.tv_sec * 1000 + tmpParam->startTv.tv_usec / 1000;
+        std::cout << "  |  start tv: " << timeValue0 << "ms" << std::endl;
 
-      for (int j = 0; j < vec_len; j++) {
-        tmpParam->sentenceParam.pop_back();
+        unsigned long long timeValue1 = tmpParam->startedTv.tv_sec * 1000 +
+                                        tmpParam->startedTv.tv_usec / 1000;
+        std::cout << "  |  started tv: " << timeValue1 << "ms" << std::endl;
+        std::cout << "  |    started duration: " << timeValue1 - timeValue0
+                  << "ms" << std::endl;
+
+        unsigned long long timeValue2 = tmpParam->startAudioTv.tv_sec * 1000 +
+                                        tmpParam->startAudioTv.tv_usec / 1000;
+        std::cout << "  |  start audio tv: " << timeValue2 << "ms" << std::endl;
+        std::cout << "  |    start audio duration: " << timeValue2 - timeValue0
+                  << "ms" << std::endl;
+        std::cout << "  --------------------------------" << std::endl;
+        for (int i = 0; i < vec_len; i++) {
+          struct SentenceParamStruct tmp = tmpParam->sentenceParam[i];
+          std::cout << "  |  index: " << tmp.sentenceId << std::endl;
+          std::cout << "  |  sentence duration: " << tmp.beginTime << " - "
+                    << tmp.endTime << "ms = " << (tmp.endTime - tmp.beginTime)
+                    << "ms" << std::endl;
+          unsigned long long endTimeValue =
+              tmp.endTv.tv_sec * 1000 + tmp.endTv.tv_usec / 1000;
+          std::cout << "  |  end tv duration: " << timeValue2 << " - "
+                    << endTimeValue << "ms = " << (endTimeValue - timeValue2)
+                    << "ms" << std::endl;
+          std::cout << "  |  text: " << tmp.text << std::endl;
+          std::cout << "  --------------------------------" << std::endl;
+        }
+        std::cout << "  =================================\n" << std::endl;
+
+        for (int j = 0; j < vec_len; j++) {
+          tmpParam->sentenceParam.pop_back();
+        }
+        tmpParam->sentenceParam.clear();
       }
-      tmpParam->sentenceParam.clear();
+    }
+
+    std::string connectType = findConnectType(allResponse);
+    if (!connectType.empty()) {
+      if (connectType == "connect_with_SSL") {
+        tmpParam->tParam->connectWithSSL++;
+      } else if (connectType == "connect_with_direct_IP") {
+        tmpParam->tParam->connectWithDirectIP++;
+      } else if (connectType == "connect_with_IP_from_cache") {
+        tmpParam->tParam->connectWithIpCache++;
+      } else if (connectType == "connect_with_long_connection") {
+        tmpParam->tParam->connectWithLongConnect++;
+      } else if (connectType == "connect_with_SSL_from_PrestartedPool") {
+        tmpParam->tParam->connectWithPrestartedPool++;
+      } else if (connectType == "connect_with_SSL_from_PreconnectedPool") {
+        tmpParam->tParam->connectWithPreconnectedPool++;
+      }
     }
 
     //通知发送线程, 最终识别结果已经返回, 可以调用stop()
@@ -1004,9 +1067,26 @@ void* autoCloseFunc(void* arg) {
   while (!global_run && timeout-- > 0) {
     usleep(100 * 1000);
   }
-  timeout = loop_timeout;
-  while (timeout-- > 0 && global_run) {
-    usleep(1000 * 1000);
+
+  struct timeval startTv;
+  struct timeval currentTv;
+
+  gettimeofday(&startTv, NULL);
+
+  bool loop = true;
+  while (loop && global_run) {
+    // std::cout << "autoClose -->>" << std::endl;
+    sleep(1);
+    gettimeofday(&currentTv, NULL);
+    uint64_t timeDiff = currentTv.tv_sec - startTv.tv_sec;
+    if (timeDiff >= loop_timeout) {
+      loop = false;
+    }
+
+    std::cout << " autoClose countdown: " << timeDiff << "/" << loop_timeout
+              << "s."
+              << " lived threads: " << g_lived_threads << "/" << g_threads
+              << " run count: " << run_success << "/" << run_cnt << std::endl;
 
     if (g_sys_info) {
       int cur = -1;
@@ -1082,8 +1162,10 @@ void* autoCloseFunc(void* arg) {
       }
     }
   }
+
   global_run = false;
-  std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
+  std::cout << "autoCloseFunc exit ... thread:" << pthread_self() << std::endl;
+
   return NULL;
 }
 
@@ -1202,6 +1284,8 @@ void* pthreadFunction(void* arg) {
       request->setToken(tst->token);
     }
 
+    struct timeval now;
+
     // 私有化支持vipserver, 公有云客户无需关注此处
     if (strnlen(tst->vipServerDomain, 512) > 0 &&
         strnlen(tst->vipServerTargetDomain, 512) > 0) {
@@ -1288,9 +1372,10 @@ void* pthreadFunction(void* arg) {
      *            直到内部得到成功(同时也会触发started事件回调)或失败(同时也会触发TaskFailed事件回调)后返回。
      *            此方法方便旧版本SDK
      */
-    std::cout << "start ->" << std::endl;
+    if (!simplifyLog) {
+      std::cout << "start ->" << std::endl;
+    }
     struct timespec outtime;
-    struct timeval now;
     gettimeofday(&(cbParam->startTv), NULL);
     int ret = request->start();
     run_cnt++;
@@ -1316,7 +1401,9 @@ void* pthreadFunction(void* arg) {
          * 语音服务器存在来不及处理当前请求的情况, 10s内不返回任何回调的问题,
          * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制。
          */
-        std::cout << "wait started callback." << std::endl;
+        if (!simplifyLog) {
+          std::cout << "wait started callback." << std::endl;
+        }
         gettimeofday(&now, NULL);
         outtime.tv_sec = now.tv_sec + OPERATION_TIMEOUT_S;
         outtime.tv_nsec = now.tv_usec * 1000;
@@ -1337,11 +1424,17 @@ void* pthreadFunction(void* arg) {
           }
           AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(
               request);
-          continue;
+          if (global_run) {
+            continue;
+          } else {
+            break;
+          }
         }
         pthread_mutex_unlock(&(cbParam->mtxWord));
-        std::cout << "current request task_id:" << request->getTaskId()
-                  << std::endl;
+        if (!simplifyLog) {
+          std::cout << "current request task_id:" << request->getTaskId()
+                    << std::endl;
+        }
       } else {
         /*
          * 4.2.
@@ -1456,8 +1549,10 @@ void* pthreadFunction(void* arg) {
     tst->sendConsumed += sendAudio_cnt;
     tst->sendTotalValue += sendAudio_us;
     if (sendAudio_cnt > 0) {
-      std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt) << "us"
-                << std::endl;
+      if (!simplifyLog) {
+        std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt) << "us"
+                  << std::endl;
+      }
     }
 
     /*
@@ -1470,10 +1565,14 @@ void* pthreadFunction(void* arg) {
      *            直到内部完成工作，并触发closed事件回调后返回。
      *            此方法方便旧版本SDK。
      */
-    std::cout << "stop ->" << std::endl;
+    if (!simplifyLog) {
+      std::cout << "stop ->" << std::endl;
+    }
     // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
     ret = request->stop();
-    std::cout << "stop done. ret " << ret << "\n" << std::endl;
+    if (!simplifyLog) {
+      std::cout << "stop done. ret " << ret << "\n" << std::endl;
+    }
     if (ret < 0) {
       std::cout << "stop failed(" << ret << ")." << std::endl;
     } else {
@@ -1490,7 +1589,9 @@ void* pthreadFunction(void* arg) {
         // 等待closed事件后再进行释放, 否则会出现崩溃
         // 若调用了setSyncCallTimeout()启动了同步调用模式,
         // 则可以不等待closed事件。
-        std::cout << "wait closed callback." << std::endl;
+        if (!simplifyLog) {
+          std::cout << "wait closed callback." << std::endl;
+        }
         /*
          * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
          * 然后在10s后返回一个TaskFailed回调, 错误信息为:
@@ -1513,7 +1614,11 @@ void* pthreadFunction(void* arg) {
           }
           AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(
               request);
-          continue;
+          if (global_run) {
+            continue;
+          } else {
+            break;
+          }
         }
         pthread_mutex_unlock(&(cbParam->mtxWord));
       } else {
@@ -1531,15 +1636,25 @@ void* pthreadFunction(void* arg) {
      * 会强制卸载正在运行的请求。
      */
     const char* request_info = request->dumpAllInfo();
-    if (request_info) {
-      std::cout << "  all info: " << request_info << std::endl;
+    if (request_info && strlen(request_info) > 0) {
+      std::cout << "  final all info: " << request_info << std::endl;
     }
     AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
 
     if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
+    } else {
+      if (g_break_time_each_round_s > 0) {
+        std::srand(now.tv_usec);
+        int sleepS = rand() % g_break_time_each_round_s + 1;
+        while (global_run && sleepS-- > 0) {
+          sleep(1);
+        }
+      }
     }
   } while (global_run);
+
+  std::cout << "finish this pthreadFunc " << pthread_self() << std::endl;
 
   // 关闭音频文件
   fs.close();
@@ -1552,13 +1667,16 @@ void* pthreadFunction(void* arg) {
      * 若在回调前delete cbParam, 会导致回调中对cbParam的操作变成野指针操作，
      * 故若存在cbParam, 则在这里等一会
      */
-    usleep(10 * 1000 * 1000);
+    sleep(10);
   }
 
   if (cbParam) {
     delete cbParam;
     cbParam = NULL;
   }
+
+  std::cout << "this pthreadFunc " << pthread_self() << " exit." << std::endl;
+  g_lived_threads--;
 
   return NULL;
 }
@@ -1745,7 +1863,9 @@ void* pthreadLongConnectionFunction(void* arg) {
 
     cbParam->tParam->requestConsumed++;
 
-    std::cout << "start ->" << std::endl;
+    if (!simplifyLog) {
+      std::cout << "start ->" << std::endl;
+    }
     struct timespec outtime;
     struct timeval now;
     gettimeofday(&(cbParam->startTv), NULL);
@@ -1778,7 +1898,9 @@ void* pthreadLongConnectionFunction(void* arg) {
          * 语音服务器存在来不及处理当前请求的情况, 10s内不返回任何回调的问题,
          * 然后在10s后返回一个TaskFailed回调, 所以需要设置一个超时机制。
          */
-        std::cout << "wait started callback." << std::endl;
+        if (!simplifyLog) {
+          std::cout << "wait started callback." << std::endl;
+        }
         gettimeofday(&now, NULL);
         outtime.tv_sec = now.tv_sec + OPERATION_TIMEOUT_S;
         outtime.tv_nsec = now.tv_usec * 1000;
@@ -1899,8 +2021,10 @@ void* pthreadLongConnectionFunction(void* arg) {
     tst->sendConsumed += sendAudio_cnt;
     tst->sendTotalValue += sendAudio_us;
     if (sendAudio_cnt > 0) {
-      std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt) << "us"
-                << std::endl;
+      if (!simplifyLog) {
+        std::cout << "sendAudio ave: " << (sendAudio_us / sendAudio_cnt) << "us"
+                  << std::endl;
+      }
     }
 
     /*
@@ -1913,12 +2037,16 @@ void* pthreadLongConnectionFunction(void* arg) {
      *              直到内部完成工作，并触发closed事件回调后返回。
      *              此方法方便旧版本SDK。
      */
-    std::cout
-        << "stop ->"
-        << std::
-               endl;  // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
+    if (!simplifyLog) {
+      std::cout
+          << "stop ->"
+          << std::
+                 endl;  // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
+    }
     ret = request->stop();
-    std::cout << "stop done. ret " << ret << "\n" << std::endl;
+    if (!simplifyLog) {
+      std::cout << "stop done. ret " << ret << "\n" << std::endl;
+    }
     if (ret < 0) {
       std::cout << "stop failed(" << ret << ")." << std::endl;
     } else {
@@ -1935,7 +2063,9 @@ void* pthreadLongConnectionFunction(void* arg) {
         // 等待closed事件后再进行释放, 否则会出现崩溃
         // 若调用了setSyncCallTimeout()启动了同步调用模式,
         // 则可以不等待closed事件。
-        std::cout << "wait closed callback." << std::endl;
+        if (!simplifyLog) {
+          std::cout << "wait closed callback." << std::endl;
+        }
         /*
          * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
          * 然后在10s后返回一个TaskFailed回调, 错误信息为:
@@ -1975,8 +2105,8 @@ void* pthreadLongConnectionFunction(void* arg) {
    * 会强制卸载正在运行的请求。
    */
   const char* request_info = request->dumpAllInfo();
-  if (request_info) {
-    std::cout << "  all info: " << request_info << std::endl;
+  if (request_info && strlen(request_info) > 0) {
+    std::cout << "  final all info: " << request_info << std::endl;
   }
   AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
   request = NULL;
@@ -1989,7 +2119,7 @@ void* pthreadLongConnectionFunction(void* arg) {
      * 若在回调前delete cbParam, 会导致回调中对cbParam的操作变成野指针操作，
      * 故若存在cbParam, 则在这里等一会
      */
-    usleep(10 * 1000 * 1000);
+    sleep(10);
   }
 
   if (cbParam) {
@@ -2113,7 +2243,16 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     pa[i].s200Value = 0;
     pa[i].s500Value = 0;
     pa[i].s1000Value = 0;
+    pa[i].s1500Value = 0;
     pa[i].s2000Value = 0;
+    pa[i].sToValue = 0;
+
+    pa[i].connectWithSSL = 0;
+    pa[i].connectWithDirectIP = 0;
+    pa[i].connectWithIpCache = 0;
+    pa[i].connectWithLongConnect = 0;
+    pa[i].connectWithPrestartedPool = 0;
+    pa[i].connectWithPreconnectedPool = 0;
   }
 
   global_run = true;
@@ -2123,8 +2262,17 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     if (longConnection) {
       pthread_create(&pthreadId[j], NULL, &pthreadLongConnectionFunction,
                      (void*)&(pa[j]));
+      g_lived_threads++;
     } else {
+      if (g_start_gradually_ms > 0) {
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        std::srand(now.tv_usec);
+        int sleepMs = rand() % g_start_gradually_ms + 1;
+        usleep(sleepMs * 1000);
+      }
       pthread_create(&pthreadId[j], NULL, &pthreadFunction, (void*)&(pa[j]));
+      g_lived_threads++;
     }
   }
 
@@ -2152,7 +2300,9 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   unsigned long long s200Count = 0;
   unsigned long long s500Count = 0;
   unsigned long long s1000Count = 0;
+  unsigned long long s1500Count = 0;
   unsigned long long s2000Count = 0;
+  unsigned long long sToCount = 0;
 
   unsigned long long eMaxTime = 0;
   unsigned long long eMinTime = 0;
@@ -2167,6 +2317,13 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   unsigned long long sendAveTime = 0;
 
   unsigned long long audioFileAveTimeLen = 0;
+
+  uint32_t connectWithSSL = 0;
+  uint32_t connectWithDirectIP = 0;
+  uint32_t connectWithIpCache = 0;
+  uint32_t connectWithLongConnect = 0;
+  uint32_t connectWithPrestartedPool = 0;
+  uint32_t connectWithPreconnectedPool = 0;
 
   for (int i = 0; i < threads; i++) {
     sTotalCount += pa[i].startedConsumed;
@@ -2201,7 +2358,9 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     s200Count += pa[i].s200Value;
     s500Count += pa[i].s500Value;
     s1000Count += pa[i].s1000Value;
+    s1500Count += pa[i].s1500Value;
     s2000Count += pa[i].s2000Value;
+    sToCount += pa[i].sToValue;
 
     // first pack
     if (pa[i].firstMaxValue > fMaxTime) {
@@ -2247,6 +2406,13 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     }
 
     cAveTime += pa[i].closeAveValue;
+
+    connectWithSSL += pa[i].connectWithSSL;
+    connectWithDirectIP += pa[i].connectWithDirectIP;
+    connectWithIpCache += pa[i].connectWithIpCache;
+    connectWithLongConnect += pa[i].connectWithLongConnect;
+    connectWithPrestartedPool += pa[i].connectWithPrestartedPool;
+    connectWithPreconnectedPool += pa[i].connectWithPreconnectedPool;
   }
 
   sAveTime /= threads;
@@ -2324,14 +2490,14 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   std::cout << "Min started time: " << sMinTime << " ms" << std::endl;
   std::cout << "Ave started time: " << sAveTime << " ms" << std::endl;
 
-  std::cout << "\n ------------------- \n" << std::endl;
-
-  std::cout << "Started time <= 50 ms: " << s50Count << std::endl;
-  std::cout << "Started time <= 100 ms: " << s100Count << std::endl;
-  std::cout << "Started time <= 200 ms: " << s200Count << std::endl;
-  std::cout << "Started time <= 500 ms: " << s500Count << std::endl;
-  std::cout << "Started time <= 1000 ms: " << s1000Count << std::endl;
-  std::cout << "Started time > 1000 ms: " << s2000Count << std::endl;
+  std::cout << "  Started time <=   50 ms: " << s50Count << std::endl;
+  std::cout << "               <=  100 ms: " << s100Count << std::endl;
+  std::cout << "               <=  200 ms: " << s200Count << std::endl;
+  std::cout << "               <=  500 ms: " << s500Count << std::endl;
+  std::cout << "               <= 1000 ms: " << s1000Count << std::endl;
+  std::cout << "               <= 1500 ms: " << s1500Count << std::endl;
+  std::cout << "               <= 2000 ms: " << s2000Count << std::endl;
+  std::cout << "                > 2000 ms: " << sToCount << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -2358,6 +2524,21 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   std::cout << "\n ------------------- \n" << std::endl;
 
   std::cout << "Ave audio file duration: " << audioFileAveTimeLen << " ms"
+            << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  std::cout << "Connect type:" << std::endl;
+  std::cout << "  SSL:                        " << connectWithSSL << std::endl;
+  std::cout << "  Direct IP:                  " << connectWithDirectIP
+            << std::endl;
+  std::cout << "  IP_from_cache:              " << connectWithIpCache
+            << std::endl;
+  std::cout << "  Long connection:            " << connectWithLongConnect
+            << std::endl;
+  std::cout << "  SSL_from_PrestartedtedPool: " << connectWithPrestartedPool
+            << std::endl;
+  std::cout << "  SSL_from_PreconnectedPool:  " << connectWithPreconnectedPool
             << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
@@ -2405,6 +2586,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_url = argv[index];
+    } else if (!strcmp(argv[index], "--directIp")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_directIp = argv[index];
     } else if (!strcmp(argv[index], "--vipServerDomain")) {
       index++;
       if (invalid_argv(index, argc)) return 1;
@@ -2548,6 +2733,22 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_log_count = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--simplifyLog")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        simplifyLog = true;
+      } else {
+        simplifyLog = false;
+      }
+    } else if (!strcmp(argv[index], "--startGradually")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_start_gradually_ms = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--breakTimeEachRound")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_break_time_each_round_s = atoi(argv[index]);
     }
     index++;
   }
@@ -2582,6 +2783,9 @@ int main(int argc, char* argv[]) {
         << "  --akId <AccessKey ID>\n"
         << "  --akSecret <AccessKey Secret>\n"
         << "  --token <Token>\n"
+        << "  --tokenExpiration <Manually set the token expiration time, and "
+           "the current time plus the set value is the expiration time, in "
+           "seconds.>\n"
         << "  --tokenDomain <the domain of token>\n"
         << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
         << "  --tokenApiVersion <the ApiVersion of token>\n"
@@ -2628,6 +2832,12 @@ int main(int argc, char* argv[]) {
         << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, "
            "invoke is async.>\n"
         << "  --setrlimit <Set the limits of the file descriptor>\n"
+        << "  --startGradually <Start multithreading step by step, set the "
+           "value to the maximum random value of the start thread delay, in "
+           "milliseconds. Default is 0.>\n"
+        << "  --breakTimeEachRound <Set the interval time for each round, and "
+           "set the value to the maximum interval time, in seconds. Default is "
+           "0.>\n"
         << "eg:\n"
         << "  ./stDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./stDemo --appkey xxxxxx --token xxxxxx --threads 4 --time 3600\n"
@@ -2700,7 +2910,9 @@ int main(int argc, char* argv[]) {
 
     // 私有云部署的情况下进行直连IP的设置
     // 必须在startWorkThread()前调用
-    // AlibabaNls::NlsClient::getInstance()->setDirectHost("106.15.83.44");
+    if (!g_directIp.empty()) {
+      AlibabaNls::NlsClient::getInstance()->setDirectHost(g_directIp.c_str());
+    }
 
     // 存在部分设备在设置了dns后仍然无法通过SDK的dns获取可用的IP,
     // 可调用此接口主动启用系统的getaddrinfo来解决这个问题.
@@ -2763,11 +2975,13 @@ int main(int argc, char* argv[]) {
 
       std::cout << "Threads count:" << g_threads
                 << ", Requests count:" << run_cnt << std::endl;
+      std::cout << " time:" << loop_timeout << " count:" << loop_count
+                << std::endl;
       std::cout << "    success:" << run_success << " cancel:" << run_cancel
                 << " fail:" << run_fail << " start failed:" << run_start_failed
                 << std::endl;
 
-      usleep(3000 * 1000);
+      sleep(3);
 
       pthread_mutex_lock(&params_mtx);
       std::map<unsigned long, struct ParamStatistics*>::iterator iter;

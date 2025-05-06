@@ -97,6 +97,8 @@ class INlsRequestParam {
   inline void setEnableContinued(bool enable) { _enableReconnect = enable; };
 #endif
 
+  inline void setTaskId(std::string taskId) { _task_id = taskId; };
+
   void setIntermediateResult(bool value);
   void setPunctuationPrediction(bool value);
   void setTextNormalization(bool value);

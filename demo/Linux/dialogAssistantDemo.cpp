@@ -529,7 +529,7 @@ void* autoCloseFunc(void* arg) {
   }
   timeout = loop_timeout;
   while (timeout-- > 0 && global_run) {
-    usleep(1000 * 1000);
+    sleep(1);
   }
   global_run = false;
 
@@ -791,7 +791,7 @@ void* AudioDialogPthreadFunc(void* arg) {
     if (vectorGetFailed(cbParam->userId)) break;
   }  // while global_run
 
-  usleep(5 * 1000 * 1000);
+  sleep(5);
 
   // 关闭音频文件.
   fs.close();
@@ -1040,7 +1040,7 @@ int main(int argc, char* argv[]) {
     std::cout << "run count:" << run_count << " success count:" << success_count
               << std::endl;
 
-    usleep(3000 * 1000);
+    sleep(3);
 
     pthread_mutex_lock(&params_mtx);
     std::map<unsigned long, struct ParamStatistics*>::iterator iter;

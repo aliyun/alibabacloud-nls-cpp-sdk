@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -96,12 +97,21 @@ struct ParamStruct {
   uint64_t audioTotalDuration; /*取到音频文件的音频总时长*/
   uint64_t audioAveDuration;   /*取到音频文件的音频平均时长*/
 
-  uint64_t s50Value;  /*start()到started用时50ms以内*/
-  uint64_t s100Value; /*start()到started用时100ms以内*/
+  uint64_t s50Value;  /*start()到收到首包用时50ms以内*/
+  uint64_t s100Value; /*start()到收到首包用时100ms以内*/
   uint64_t s200Value;
   uint64_t s500Value;
   uint64_t s1000Value;
+  uint64_t s1500Value;
   uint64_t s2000Value;
+  uint64_t sToValue; /*start()到收到首包用时2000ms以上*/
+
+  uint32_t connectWithSSL;
+  uint32_t connectWithDirectIP;
+  uint32_t connectWithIpCache;
+  uint32_t connectWithLongConnect;
+  uint32_t connectWithPrestartedPool;
+  uint32_t connectWithPreconnectedPool;
 
   pthread_mutex_t mtx;
 };
@@ -170,31 +180,37 @@ std::string g_token = "";
 std::string g_domain = "";
 std::string g_api_version = "";
 std::string g_url = "";
+std::string g_directIp = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_voice = "xiaoyun";
 std::string g_log_file = "log-synthesizer";
 int g_log_count = 20;
 int g_threads = 1;
+int g_lived_threads = 0;
 int g_cpu = 1;
 bool g_save_audio = false;
 std::string g_text = "";
+std::string g_text_file = "";
 std::string g_format = "pcm";
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
 int g_setrlimit = 0; /*设置文件描述符的限制*/
+int g_start_gradually_ms = 0;
+int g_break_time_each_round_s = 0;
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
 static std::map<unsigned long, struct ParamStatistics*> g_statistics;
 static int sample_rate = SAMPLE_RATE_16K;
+static int logLevel = AlibabaNls::LogDebug; /* 0:为关闭log */
 static pthread_mutex_t params_mtx; /*全局统计参数g_statistics的操作锁*/
 static int run_cnt = 0;
 static int run_cancel = 0;
 static int run_success = 0;
 static int run_fail = 0;
 
-static bool global_sys = true;
+static bool global_sys = true; /* 统计性能 */
 static PROFILE_INFO g_ave_percent;
 static PROFILE_INFO g_min_percent;
 static PROFILE_INFO g_max_percent;
@@ -205,6 +221,7 @@ static PROFILE_INFO* g_sys_info = NULL;
 static bool longConnection = false;
 static bool sysAddrinfo = false;
 static bool enableSubtitle = false;
+static bool simplifyLog = false;
 
 void signal_handler_int(int signo) {
   std::cout << "\nget interrupt mesg\n" << std::endl;
@@ -228,6 +245,25 @@ std::string timestamp_str() {
   buf[63] = '\0';
   std::string tmp = buf;
   return tmp;
+}
+
+std::string findConnectType(const char* input) {
+  const char* key = "\"connect_type\":\"";
+  const char* start = strstr(input, key);
+  if (start != NULL) {
+    start += strlen(key);
+    const char* end = strchr(start, '\"');
+    if (end != NULL) {
+      size_t length = end - start;
+      char* value = new char[length + 1];
+      strncpy(value, start, length);
+      value[length] = '\0';
+      std::string result(value);
+      delete[] value;
+      return result;
+    }
+  }
+  return "";
 }
 
 static void vectorSetParams(unsigned long pid, bool add,
@@ -536,9 +572,10 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
   if (tmpParam) {
     std::string ts = timestamp_str();
+    const char* allResponse = cbEvent->getAllResponse();
     std::cout << "OnSynthesisChannelClosed: " << ts.c_str()
               << ", userId: " << tmpParam->userId
-              << ", All response: " << cbEvent->getAllResponse()
+              << ", All response: " << allResponse
               << std::endl;  // 获取服务端返回的全部信息
 
     if (tmpParam->tParam) {
@@ -573,6 +610,23 @@ void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       if (tmpParam->tParam->closeConsumed > 0) {
         tmpParam->tParam->closeAveValue =
             tmpParam->tParam->closeTotalValue / tmpParam->tParam->closeConsumed;
+      }
+
+      std::string connectType = findConnectType(allResponse);
+      if (!connectType.empty()) {
+        if (connectType == "connect_with_SSL") {
+          tmpParam->tParam->connectWithSSL++;
+        } else if (connectType == "connect_with_direct_IP") {
+          tmpParam->tParam->connectWithDirectIP++;
+        } else if (connectType == "connect_with_IP_from_cache") {
+          tmpParam->tParam->connectWithIpCache++;
+        } else if (connectType == "connect_with_long_connection") {
+          tmpParam->tParam->connectWithLongConnect++;
+        } else if (connectType == "connect_with_SSL_from_PrestartedPool") {
+          tmpParam->tParam->connectWithPrestartedPool++;
+        } else if (connectType == "connect_with_SSL_from_PreconnectedPool") {
+          tmpParam->tParam->connectWithPreconnectedPool++;
+        }
       }
 
       //通知发送线程, 最终识别结果已经返回, 可以调用stop()
@@ -662,6 +716,24 @@ void OnBinaryDataRecved(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         tmpParam->tParam->firstAveValue =
             tmpParam->tParam->firstTotalValue / tmpParam->tParam->firstConsumed;
       }
+
+      if (timeValue > 2000) {
+        tmpParam->tParam->sToValue++;
+      } else if (timeValue <= 2000 && timeValue > 1500) {
+        tmpParam->tParam->s2000Value++;
+      } else if (timeValue <= 1500 && timeValue > 1000) {
+        tmpParam->tParam->s1500Value++;
+      } else if (timeValue <= 1000 && timeValue > 500) {
+        tmpParam->tParam->s1000Value++;
+      } else if (timeValue <= 500 && timeValue > 200) {
+        tmpParam->tParam->s500Value++;
+      } else if (timeValue <= 200 && timeValue > 100) {
+        tmpParam->tParam->s200Value++;
+      } else if (timeValue <= 100 && timeValue > 50) {
+        tmpParam->tParam->s100Value++;
+      } else if (timeValue <= 50) {
+        tmpParam->tParam->s50Value++;
+      }
     }  // firstFlag
   }
 }
@@ -705,9 +777,26 @@ void* autoCloseFunc(void* arg) {
   while (!global_run && timeout-- > 0) {
     usleep(100 * 1000);
   }
-  timeout = loop_timeout;
-  while (timeout-- > 0 && global_run) {
-    usleep(1000 * 1000);
+
+  struct timeval startTv;
+  struct timeval currentTv;
+
+  gettimeofday(&startTv, NULL);
+
+  bool loop = true;
+  while (loop && global_run) {
+    // std::cout << "autoClose -->>" << std::endl;
+    sleep(1);
+    gettimeofday(&currentTv, NULL);
+    uint64_t timeDiff = currentTv.tv_sec - startTv.tv_sec;
+    if (timeDiff >= loop_timeout) {
+      loop = false;
+    }
+
+    std::cout << " autoClose countdown: " << timeDiff << "/" << loop_timeout
+              << "s."
+              << " lived threads: " << g_lived_threads << "/" << g_threads
+              << " run count: " << run_success << "/" << run_cnt << std::endl;
 
     if (g_sys_info) {
       int cur = -1;
@@ -720,7 +809,8 @@ void* autoCloseFunc(void* arg) {
       }
       PROFILE_INFO cur_sys_info;
       get_profile_info("syDemo", &cur_sys_info);
-      std::cout << cur << ": cur_usr_name: " << cur_sys_info.usr_name
+      std::cout << "autoClose: " << cur
+                << ": cur_usr_name: " << cur_sys_info.usr_name
                 << " CPU: " << cur_sys_info.ave_cpu_percent << "%"
                 << " MEM: " << cur_sys_info.ave_mem_percent << "%" << std::endl;
 
@@ -800,9 +890,10 @@ void* autoCloseFunc(void* arg) {
             (g_ave_percent.ave_mem_percent + cur_sys_info.ave_mem_percent) / 2;
       }
     }
-  }
+  }  // while
+
   global_run = false;
-  std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
+  std::cout << "autoCloseFunc exit ... thread:" << pthread_self() << std::endl;
 
   return NULL;
 }
@@ -835,8 +926,24 @@ void* pthreadFunc(void* arg) {
   cbParam.userId = pthread_self();
   strcpy(cbParam.userInfo, "User.");
 
+  std::string text_line = "";
+  std::ifstream text_file;
+  if (!g_text_file.empty()) {
+    text_file.open(g_text_file.c_str());
+  }
+
   while (global_run) {
     int chars_cnt = 0;
+
+    if (text_file.is_open()) {
+      if (!std::getline(text_file, text_line)) {
+        text_file.close();
+        text_file.open(g_text_file.c_str());
+        if (text_file.is_open()) {
+          std::getline(text_file, text_line);
+        }
+      }
+    }
 
     /*
      * 1. 创建语音识别SpeechSynthesizerRequest对象.
@@ -851,10 +958,17 @@ void* pthreadFunc(void* arg) {
      * 长文本语音合成文档详见:
      * https://help.aliyun.com/document_detail/130509.html
      */
-    chars_cnt =
-        AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(tst->text);
-    std::cout << "pid:" << pthread_self() << " this text contains " << chars_cnt
-              << "chars" << std::endl;
+    if (text_line.empty()) {
+      chars_cnt =
+          AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(tst->text);
+    } else {
+      chars_cnt = AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(
+          text_line.c_str());
+    }
+    if (!simplifyLog) {
+      std::cout << "pid:" << pthread_self() << " this text contains "
+                << chars_cnt << "chars" << std::endl;
+    }
 
     AlibabaNls::SpeechSynthesizerRequest* request = NULL;
     if (chars_cnt > 300) {
@@ -898,7 +1012,12 @@ void* pthreadFunc(void* arg) {
     // 一次性合成超过300字符可考虑长文本语音合成功能.
     // 长文本语音合成文档详见:
     // https://help.aliyun.com/document_detail/130509.html
-    request->setText(tst->text);
+    if (text_line.empty()) {
+      request->setText(tst->text);
+    } else {
+      request->setText(text_line.c_str());
+      text_line.clear();
+    }
     // 发音人, 包含"xiaoyun", "ruoxi", "xiaogang"等. 可选参数, 默认是xiaoyun
     request->setVoice(g_voice.c_str());
     // 访问个性化音色，访问的Voice必须是个人定制音色
@@ -924,6 +1043,8 @@ void* pthreadFunc(void* arg) {
     if (strlen(tst->token) > 0) {
       request->setToken(tst->token);
     }
+
+    struct timeval now;
 
     // 私有化支持vipserver, 公有云客户无需关注此处
     if (strnlen(tst->vipServerDomain, 512) > 0 &&
@@ -953,15 +1074,19 @@ void* pthreadFunc(void* arg) {
     request->setTimeout(500);
     // 获取返回文本的编码格式
     const char* output_format = request->getOutputFormat();
-    std::cout << "text format: " << output_format << std::endl;
+    if (!simplifyLog) {
+      std::cout << "text format: " << output_format << std::endl;
+    }
 
     /*
      * 4.
      * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
     std::string ts = timestamp_str();
-    std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
-              << std::endl;
+    if (!simplifyLog) {
+      std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
+                << std::endl;
+    }
     gettimeofday(&(cbParam.startTv), NULL);
     int ret = request->start();
     ts = timestamp_str();
@@ -977,8 +1102,10 @@ void* pthreadFunc(void* arg) {
           request);  // start()失败，释放request对象
       break;
     } else {
-      std::cout << "start success. pid " << pthread_self() << " " << ts.c_str()
-                << std::endl;
+      if (!simplifyLog) {
+        std::cout << "start success. pid " << pthread_self() << " "
+                  << ts.c_str() << std::endl;
+      }
       cbParam.tParam->startedConsumed++;
       cbParam.tParam->firstFlag = false;
       struct ParamStatistics params;
@@ -999,12 +1126,13 @@ void* pthreadFunc(void* arg) {
     /*
      * 开始等待接收完所有合成数据。
      */
-    struct timeval now;
     struct timespec outtime;
     if (ret == 0) {
       gettimeofday(&now, NULL);
-      std::cout << "wait closed callback. pid " << pthread_self()
-                << " tv: " << now.tv_sec << std::endl;
+      if (!simplifyLog) {
+        std::cout << "wait closed callback. pid " << pthread_self()
+                  << " tv: " << now.tv_sec << std::endl;
+      }
       /*
        * 根据文本长短、接收速度和网络环境，接收完所有合成数据的时间无法确定，
        * 这里设定30s超时只是展示一种超时机制。
@@ -1022,10 +1150,12 @@ void* pthreadFunc(void* arg) {
       std::cout << "ret is " << ret << ", pid " << pthread_self() << std::endl;
     }
     gettimeofday(&now, NULL);
-    std::cout << "current request task_id:" << request->getTaskId()
-              << std::endl;
-    std::cout << "stop finished. pid " << pthread_self()
-              << " tv: " << now.tv_sec << std::endl;
+    if (!simplifyLog) {
+      std::cout << "current request task_id:" << request->getTaskId()
+                << std::endl;
+      std::cout << "stop finished. pid " << pthread_self()
+                << " tv: " << now.tv_sec << std::endl;
+    }
 
     /*
      * 6. 完成所有工作后释放当前请求。
@@ -1033,19 +1163,39 @@ void* pthreadFunc(void* arg) {
      * 会强制卸载正在运行的请求。
      */
     const char* request_info = request->dumpAllInfo();
-    if (request_info) {
-      std::cout << "  all info: " << request_info << std::endl;
+    if (request_info && strlen(request_info) > 0) {
+      std::cout << "  final all info: " << request_info << std::endl;
     }
     AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
-    std::cout << "release Synthesizer success. pid " << pthread_self()
-              << std::endl;
+    if (!simplifyLog) {
+      std::cout << "release Synthesizer success. pid " << pthread_self()
+                << std::endl;
+    }
 
     if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
+    } else {
+      if (g_break_time_each_round_s > 0) {
+        std::srand(now.tv_usec);
+        int sleepS = rand() % g_break_time_each_round_s + 1;
+        while (global_run && sleepS-- > 0) {
+          sleep(1);
+        }
+      }
     }
   }  // while global_run
 
+  if (text_file.is_open()) {
+    text_file.close();
+  }
+
+  std::cout << "finish this pthreadFunc " << pthread_self() << std::endl;
+
   pthread_mutex_destroy(&(tst->mtx));
+
+  std::cout << "this pthreadFunc " << pthread_self() << " exit." << std::endl;
+
+  g_lived_threads--;
 
   return NULL;
 }
@@ -1093,8 +1243,10 @@ void* pthreadLongConnectionFunc(void* arg) {
    */
   chars_cnt =
       AlibabaNls::NlsClient::getInstance()->calculateUtf8Chars(tst->text);
-  std::cout << "pid:" << pthread_self() << " this text contains " << chars_cnt
-            << "chars" << std::endl;
+  if (!simplifyLog) {
+    std::cout << "pid:" << pthread_self() << " this text contains " << chars_cnt
+              << "chars" << std::endl;
+  }
 
   AlibabaNls::SpeechSynthesizerRequest* request = NULL;
   if (chars_cnt > 300) {
@@ -1192,7 +1344,9 @@ void* pthreadLongConnectionFunc(void* arg) {
   }
   // 获取返回文本的编码格式
   const char* output_format = request->getOutputFormat();
-  std::cout << "text format: " << output_format << std::endl;
+  if (!simplifyLog) {
+    std::cout << "text format: " << output_format << std::endl;
+  }
 
   /*
    * 4. 当前request循环多轮语音合成
@@ -1204,8 +1358,10 @@ void* pthreadLongConnectionFunc(void* arg) {
      */
     gettimeofday(&(cbParam.startTv), NULL);
     std::string ts = timestamp_str();
-    std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
-              << std::endl;
+    if (!simplifyLog) {
+      std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
+                << std::endl;
+    }
     int ret = request->start();
     ts = timestamp_str();
     run_cnt++;
@@ -1214,8 +1370,10 @@ void* pthreadLongConnectionFunc(void* arg) {
       std::cout << "start failed. pid:" << pthread_self() << std::endl;
       break;
     } else {
-      std::cout << "start success. pid " << pthread_self() << " " << ts.c_str()
-                << std::endl;
+      if (!simplifyLog) {
+        std::cout << "start success. pid " << pthread_self() << " "
+                  << ts.c_str() << std::endl;
+      }
       cbParam.tParam->startedConsumed++;
       cbParam.tParam->firstFlag = false;
       params.running = true;
@@ -1239,8 +1397,10 @@ void* pthreadLongConnectionFunc(void* arg) {
     struct timespec outtime;
     if (ret == 0) {
       gettimeofday(&now, NULL);
-      std::cout << "wait closed callback. pid " << pthread_self()
-                << " tv: " << now.tv_sec << std::endl;
+      if (!simplifyLog) {
+        std::cout << "wait closed callback. pid " << pthread_self()
+                  << " tv: " << now.tv_sec << std::endl;
+      }
       /*
        * 根据文本长短、接收速度和网络环境，接收完所有合成数据的时间无法确定，
        * 这里设定30s超时只是展示一种超时机制。
@@ -1273,8 +1433,8 @@ void* pthreadLongConnectionFunc(void* arg) {
    * 会强制卸载正在运行的请求。
    */
   const char* request_info = request->dumpAllInfo();
-  if (request_info) {
-    std::cout << "  all info: " << request_info << std::endl;
+  if (request_info && strlen(request_info) > 0) {
+    std::cout << "  final all info: " << request_info << std::endl;
   }
   AlibabaNls::NlsClient::getInstance()->releaseSynthesizerRequest(request);
   request = NULL;
@@ -1393,7 +1553,16 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     pa[i].s200Value = 0;
     pa[i].s500Value = 0;
     pa[i].s1000Value = 0;
+    pa[i].s1500Value = 0;
     pa[i].s2000Value = 0;
+    pa[i].sToValue = 0;
+
+    pa[i].connectWithSSL = 0;
+    pa[i].connectWithDirectIP = 0;
+    pa[i].connectWithIpCache = 0;
+    pa[i].connectWithLongConnect = 0;
+    pa[i].connectWithPrestartedPool = 0;
+    pa[i].connectWithPreconnectedPool = 0;
   }
 
   global_run = true;
@@ -1403,8 +1572,17 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     if (longConnection) {
       pthread_create(&pthreadId[j], NULL, &pthreadLongConnectionFunc,
                      (void*)&(pa[j]));
+      g_lived_threads++;
     } else {
+      if (g_start_gradually_ms > 0) {
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        std::srand(now.tv_usec);
+        int sleepMs = rand() % g_start_gradually_ms + 1;
+        usleep(sleepMs * 1000);
+      }
       pthread_create(&pthreadId[j], NULL, &pthreadFunc, (void*)&(pa[j]));
+      g_lived_threads++;
     }
   }
 
@@ -1434,6 +1612,22 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   unsigned long long cAveTime = 0;
 
   unsigned long long audioAveTimeLen = 0;
+
+  unsigned long long s50Value = 0;
+  unsigned long long s100Value = 0;
+  unsigned long long s200Value = 0;
+  unsigned long long s500Value = 0;
+  unsigned long long s1000Value = 0;
+  unsigned long long s1500Value = 0;
+  unsigned long long s2000Value = 0;
+  unsigned long long sToValue = 0;
+
+  uint32_t connectWithSSL = 0;
+  uint32_t connectWithDirectIP = 0;
+  uint32_t connectWithIpCache = 0;
+  uint32_t connectWithLongConnect = 0;
+  uint32_t connectWithPrestartedPool = 0;
+  uint32_t connectWithPreconnectedPool = 0;
 
   for (int i = 0; i < threads; i++) {
     sTotalCount += pa[i].startedConsumed;
@@ -1489,6 +1683,22 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
     }
 
     cAveTime += pa[i].closeAveValue;
+
+    s50Value += pa[i].s50Value;
+    s100Value += pa[i].s100Value;
+    s200Value += pa[i].s200Value;
+    s500Value += pa[i].s500Value;
+    s1000Value += pa[i].s1000Value;
+    s1500Value += pa[i].s1500Value;
+    s2000Value += pa[i].s2000Value;
+    sToValue += pa[i].sToValue;
+
+    connectWithSSL += pa[i].connectWithSSL;
+    connectWithDirectIP += pa[i].connectWithDirectIP;
+    connectWithIpCache += pa[i].connectWithIpCache;
+    connectWithLongConnect += pa[i].connectWithLongConnect;
+    connectWithPrestartedPool += pa[i].connectWithPrestartedPool;
+    connectWithPreconnectedPool += pa[i].connectWithPreconnectedPool;
   }
 
   eAveTime /= threads;
@@ -1554,6 +1764,15 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
   std::cout << "Min first package time: " << fMinTime << " ms" << std::endl;
   std::cout << "Ave first package time: " << fAveTime << " ms" << std::endl;
 
+  std::cout << "  First package time <=   50ms: " << s50Value << std::endl;
+  std::cout << "                     <=  100ms: " << s100Value << std::endl;
+  std::cout << "                     <=  200ms: " << s200Value << std::endl;
+  std::cout << "                     <=  500ms: " << s500Value << std::endl;
+  std::cout << "                     <= 1000ms: " << s1000Value << std::endl;
+  std::cout << "                     <= 1500ms: " << s1500Value << std::endl;
+  std::cout << "                     <= 2000ms: " << s2000Value << std::endl;
+  std::cout << "                      > 2000ms: " << sToValue << std::endl;
+
   std::cout << "\n ------------------- \n" << std::endl;
 
   std::cout << "Final Max completed time: " << eMaxTime << " ms" << std::endl;
@@ -1573,7 +1792,22 @@ int speechSynthesizerMultFile(const char* appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  usleep(2 * 1000 * 1000);
+  std::cout << "Connect type:" << std::endl;
+  std::cout << "  SSL:                        " << connectWithSSL << std::endl;
+  std::cout << "  Direct IP:                  " << connectWithDirectIP
+            << std::endl;
+  std::cout << "  IP_from_cache:              " << connectWithIpCache
+            << std::endl;
+  std::cout << "  Long connection:            " << connectWithLongConnect
+            << std::endl;
+  std::cout << "  SSL_from_PrestartedtedPool: " << connectWithPrestartedPool
+            << std::endl;
+  std::cout << "  SSL_from_PreconnectedPool:  " << connectWithPreconnectedPool
+            << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  sleep(2);
 
   std::cout << "speechSynthesizerMultFile exit..." << std::endl;
   return 0;
@@ -1618,6 +1852,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_url = argv[index];
+    } else if (!strcmp(argv[index], "--directIp")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_directIp = argv[index];
     } else if (!strcmp(argv[index], "--vipServerDomain")) {
       index++;
       if (invalid_argv(index, argc)) return 1;
@@ -1682,6 +1920,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_text = argv[index];
+    } else if (!strcmp(argv[index], "--textFile")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_text_file = argv[index];
     } else if (!strcmp(argv[index], "--subtitle")) {
       index++;
       if (invalid_argv(index, argc)) return 1;
@@ -1698,6 +1940,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_setrlimit = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--log")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      logLevel = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--logFile")) {
       index++;
       if (invalid_argv(index, argc)) return 1;
@@ -1706,6 +1952,22 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_log_count = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--simplifyLog")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        simplifyLog = true;
+      } else {
+        simplifyLog = false;
+      }
+    } else if (!strcmp(argv[index], "--startGradually")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_start_gradually_ms = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--breakTimeEachRound")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_break_time_each_round_s = atoi(argv[index]);
     }
     index++;
   }
@@ -1743,6 +2005,9 @@ int main(int argc, char* argv[]) {
         << "  --akId <AccessKey ID>\n"
         << "  --akSecret <AccessKey Secret>\n"
         << "  --token <Token>\n"
+        << "  --tokenExpiration <Manually set the token expiration time, and "
+           "the current time plus the set value is the expiration time, in "
+           "seconds.>\n"
         << "  --tokenDomain <the domain of token>\n"
         << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
         << "  --tokenApiVersion <the ApiVersion of token>\n"
@@ -1759,6 +2024,7 @@ int main(int argc, char* argv[]) {
            "default.gateway.vipserver>\n"
         << "  --threads <The number of requests running at the same time, "
            "default 1>\n"
+        << "  --cpu <Set the number of worker threads. Default is 1.>\n"
         << "  --time <The time of the test run, in seconds>\n"
         << "  --format <The returned audio format, which can be pcm wav and "
            "mp3, default pcm>\n"
@@ -1766,13 +2032,20 @@ int main(int argc, char* argv[]) {
         << "  --subtitle <enable subtitle, default 0>\n"
         << "  --voice <set voice, default xiaoyun>\n"
         << "  --text <set text for synthesizing>\n"
+        << "  --textFile <set text file path for synthesizing>\n"
         << "  --log <logLevel, default LogDebug = 4, closeLog = 0>\n"
         << "  --sampleRate <sample rate, default 16000>\n"
         << "  --long <long connection: 1, short connection: 0, default 0>\n"
         << "  --sys <use system getaddrinfo(): 1, evdns_getaddrinfo(): 0>\n"
         << "  --setrlimit <Set the limits of the file descriptor>\n"
-        << "  --logFile <log file>\n"
+        << "  --logFile <Set the log name>\n"
         << "  --logFileCount <The count of log file>\n"
+        << "  --startGradually <Start multithreading step by step, set the "
+           "value to the maximum random value of the start thread delay, in "
+           "milliseconds. Default is 0.>\n"
+        << "  --breakTimeEachRound <Set the interval time for each round, and "
+           "set the value to the maximum interval time, in seconds. Default is "
+           "0.>\n"
         << "eg:\n"
         << "  ./syDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./syDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
@@ -1824,7 +2097,8 @@ int main(int argc, char* argv[]) {
     int ret = 0;
 #ifdef LOG_TRIGGER
     ret = AlibabaNls::NlsClient::getInstance()->setLogConfig(
-        g_log_file.c_str(), AlibabaNls::LogDebug, 100, g_log_count, NULL);
+        g_log_file.c_str(), (AlibabaNls::LogLevel)logLevel, 100, g_log_count,
+        NULL);
     if (ret < 0) {
       std::cout << "set log failed." << std::endl;
       return -1;
@@ -1837,7 +2111,9 @@ int main(int argc, char* argv[]) {
 
     // 私有云部署的情况下进行直连IP的设置
     // 必须在startWorkThread()前调用
-    // AlibabaNls::NlsClient::getInstance()->setDirectHost("106.15.83.44");
+    if (!g_directIp.empty()) {
+      AlibabaNls::NlsClient::getInstance()->setDirectHost(g_directIp.c_str());
+    }
 
     // 存在部分设备在设置了dns后仍然无法通过SDK的dns获取可用的IP,
     // 可调用此接口主动启用系统的getaddrinfo来解决这个问题.
@@ -1911,11 +2187,13 @@ int main(int argc, char* argv[]) {
 
       std::cout << "threads run count:" << g_threads
                 << " success count:" << success_count << std::endl;
+      std::cout << " time:" << loop_timeout << " count:" << loop_count
+                << std::endl;
       std::cout << "requests run count:" << run_cnt
                 << " success count:" << run_success
                 << " fail count:" << run_fail << std::endl;
 
-      usleep(3000 * 1000);
+      sleep(3);
 
       pthread_mutex_lock(&params_mtx);
       std::map<unsigned long, struct ParamStatistics*>::iterator iter;
@@ -1936,7 +2214,6 @@ int main(int argc, char* argv[]) {
     run_fail = 0;
 
     std::cout << "===============================" << std::endl;
-
   }  // for
 
   if (g_sys_info) {

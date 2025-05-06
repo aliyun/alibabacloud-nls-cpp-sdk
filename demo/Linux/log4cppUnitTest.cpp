@@ -66,7 +66,7 @@ void* autoCloseFunc(void* arg) {
   }
   timeout = loop_timeout;
   while (timeout-- > 0 && global_run) {
-    usleep(1000 * 1000);
+    sleep(1);
   }
   global_run = false;
   std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
@@ -152,7 +152,7 @@ int logSystemMultThreads(int threads) {
     pthread_join(pthreadId[j], NULL);
   }
 
-  usleep(2 * 1000 * 1000);
+  sleep(2);
 
   fclose(pa.fp);
 

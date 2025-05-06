@@ -35,12 +35,12 @@
 
 namespace AlibabaNls {
 
-#define HTTP_STATUS_CODE        "HTTP/1.1 "
-#define HTTP_STATUS_CODE_END    " "
-#define HTTP_HEADER_END_STRING  "\r\n\r\n"
-#define HTTP_CONTENT_LENGTH     "Content-Length: "
+#define HTTP_STATUS_CODE "HTTP/1.1 "
+#define HTTP_STATUS_CODE_END " "
+#define HTTP_HEADER_END_STRING "\r\n\r\n"
+#define HTTP_CONTENT_LENGTH "Content-Length: "
 #define HTTP_CONTENT_LENGTH_END "\r\n"
-#define SEC_WS_VER              "13"
+#define SEC_WS_VER "13"
 
 //#define OPU_DEBUG
 
@@ -285,8 +285,10 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
         } else {
           LOG_ERROR(
               "WS(%p) Parse WsHeadBody Failed, retCode:%d, "
-              "wsType->headerSize:%d, frameSize:%d.",
-              this, retCode, wsType->headerSize, frameSize);
+              "wsType->headerSize:%d, frameSize:%d, wsType->fin:0x%x, "
+              "wsType->opCode:%d, wsType->mask:0x%x, wsType->N0:%d",
+              this, retCode, wsType->headerSize, frameSize, wsType->fin,
+              wsType->opCode, wsType->mask, wsType->N0);
           return retCode;
         }
       }
@@ -298,8 +300,12 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
       // LOG_DEBUG("WS(%p) Parse decodeFrameBodyWebSocketFrame wsType->opCode:%d
       // with retCode:%d.", this, wsType->opCode, retCode);
       if (retCode < 0) {
-        // LOG_ERROR("WS(%p) Parse WsContentBody Failed, retCode:%d.", this,
-        // retCode);
+        LOG_ERROR(
+            "WS(%p) Parse WsContentBody Failed, retCode:%d, "
+            "wsType->headerSize:%d, frameSize:%d, wsType->fin:0x%x, "
+            "wsType->opCode:%d, wsType->mask:0x%x, wsType->N0:%d",
+            this, retCode, wsType->headerSize, frameSize, wsType->fin,
+            wsType->opCode, wsType->mask, wsType->N0);
         return retCode;
       }
       _rStatus = WsHeadSize;
@@ -324,15 +330,27 @@ int WebSocketTcp::decodeHeaderSizeWebSocketFrame(uint8_t* buffer, size_t length,
   }
 
   const uint8_t* data = buffer;  // peek, but don't consume
+  /* FIN: 0bit */
   wsType->fin = (data[0] & 0x80) == 0x80;
+  /* Opcode: 4-7bit */
   wsType->opCode = (WebSocketHeaderType::OpCodeType)(data[0] & 0x0f);
+  /* Mask: 8bit */
   wsType->mask = (data[1] & 0x80) == 0x80;
+  /* N0(Payload length): 9-15bit 数据载荷的长度,单位是字节.
+   *   为0~126:数据的长度为x字节.
+   *   为126:后续2个字节代表一个16位的无符号整数,该无符号整数的值为数据的长度.
+   *   为127:后续8个字节代表一个64位的无符号整数(最高位为0),该无符号整数的值为数据的长度.
+   */
   wsType->N0 = (data[1] & 0x7f);
   wsType->headerSize = 2 + (wsType->N0 == 126 ? 2 : 0) +
                        (wsType->N0 == 127 ? 8 : 0) + (wsType->mask ? 4 : 0);
 
-  //  LOG_DEBUG("wsType->headerSize: %d, opCode: %d, fin: %d",
-  //      wsType->headerSize, wsType->opCode, wsType->fin);
+  if (wsType->headerSize == 2) {
+    LOG_DEBUG(
+        "WS(%p) wsType->headerSize: %d, opCode: %d, fin: %d, N0: %d, mask: %d",
+        this, wsType->headerSize, wsType->opCode, wsType->fin, wsType->N0,
+        wsType->mask);
+  }
 
   return Success;
 }
