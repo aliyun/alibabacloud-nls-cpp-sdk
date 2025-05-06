@@ -73,6 +73,7 @@ namespace AlibabaNls {
 #define D_SY_ENABLE_SUBTITLE "enable_subtitle"
 #define D_SY_METHOD          "method"
 #define D_SY_TEXT            "text"
+#define D_SY_ENABLE_SSML     "enable_ssml"
 
 /**************************dialog assistant**************************/
 #define D_DA_SESSION_ID             "session_id"

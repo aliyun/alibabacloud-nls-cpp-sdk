@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "demo_utils.h"
 #include "flowingSynthesizerRequest.h"
 #include "nlsClient.h"
 #include "nlsEvent.h"
@@ -131,72 +132,6 @@ void signal_handler_quit(int signo) {
   global_run = false;
 }
 
-std::string timestamp_str() {
-  char buf[64];
-  struct timeval tv;
-  struct tm ltm;
-
-  gettimeofday(&tv, NULL);
-  localtime_r(&tv.tv_sec, &ltm);
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
-           ltm.tm_year + 1900, ltm.tm_mon + 1, ltm.tm_mday, ltm.tm_hour,
-           ltm.tm_min, ltm.tm_sec, tv.tv_usec);
-  buf[63] = '\0';
-  std::string tmp = buf;
-  return tmp;
-}
-
-bool isNotEmptyAndNotSpace(const char* str) {
-  if (str == NULL) {
-    return false;
-  }
-  size_t length = strlen(str);
-  if (length == 0) {
-    return false;
-  }
-  for (size_t i = 0; i < length; ++i) {
-    if (!std::isspace(static_cast<unsigned char>(str[i]))) {
-      return true;
-    }
-  }
-  return false;
-}
-
-std::vector<std::string> splitString(
-    const std::string& str, const std::vector<std::string>& delimiters) {
-  std::vector<std::string> result;
-  size_t startPos = 0;
-
-  // 查找字符串中的每个分隔符
-  while (startPos < str.length()) {
-    size_t minPos = std::string::npos;
-    size_t delimiterLength = 0;
-
-    for (std::vector<std::string>::const_iterator it = delimiters.begin();
-         it != delimiters.end(); ++it) {
-      std::size_t position = str.find(*it, startPos);
-      // 查找最近的分隔符
-      if (position != std::string::npos &&
-          (minPos == std::string::npos || position < minPos)) {
-        minPos = position;
-        delimiterLength = it->size();
-      }
-    }
-
-    // 如果找到分隔符，则提取前面的字符串
-    if (minPos != std::string::npos) {
-      result.push_back(str.substr(startPos, minPos - startPos));
-      startPos = minPos + delimiterLength;
-    } else {
-      // 没有更多分隔符，剩下的全部是一个部分
-      result.push_back(str.substr(startPos));
-      break;
-    }
-  }
-
-  return result;
-}
-
 /**
  * 根据AccessKey ID和AccessKey Secret重新生成一个token，并获取其有效期时间戳
  */
@@ -256,7 +191,7 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   FILE* failed_stream = fopen("flowingSynthesisTaskFailed.log", "a+");
   if (failed_stream) {
-    std::string ts = timestamp_str();
+    std::string ts = timestampStr(NULL, NULL);
     char outbuf[1024] = {0};
     snprintf(outbuf, sizeof(outbuf),
              "%s status code:%d task id:%s error mesg:%s\n", ts.c_str(),
@@ -294,7 +229,7 @@ void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
  */
 void OnSynthesisChannelClosed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
-  std::string ts = timestamp_str();
+  std::string ts = timestampStr(NULL, NULL);
   std::cout << "OnSynthesisChannelClosed: " << ts.c_str()
             << ", userId: " << tmpParam->userId
             << ", All response: " << cbEvent->getAllResponse()

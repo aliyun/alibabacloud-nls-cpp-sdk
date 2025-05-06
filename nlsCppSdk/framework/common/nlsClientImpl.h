@@ -47,6 +47,10 @@ class NlsClientImpl {
   void setDirectHostImpl(const char* ip);
   void setUseSysGetAddrInfoImpl(bool enable);
   void setSyncCallTimeoutImpl(unsigned int timeout_ms);
+#ifdef ENABLE_PRECONNECTED_POOL
+  void setPreconnectedPool(unsigned int maxNumber, unsigned int timeoutMs,
+                           unsigned requestTimeoutMs);
+#endif
 
   SpeechRecognizerRequest* createRecognizerRequestImpl(
       const char* sdkName = "cpp", bool isLongConnection = false);
@@ -93,6 +97,11 @@ class NlsClientImpl {
   char _directHostIp[64];
   bool _enableSysGetAddr;
   unsigned int _syncCallTimeoutMs;
+#ifdef ENABLE_PRECONNECTED_POOL
+  unsigned int _maxPreconnectedNumber;
+  unsigned int _preconnectedTimeoutMs;
+  unsigned int _prerequestedTimeoutMs;
+#endif
 
 #if defined(__linux__)
 #ifdef ENABLE_VIPSERVER

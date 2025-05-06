@@ -179,6 +179,12 @@ int SpeechRecognizerRequest::setToken(const char* value) {
   return Success;
 }
 
+int SpeechRecognizerRequest::setTokenExpirationTime(uint64_t value) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
+  _recognizerParam->setTokenExpirationTime(value);
+  return 0;
+}
+
 int SpeechRecognizerRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_recognizerParam);

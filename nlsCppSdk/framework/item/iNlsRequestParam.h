@@ -17,6 +17,7 @@
 #ifndef NLS_SDK_REQUEST_PARAM_H
 #define NLS_SDK_REQUEST_PARAM_H
 
+#include <stdint.h>
 #include <string>
 
 #include "json/json.h"
@@ -46,8 +47,11 @@ class ConnectNode;
 
 class INlsRequestParam {
  public:
-  INlsRequestParam(NlsType mode, const char* sdkName);
+  INlsRequestParam(NlsType mode, const char* sdkName, int version = 0);
   virtual ~INlsRequestParam() = 0;
+
+  INlsRequestParam& operator=(const INlsRequestParam& other);
+  bool operator==(const INlsRequestParam& other) const;
 
   Json::Value getSdkInfo();
 
@@ -72,6 +76,9 @@ class INlsRequestParam {
     }
   };
   inline void setToken(const char* token) { this->_token = token; };
+  inline void setTokenExpirationTime(uint64_t expiration) {
+    this->_tokenExpirationTime = expiration;
+  };
   inline void setUrl(const char* url) { this->_url = url; };
   inline void setNlsRequestType(NlsRequestType requestType) {
     _requestType = requestType;
@@ -128,6 +135,8 @@ class INlsRequestParam {
   virtual bool getEnableOnMessage();
   virtual std::string getTaskId();
   virtual NlsRequestType getNlsRequestType();
+  virtual std::string getSdkName();
+  virtual int getVersion();
 
  public:
   int AppendHttpHeader(const char* key, const char* value);
@@ -150,13 +159,15 @@ class INlsRequestParam {
 
   std::string _url;
   std::string _outputFormat;
+  std::string _appKey;
   std::string _token;
+  uint64_t _tokenExpirationTime;
   std::string _format;
 
   std::string _task_id;
 
   NlsType _mode;
-  std::string _sdk_name;
+  std::string _sdk_name;  // e.g. nls-cpp-sdk3.x-linux
 
   std::string _startCommand;
   std::string _controlCommand;
@@ -168,6 +179,9 @@ class INlsRequestParam {
 
   Json::Value _httpHeader;
   std::string _httpHeaderString;
+
+ private:
+  int _version;
 };
 
 }  // namespace AlibabaNls

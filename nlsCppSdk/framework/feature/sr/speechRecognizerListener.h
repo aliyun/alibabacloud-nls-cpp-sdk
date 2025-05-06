@@ -28,7 +28,7 @@ class SpeechRecognizerListener : public INlsRequestListener {
   explicit SpeechRecognizerListener(SpeechRecognizerCallback* cb);
   ~SpeechRecognizerListener();
 
-  virtual void handlerFrame(NlsEvent);
+  virtual void handlerFrame(NlsEvent&);
 
  private:
   SpeechRecognizerCallback* _callback;

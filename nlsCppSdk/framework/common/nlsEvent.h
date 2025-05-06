@@ -86,8 +86,20 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @param taskId 任务的task id
    * @return
    */
-  NlsEvent(std::vector<unsigned char> data, int code, EventType type,
-           std::string taskId);
+  NlsEvent(std::vector<unsigned char>& data, int code, EventType type,
+           std::string& taskId);
+
+  /**
+   * @brief NlsEvent构造函数
+   * @param data   二进制数据
+   * @param dataBytes   二进制数据字节数
+   * @param code   Event状态编码
+   * @param type   Event类型
+   * @param taskId 任务的task id
+   * @return
+   */
+  NlsEvent(unsigned char* data, int dataBytes, int code, EventType type,
+           std::string& taskId);
 
   /**
    * @brief NlsEvent析构函数

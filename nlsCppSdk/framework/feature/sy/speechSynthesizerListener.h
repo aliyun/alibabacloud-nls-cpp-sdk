@@ -28,7 +28,7 @@ class SpeechSynthesizerListener : public INlsRequestListener {
   explicit SpeechSynthesizerListener(SpeechSynthesizerCallback* cb);
   ~SpeechSynthesizerListener();
 
-  virtual void handlerFrame(NlsEvent);
+  virtual void handlerFrame(NlsEvent&);
 
  private:
   SpeechSynthesizerCallback* _callback;

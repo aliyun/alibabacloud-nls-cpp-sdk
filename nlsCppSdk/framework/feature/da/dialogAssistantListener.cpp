@@ -26,7 +26,7 @@ DialogAssistantListener::DialogAssistantListener(DialogAssistantCallback* cb)
 
 DialogAssistantListener::~DialogAssistantListener() {}
 
-void DialogAssistantListener::handlerFrame(NlsEvent str) {
+void DialogAssistantListener::handlerFrame(NlsEvent& str) {
   NlsEvent::EventType type = str.getMsgType();
 
   if (NULL == _callback) {

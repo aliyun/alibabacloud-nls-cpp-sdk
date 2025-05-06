@@ -35,7 +35,8 @@ namespace AlibabaNls {
 FlowingSynthesizerParam::FlowingSynthesizerParam(const char* sdkName)
     : INlsRequestParam(TypeStreamInputTts, sdkName),
       _runFlowingSynthesisCommand(""),
-      _flushFlowingTextCommand("") {
+      _flushFlowingTextCommand(""),
+      MaximumNumberOfWords(10000) {
   _header[D_NAMESPACE] = D_NAMESPACE_FLOWING_SYNTHESIZER;
 }
 
@@ -46,6 +47,19 @@ int FlowingSynthesizerParam::setVoice(const char* value) {
     return -(InvalidInputParam);
   }
   _payload[D_SY_VOICE] = value;
+  return Success;
+}
+
+int FlowingSynthesizerParam::setSingleRoundText(const char* value) {
+  if (value == NULL) {
+    return -(InvalidInputParam);
+  }
+  int wordCount = utility::TextUtils::CharsCalculate(value);
+  if (wordCount > MaximumNumberOfWords || wordCount == 0) {
+    return -(InvalidInputParam);
+  } else {
+    _singeRoundText.assign(value);
+  }
   return Success;
 }
 
@@ -70,6 +84,11 @@ void FlowingSynthesizerParam::setEnableSubtitle(bool value) {
 
 const char* FlowingSynthesizerParam::getStartCommand() {
   _header[D_NAME] = D_CMD_START_SYNTHESIZER;
+  if (_singeRoundText.empty()) {
+    _payload.removeMember(D_SY_ENABLE_SSML);
+  } else {
+    _payload[D_SY_ENABLE_SSML] = true;
+  }
   return INlsRequestParam::getStartCommand();
 }
 
@@ -124,6 +143,14 @@ const char* FlowingSynthesizerParam::getFlushFlowingTextCommand(
     return NULL;
   }
   return _flushFlowingTextCommand.c_str();
+}
+
+std::string& FlowingSynthesizerParam::getSingleRoundText() {
+  return _singeRoundText;
+}
+
+void FlowingSynthesizerParam::clearSingleRoundText() {
+  _singeRoundText.clear();
 }
 
 }  // namespace AlibabaNls

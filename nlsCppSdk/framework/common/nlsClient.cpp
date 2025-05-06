@@ -26,7 +26,6 @@
 #include "nlsClientImpl.h"
 #include "nlsEventNetWork.h"
 #include "nodeManager.h"
-
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
@@ -106,6 +105,21 @@ void NlsClient::setSyncCallTimeout(unsigned int timeout_ms) {
     LOG_WARN("Current instance has released.");
   }
   MUTEX_UNLOCK(_mtxNlsClient);
+}
+
+void NlsClient::setPreconnectedPool(unsigned int maxNumber,
+                                    unsigned int timeoutMs,
+                                    unsigned requestTimeoutMs) {
+#ifdef ENABLE_PRECONNECTED_POOL
+  MUTEX_LOCK(_mtxNlsClient);
+  if (_instance) {
+    _instance->_impl->setPreconnectedPool(maxNumber, timeoutMs,
+                                          requestTimeoutMs);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+#endif
 }
 
 void NlsClient::setDirectHost(const char *ip) {

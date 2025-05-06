@@ -183,6 +183,9 @@ enum NlsRetCode {
   VipClientMergeHostFailed,  /* VipServer客户端生成host失败 */
   VipClientQueryIpFailed,    /* VipServer客户端同步获得IP失败 */
 
+  /* connected pool */
+  ConnectedPoolEmpty = 560, /* 预连接工作线程空指针, 已释放 */
+
   /* 900 - 998 reserved for C# */
 
   NlsMaxErrorCode = 999,

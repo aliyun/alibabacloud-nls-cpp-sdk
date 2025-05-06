@@ -122,7 +122,7 @@ run_speech_test() {
   run_cmd="$cur_demo_path --url $NLS_PRE_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --type $cur_type
    --audioFile $audio_source_dir/$cur_audio_file --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $cur_log_file_count >
+   --logFileCount $cur_log_file_count --preconnectedPool 1 >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
   echo "  run:" $run_cmd
   eval $run_cmd
@@ -199,7 +199,7 @@ run_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_PRE_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format $cur_type
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $cur_log_file_count >
+   --logFileCount $cur_log_file_count --preconnectedPool 1 >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
   echo "  run:" $run_cmd
   eval $run_cmd
@@ -225,7 +225,7 @@ run_streaminput_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_PRE_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format pcm
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $cur_log_file_count --textFile $cur_text_file >
+   --logFileCount $cur_log_file_count --textFile $cur_text_file --preconnectedPool 1 >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
   echo "  run:" $run_cmd
   eval $run_cmd

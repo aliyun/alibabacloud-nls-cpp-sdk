@@ -28,7 +28,7 @@ class DialogAssistantListener : public INlsRequestListener {
   explicit DialogAssistantListener(DialogAssistantCallback* cb);
   ~DialogAssistantListener();
 
-  virtual void handlerFrame(NlsEvent);
+  virtual void handlerFrame(NlsEvent&);
 
  private:
   DialogAssistantCallback* _callback;

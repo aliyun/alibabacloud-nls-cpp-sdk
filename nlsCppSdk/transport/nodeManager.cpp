@@ -386,12 +386,12 @@ int NlsNodeManager::updateNodeStatus(void* node, int status) {
       return -(InvalidRequest);
     }
 
-    LOG_DEBUG("Node:%p set node status from %s to %s.", info.node,
+    LOG_DEBUG("Node(%p) set node status from %s to %s.", info.node,
               this->getNodeStatusString(info.status).c_str(),
               this->getNodeStatusString(status).c_str());
     info.status = status;
   } else {
-    LOG_ERROR("Request:%p isn't in NodeInfo", request);
+    LOG_ERROR("Request(%p) isn't in NodeInfo", request);
     MUTEX_UNLOCK(_mtxNodeManager);
     return -(InvaildNodeStatus);
   }

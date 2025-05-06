@@ -140,7 +140,7 @@ const char* INlsRequest::dumpAllInfo(INlsRequest* request) {
 
 ConnectNode* INlsRequest::getConnectNode() {
   if (_node == NULL) {
-    LOG_WARN("_node is nullptr.");
+    LOG_WARN("request(%p) _node is nullptr.", this);
     return NULL;
   }
   return _node;
@@ -148,7 +148,7 @@ ConnectNode* INlsRequest::getConnectNode() {
 
 INlsRequestParam* INlsRequest::getRequestParam() {
   if (_requestParam == NULL) {
-    LOG_WARN("_requestParam is nullptr.");
+    LOG_WARN("Request(%p) _requestParam is nullptr.", this);
     return NULL;
   }
   return _requestParam;

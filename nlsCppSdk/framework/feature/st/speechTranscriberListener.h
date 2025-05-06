@@ -33,7 +33,7 @@ class SpeechTranscriberListener : public INlsRequestListener {
   explicit SpeechTranscriberListener(SpeechTranscriberCallback* cb);
   ~SpeechTranscriberListener();
 
-  virtual void handlerFrame(NlsEvent);
+  virtual void handlerFrame(NlsEvent&);
 
  private:
   SpeechTranscriberCallback* _callback;

@@ -16,8 +16,8 @@
 
 #include "flowingSynthesizerListener.h"
 
-#include "nlog.h"
 #include "flowingSynthesizerRequest.h"
+#include "nlog.h"
 
 namespace AlibabaNls {
 
@@ -27,7 +27,7 @@ FlowingSynthesizerListener::FlowingSynthesizerListener(
 
 FlowingSynthesizerListener::~FlowingSynthesizerListener() {}
 
-void FlowingSynthesizerListener::handlerFrame(NlsEvent str) {
+void FlowingSynthesizerListener::handlerFrame(NlsEvent& str) {
   NlsEvent::EventType type = str.getMsgType();
 
   if (NULL == _callback) {

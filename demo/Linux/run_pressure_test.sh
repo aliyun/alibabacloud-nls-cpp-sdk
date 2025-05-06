@@ -139,7 +139,7 @@ run_speech_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --type $cur_type
    --audioDir $audio_source_dir/16k/wav --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT"
+   --logFileCount $RUN_LOG_COUNT --preconnectedPool 1"
   if [ "$cur_background" -eq 2 ]; then
     run_cmd=$run_cmd" --setrlimit $cur_threads"
   fi
@@ -171,7 +171,7 @@ run_st_monkey_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --type $cur_type
    --audioDir $audio_source_dir/16k/wav --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --special $cur_special_type >
+   --logFileCount $RUN_LOG_COUNT --special $cur_special_type --preconnectedPool 1 >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
   if [ "$cur_background" -eq 1 ]; then
     run_cmd=$run_cmd" &"
@@ -200,7 +200,7 @@ run_streaminput_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format pcm
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --textFile $txt_test_path --special $cur_special_type >
+   --logFileCount $RUN_LOG_COUNT --textFile $txt_test_path --special $cur_special_type --preconnectedPool 1 >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
   if [ "$cur_background" -eq 1 ]; then
     run_cmd=$run_cmd" &"
@@ -229,7 +229,7 @@ run_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format $cur_type
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT"
+   --logFileCount $RUN_LOG_COUNT --preconnectedPool 1"
   if [ "$cur_background" -eq 2 ]; then
     run_cmd=$run_cmd" --setrlimit $cur_threads"
   fi
@@ -261,7 +261,7 @@ run_tts_monkey() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format $cur_type
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT"
+   --logFileCount $RUN_LOG_COUNT --preconnectedPool 1"
   if [ "$cur_background" -eq 3 ]; then
     run_cmd=$run_cmd" --special 50"
   elif [ "$cur_background" -eq 2 ]; then
