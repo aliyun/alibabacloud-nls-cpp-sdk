@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -95,7 +96,16 @@ struct ParamStruct {
   uint64_t s200Value;
   uint64_t s500Value;
   uint64_t s1000Value;
+  uint64_t s1500Value;
   uint64_t s2000Value;
+  uint64_t sToValue;
+
+  uint32_t connectWithSSL;
+  uint32_t connectWithDirectIP;
+  uint32_t connectWithIpCache;
+  uint32_t connectWithLongConnect;
+  uint32_t connectWithPrestartedPool;
+  uint32_t connectWithPreconnectedPool;
 
   pthread_mutex_t mtx;
 };
@@ -179,11 +189,14 @@ std::string g_audio_path = "";
 std::string g_log_file = "log-recognizer";
 int g_log_count = 20;
 int g_threads = 1;
+int g_lived_threads = 0;
 int g_cpu = 1;
 int g_sync_timeout = 0;
 bool g_save_audio = false;
 static int loop_timeout = LOOP_TIMEOUT; /*循环运行的时间, 单位s*/
 static int loop_count = 0; /*循环测试某音频文件的次数, 设置后loop_timeout无效*/
+int g_start_gradually_ms = 0;
+int g_break_time_each_round_s = 0;
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
@@ -234,6 +247,25 @@ std::string timestamp_str() {
   buf[63] = '\0';
   std::string tmp = buf;
   return tmp;
+}
+
+std::string findConnectType(const char *input) {
+  const char *key = "\"connect_type\":\"";
+  const char *start = strstr(input, key);
+  if (start != NULL) {
+    start += strlen(key);
+    const char *end = strchr(start, '\"');
+    if (end != NULL) {
+      size_t length = end - start;
+      char *value = new char[length + 1];
+      strncpy(value, start, length);
+      value[length] = '\0';
+      std::string result(value);
+      delete[] value;
+      return result;
+    }
+  }
+  return "";
 }
 
 static void vectorStartStore(unsigned long pid) {
@@ -458,10 +490,18 @@ unsigned int getSendAudioSleepTime(const int dataSize, const int sampleRate,
  * @return
  */
 void OnRecognitionStarted(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
+  std::cout << "OnRecognitionStarted:"
+            << "  status code: " << cbEvent->getStatusCode()
+            << "  task id: " << cbEvent->getTaskId()
+            << "  OnRecognitionStarted: All response:"
+            << cbEvent->getAllResponse() << std::endl;
+
   if (cbParam) {
     ParamCallBack *tmpParam = static_cast<ParamCallBack *>(cbParam);
-    std::cout << "OnRecognitionStarted userId: " << tmpParam->userId << ", "
-              << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+    if (!tmpParam->tParam) return;
+    std::cout << "  OnRecognitionStarted Max Time: "
+              << tmpParam->tParam->startMaxValue
+              << "  userId: " << tmpParam->userId << std::endl;
 
     gettimeofday(&(tmpParam->startedTv), NULL);
     tmpParam->tParam->startedConsumed++;
@@ -481,22 +521,6 @@ void OnRecognitionStarted(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
     if (timeValue > tmpParam->tParam->startMaxValue) {
       tmpParam->tParam->startMaxValue = timeValue;
     }
-
-    unsigned long long tmp = timeValue;
-    if (tmp <= 50) {
-      tmpParam->tParam->s50Value++;
-    } else if (tmp <= 100) {
-      tmpParam->tParam->s100Value++;
-    } else if (tmp <= 200) {
-      tmpParam->tParam->s200Value++;
-    } else if (tmp <= 500) {
-      tmpParam->tParam->s500Value++;
-    } else if (tmp <= 1000) {
-      tmpParam->tParam->s1000Value++;
-    } else {
-      tmpParam->tParam->s2000Value++;
-    }
-
     // min
     if (tmpParam->tParam->startMinValue == 0) {
       tmpParam->tParam->startMinValue = timeValue;
@@ -505,12 +529,29 @@ void OnRecognitionStarted(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
         tmpParam->tParam->startMinValue = timeValue;
       }
     }
-
     // ave
     tmpParam->tParam->startTotalValue += timeValue;
     if (tmpParam->tParam->startedConsumed > 0) {
       tmpParam->tParam->startAveValue =
           tmpParam->tParam->startTotalValue / tmpParam->tParam->startedConsumed;
+    }
+
+    if (timeValue > 2000) {
+      tmpParam->tParam->sToValue++;
+    } else if (timeValue <= 2000 && timeValue > 1500) {
+      tmpParam->tParam->s2000Value++;
+    } else if (timeValue <= 1500 && timeValue > 1000) {
+      tmpParam->tParam->s1500Value++;
+    } else if (timeValue <= 1000 && timeValue > 500) {
+      tmpParam->tParam->s1000Value++;
+    } else if (timeValue <= 500 && timeValue > 200) {
+      tmpParam->tParam->s500Value++;
+    } else if (timeValue <= 200 && timeValue > 100) {
+      tmpParam->tParam->s200Value++;
+    } else if (timeValue <= 100 && timeValue > 50) {
+      tmpParam->tParam->s100Value++;
+    } else if (timeValue <= 50) {
+      tmpParam->tParam->s50Value++;
     }
 
     // first package flag init
@@ -528,19 +569,6 @@ void OnRecognitionStarted(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
     pthread_cond_signal(&(tmpParam->cvWord));
     pthread_mutex_unlock(&(tmpParam->mtxWord));
   }
-
-  std::cout
-      << "  OnRecognitionStarted: "
-      << "status code: "
-      << cbEvent
-             ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-      << ", task id: "
-      << cbEvent->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
-      << std::endl;
-
-  // std::cout << "OnRecognitionStarted: All response:"
-  //           << cbEvent->getAllResponse()
-  //           << std::endl; // 获取服务端返回的全部信息
 }
 
 /**
@@ -598,7 +626,7 @@ void OnRecognitionResultChanged(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
   }
 
   std::cout
-      << "OnRecognitionResultChanged: "
+      << "  OnRecognitionResultChanged: "
       << "status code: "
       << cbEvent
              ->getStatusCode()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
@@ -745,9 +773,10 @@ void onRecognitionMessage(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
  * @return
  */
 void OnRecognitionChannelClosed(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
-  std::cout << "OnRecognitionChannelClosed: All response:"
-            << cbEvent->getAllResponse()
+  const char *allResponse = cbEvent->getAllResponse();
+  std::cout << "OnRecognitionChannelClosed: All response:" << allResponse
             << std::endl;  // 获取服务端返回的全部信息
+
   if (cbParam) {
     ParamCallBack *tmpParam = static_cast<ParamCallBack *>(cbParam);
     if (!tmpParam->tParam) {
@@ -794,6 +823,23 @@ void OnRecognitionChannelClosed(AlibabaNls::NlsEvent *cbEvent, void *cbParam) {
           tmpParam->tParam->closeTotalValue / tmpParam->tParam->closeConsumed;
     }
 
+    std::string connectType = findConnectType(allResponse);
+    if (!connectType.empty()) {
+      if (connectType == "connect_with_SSL") {
+        tmpParam->tParam->connectWithSSL++;
+      } else if (connectType == "connect_with_direct_IP") {
+        tmpParam->tParam->connectWithDirectIP++;
+      } else if (connectType == "connect_with_IP_from_cache") {
+        tmpParam->tParam->connectWithIpCache++;
+      } else if (connectType == "connect_with_long_connection") {
+        tmpParam->tParam->connectWithLongConnect++;
+      } else if (connectType == "connect_with_SSL_from_PrestartedPool") {
+        tmpParam->tParam->connectWithPrestartedPool++;
+      } else if (connectType == "connect_with_SSL_from_PreconnectedPool") {
+        tmpParam->tParam->connectWithPreconnectedPool++;
+      }
+    }
+
     //通知发送线程, 最终识别结果已经返回, 可以调用stop()
     pthread_mutex_lock(&(tmpParam->mtxWord));
     pthread_cond_signal(&(tmpParam->cvWord));
@@ -807,9 +853,26 @@ void *autoCloseFunc(void *arg) {
   while (!global_run && timeout-- > 0) {
     usleep(100 * 1000);
   }
-  timeout = loop_timeout;
-  while (timeout-- > 0 && global_run) {
-    usleep(1000 * 1000);
+
+  struct timeval startTv;
+  struct timeval currentTv;
+
+  gettimeofday(&startTv, NULL);
+
+  bool loop = true;
+  while (loop && global_run) {
+    std::cout << "autoClose -->>" << std::endl;
+    sleep(1);
+    gettimeofday(&currentTv, NULL);
+    uint64_t timeDiff = currentTv.tv_sec - startTv.tv_sec;
+    if (timeDiff >= loop_timeout) {
+      loop = false;
+    }
+
+    std::cout << " autoClose countdown: " << timeDiff << "/" << loop_timeout
+              << "s."
+              << " lived threads: " << g_lived_threads << "/" << g_threads
+              << std::endl;
 
     if (g_sys_info) {
       int cur = -1;
@@ -885,8 +948,10 @@ void *autoCloseFunc(void *arg) {
       }
     }
   }
+
   global_run = false;
-  std::cout << "autoCloseFunc exit..." << pthread_self() << std::endl;
+  std::cout << "autoCloseFunc exit ... thread:" << pthread_self() << std::endl;
+
   return NULL;
 }
 
@@ -1023,6 +1088,8 @@ void *pthreadFunction(void *arg) {
       std::cout << "setToken: " << tst->token << std::endl;
     }
 
+    struct timeval now;
+
     // 私有化支持vipserver, 公有云客户无需关注此处
     if (strnlen(tst->vipServerDomain, 512) > 0 &&
         strnlen(tst->vipServerTargetDomain, 512) > 0) {
@@ -1071,7 +1138,6 @@ void *pthreadFunction(void *arg) {
     vectorStartStore(pthread_self());
     std::cout << "start ->" << std::endl;
     struct timespec outtime;
-    struct timeval now;
     gettimeofday(&(cbParam->startTv), NULL);
     int ret = request->start();
     run_cnt++;
@@ -1295,10 +1361,20 @@ void *pthreadFunction(void *arg) {
 
     if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
+    } else {
+      if (g_break_time_each_round_s > 0) {
+        std::srand(now.tv_usec);
+        int sleepS = rand() % g_break_time_each_round_s + 1;
+        while (global_run && sleepS-- > 0) {
+          sleep(1);
+        }
+      }
     }
   }  // while global_run
 
   pthread_mutex_destroy(&(tst->mtx));
+
+  std::cout << "finish this pthreadFunc " << pthread_self() << std::endl;
 
   // 关闭音频文件
   fs.close();
@@ -1309,13 +1385,16 @@ void *pthreadFunction(void *arg) {
      * 若在回调前delete cbParam, 会导致回调中对cbParam的操作变成野指针操作，
      * 故若存在cbParam, 则在这里等一会
      */
-    usleep(10 * 1000 * 1000);
+    sleep(10);
   }
 
   if (cbParam) {
     delete cbParam;
     cbParam = NULL;
   }
+
+  std::cout << "this pthreadFunc " << pthread_self() << " exit." << std::endl;
+  g_lived_threads--;
 
   return NULL;
 }
@@ -1718,7 +1797,7 @@ void *pthreadLongConnectionFunction(void *arg) {
      * 若在回调前delete cbParam, 会导致回调中对cbParam的操作变成野指针操作，
      * 故若存在cbParam, 则在这里等一会
      */
-    usleep(10 * 1000 * 1000);
+    sleep(10);
   }
 
   if (cbParam) {
@@ -1843,7 +1922,16 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
     pa[i].s200Value = 0;
     pa[i].s500Value = 0;
     pa[i].s1000Value = 0;
+    pa[i].s1500Value = 0;
     pa[i].s2000Value = 0;
+    pa[i].sToValue = 0;
+
+    pa[i].connectWithSSL = 0;
+    pa[i].connectWithDirectIP = 0;
+    pa[i].connectWithIpCache = 0;
+    pa[i].connectWithLongConnect = 0;
+    pa[i].connectWithPrestartedPool = 0;
+    pa[i].connectWithPreconnectedPool = 0;
   }
 
   global_run = true;
@@ -1853,8 +1941,17 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
     if (longConnection) {
       pthread_create(&pthreadId[j], NULL, &pthreadLongConnectionFunction,
                      (void *)&(pa[j]));
+      g_lived_threads++;
     } else {
+      if (g_start_gradually_ms > 0) {
+        struct timeval now;
+        gettimeofday(&now, NULL);
+        std::srand(now.tv_usec);
+        int sleepMs = rand() % g_start_gradually_ms + 1;
+        usleep(sleepMs * 1000);
+      }
       pthread_create(&pthreadId[j], NULL, &pthreadFunction, (void *)&(pa[j]));
+      g_lived_threads++;
     }
   }
 
@@ -1882,7 +1979,9 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
   unsigned long long s200Count = 0;
   unsigned long long s500Count = 0;
   unsigned long long s1000Count = 0;
+  unsigned long long s1500Count = 0;
   unsigned long long s2000Count = 0;
+  unsigned long long sToCount = 0;
 
   unsigned long long eMaxTime = 0;
   unsigned long long eMinTime = 0;
@@ -1897,6 +1996,13 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
   unsigned long long sendAveTime = 0;
 
   unsigned long long audioFileAveTimeLen = 0;
+
+  uint32_t connectWithSSL = 0;
+  uint32_t connectWithDirectIP = 0;
+  uint32_t connectWithIpCache = 0;
+  uint32_t connectWithLongConnect = 0;
+  uint32_t connectWithPrestartedPool = 0;
+  uint32_t connectWithPreconnectedPool = 0;
 
   for (int i = 0; i < threads; i++) {
     sTotalCount += pa[i].startedConsumed;
@@ -1931,7 +2037,9 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
     s200Count += pa[i].s200Value;
     s500Count += pa[i].s500Value;
     s1000Count += pa[i].s1000Value;
+    s1500Count += pa[i].s1500Value;
     s2000Count += pa[i].s2000Value;
+    sToCount += pa[i].sToValue;
 
     // first pack
     if (pa[i].firstMaxValue > fMaxTime) {
@@ -1977,6 +2085,13 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
     }
 
     cAveTime += pa[i].closeAveValue;
+
+    connectWithSSL += pa[i].connectWithSSL;
+    connectWithDirectIP += pa[i].connectWithDirectIP;
+    connectWithIpCache += pa[i].connectWithIpCache;
+    connectWithLongConnect += pa[i].connectWithLongConnect;
+    connectWithPrestartedPool += pa[i].connectWithPrestartedPool;
+    connectWithPreconnectedPool += pa[i].connectWithPreconnectedPool;
   }
 
   sAveTime /= threads;
@@ -2050,18 +2165,18 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Final Max started time: " << sMaxTime << " ms" << std::endl;
-  std::cout << "Final Min started time: " << sMinTime << " ms" << std::endl;
-  std::cout << "Final Ave started time: " << sAveTime << " ms" << std::endl;
+  std::cout << "Max started time: " << sMaxTime << " ms" << std::endl;
+  std::cout << "Min started time: " << sMinTime << " ms" << std::endl;
+  std::cout << "Ave started time: " << sAveTime << " ms" << std::endl;
 
-  std::cout << "\n ------------------- \n" << std::endl;
-
-  std::cout << "Started time <= 50 ms: " << s50Count << std::endl;
-  std::cout << "Started time <= 100 ms: " << s100Count << std::endl;
-  std::cout << "Started time <= 200 ms: " << s200Count << std::endl;
-  std::cout << "Started time <= 500 ms: " << s500Count << std::endl;
-  std::cout << "Started time <= 1000 ms: " << s1000Count << std::endl;
-  std::cout << "Started time > 1000 ms: " << s2000Count << std::endl;
+  std::cout << "  Started time <=   50 ms: " << s50Count << std::endl;
+  std::cout << "               <=  100 ms: " << s100Count << std::endl;
+  std::cout << "               <=  200 ms: " << s200Count << std::endl;
+  std::cout << "               <=  500 ms: " << s500Count << std::endl;
+  std::cout << "               <= 1000 ms: " << s1000Count << std::endl;
+  std::cout << "               <= 1500 ms: " << s1500Count << std::endl;
+  std::cout << "               <= 2000 ms: " << s2000Count << std::endl;
+  std::cout << "                > 2000 ms: " << sToCount << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -2092,7 +2207,22 @@ int speechRecognizerMultFile(const char *appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  usleep(2 * 1000 * 1000);
+  std::cout << "Connect type:" << std::endl;
+  std::cout << "  SSL:                        " << connectWithSSL << std::endl;
+  std::cout << "  Direct IP:                  " << connectWithDirectIP
+            << std::endl;
+  std::cout << "  IP_from_cache:              " << connectWithIpCache
+            << std::endl;
+  std::cout << "  Long connection:            " << connectWithLongConnect
+            << std::endl;
+  std::cout << "  SSL_from_PrestartedtedPool: " << connectWithPrestartedPool
+            << std::endl;
+  std::cout << "  SSL_from_PreconnectedPool:  " << connectWithPreconnectedPool
+            << std::endl;
+
+  std::cout << "\n ------------------- \n" << std::endl;
+
+  sleep(2);
 
   std::cout << "speechRecognizerMultFile exit..." << std::endl;
   return 0;
@@ -2242,6 +2372,14 @@ int parse_argv(int argc, char *argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_log_count = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--startGradually")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_start_gradually_ms = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--breakTimeEachRound")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_break_time_each_round_s = atoi(argv[index]);
     }
     index++;
   }
@@ -2276,6 +2414,9 @@ int main(int argc, char *argv[]) {
         << "  --akId <AccessKey ID>\n"
         << "  --akSecret <AccessKey Secret>\n"
         << "  --token <Token>\n"
+        << "  --tokenExpiration <Manually set the token expiration time, and "
+           "the current time plus the set value is the expiration time, in "
+           "seconds.>\n"
         << "  --tokenDomain <the domain of token>\n"
         << "      mcos: mcos.cn-shanghai.aliyuncs.com\n"
         << "  --tokenApiVersion <the ApiVersion of token>\n"
@@ -2307,6 +2448,12 @@ int main(int argc, char *argv[]) {
            "invoke is async.>\n"
         << "  --logFile <log file>\n"
         << "  --logFileCount <The count of log file>\n"
+        << "  --startGradually <Start multithreading step by step, set the "
+           "value to the maximum random value of the start thread delay, in "
+           "milliseconds. Default is 0.>\n"
+        << "  --breakTimeEachRound <Set the interval time for each round, and "
+           "set the value to the maximum interval time, in seconds. Default is "
+           "0.>\n"
         << "eg:\n"
         << "  ./srDemo --appkey xxxxxx --token xxxxxx\n"
         << "  ./srDemo --appkey xxxxxx --akId xxxxxx --akSecret xxxxxx "
@@ -2428,7 +2575,7 @@ int main(int argc, char *argv[]) {
                 << " fail:" << run_fail << " start_failed:" << run_start_failed
                 << std::endl;
 
-      usleep(3000 * 1000);
+      sleep(3);
 
       pthread_mutex_lock(&params_mtx);
       std::map<unsigned long, struct ParamStatistics *>::iterator iter;

@@ -1323,7 +1323,7 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
     std::string buf_str;
     LOG_INFO("Node(%p) get command: %s, and add into evbuffer.", this,
              utility::TextUtils::securityDisposalForLog(cmd, &buf_str,
-                                                        "appkey\":\"", 8, 'Z'));
+                                                        "appkey\":\"", 4, 'Z'));
 
     uint8_t *frame = NULL;
     size_t frameSize = 0;
@@ -1559,6 +1559,7 @@ int ConnectNode::webSocketResponse() {
     return 0;
   }
 
+  // receive buffer from SSL into _readEvBuffer
   read_len = nlsReceive(frame, ReadBufferSize);
   if (read_len < 0) {
     LOG_ERROR("Node(%p) nlsReceive failed, read_len:%d", this, read_len);
@@ -1570,6 +1571,8 @@ int ConnectNode::webSocketResponse() {
     return 0;
   }
 
+  const int maxTryAgain = 3;
+  int tryAgain = maxTryAgain;
   bool eLoop = false;
   do {
     ret = 0;
@@ -1599,8 +1602,9 @@ int ConnectNode::webSocketResponse() {
 
     WebSocketFrame wsFrame;
     memset(&wsFrame, 0x0, sizeof(struct WebSocketFrame));
-    if (_webSocket.receiveFullWebSocketFrame(frame, frameSize, &_wsType,
-                                             &wsFrame) == Success) {
+    int recv_ret = _webSocket.receiveFullWebSocketFrame(frame, frameSize,
+                                                        &_wsType, &wsFrame);
+    if (recv_ret == Success) {
       // LOG_DEBUG("Node(%p) parse websocket frame, len:%zu, frame size:%zu,
       // _wsType.opCode:%d, wsFrame.type:%d.",
       //     this, wsFrame.length, frameSize, _wsType.opCode, wsFrame.type);
@@ -1648,6 +1652,37 @@ int ConnectNode::webSocketResponse() {
       cur_data_size = cur_data_size - (wsFrame.length + _wsType.headerSize);
 
       ret = wsFrame.length + _wsType.headerSize;
+      tryAgain = maxTryAgain;
+    } else if (recv_ret == -(InvalidWsFrameHeaderSize) ||
+               recv_ret == -(InvalidWsFrameHeaderBody)) {
+      if (tryAgain-- > 0) {
+        LOG_WARN(
+            "Node(%p) the WS data is insufficient, and continues to be "
+            "received",
+            this);
+
+        usleep(5 * 1000);
+
+        read_len = nlsReceive(frame, ReadBufferSize);
+        if (read_len < 0) {
+          LOG_ERROR("Node(%p) nlsReceive failed, read_len:%d", this, read_len);
+          if (frame) free(frame);
+          return -(NlsReceiveFailed);
+        }
+        continue;
+      }
+    } else if (recv_ret == -(InvalidWsFrameBody)) {
+      LOG_DEBUG(
+          "Request(%p) Node(%p) the WS data is insufficient, and continues to "
+          "be "
+          "received later! Read frame size:%dbytes, wsType: "
+          "headerSize:%dbytes, fin:0x%x opCode:%d mask:0x%x N0:%d N:%d.",
+          _request, this, frameSize, _wsType.headerSize, _wsType.fin,
+          _wsType.opCode, _wsType.mask, _wsType.N0, _wsType.N);
+      ret = 0;
+    } else {
+      LOG_ERROR("Node(%p) receive full WebSocket Frame failed:%d", this,
+                recv_ret);
     }
 
     /* 解析成功并还有剩余数据, 则尝试再解析 */
@@ -1839,6 +1874,13 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
     case NlsEvent::RecognitionStarted:
     case NlsEvent::TranscriptionStarted:
     case NlsEvent::SynthesisStarted:
+      // reset task_id from server, which will use in channelClose callback.
+      if (frameEvent->getTaskId()) {
+        std::string taskId(frameEvent->getTaskId());
+        if (!taskId.empty()) {
+          _request->getRequestParam()->setTaskId(taskId);
+        }
+      }
       if (_request->getRequestParam()->_requestType != SpeechWakeWordDialog) {
         _workStatus = NodeStarted;
       } else {

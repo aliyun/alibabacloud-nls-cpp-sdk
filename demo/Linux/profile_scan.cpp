@@ -25,31 +25,26 @@
 
 void get_profile_info(const char *exec, PROFILE_INFO *info) {
   char cmd_string[1024];
-  char exec_tmp_file[64];
   PROFILE_INFO *cur_info = info;
+  snprintf(cmd_string, 1024, "ps -aux | grep %s", exec);
+  // std::cout << " autoClose try to popen (" << cmd_string << ")" << std::endl;
 
-  snprintf(exec_tmp_file, 64, "%s.tmp", exec);
-  snprintf(cmd_string, 1024, "ps -aux | grep %s > %s", exec, exec_tmp_file);
-  int ret = system(cmd_string);
-  if (ret >= 0) {
-    FILE *fd = fopen(exec_tmp_file, "r");
-    if (fd) {
-      char buff[1024];
-      while (fgets(buff, sizeof(buff), fd) != NULL) {
-        if (strstr(buff, "--appkey") != NULL) {
-          //      std::cout << "get return: " << buff << std::endl;
-          sscanf(buff, "%31s %u %f %f", cur_info->usr_name, &cur_info->pid,
-                 &cur_info->ave_cpu_percent, &cur_info->ave_mem_percent);
-          //      std::cout << "get cpu:" << cur_info->ave_cpu_percent << "%" <<
-          //      std::endl;
-          break;
-        }
-        memset(buff, 0, sizeof(buff));
+  FILE *fp = popen(cmd_string, "r");
+  if (fp != NULL) {
+    char buff[2048];
+    while (fgets(buff, sizeof(buff), fp) != NULL) {
+      if (strstr(buff, "--appkey") != NULL) {
+        // std::cout << "get return: " << buff << std::endl;
+        sscanf(buff, "%31s %u %f %f", cur_info->usr_name, &cur_info->pid,
+               &cur_info->ave_cpu_percent, &cur_info->ave_mem_percent);
+        std::cout << "get cpu for autoClose:" << cur_info->ave_cpu_percent
+                  << "%" << std::endl;
+        break;
+      }
+      memset(buff, 0, sizeof(buff));
+    }  // while
 
-      }  // while
-
-      fclose(fd);
-    }
+    pclose(fp);
   }
   return;
 }
