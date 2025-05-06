@@ -26,7 +26,7 @@ class HandleBaseOneParamWithReturnVoid {
  public:
   HandleBaseOneParamWithReturnVoid();
   virtual ~HandleBaseOneParamWithReturnVoid();
-  virtual void handlerFrame(T) = 0;
+  virtual void handlerFrame(T&) = 0;
   virtual void handlerFrame(std::string errorInfo, int errorCode,
                             NlsEvent::EventType type, std::string taskId);
 };

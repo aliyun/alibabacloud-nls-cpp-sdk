@@ -27,7 +27,7 @@ SpeechTranscriberListener::SpeechTranscriberListener(
 
 SpeechTranscriberListener::~SpeechTranscriberListener() {}
 
-void SpeechTranscriberListener::handlerFrame(NlsEvent str) {
+void SpeechTranscriberListener::handlerFrame(NlsEvent& str) {
   NlsEvent::EventType type = str.getMsgType();
 
   switch (type) {

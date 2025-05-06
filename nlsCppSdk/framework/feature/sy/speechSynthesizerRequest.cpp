@@ -205,6 +205,12 @@ int SpeechSynthesizerRequest::setToken(const char* value) {
   return 0;
 }
 
+int SpeechSynthesizerRequest::setTokenExpirationTime(uint64_t value) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
+  _synthesizerParam->setTokenExpirationTime(value);
+  return 0;
+}
+
 int SpeechSynthesizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);

@@ -16,9 +16,9 @@
 
 #include "nlsEvent.h"
 
-#include <sstream>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sstream>
 
 #include "json/json.h"
 #include "nlog.h"
@@ -128,8 +128,8 @@ NlsEvent::NlsEvent(std::string& msg)
       _stashResultText(""),
       _stashResultCurrentTime(0) {}
 
-NlsEvent::NlsEvent(std::vector<unsigned char> data, int code, EventType type,
-                   std::string taskId)
+NlsEvent::NlsEvent(std::vector<unsigned char>& data, int code, EventType type,
+                   std::string& taskId)
     : _statusCode(code),
       _msgType(type),
       _taskId(taskId),
@@ -155,6 +155,32 @@ NlsEvent::NlsEvent(std::vector<unsigned char> data, int code, EventType type,
       _stashResultCurrentTime(0) {
   // LOG_DEBUG("Binary data event:%d.", data.size());
 }
+
+NlsEvent::NlsEvent(unsigned char* data, int dataBytes, int code, EventType type,
+                   std::string& taskId)
+    : _statusCode(code),
+      _msgType(type),
+      _taskId(taskId),
+      _binaryData(data, data + dataBytes),
+      _msg(""),
+      _result(""),
+      _displayText(""),
+      _spokenText(""),
+      _sentenceTimeOutStatus(0),
+      _sentenceIndex(0),
+      _sentenceTime(0),
+      _sentenceBeginTime(0),
+      _sentenceConfidence(0.0),
+      _wakeWordAccepted(false),
+      _wakeWordKnown(false),
+      _wakeWordUserId(""),
+      _wakeWordGender(0),
+      _binaryDataInChar(NULL),
+      _binaryDataSize(0),
+      _stashResultSentenceId(0),
+      _stashResultBeginTime(0),
+      _stashResultText(""),
+      _stashResultCurrentTime(0) {}
 
 NlsEvent::~NlsEvent() {
   if (_binaryDataInChar) {

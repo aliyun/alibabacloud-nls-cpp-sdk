@@ -38,44 +38,46 @@ link_directories(${NLS_DEMO_LINK})
 set(NLS_DEMO_EXT_FLAG pthread)
 # set(NLS_DEMO_EXT_FLAG ${NLS_DEMO_EXT_FLAG} ldap)
 
+set(NLS_UTILS_CPP_FILE profile_scan.cpp demo_utils.cpp)
+
 # 一句话识别
-add_executable(srDemo profile_scan.cpp speechRecognizerDemo.cpp)
+add_executable(srDemo ${NLS_UTILS_CPP_FILE} speechRecognizerDemo.cpp)
 target_link_libraries(srDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
-add_executable(srMT speechRecognizerMonkeyTest.cpp)
+add_executable(srMT demo_utils.cpp speechRecognizerMonkeyTest.cpp)
 target_link_libraries(srMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 实时识别
-add_executable(stDemo profile_scan.cpp speechTranscriberDemo.cpp)
+add_executable(stDemo ${NLS_UTILS_CPP_FILE} speechTranscriberDemo.cpp)
 target_link_libraries(stDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
-add_executable(stMT speechTranscriberMonkeyTest.cpp)
+add_executable(stMT demo_utils.cpp speechTranscriberMonkeyTest.cpp)
 target_link_libraries(stMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 转写
-add_executable(syDemo profile_scan.cpp speechSynthesizerDemo.cpp)
+add_executable(syDemo ${NLS_UTILS_CPP_FILE} speechSynthesizerDemo.cpp)
 target_link_libraries(syDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
-add_executable(syMT speechSynthesizerMonkeyTest.cpp)
+add_executable(syMT demo_utils.cpp speechSynthesizerMonkeyTest.cpp)
 target_link_libraries(syMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 流式文本输入语音合成
-add_executable(fsDemo profile_scan.cpp flowingSynthesizerDemo.cpp)
+add_executable(fsDemo ${NLS_UTILS_CPP_FILE} flowingSynthesizerDemo.cpp)
 target_link_libraries(fsDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
-add_executable(fsMT flowingSynthesizerMonkeyTest.cpp)
+add_executable(fsMT demo_utils.cpp flowingSynthesizerMonkeyTest.cpp)
 target_link_libraries(fsMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # 对话助手
-add_executable(daDemo dialogAssistantDemo.cpp)
+add_executable(daDemo demo_utils.cpp dialogAssistantDemo.cpp)
 target_link_libraries(daDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 

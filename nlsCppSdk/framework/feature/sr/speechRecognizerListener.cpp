@@ -26,7 +26,7 @@ SpeechRecognizerListener::SpeechRecognizerListener(SpeechRecognizerCallback* cb)
 
 SpeechRecognizerListener::~SpeechRecognizerListener() {}
 
-void SpeechRecognizerListener::handlerFrame(NlsEvent str) {
+void SpeechRecognizerListener::handlerFrame(NlsEvent& str) {
   NlsEvent::EventType type = str.getMsgType();
 
   switch (type) {

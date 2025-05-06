@@ -30,6 +30,7 @@
 #include <string>
 #include <vector>
 
+#include "demo_utils.h"
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"
@@ -123,21 +124,6 @@ void signal_handler_quit(int signo) {
   global_run = false;
 }
 
-std::string timestamp_str() {
-  char buf[64];
-  struct timeval tv;
-  struct tm ltm;
-
-  gettimeofday(&tv, NULL);
-  localtime_r(&tv.tv_sec, &ltm);
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
-           ltm.tm_year + 1900, ltm.tm_mon + 1, ltm.tm_mday, ltm.tm_hour,
-           ltm.tm_min, ltm.tm_sec, tv.tv_usec);
-  buf[63] = '\0';
-  std::string tmp = buf;
-  return tmp;
-}
-
 /**
  * 根据AccessKey ID和AccessKey Secret重新生成一个token，并获取其有效期时间戳
  */
@@ -190,7 +176,7 @@ void OnSynthesisCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 void OnSynthesisTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   FILE* failed_stream = fopen("synthesisTaskFailed.log", "a+");
   if (failed_stream) {
-    std::string ts = timestamp_str();
+    std::string ts = timestampStr(NULL, NULL);
     char outbuf[1024] = {0};
     snprintf(outbuf, sizeof(outbuf),
              "%s status code:%d task id:%s error mesg:%s\n", ts.c_str(),
@@ -463,11 +449,11 @@ void* pthreadFunc(void* arg) {
     /*
      * start()为异步操作。成功则开始返回BinaryRecv事件。失败返回TaskFailed事件。
      */
-    std::string ts = timestamp_str();
+    std::string ts = timestampStr(NULL, NULL);
     // std::cout << "start -> pid " << pthread_self() << " " << ts.c_str()
     //           << std::endl;
     int ret = request->start();
-    ts = timestamp_str();
+    ts = timestampStr(NULL, NULL);
     testCount++;
     if (ret < 0) {
       std::cout << "start failed. pid:" << pthread_self() << ". ret:" << ret

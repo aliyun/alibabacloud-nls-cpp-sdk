@@ -35,9 +35,9 @@ struct DnsIpCache {
   explicit DnsIpCache() { same_ip_count = 0; };
   enum DnsIpCacheConstValue {
     /* 此Host下连续WorkThreshold个IP相同, 则开始从IpCache中获得IP*/
-    WorkThreshold = 20,
+    WorkThreshold = 5,
   };
-  std::vector<std::string> ip_list;
+  std::vector<std::string> ip_list; /* 此Host下的IP */
   uint32_t same_ip_count;
 };
 #endif
@@ -50,6 +50,12 @@ class WorkThread {
   virtual ~WorkThread();
 
   static void launchEventCallback(evutil_socket_t fd, short which, void *arg);
+#ifdef ENABLE_PRECONNECTED_POOL
+  static void startWithPoolEventCallback(evutil_socket_t fd, short which,
+                                         void *arg);
+#endif
+  static void singleRoundTextEventCallback(evutil_socket_t fd, short which,
+                                           void *arg);
   static void connectEventCallback(evutil_socket_t socketFd, short event,
                                    void *arg);
 #ifdef ENABLE_HIGH_EFFICIENCY
@@ -67,6 +73,9 @@ class WorkThread {
   static void dnsEventCallback(int errorCode, struct evutil_addrinfo *address,
                                void *arg);
   static void directConnect(void *arg, char *ip);
+#ifdef ENABLE_PRECONNECTED_POOL
+  static bool syncDirectConnect(void *arg, char *ip);
+#endif
 #ifdef _MSC_VER
   static unsigned __stdcall loopEventCallback(LPVOID arg);
 #else
@@ -86,10 +95,15 @@ class WorkThread {
   void setDirectHost(char *ip);
   void setAddrInFamily(int aiFamily);
 #ifdef ENABLE_DNS_IP_CACHE
-  std::string getIpFromCache(char *host);
+  std::string getIpFromCache(char *host, bool force = false);
   void setIpCache(char *host, char *ip);
 #endif
   void updateParameters(ConnectNode *node);
+
+#ifdef ENABLE_PRECONNECTED_POOL
+  char *getDirectIp() { return _directIp; }
+  bool getEnableSysGetAddr() { return _enableSysGetAddr; }
+#endif
 
 #ifdef _MSC_VER
   unsigned _workThreadId;

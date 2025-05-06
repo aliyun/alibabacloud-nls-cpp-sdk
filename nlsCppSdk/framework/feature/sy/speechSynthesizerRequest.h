@@ -84,6 +84,15 @@ class NLS_SDK_CLIENT_EXPORT SpeechSynthesizerRequest : public INlsRequest {
   int setToken(const char* value);
 
   /**
+   * @brief 设置Token的超期时间
+   * @note 启用预连接池功能才有效, 用于刷新预连接池内部的节点. 如果不设置,
+   * 则按照加入预连接池时间戳+12h为超期时间.
+   * @param value Unix时间戳, 单位ms. 为Token创建时间获得.
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setTokenExpirationTime(uint64_t value);
+
+  /**
    * @brief 音频编码格式Format设置
    * @note 可选参数, 默认是pcm. 支持的格式pcm, wav, mp3
    * @param value	音频编码格式字符串

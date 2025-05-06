@@ -88,6 +88,15 @@ class NLS_SDK_CLIENT_EXPORT FlowingSynthesizerRequest : public INlsRequest {
   int setToken(const char* value);
 
   /**
+   * @brief 设置Token的超期时间
+   * @note 启用预连接池功能才有效, 用于刷新预连接池内部的节点. 如果不设置,
+   * 则按照加入预连接池时间戳+12h为超期时间.
+   * @param value Unix时间戳, 单位ms. 为Token创建时间获得.
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setTokenExpirationTime(uint64_t value);
+
+  /**
    * @brief 音频编码格式Format设置
    * @note 可选参数, 默认是pcm. 支持的格式pcm, wav, mp3
    * @param value	音频编码格式字符串
@@ -110,6 +119,15 @@ class NLS_SDK_CLIENT_EXPORT FlowingSynthesizerRequest : public INlsRequest {
    * @return 成功则返回0，否则返回负值错误码
    */
   int setVoice(const char* value);
+
+  /**
+   * @brief 单次合成的文本。
+   * @note 调用则启用单轮语音合成, 否则是流式多轮的语音合成.
+   * @param value 待合成的文本, 不超过1万字, 总计不超过10万字,
+   * 其中1个汉字、1个英文字母、1个标点或1个句子中间空格均算作1个字符.
+   * @return 成功则返回0，否则返回负值，查看nlsGlobal.h中错误码详细定位
+   */
+  int setSingleRoundText(const char* value);
 
   /**
    * @brief 音量volume设置
@@ -244,7 +262,8 @@ class NLS_SDK_CLIENT_EXPORT FlowingSynthesizerRequest : public INlsRequest {
   int cancel();
 
   /**
-   * @brief 需要合成的文本。
+   * @brief 需要合成的文本. 不超过1万字, 总计不超过10万字,
+   * 其中1个汉字、1个英文字母、1个标点或1个句子中间空格均算作1个字符.
    * @note 异步操作。失败返回TaskFailed。
    *       在持续发sendPing()的情况下，两次sendText()不超过23秒，否则会收到超时报错。
    *       在不发sendPing()的情况下，两次sendText()不超过10秒，否则会收到超时报错。

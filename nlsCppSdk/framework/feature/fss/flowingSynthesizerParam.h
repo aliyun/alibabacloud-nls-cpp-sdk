@@ -29,6 +29,7 @@ class FlowingSynthesizerParam : public INlsRequestParam {
   ~FlowingSynthesizerParam();
 
   int setVoice(const char* value);
+  int setSingleRoundText(const char* value);
   int setVolume(int value);
   int setSpeechRate(int value);
   int setPitchRate(int value);
@@ -38,10 +39,15 @@ class FlowingSynthesizerParam : public INlsRequestParam {
   const char* getStopCommand();
   const char* getRunFlowingSynthesisCommand(const char* text);
   const char* getFlushFlowingTextCommand(const char* parameters);
+  std::string& getSingleRoundText();
+  void clearSingleRoundText();
+
+  const int MaximumNumberOfWords;
 
  private:
   std::string _runFlowingSynthesisCommand;
   std::string _flushFlowingTextCommand;
+  std::string _singeRoundText;
 };
 
 }  // namespace AlibabaNls

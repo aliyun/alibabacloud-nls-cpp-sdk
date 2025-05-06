@@ -31,7 +31,7 @@ enum WebSocketConstValue {
   PathSize = 512,
   TokenSize = 512,
   BufferSize = 2048,  // 1024
-  ReadBufferSize = 20480,
+  ReadBufferSize = 30720,
 };
 
 union StatusCode {
@@ -48,18 +48,18 @@ enum WebSocketReceiveStatus {
 
 struct WebSocketHeaderType {
   unsigned headerSize;
-  bool fin;
+  bool fin; /* 0bit */
   bool mask;
   enum OpCodeType {
     CONTINUATION = 0x0,
     TEXT_FRAME = 0x1,
     BINARY_FRAME = 0x2,
-    CLOSE = 8,
-    PING = 9,
+    CLOSE = 0x8,
+    PING = 0x9,
     PONG = 0xa,
-  } opCode;
-  int N0;
-  uint64_t N;
+  } opCode;   /* 4-7bit */
+  int N0;     /* store payload len */
+  uint64_t N; /* payload len bytes */
   uint8_t masKingKey[4];
 };
 
@@ -86,6 +86,9 @@ class WebSocketTcp {
  public:
   WebSocketTcp();
   ~WebSocketTcp();
+
+  void setConnectNode(void* node) { _nodeHandle = node; }
+  void* getConnectNode() { return _nodeHandle; }
 
   int requestPackage(urlAddress* url, char* buffer, std::string httpHeader);
   int responsePackage(const char* content, size_t length);
@@ -120,6 +123,8 @@ class WebSocketTcp {
   WebSocketReceiveStatus _rStatus;
   std::string _errorMsg;
   std::string _secWsKey;
+
+  void* _nodeHandle;
 
   int getTargetLen(std::string line, const char* begin, const char* end);
   const char* getSecWsKey();

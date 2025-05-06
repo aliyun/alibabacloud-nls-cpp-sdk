@@ -228,6 +228,12 @@ int SpeechTranscriberRequest::setToken(const char* value) {
   return Success;
 }
 
+int SpeechTranscriberRequest::setTokenExpirationTime(uint64_t value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
+  _transcriberParam->setTokenExpirationTime(value);
+  return 0;
+}
+
 int SpeechTranscriberRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_transcriberParam);

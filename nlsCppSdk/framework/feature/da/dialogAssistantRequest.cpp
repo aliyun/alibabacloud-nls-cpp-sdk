@@ -222,6 +222,12 @@ int DialogAssistantRequest::setToken(const char* value) {
   return 0;
 }
 
+int DialogAssistantRequest::setTokenExpirationTime(uint64_t value) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
+  _dialogAssistantParam->setTokenExpirationTime(value);
+  return 0;
+}
+
 int DialogAssistantRequest::setUrl(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);

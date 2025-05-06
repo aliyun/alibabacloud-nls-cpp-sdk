@@ -30,10 +30,14 @@
 #endif
 
 #include "connectNode.h"
+#ifdef ENABLE_PRECONNECTED_POOL
+#include "connectedPool.h"
+#endif
 #include "iNlsRequest.h"
 #include "iNlsRequestParam.h"
 #include "nlog.h"
 #include "nlsClientImpl.h"
+#include "nlsEventNetWork.h"
 #include "nlsGlobal.h"
 #include "nlsRequestParamInfo.h"
 #include "nodeManager.h"
@@ -281,7 +285,8 @@ void WorkThread::destroyConnectNode(ConnectNode *node) {
 
       /* 准备移出request, 上锁保护, 防止其他线程也同时在释放 */
       bool release_lock_ret = true;
-      MUTEX_TRY_LOCK(client->_mtxReleaseRequestGuard, 2000, release_lock_ret);
+      MUTEX_TRY_LOCK_WITH_TAG(client->_mtxReleaseRequestGuard, 2000,
+                              release_lock_ret, request);
       if (!release_lock_ret) {
         LOG_ERROR("Request(%p) lock destroy failed, deadlock has occurred",
                   request);
@@ -294,12 +299,12 @@ void WorkThread::destroyConnectNode(ConnectNode *node) {
       if (ret == Success) {
         delete request;
       }
-      request = NULL;
       node->setRequest(NULL);
 
       if (release_lock_ret) {
-        MUTEX_UNLOCK(client->_mtxReleaseRequestGuard);
+        MUTEX_UNLOCK_WITH_TAG(client->_mtxReleaseRequestGuard, request);
       }
+      request = NULL;
     } else {
       LOG_WARN("The request of node(%p) is nullptr.", node);
     }
@@ -616,11 +621,18 @@ void WorkThread::readEventCallBack(evutil_socket_t socketFd, short what,
 
   node->_inEventCallbackNode = true;
 
-  // LOG_DEBUG("Node(%p) readEventCallBack begin, current event:%d, node
-  // status:%s, exit status:%s.",
-  //     node, what,
-  //     node->getConnectNodeStatusString().c_str(),
-  //     node->getExitStatusString().c_str());
+#ifdef ENABLE_NLS_DEBUG_2
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
+
+  LOG_DEBUG(
+      "Request(%p) Node(%p) readEventCallBack begin, current socketFd:%d "
+      "event:%d, node "
+      "status:%s, exit status:%s.",
+      node->getRequest(), node, socketFd, what,
+      node->getConnectNodeStatusString().c_str(),
+      node->getExitStatusString().c_str());
+#endif
 
   if (node->getExitStatus() == ExitCancel) {
     LOG_WARN("Node(%p) skip this operation ...", node);
@@ -673,12 +685,30 @@ void WorkThread::readEventCallBack(evutil_socket_t socketFd, short what,
     node->handlerTaskFailedEvent(tmp_msg, EvUnknownEvent);
   }
 
-  // LOG_DEBUG("Node(%p) readEventCallBack done.", node);
+#ifdef ENABLE_NLS_DEBUG_2
+  gettimeofday(&end, NULL);
+  uint64_t time_consuming = end.tv_sec * 1000 + end.tv_usec / 1000 -
+                            start.tv_sec * 1000 - start.tv_usec / 1000;
+  if (time_consuming >= 100) {
+    LOG_WARN(
+        "Request(%p) Node(%p) readEventCallBack done with excessive time "
+        "%llums.",
+        node->getRequest(), node, time_consuming);
+  }
+#endif
+
 #ifdef _MSC_VER
   SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
 #else
   SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
                    node->_inEventCallbackNode);
+#endif
+
+#ifdef ENABLE_NLS_DEBUG_2
+  LOG_DEBUG(
+      "Request(%p) Node(%p) readEventCallBack done with "
+      "node->_inEventCallbackNode:%s.",
+      node->getRequest(), node, node->_inEventCallbackNode ? "true" : "false");
 #endif
   return;
 }
@@ -701,9 +731,10 @@ void WorkThread::writeEventCallBack(evutil_socket_t socketFd, short what,
 
   node->_inEventCallbackNode = true;
 
-  // LOG_DEBUG("Node(%p) writeEventCallBack current event:%d, node status:%s,
-  // exit status:%s.",
-  //     node, what,
+  // LOG_DEBUG(
+  //     "Request(%p) Node(%p) writeEventCallBack current event:%d, node "
+  //     "status:%s, exit status:%s.",
+  //     node->getRequest(), node, what,
   //     node->getConnectNodeStatusString().c_str(),
   //     node->getExitStatusString().c_str());
 
@@ -804,6 +835,71 @@ DirectConnectRetry:
   return;
 }
 
+#ifdef ENABLE_PRECONNECTED_POOL
+bool WorkThread::syncDirectConnect(void *arg, char *ip) {
+  ConnectNode *node = static_cast<ConnectNode *>(arg);
+  if (ip) {
+    LOG_DEBUG("Node(%p) direct IpV4:%s.", node, ip);
+
+    int ret = node->syncConnectProcess(ip, AF_INET);
+    if (ret == 0) {
+      ret = node->syncSslProcess();
+      if (ret == Success) {
+        LOG_DEBUG("Node(%p) begin gateway request process with prestart.",
+                  node);
+
+        // new _readEvent and _writeEvent
+        node->prestartProcess();
+
+        if (nodeRequestProcess(node) < 0) {
+          destroyConnectNode(node);
+          node->prestartEventDelProcess();
+          return false;
+        }
+
+        bool result = true;
+        if (node->isPreNodeStartStepByStep()) {
+          int tryCount = 50;  // 500ms
+          while (tryCount-- > 0 &&
+                 node->getConnectNodeStatus() != NodeStarting) {
+            usleep(10 * 1000);
+          }
+
+          LOG_INFO("Request(%p) Node(%p) now status:%s and try count:%d.",
+                   node->getRequest(), node,
+                   node->getConnectNodeStatusString().c_str(), tryCount);
+
+          if (tryCount == 0) {
+            result = false;
+          }
+        }
+
+        // delete _readEvent & _writeEvent
+        node->prestartEventDelProcess();
+
+        return result;
+      }
+    } else if (ret == 1) {
+      LOG_DEBUG("Node(%p) connectProcess return 1, will try connect ...", node);
+      // connect  EINPROGRESS
+      return false;
+    } else {
+      LOG_ERROR(
+          "Node(%p) syncDirectConnect failed with ret:%d and node status:%s "
+          "exit status:%s.",
+          node, ret, node->getConnectNodeStatusString().c_str(),
+          node->getExitStatusString().c_str());
+#ifdef ENABLE_DNS_IP_CACHE
+      node->getEventThread()->setIpCache(NULL, NULL);
+#endif
+      return false;
+    }
+  }
+
+  return false;
+}
+#endif
+
 /**
  * @brief: 启动语音交互请求
  * @return:
@@ -834,9 +930,14 @@ void WorkThread::launchEventCallback(evutil_socket_t fd, short which,
 
   LOG_DEBUG(
       "WorkThread(%p) Node(%p) Request(%p) trigger launchEventCallback with "
-      "reconnection mechanism(%s).",
+      "reconnection mechanism(%s) and isUsingPreconnection flag(%s) "
+      "isPreconnecting flag(%s), current status "
+      "is %s.",
       pThread, node, request,
-      request->getRequestParam()->_enableReconnect ? "true" : "false");
+      request->getRequestParam()->_enableReconnect ? "true" : "false",
+      node->isUsingPreconnection() ? "true" : "false",
+      node->isPreconnecting() ? "true" : "false",
+      node->getConnectNodeStatusString().c_str());
 
   if (node->getExitStatus() == ExitCancel ||
       node->getExitStatus() == ExitStopping) {
@@ -871,6 +972,86 @@ void WorkThread::launchEventCallback(evutil_socket_t fd, short which,
         pThread, node);
     destroyConnectNode(node);
   }
+
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
+                   node->_inEventCallbackNode);
+#endif
+  return;
+}
+
+#ifdef ENABLE_PRECONNECTED_POOL
+void WorkThread::startWithPoolEventCallback(evutil_socket_t fd, short which,
+                                            void *arg) {
+  ConnectNode *node = static_cast<ConnectNode *>(arg);
+  if (NULL == node) {
+    LOG_ERROR("Node is nullptr!!!");
+    return;
+  }
+  NlsNodeManager *node_manager = node->getInstance()->getNodeManger();
+  int status = NodeStatusInvalid;
+  int result = node_manager->checkNodeExist(node, &status);
+  if (result != Success) {
+    LOG_ERROR("The node(%p) checkNodeExist failed, result:%d.", node, result);
+    return;
+  }
+
+  INlsRequest *request = node->getRequest();
+  WorkThread *pThread = node->getEventThread();
+  if (pThread == NULL) {
+    LOG_ERROR("The WorkThread of Node(%p) is nullptr, skipping ...", node);
+    return;
+  }
+
+  node->_inEventCallbackNode = true;
+
+  // LOG_INFO("Request(%p) Node(%p) %s start with pre-node ...", request, node,
+  //          node->getConnectNodeStatusString().c_str());
+
+  node->prestartProcess();
+
+  node->setConnectNodeStatus(NodeStarting);
+  node->addCmdDataBuffer(CmdStart);
+  int ret = node->nlsSendFrame(node->getCmdEvBuffer());
+  if (request->getRequestParam()->_mode == TypeTts && ret >= 0) {
+    node->sendFakeSynthesisStarted();
+  }
+
+#ifdef _MSC_VER
+  SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
+#else
+  SEND_COND_SIGNAL(node->_mtxEventCallbackNode, node->_cvEventCallbackNode,
+                   node->_inEventCallbackNode);
+#endif
+  return;
+}
+#endif
+
+void WorkThread::singleRoundTextEventCallback(evutil_socket_t fd, short which,
+                                              void *arg) {
+  ConnectNode *node = static_cast<ConnectNode *>(arg);
+  if (NULL == node) {
+    LOG_ERROR("Node is nullptr!!!");
+    return;
+  }
+  NlsNodeManager *node_manager = node->getInstance()->getNodeManger();
+  int status = NodeStatusInvalid;
+  int result = node_manager->checkNodeExist(node, &status);
+  if (result != Success) {
+    LOG_ERROR("The node(%p) checkNodeExist failed, result:%d.", node, result);
+    return;
+  }
+
+  node->_inEventCallbackNode = true;
+
+  INlsRequest *request = node->getRequest();
+  FlowingSynthesizerParam *param =
+      (FlowingSynthesizerParam *)request->getRequestParam();
+  node->cmdNotify(CmdSendText, param->getSingleRoundText().c_str());
+  node->cmdNotify(CmdStop, NULL);
+  param->clearSingleRoundText();
 
 #ifdef _MSC_VER
   SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);
@@ -1146,8 +1327,9 @@ int WorkThread::nodeRequestProcess(ConnectNode *node) {
   }
 
   ConnectStatus workStatus = node->getConnectNodeStatus();
-  // LOG_DEBUG("Node(%p) workStatus %d(%s).",
-  //     node, workStatus, node->getConnectNodeStatusString().c_str());
+  // LOG_DEBUG("Request(%p) Node(%p) workStatus %d(%s).", node->getRequest(),
+  // node,
+  //           workStatus, node->getConnectNodeStatusString().c_str());
   switch (workStatus) {
     /*connect to gateWay*/
     case NodeHandshaking:
@@ -1172,7 +1354,7 @@ int WorkThread::nodeRequestProcess(ConnectNode *node) {
       break;
 
     case NodeStarted:
-      ret = node->nlsSendFrame(node->getBinaryEvBuffer());
+      ret = node->nlsSendFrame(node->getBinaryEvBuffer(), true);
       /* 音频数据发送完毕，检测是否需要发送控制指令数据 */
       if (ret == 0) {
         ret = node->sendControlDirective();
@@ -1240,6 +1422,13 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
       if (ret == 0) {
         /* ret == 0 mean parsing response successfully */
         node->setConnectNodeStatus(NodeStarting);
+        if (node->isPreNodeStartStepByStep()) {
+          LOG_INFO(
+              "Request(%p) Node(%p) pre-node starts step by step, now break "
+              "here.",
+              node->getRequest(), node);
+          break;
+        }
         if (node->getRequest()->getRequestParam()->_requestType ==
             SpeechTextDialog) {
           node->addCmdDataBuffer(CmdTextDialog);
@@ -1262,7 +1451,7 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
       ret = node->webSocketResponse();
       workStatus = node->getConnectNodeStatus();
       if (workStatus == NodeStarted) {
-        ret = node->nlsSendFrame(node->getBinaryEvBuffer());
+        ret = node->nlsSendFrame(node->getBinaryEvBuffer(), true);
         if (ret == 0) {
           ret = node->sendControlDirective();
         }
@@ -1294,6 +1483,7 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
       break;
 
     default:
+      LOG_WARN("Node(%p) current workStatus is %d.", node, NodeInvalid);
       ret = -(InvalidWorkStatus);
       break;
   }
@@ -1357,7 +1547,7 @@ void WorkThread::setUseSysGetAddrInfo(bool enable) {
 void WorkThread::setInstance(NlsClientImpl *instance) { _instance = instance; }
 
 #ifdef ENABLE_DNS_IP_CACHE
-std::string WorkThread::getIpFromCache(char *host) {
+std::string WorkThread::getIpFromCache(char *host, bool force) {
   MUTEX_LOCK(_mtxList);
   std::string ip_str = "";
   if (host != NULL) {
@@ -1374,17 +1564,24 @@ std::string WorkThread::getIpFromCache(char *host) {
       // find all IP info of this host
       struct DnsIpCache ips = iter->second;
       uint32_t count = ips.ip_list.size();
-      if (ips.same_ip_count < DnsIpCache::WorkThreshold) {
-        LOG_DEBUG("Host(%s) try to get more IPs. (%d/%d)", host,
-                  ips.same_ip_count, DnsIpCache::WorkThreshold);
+      if (force && count > 0) {
+        int index = rand() % count;
+        ip_str = ips.ip_list[index];
+        LOG_INFO("Get Ip %s from host(%s) %d/%d.", ip_str.c_str(), host, index,
+                 count);
       } else {
-        if (count > 0) {
-          int index = rand() % count;
-          ip_str = ips.ip_list[index];
-          LOG_INFO("Get Ip %s from host(%s) %d/%d.", ip_str.c_str(), host,
-                   index, count);
+        if (ips.same_ip_count < DnsIpCache::WorkThreshold) {
+          LOG_DEBUG("Host(%s) try to get more IPs. (%d/%d)", host,
+                    ips.same_ip_count, DnsIpCache::WorkThreshold);
         } else {
-          LOG_ERROR("Host(%s) is empty.", host);
+          if (count > 0) {
+            int index = rand() % count;
+            ip_str = ips.ip_list[index];
+            LOG_INFO("Get Ip %s from host(%s) %d/%d.", ip_str.c_str(), host,
+                     index, count);
+          } else {
+            LOG_ERROR("Host(%s) is empty.", host);
+          }
         }
       }
     }
@@ -1406,8 +1603,8 @@ void WorkThread::setIpCache(char *host, char *ip) {
   } else {
     std::string host_str(host);
     std::string ip_str(ip);
-    std::map<std::string, struct DnsIpCache>::iterator iter;
-    iter = _dnsIpCache.find(host_str);
+    std::map<std::string, struct DnsIpCache>::iterator iter =
+        _dnsIpCache.find(host_str);
     if (iter != _dnsIpCache.end()) {
       // find all IP info of this host
       struct DnsIpCache ips = iter->second;
@@ -1422,6 +1619,11 @@ void WorkThread::setIpCache(char *host, char *ip) {
                    host_str.c_str());
         } else {
           iter->second.same_ip_count++;
+#ifdef ENABLE_NLS_DEBUG_2
+          LOG_DEBUG("Old ip(%s) and host(%s), same_count is %d and size is %d.",
+                    ip_str.c_str(), host_str.c_str(),
+                    iter->second.same_ip_count, _dnsIpCache.size());
+#endif
         }
       } else {
         LOG_ERROR("Host(%s) is empty.", host);
@@ -1430,9 +1632,9 @@ void WorkThread::setIpCache(char *host, char *ip) {
       // cannot find address
       struct DnsIpCache ip_cache;
       ip_cache.ip_list.push_back(ip_str);
-      _dnsIpCache.insert(std::make_pair(host_str, ip_cache));
-      LOG_INFO("New IP cache by host(%s) and ip(%s).", host_str.c_str(),
-               ip_str.c_str());
+      _dnsIpCache[host_str] = ip_cache;
+      LOG_INFO("New IP cache by host(%s) and ip(%s), size:%d.",
+               host_str.c_str(), ip_str.c_str(), _dnsIpCache.size());
     }
   }
   MUTEX_UNLOCK(_mtxList);

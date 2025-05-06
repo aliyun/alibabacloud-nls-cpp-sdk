@@ -27,6 +27,7 @@
 #endif
 
 #include <stdint.h>
+
 #include <queue>
 #include <string>
 
@@ -41,6 +42,9 @@
 #include "nlsGlobal.h"
 #include "webSocketFrameHandleBase.h"
 #include "webSocketTcp.h"
+#ifdef ENABLE_PRECONNECTED_POOL
+#include "connectedPool.h"
+#endif
 
 #if defined(ENABLE_REQUEST_RECORDING) || defined(ENABLE_CONTINUED)
 #include "json/json.h"
@@ -141,6 +145,15 @@ enum ConnectStatus {
   NodeSendText
 };
 
+enum ConnectType {
+  ConnectWithSSL,
+  ConnectWithDirectIP,
+  ConnectWithIpCache,
+  ConnectWithLongConnect,
+  ConnectWithPrestartedNodePool,
+  ConnectWithPreconnectedNodePool,
+};
+
 #ifdef ENABLE_REQUEST_RECORDING
 /* Node运行过程记录 */
 struct NodeProcess {
@@ -179,6 +192,8 @@ struct NodeProcess {
     last_cb_start_timestamp_ms = 0;
     last_cb_end_timestamp_ms = 0;
     last_cb_run = false;
+
+    connect_type = ConnectWithSSL;
   };
   ~NodeProcess(){};
 
@@ -215,6 +230,8 @@ struct NodeProcess {
   uint64_t last_cb_start_timestamp_ms;
   uint64_t last_cb_end_timestamp_ms;
   bool last_cb_run;
+
+  ConnectType connect_type;
 };
 #endif
 
@@ -263,10 +280,16 @@ class ConnectNode {
   inline void setEventThread(WorkThread *thread) { _eventThread = thread; }
   /* 1.2. get event point of launching node */
   struct event *getLaunchEvent(bool init = false);
+#ifdef ENABLE_PRECONNECTED_POOL
+  struct event *getStartWithPoolEvent(bool init = false);
+#endif
+  struct event *getSingleRoundTextEvent();
+  bool _isSendSingleRoundText;
   /* 1.3. something about status of this node */
   /*      design to record work status */
   ConnectStatus getConnectNodeStatus();
   std::string getConnectNodeStatusString();
+  std::string getConnectNodeStatusStringLocked();
   std::string getConnectNodeStatusString(ConnectStatus status);
   void setConnectNodeStatus(ConnectStatus status);
   /* 1.4. UUID of this node */
@@ -280,7 +303,18 @@ class ConnectNode {
   void updateParameters();
   /*      design to long connection */
   inline bool isLongConnection() { return _isLongConnection; }
+  inline bool useLongConnection(bool enable) { _isLongConnection = enable; }
   inline void setConnected(bool isConnected) { _isConnected = isConnected; }
+  /*      design to preconnection */
+  inline bool isUsingPreconnection() { return _usePreconnection; }
+  inline void usePreconnection(bool usePreconnection) {
+    _usePreconnection = usePreconnection;
+  }
+  inline bool isPreconnecting() { return _isPreconnecting; }
+  inline void usePreNodeStartStepByStep(bool enable) {
+    _isPreNodeStartStepByStep = enable;
+  }
+  inline bool isPreNodeStartStepByStep() { return _isPreNodeStartStepByStep; }
   void initAllStatus(); /*init all status in longConnection mode*/
   /* 1.4. about error */
   inline int getErrorCode() { return _nodeErrCode; };
@@ -290,10 +324,16 @@ class ConnectNode {
   /* 2.1. run command */
   void addCmdDataBuffer(CmdType type, const char *message = NULL);
   int cmdNotify(CmdType type, const char *message);
+#ifdef ENABLE_PRECONNECTED_POOL
+  int syncPingCmd();
+#endif
   /* 2.2. evBuffer for command */
   inline struct evbuffer *getBinaryEvBuffer() { return _binaryEvBuffer; };
   inline struct evbuffer *getCmdEvBuffer() { return _cmdEvBuffer; };
   inline struct evbuffer *getWwvEvBuffer() { return _wwvEvBuffer; };
+  /* 2.3. ev for command */
+  inline struct event *getReadEvent() { return _readEvent; };
+  inline struct event *getWriteEvent() { return _writeEvent; };
 
   /* 3. send command and audio data */
   /* 3.1. send audio data */
@@ -302,7 +342,7 @@ class ConnectNode {
   /* 3.2. parse&send request */
   int sendControlDirective();
   int gatewayRequest();
-  int nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame = true);
+  int nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame = false);
 
   /* 4. recv response and parse */
   int gatewayResponse();
@@ -310,12 +350,29 @@ class ConnectNode {
 
   /* 5. something about network */
   inline evutil_socket_t getSocketFd() { return _socketFd; }
+  inline void setSocketFd(evutil_socket_t fd) { _socketFd = fd; }
+  inline SSLconnect *getNativeSslHandle() { return _nativeSslHandle; }
+  inline SSLconnect *getSslHandle() { return _sslHandle; }
+  inline void setSslHandle(SSLconnect *handle) { _sslHandle = handle; }
+  inline struct event *getConnectEvent() { return _connectEvent; }
+  inline struct timeval *getConnectTv() { return &_connectTv; }
   inline urlAddress getUrlAddress() { return _url; }
+  inline urlAddress *getUrlAddressPointer() { return &_url; }
+  inline struct timeval *getRecvTvPointer() { return &_recvTv; }
+  inline bool getEnableRecvTv() { return _enableRecvTv; }
   int dnsProcess(int aiFamily, char *directIp, bool sysGetAddr);
   int socketConnect();
   int connectProcess(const char *ip, int aiFamily);
   int sslProcess();
   void disconnectProcess();
+#ifdef ENABLE_PRECONNECTED_POOL
+  int prestartProcess();
+  int prestartEventDelProcess();
+  bool directLinkIpFromCache();
+  int syncSocketConnect();
+  int syncConnectProcess(const char *ip, int aiFamily);
+  int syncSslProcess();
+#endif
 
   /* 6. exit operation */
   void closeConnectNode();
@@ -377,6 +434,8 @@ class ConnectNode {
   /* 12. design for recording process */
   void updateNodeProcess(std::string api, int status, bool enter, size_t size);
   const char *dumpAllInfo();
+  inline struct NodeProcess *getNodeProcess() { return &_nodeProcess; }
+  std::string getConnectTypeStr();
 #endif
 
 #ifdef ENABLE_CONTINUED
@@ -387,6 +446,11 @@ class ConnectNode {
 
   /* 14. others */
   void sendFakeSynthesisStarted();
+#ifdef ENABLE_PRECONNECTED_POOL
+  int tryToGetPreconnection();
+  int getPoolIndex();
+  void setPoolIndex(int index);
+#endif
 
  private:
   enum ConnectNodeConstValue {
@@ -407,6 +471,11 @@ class ConnectNode {
   INlsRequest *_request;
   /* 1.2. event point of launching node */
   struct event *_launchEvent;
+#ifdef ENABLE_PRECONNECTED_POOL
+  struct event *_startWithPoolEvent;
+  int _poolIndex;
+#endif
+  struct event *_singleRoundTextEvent;
   /* 1.3. something about status of this node */
   bool _isStop;
   bool _isFirstBinaryFrame;
@@ -421,6 +490,10 @@ class ConnectNode {
   /*      design to long connection */
   bool _isConnected;
   bool _isLongConnection;
+  /*      design to preconnection */
+  bool _usePreconnection; /* 正在使用ConnectedPool机制 */
+  bool _isPreconnecting; /* 用于标记此Node进行交互并存储到ConnectedPool */
+  bool _isPreNodeStartStepByStep; /* 预创建的预连接节点, 分步启动 */
   /* 1.4. about error */
   int getErrorCodeFromMsg(const char *msg);
   std::string _nodeErrMsg;
@@ -461,7 +534,8 @@ class ConnectNode {
   /*    about socket connection */
   urlAddress _url;
   evutil_socket_t _socketFd;
-  SSLconnect *_sslHandle;
+  SSLconnect *_sslHandle;  // 此Node正在工作的SSL
+  SSLconnect *_nativeSslHandle;  // 此Node刚创建时的SSL, 单纯标记用, 不可释放
   /*    parameters about network */
   int _aiFamily;
   struct sockaddr_in _addrV4;
@@ -483,6 +557,7 @@ class ConnectNode {
   /* 6. exit operation */
   const char *genCloseMsg(std::string *buf_str);
   void closeStatusConnectNode();
+  void closeStatusConnectNodeForConnectedPool();
 
   /* 7. something about other modules */
   /*    about audio data encoder */

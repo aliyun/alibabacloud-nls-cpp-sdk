@@ -21,6 +21,7 @@
 #include "flowingSynthesizerParam.h"
 #include "iNlsRequestListener.h"
 #include "nlog.h"
+#include "text_utils.h"
 #include "utility.h"
 
 namespace AlibabaNls {
@@ -194,6 +195,10 @@ int FlowingSynthesizerRequest::stop() { return INlsRequest::stop(this); }
 int FlowingSynthesizerRequest::cancel() { return INlsRequest::cancel(this); }
 
 int FlowingSynthesizerRequest::sendText(const char* text) {
+  int wordCount = utility::TextUtils::CharsCalculate(text);
+  if (wordCount > _flowingSynthesizerParam->MaximumNumberOfWords) {
+    return -(InvalidInputParam);
+  }
   return INlsRequest::sendText(this, text);
 }
 
@@ -239,6 +244,12 @@ int FlowingSynthesizerRequest::setToken(const char* value) {
   return 0;
 }
 
+int FlowingSynthesizerRequest::setTokenExpirationTime(uint64_t value) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
+  _flowingSynthesizerParam->setTokenExpirationTime(value);
+  return 0;
+}
+
 int FlowingSynthesizerRequest::setFormat(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
@@ -277,6 +288,12 @@ int FlowingSynthesizerRequest::setVoice(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
   return _flowingSynthesizerParam->setVoice(value);
+}
+
+int FlowingSynthesizerRequest::setSingleRoundText(const char* value) {
+  INPUT_PARAM_STRING_CHECK(value);
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
+  return _flowingSynthesizerParam->setSingleRoundText(value);
 }
 
 int FlowingSynthesizerRequest::setTimeout(int value) {

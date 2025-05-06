@@ -17,9 +17,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#include <string.h>
 #include <ctime>
 #include <iostream>
-#include <string.h>
 
 #if defined(__ANDRIOD__)
 #include <android/log.h>
@@ -43,23 +43,25 @@ using std::cout;
 using std::endl;
 using std::string;
 
-#define LOG_BUFFER_SIZE      2048
+#define LOG_BUFFER_SIZE 2048
 #define LOG_BUFFER_PLUS_SIZE 2560
-#define LOG_FILES_NUMBER     20
-#define LOG_FILE_BASE_SIZE   1024 * 1024
-#define LOG_TAG              "AliSpeechLib"
+#define LOG_FILES_NUMBER 20
+#define LOG_FILE_BASE_SIZE 1024 * 1024
+#define LOG_TAG "AliSpeechLib"
 
-#define LOG_FORMAT_STRING(a, l, f, b)                                          \
-  char tmpBuffer[LOG_BUFFER_SIZE] = {0};                                       \
-  va_list arg;                                                                 \
-  va_start(arg, f);                                                            \
-  vsnprintf(tmpBuffer, LOG_BUFFER_SIZE - 1, f, arg);                           \
-  va_end(arg);                                                                 \
-  _ssnprintf(b, LOG_BUFFER_SIZE, "[ID:0x%lx][%s:%d]%s", pthreadSelfId(), a, l, \
-             tmpBuffer);
+#define LOG_FORMAT_STRING(a, l, f, b)                                         \
+  do {                                                                        \
+    char tmpBuffer[LOG_BUFFER_SIZE] = {0};                                    \
+    va_list arg;                                                              \
+    va_start(arg, f);                                                         \
+    vsnprintf(tmpBuffer, LOG_BUFFER_SIZE - 1, f, arg);                        \
+    va_end(arg);                                                              \
+    _ssnprintf(b, LOG_BUFFER_SIZE, "[ID:0x%lx][%s:%d]%s", pthreadSelfId(), a, \
+               l, tmpBuffer);                                                 \
+  } while (0)
 
 #define LOG_WASH(in, str)                                        \
-  {                                                              \
+  do {                                                           \
     std::string delim = "%";                                     \
     std::vector<std::string> str_vector;                         \
     std::string tmp_str(in);                                     \
@@ -81,20 +83,20 @@ using std::string;
         str += "%%";                                             \
       }                                                          \
     }                                                            \
-  }
+  } while (0)
 
 #define LOG_PRINT_COMMON(level, message)                                       \
-  {                                                                            \
+  do {                                                                         \
     time_t tt = time(NULL);                                                    \
     struct tm* ptm = localtime(&tt);                                           \
     fprintf(stdout, "%4d-%02d-%02d %02d:%02d:%02d %s(%s): %s\n",               \
             (int)ptm->tm_year + 1900, (int)ptm->tm_mon + 1, (int)ptm->tm_mday, \
             (int)ptm->tm_hour, (int)ptm->tm_min, (int)ptm->tm_sec, LOG_TAG,    \
             level, message);                                                   \
-  }
+  } while (0)
 
 #define LOG_PRINT_CALLBACK(level, message, callback)                         \
-  {                                                                          \
+  do {                                                                       \
     if (callback) {                                                          \
       time_t ttc = time(NULL);                                               \
       struct tm* ptmc = localtime(&ttc);                                     \
@@ -107,7 +109,7 @@ using std::string;
       snprintf(log_mesg, LOG_BUFFER_PLUS_SIZE, "[%s] %s", LOG_TAG, message); \
       callback(timestamp, level, log_mesg);                                  \
     }                                                                        \
-  }
+  } while (0)
 
 #if defined(_MSC_VER)
 HANDLE NlsLog::_mtxLog = CreateMutex(NULL, FALSE, NULL);
@@ -271,12 +273,12 @@ void NlsLog::logDebug(const char* function, int line, const char* format, ...) {
     return;
   }
 
-  char message[LOG_BUFFER_PLUS_SIZE] = {0};
-  std::string str_in = "";
-  LOG_FORMAT_STRING(function, line, format, message);
-  LOG_WASH(message, str_in);
-
   if (_logLevel >= 4) {
+    char message[LOG_BUFFER_PLUS_SIZE] = {0};
+    std::string str_in = "";
+    LOG_FORMAT_STRING(function, line, format, message);
+    LOG_WASH(message, str_in);
+
 #if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
@@ -297,12 +299,12 @@ void NlsLog::logInfo(const char* function, int line, const char* format, ...) {
     return;
   }
 
-  char message[LOG_BUFFER_PLUS_SIZE] = {0};
-  std::string str_in = "";
-  LOG_FORMAT_STRING(function, line, format, message);
-  LOG_WASH(message, str_in);
-
   if (_logLevel >= 3) {
+    char message[LOG_BUFFER_PLUS_SIZE] = {0};
+    std::string str_in = "";
+    LOG_FORMAT_STRING(function, line, format, message);
+    LOG_WASH(message, str_in);
+
 #if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
@@ -323,12 +325,12 @@ void NlsLog::logWarn(const char* function, int line, const char* format, ...) {
     return;
   }
 
-  char message[LOG_BUFFER_PLUS_SIZE] = {0};
-  std::string str_in = "";
-  LOG_FORMAT_STRING(function, line, format, message);
-  LOG_WASH(message, str_in);
-
   if (_logLevel >= 2) {
+    char message[LOG_BUFFER_PLUS_SIZE] = {0};
+    std::string str_in = "";
+    LOG_FORMAT_STRING(function, line, format, message);
+    LOG_WASH(message, str_in);
+
 #if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)
@@ -349,12 +351,12 @@ void NlsLog::logError(const char* function, int line, const char* format, ...) {
     return;
   }
 
-  char message[LOG_BUFFER_PLUS_SIZE] = {0};
-  std::string str_in = "";
-  LOG_FORMAT_STRING(function, line, format, message);
-  LOG_WASH(message, str_in);
-
   if (_logLevel >= 1) {
+    char message[LOG_BUFFER_PLUS_SIZE] = {0};
+    std::string str_in = "";
+    LOG_FORMAT_STRING(function, line, format, message);
+    LOG_WASH(message, str_in);
+
 #if defined(__ANDRIOD__)
     __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "%s", str_in.c_str());
 #elif defined(_MSC_VER) || defined(__linux__)

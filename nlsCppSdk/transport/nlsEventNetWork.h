@@ -29,6 +29,9 @@ namespace AlibabaNls {
 
 class INlsRequest;
 class WorkThread;
+#ifdef ENABLE_PRECONNECTED_POOL
+class ConnectedPool;
+#endif
 
 class NlsEventNetWork {
  public:
@@ -57,6 +60,15 @@ class NlsEventNetWork {
   int stControl(INlsRequest *request, const char *message);
   const char *dumpAllInfo(INlsRequest *request);
 
+#ifdef ENABLE_PRECONNECTED_POOL
+  int startInner(INlsRequest *request);
+  int initPreconnectedPool(unsigned int maxNumber,
+                           unsigned int connectedTimeoutMs,
+                           unsigned int requestedTimeoutMs);
+  int destroyPreconnectedPool();
+  ConnectedPool *getPreconnectedPool();
+#endif
+
  private:
   int selectThreadNumber();  //循环选择工作线程
 
@@ -68,6 +80,13 @@ class NlsEventNetWork {
   bool _enableSysGetAddr;  //启用getaddrinfo_a接口进行dns解析, 默认false
   unsigned int _syncCallTimeoutMs;  //启用同步接口, 默认0为不启用同步接口
   NlsClientImpl *_instance;
+
+#ifdef ENABLE_PRECONNECTED_POOL
+  ConnectedPool *_preconnectedPool;  //预连接池工作线程
+  unsigned int _maxPreconnectedNumber;
+  unsigned int _preconnectedTimeoutMs;
+  unsigned int _prerequestedTimeoutMs;
+#endif
 
 #if defined(_MSC_VER)
   static HANDLE _mtxThread;

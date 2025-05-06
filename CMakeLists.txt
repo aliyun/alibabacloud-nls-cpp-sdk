@@ -183,6 +183,8 @@ add_definitions(-DENABLE_REQUEST_RECORDING)
 add_definitions(-DENABLE_DNS_IP_CACHE)
 #增加运行中断自动重连的功能
 add_definitions(-DENABLE_CONTINUED)
+#预连接池功能, 启用此功能需要同时启用ENABLE_REQUEST_RECORDING
+add_definitions(-DENABLE_PRECONNECTED_POOL)
 
 #添加VipServer相关配置
 message(STATUS "PRIVATE_CLOUD: ${PRIVATE_CLOUD}")

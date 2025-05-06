@@ -110,6 +110,7 @@ set(UTILS_INCLUDE_DIR
 set(UTILS_SOURCE_DIR
     ${UTILS_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/connectNode.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/transport/connectedPool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/nlsEventNetWork.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/SSLconnect.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/webSocketTcp.cpp

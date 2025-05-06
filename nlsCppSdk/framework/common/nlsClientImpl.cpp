@@ -20,14 +20,14 @@
 #include "SSLconnect.h"
 #include "connectNode.h"
 #include "da/dialogAssistantRequest.h"
+#include "fss/flowingSynthesizerRequest.h"
 #include "nlog.h"
 #include "nlsClientImpl.h"
 #include "nlsEventNetWork.h"
-
-#include "fss/flowingSynthesizerRequest.h"
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
+#include "text_utils.h"
 #include "utility.h"
 
 #ifdef ENABLE_VIPSERVER
@@ -54,6 +54,11 @@ NlsClientImpl::NlsClientImpl(bool sslInitial)
       _aiFamily(),
       _directHostIp(),
       _enableSysGetAddr(false),
+#ifdef ENABLE_PRECONNECTED_POO
+      _maxPreconnectedNumber(0),
+      _preconnectedTimeoutMs(15000),
+      _prerequestedTimeoutMs(75000),
+#endif
       _syncCallTimeoutMs(0) {
   strncpy(_aiFamily, "AF_INET", 16);
 
@@ -91,6 +96,9 @@ void NlsClientImpl::releaseInstanceImpl() {
 
   if (_isInitializeThread) {
     if (NlsEventNetWork::_eventClient != NULL) {
+#ifdef ENABLE_PRECONNECTED_POOL
+      NlsEventNetWork::_eventClient->destroyPreconnectedPool();
+#endif
       NlsEventNetWork::_eventClient->destroyEventNetWork();
       delete NlsEventNetWork::_eventClient;
       NlsEventNetWork::_eventClient = NULL;
@@ -145,6 +153,16 @@ void NlsClientImpl::setSyncCallTimeoutImpl(unsigned int timeout_ms) {
   _syncCallTimeoutMs = timeout_ms;
 }
 
+#ifdef ENABLE_PRECONNECTED_POOL
+void NlsClientImpl::setPreconnectedPool(unsigned int maxNumber,
+                                        unsigned int timeoutMs,
+                                        unsigned int requestTimeoutMs) {
+  _maxPreconnectedNumber = maxNumber;
+  _preconnectedTimeoutMs = timeoutMs >= 23000 ? 23000 : timeoutMs;
+  _prerequestedTimeoutMs = requestTimeoutMs >= 8000 ? 8000 : requestTimeoutMs;
+}
+#endif
+
 void NlsClientImpl::setDirectHostImpl(const char *ip) {
   memset(_directHostIp, 0, 64);
   if (ip) {
@@ -161,6 +179,14 @@ void NlsClientImpl::startWorkThreadImpl(int threadsNumber) {
         this, threadsNumber, _aiFamily, _directHostIp, _enableSysGetAddr,
         _syncCallTimeoutMs);
     _isInitializeThread = true;
+
+#ifdef ENABLE_PRECONNECTED_POOL
+    if (_maxPreconnectedNumber > 0) {
+      NlsEventNetWork::_eventClient->initPreconnectedPool(
+          _maxPreconnectedNumber, _preconnectedTimeoutMs,
+          _prerequestedTimeoutMs);
+    }
+#endif
   }
 }
 
@@ -297,7 +323,8 @@ void NlsClientImpl::releaseSynthesizerRequestImpl(
     /* check this request belong to this NlsClientImpl */
     ret = _nodeManager->checkRequestWithInstance((void *)request, (void *)this);
     if (ret != Success) {
-      LOG_ERROR("Request(%p) is invalid.", request);
+      LOG_ERROR("Request(%p) Node(%p) is invalid.", request,
+                request->getConnectNode());
       return;
     }
 
@@ -400,6 +427,9 @@ void NlsClientImpl::releaseFlowingSynthesizerRequestImpl(
 }
 
 void NlsClientImpl::releaseRequest(INlsRequest *request) {
+  uint64_t timewait_start, timewait_end;
+  timewait_start = utility::TextUtils::GetTimestampMs();
+
   if (request == NULL) {
     LOG_ERROR("Input request is nullptr, you have destroyed request!");
     return;
@@ -421,8 +451,13 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
   bool release_lock_ret = true;
   NlsClientImpl *cur_instance = request->getConnectNode()->getInstance();
   if (cur_instance != NULL) {
-    MUTEX_TRY_LOCK(cur_instance->_mtxReleaseRequestGuard, 2000,
-                   release_lock_ret);
+#ifdef ENABLE_NLS_DEBUG_2
+    LOG_DEBUG("Request(%p) Node(%p) trylock with %p.", request,
+              request->getConnectNode(),
+              &cur_instance->_mtxReleaseRequestGuard);
+#endif
+    MUTEX_TRY_LOCK_WITH_TAG(cur_instance->_mtxReleaseRequestGuard, 2000,
+                            release_lock_ret, request);
     if (!release_lock_ret) {
       LOG_ERROR("Request(%p) lock destroy failed, deadlock has occurred",
                 request);
@@ -436,7 +471,7 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
   if (ret != Success) {
     LOG_ERROR("Request(%p) checkRequestExist1 failed, %d.", request, ret);
     if (release_lock_ret) {
-      MUTEX_UNLOCK(cur_instance->_mtxReleaseRequestGuard);
+      MUTEX_UNLOCK_WITH_TAG(cur_instance->_mtxReleaseRequestGuard, request);
     }
     return;
   }
@@ -448,20 +483,165 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
            request->getConnectNode()->getConnectNodeStatusString().c_str(),
            request->getConnectNode()->getExitStatusString().c_str());
 
+  evutil_socket_t curSocketFd = request->getConnectNode()->getSocketFd();
+  SSLconnect *curSslHandle = request->getConnectNode()->getSslHandle();
+  SSLconnect *curNativeSslHandle =
+      request->getConnectNode()->getNativeSslHandle();
+  NlsType type = request->getRequestParam()->_mode;
+  INlsRequest *curRequest = request;
+  bool sslInConnectedPool = false;
+  bool oriRequestIsAbnormal = false;
+  bool requestInPool = false;
+#ifdef ENABLE_PRECONNECTED_POOL
+  if (request->getConnectNode()->isUsingPreconnection() &&
+      NlsEventNetWork::_eventClient &&
+      NlsEventNetWork::_eventClient->getPreconnectedPool()) {
+    if (NlsEventNetWork::_eventClient->getPreconnectedPool()->sslBelongToPool(
+            request, type, oriRequestIsAbnormal, requestInPool)) {
+      sslInConnectedPool = true;
+      if (oriRequestIsAbnormal) {
+        LOG_WARN(
+            "Request(%p) node(%p) has stored in ConnectedPool, with %s "
+            "usePreconnection and SSL(%p), native SSL(%p). But current request "
+            "is abnormal.",
+            request, request->getConnectNode(),
+            request->getConnectNode()->isUsingPreconnection() ? "enable"
+                                                              : "disable",
+            request->getConnectNode()->getSslHandle(),
+            request->getConnectNode()->getNativeSslHandle());
+      } else {
+        LOG_DEBUG(
+            "Request(%p) node(%p) has stored in ConnectedPool, with %s "
+            "usePreconnection and SSL(%p), native SSL(%p).",
+            request, request->getConnectNode(),
+            request->getConnectNode()->isUsingPreconnection() ? "enable"
+                                                              : "disable",
+            request->getConnectNode()->getSslHandle(),
+            request->getConnectNode()->getNativeSslHandle());
+      }
+    } else {
+      LOG_DEBUG(
+          "Request(%p) node(%p) not stored in ConnectedPool, with %s "
+          "usePreconnection and SSL(%p), native SSL(%p).",
+          request, request->getConnectNode(),
+          request->getConnectNode()->isUsingPreconnection() ? "enable"
+                                                            : "disable",
+          request->getConnectNode()->getSslHandle(),
+          request->getConnectNode()->getNativeSslHandle());
+    }
+  }
+#endif
+
   request->getConnectNode()->delAllEvents();
-  request->getConnectNode()->updateDestroyStatus();
+
+  if (!sslInConnectedPool) {
+    request->getConnectNode()->updateDestroyStatus();
+  }
+
+  int index = request->getConnectNode()->getPoolIndex();
 
   ret = _nodeManager->removeRequestFromInfo(request, false);
   if (ret == Success) {
+#ifdef ENABLE_PRECONNECTED_POOL
+    // if (sslInConnectedPool) {
+    //   if (oriRequestIsAbnormal) {
+    //     LOG_INFO(
+    //         "Request(%p) Node(%p) with SSL handle(%p) socketFd(%d) has stored
+    //         " "in ConnectedPool, and orignal request is abnormal, should
+    //         delete " "itself.", request, request->getConnectNode(),
+    //         curSslHandle, curSocketFd);
+    //     delete request;
+    //   }
+    // } else {
+    //   LOG_DEBUG(
+    //       "Request(%p) Node(%p) with SSL handle(%p) socketFd(%d) is not
+    //       stored " "in ConnectedPool, should delete.", request,
+    //       request->getConnectNode(), curSslHandle, curSocketFd);
+    //   delete request;
+    // }
+    if (requestInPool) {
+      LOG_INFO(
+          "Request(%p) Node(%p) with SSL handle(%p) socketFd(%d) has stored "
+          "in ConnectedPool, and it is orignal request, should delete "
+          "itself later, not here.",
+          request, request->getConnectNode(), curSslHandle, curSocketFd);
+    } else {
+      LOG_DEBUG(
+          "Request(%p) Node(%p) with SSL handle(%p) socketFd(%d) did not "
+          "stored "
+          "in ConnectedPool, delete here.",
+          request, request->getConnectNode(), curSslHandle, curSocketFd);
+      delete request;
+    }
+#else
     delete request;
+#endif
   } else {
     LOG_ERROR("Release request(%p) is invalid, skip ...", request);
   }
   request = NULL;
 
-  if (release_lock_ret) {
-    MUTEX_UNLOCK(cur_instance->_mtxReleaseRequestGuard);
+  if (sslInConnectedPool) {
+    if (oriRequestIsAbnormal) {
+      LOG_INFO(
+          "Request(%p) SSL(%p) and socketFd(%d) index(%d) has stored in "
+          "ConnectedPool, and orignal request is abnormal, should delete this "
+          "orignal request in ConnectedPool.",
+          curRequest, curSslHandle, curSocketFd, index);
+#ifdef ENABLE_PRECONNECTED_POOL
+      if (NlsEventNetWork::_eventClient &&
+          NlsEventNetWork::_eventClient->getPreconnectedPool()) {
+        NlsEventNetWork::_eventClient->getPreconnectedPool()
+            ->deletePreNodeBySSL(curSslHandle, type);
+      }
+#endif
+    } else {
+      LOG_DEBUG(
+          "Request(%p) SSL(%p) and socketFd(%d) index(%d) has stored in "
+          "ConnectedPool, "
+          "and will release later "
+          "in "
+          "ConnectedPool.",
+          curRequest, curSslHandle, curSocketFd, index);
+#ifdef ENABLE_PRECONNECTED_POOL
+      if (NlsEventNetWork::_eventClient &&
+          NlsEventNetWork::_eventClient->getPreconnectedPool()) {
+        NlsEventNetWork::_eventClient->getPreconnectedPool()->finishPushPreNode(
+            type, curSocketFd, curSslHandle, index, curRequest);
+      }
+#endif
+    }
+  } else {
+    LOG_DEBUG(
+        "Request(%p) SSL(%p) NativeSSL(%p) and socketFd(%d) index(%d) not "
+        "stored in ConnectedPool, "
+        "and remove this request from ConnectedPool.",
+        curRequest, curSslHandle, curNativeSslHandle, curSocketFd, index);
+#ifdef ENABLE_PRECONNECTED_POOL
+    if (NlsEventNetWork::_eventClient &&
+        NlsEventNetWork::_eventClient->getPreconnectedPool()) {
+      NlsEventNetWork::_eventClient->getPreconnectedPool()
+          ->deletePreNodeByRequest(curRequest, type);
+    }
+#endif
   }
+
+  if (release_lock_ret) {
+    MUTEX_UNLOCK_WITH_TAG(cur_instance->_mtxReleaseRequestGuard, curRequest);
+  }
+#ifdef ENABLE_NLS_DEBUG_2
+  else {
+    LOG_WARN("_mtxReleaseRequestGuard isnot unlock.");
+  }
+  LOG_DEBUG("Release request(%p) done.", curRequest);
+#endif
+
+  timewait_end = utility::TextUtils::GetTimestampMs();
+  if (timewait_end - timewait_start > 50) {
+    LOG_ERROR("Release request(%p) excessive latency:%llums", curRequest,
+              timewait_end - timewait_start);
+  }
+
   return;
 }
 

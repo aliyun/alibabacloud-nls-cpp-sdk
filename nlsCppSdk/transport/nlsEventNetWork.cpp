@@ -36,6 +36,9 @@
 #ifdef ENABLE_REQUEST_RECORDING
 #include "text_utils.h"
 #endif
+#ifdef ENABLE_PRECONNECTED_POOL
+#include "connectedPool.h"
+#endif
 
 namespace AlibabaNls {
 
@@ -57,7 +60,14 @@ NlsEventNetWork::NlsEventNetWork()
       _directIp(),
       _enableSysGetAddr(false),
       _syncCallTimeoutMs(0),
-      _instance(NULL) {}
+#ifdef ENABLE_PRECONNECTED_POOL
+      _preconnectedPool(NULL),
+      _maxPreconnectedNumber(0),
+      _preconnectedTimeoutMs(15000),
+      _prerequestedTimeoutMs(7000),
+#endif
+      _instance(NULL) {
+}
 
 NlsEventNetWork::~NlsEventNetWork() {}
 
@@ -212,6 +222,15 @@ int NlsEventNetWork::start(INlsRequest *request) {
     return -(NodeEmpty);
   }
 
+#ifdef ENABLE_PRECONNECTED_POOL
+  if (_preconnectedPool) {
+    node->usePreconnection(true);
+    node->useLongConnection(false);
+  } else {
+    node->usePreconnection(false);
+  }
+#endif
+
   /* 长链接模式下, 若为Completed状态, 则等待其进入Closed后, 再重置状态. */
   if (node->isLongConnection()) {
     int try_count = 500;
@@ -258,7 +277,8 @@ int NlsEventNetWork::start(INlsRequest *request) {
       request->setThreadNumber(num);
     }
 
-    LOG_INFO("Request(%p) node(%p) select NO:%d thread.", request, node, num);
+    LOG_DEBUG("Request(%p) Node(%p) select NO:%d Total:%d thread.", request,
+              node, num, _workThreadsNumber);
 
     WorkThread *work_thread = &_workThreadArray[num];
     node->setEventThread(work_thread);
@@ -272,24 +292,59 @@ int NlsEventNetWork::start(INlsRequest *request) {
     node->setSyncCallTimeout(_syncCallTimeoutMs);
     work_thread->updateParameters(node);
 
-    LOG_DEBUG("Request(%p) node(%p) ready to invoke event_add LaunchEvent ...",
-              request, node);
-    int event_ret = event_add(node->getLaunchEvent(true), NULL);
-    if (event_ret != Success) {
-      LOG_ERROR("Request(%p) node(%p) invoking event_add failed(%d).", request,
-                node, event_ret);
-      MUTEX_UNLOCK(_mtxThread);
-#ifdef ENABLE_REQUEST_RECORDING
-      node->updateNodeProcess("start", NodeCreated, false, 0);
-#endif
-      return -(InvokeStartFailed);
-    } else {
-      LOG_DEBUG(
-          "Request(%p) node(%p) invoking event_add success, ready to launch "
-          "request.",
-          request, node);
+#ifdef ENABLE_PRECONNECTED_POOL
+    ConnectedStatus getPrestartedNode = PreNodeInvalid;
+    uint64_t try_begin_ms = utility::TextUtils::GetTimestampMs();
+    if (_preconnectedPool) {
+      getPrestartedNode = (ConnectedStatus)node->tryToGetPreconnection();
     }
-    event_active(node->getLaunchEvent(), EV_READ, 0);
+    uint64_t try_end_ms = utility::TextUtils::GetTimestampMs();
+    if (getPrestartedNode == PreNodeConnected) {
+      // 获得了preconnected节点, 需要发起start
+      LOG_DEBUG("Request(%p) node(%p) get a preconnected node ...", request,
+                node);
+#ifdef ENABLE_REQUEST_RECORDING
+      node->getNodeProcess()->connect_type = ConnectWithPreconnectedNodePool;
+#endif
+      int event_ret = event_add(node->getStartWithPoolEvent(true), NULL);
+      event_active(node->getStartWithPoolEvent(), EV_READ, 0);
+    } else if (getPrestartedNode == PreNodeStarted) {
+      // 获得了prestarted节点, 直接开始工作
+      LOG_DEBUG("Request(%p) node(%p) get a prestarted node ...", request,
+                node);
+#ifdef ENABLE_REQUEST_RECORDING
+      node->getNodeProcess()->connect_type = ConnectWithPrestartedNodePool;
+#endif
+      int event_ret = event_add(node->getStartWithPoolEvent(true), NULL);
+      event_active(node->getStartWithPoolEvent(), EV_READ, 0);
+      LOG_DEBUG(
+          "Request(%p) node(%p) get a prestarted node "
+          "tryToGetPreconnection latency %llums",
+          request, node, try_end_ms - try_begin_ms);
+    } else
+#endif
+    {
+      LOG_DEBUG(
+          "Request(%p) node(%p) ready to invoke event_add LaunchEvent ...",
+          request, node);
+      int event_ret = event_add(node->getLaunchEvent(true), NULL);
+      if (event_ret != Success) {
+        LOG_ERROR("Request(%p) node(%p) invoking event_add failed(%d).",
+                  request, node, event_ret);
+        MUTEX_UNLOCK(_mtxThread);
+#ifdef ENABLE_REQUEST_RECORDING
+        node->updateNodeProcess("start", NodeCreated, false, 0);
+#endif
+        return -(InvokeStartFailed);
+      } else {
+        LOG_DEBUG(
+            "Request(%p) node(%p) invoking event_add success, ready to launch "
+            "request.",
+            request, node);
+      }
+
+      event_active(node->getLaunchEvent(), EV_READ, 0);
+    }
 
     node->initNlsEncoder();
 
@@ -335,6 +390,105 @@ int NlsEventNetWork::start(INlsRequest *request) {
   LOG_DEBUG("Request(%p) node(%p) invoke start success.", request, node);
   return Success;
 }
+
+#ifdef ENABLE_PRECONNECTED_POOL
+int NlsEventNetWork::startInner(INlsRequest *request) {
+  MUTEX_LOCK(_mtxThread);
+
+  if (_eventClient == NULL) {
+    LOG_ERROR(
+        "NlsEventNetWork has destroyed, please invoke startWorkThread() "
+        "first.");
+    MUTEX_UNLOCK(_mtxThread);
+    return -(EventClientEmpty);
+  }
+
+  ConnectNode *node = request->getConnectNode();
+  if (node == NULL) {
+    LOG_ERROR("The node of request(%p) is nullptr, you have destroyed request!",
+              request);
+    MUTEX_UNLOCK(_mtxThread);
+    return -(NodeEmpty);
+  }
+
+  if (_preconnectedPool) {
+    node->usePreconnection(true);
+    node->useLongConnection(false);
+  } else {
+    node->usePreconnection(false);
+  }
+
+  /*
+   * invoke start
+   * Node处于刚创建完状态, 且处于非退出状态, 则可进行start操作.
+   */
+  if (node->getConnectNodeStatus() == NodeCreated &&
+      node->getExitStatus() == ExitInvalid) {
+    node->setConnectNodeStatus(NodeInvoking);
+#ifdef ENABLE_REQUEST_RECORDING
+    node->updateNodeProcess("start", NodeInvoking, true, 0);
+#endif
+
+    int num = request->getThreadNumber();
+    if (num < 0) {
+      num = selectThreadNumber();
+    }
+    if (num < 0) {
+      node->setConnectNodeStatus(NodeCreated);
+      MUTEX_UNLOCK(_mtxThread);
+#ifdef ENABLE_REQUEST_RECORDING
+      node->updateNodeProcess("start", NodeCreated, false, 0);
+#endif
+      return -(SelectThreadFailed);
+    } else {
+      request->setThreadNumber(num);
+    }
+
+    LOG_DEBUG("Request(%p) Node(%p) select NO:%d Total:%d thread.", request,
+              node, num, _workThreadsNumber);
+
+    WorkThread *work_thread = &_workThreadArray[num];
+    node->setEventThread(work_thread);
+    node->getEventThread()->setInstance(_instance);
+    node->setInstance(_instance);
+    node->getEventThread()->setAddrInFamily(_addrInFamily);
+    if (strnlen(_directIp, 64) > 0) {
+      node->getEventThread()->setDirectHost(_directIp);
+    }
+    node->getEventThread()->setUseSysGetAddrInfo(_enableSysGetAddr);
+    node->setSyncCallTimeout(_syncCallTimeoutMs);
+    work_thread->updateParameters(node);
+
+    node->initNlsEncoder();
+
+  } else if (node->getExitStatus() == ExitInvalid &&
+             node->getConnectNodeStatus() > NodeCreated &&
+             node->getConnectNodeStatus() < NodeFailed) {
+    LOG_WARN(
+        "Request(%p) node(%p) has invoked start, node status:%s, exit "
+        "status:%s. skip ...",
+        request, node, node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+
+    MUTEX_UNLOCK(_mtxThread);
+    return Success;
+  } else {
+    LOG_ERROR(
+        "Request(%p) node(%p) invoke start failed, current status is invalid. "
+        "node status:%s, exit status:%s.",
+        request, node, node->getConnectNodeStatusString().c_str(),
+        node->getExitStatusString().c_str());
+
+    node->setConnectNodeStatus(NodeCreated);
+    MUTEX_UNLOCK(_mtxThread);
+    return -(InvokeStartFailed);
+  }
+
+  MUTEX_UNLOCK(_mtxThread);
+  LOG_DEBUG("Request(%p) node(%p) invoke start success.", request, node);
+  return Success;
+}
+#endif
 
 int NlsEventNetWork::sendAudio(INlsRequest *request, const uint8_t *data,
                                size_t dataSize, ENCODER_TYPE type) {
@@ -399,6 +553,20 @@ int NlsEventNetWork::stop(INlsRequest *request) {
               request);
     MUTEX_UNLOCK(_mtxThread);
     return -(NodeEmpty);
+  }
+
+  /* FlowingSynthesizer Node也许处于发送单轮文本状态, 可等待一会. */
+  int try_count = 500;
+  while (request->getRequestParam()->_requestType == FlowingSynthesizer &&
+         node->_isSendSingleRoundText && try_count-- > 0) {
+    LOG_WARN(
+        "Request(%p) Node(%p) is sending a single round of synthetic text.",
+        request, node);
+#ifdef _MSC_VER
+    Sleep(1);
+#else
+    usleep(1000);
+#endif
   }
 
   /* invoke stop
@@ -726,5 +894,57 @@ const char *NlsEventNetWork::dumpAllInfo(INlsRequest *request) {
   return NULL;
 #endif
 }
+
+#ifdef ENABLE_PRECONNECTED_POOL
+int NlsEventNetWork::initPreconnectedPool(unsigned int maxNumber,
+                                          unsigned int connectedTimeoutMs,
+                                          unsigned int requestedTimeoutMs) {
+  int ret = Success;
+  MUTEX_LOCK(_mtxThread);
+  if (_preconnectedPool) {
+    LOG_WARN("ConnectedPool has existed, destroy first.");
+    delete _preconnectedPool;
+    _preconnectedPool = NULL;
+  }
+
+  _maxPreconnectedNumber = maxNumber;
+  _preconnectedTimeoutMs = connectedTimeoutMs;
+  _prerequestedTimeoutMs = requestedTimeoutMs;
+
+  if (_maxPreconnectedNumber > 0) {
+    _preconnectedPool = new ConnectedPool(
+        _maxPreconnectedNumber, _preconnectedTimeoutMs, _prerequestedTimeoutMs);
+    if (_preconnectedPool == NULL) {
+      LOG_ERROR("New ConnectedPool failed.");
+      ret = -(ConnectedPoolEmpty);
+    } else {
+      LOG_INFO(
+          "New a ConnectedPool(%p) with max connected number:%d, connected "
+          "timeout:%dms and requested timeout:%dms",
+          _preconnectedPool, _maxPreconnectedNumber, _preconnectedTimeoutMs,
+          _prerequestedTimeoutMs);
+      _preconnectedPool->startConnectedPool();
+    }
+  }
+  MUTEX_UNLOCK(_mtxThread);
+  return ret;
+}
+
+int NlsEventNetWork::destroyPreconnectedPool() {
+  MUTEX_LOCK(_mtxThread);
+  if (_preconnectedPool) {
+    _preconnectedPool->stopConnectedPool();
+    LOG_INFO("Destroy ConnectedPool(%p).", _preconnectedPool);
+    delete _preconnectedPool;
+    _preconnectedPool = NULL;
+  }
+  MUTEX_UNLOCK(_mtxThread);
+  return Success;
+}
+
+ConnectedPool *NlsEventNetWork::getPreconnectedPool() {
+  return _preconnectedPool;
+}
+#endif  // ENABLE_PRECONNECTED_POOL
 
 }  // namespace AlibabaNls

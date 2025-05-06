@@ -384,7 +384,7 @@ void SSLconnect::sslClose() {
     SSL_free(_ssl);
     _ssl = NULL;
   } else {
-    LOG_DEBUG("SSL connect has closed.");
+    LOG_DEBUG("SSL(%p) connect has closed.", this);
   }
 
   MUTEX_UNLOCK(_mtxSSL);

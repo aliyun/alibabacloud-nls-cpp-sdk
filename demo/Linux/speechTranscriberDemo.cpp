@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 
+#include "demo_utils.h"
 #include "nlsClient.h"
 #include "nlsEvent.h"
 #include "nlsToken.h"
@@ -88,7 +89,10 @@ struct ParamStruct {
   uint64_t closeMaxValue;   /*start()到closed事件的最大用时*/
   uint64_t closeMinValue;   /*start()到closed事件的最小用时*/
 
-  uint64_t sendTotalValue; /*单线程调用sendAudio总耗时*/
+  uint64_t startApiTimeDiffUs; /* 调用start()的总耗时 */
+  uint64_t stopApiTimeDiffUs;  /* 调用stop()的总耗时 */
+  uint64_t stopApiConsumed;    /* 调用stop()次数 */
+  uint64_t sendTotalValue;     /*单线程调用sendAudio总耗时*/
 
   uint64_t audioFileTimeLen; /*灌入音频文件的音频时长*/
 
@@ -155,31 +159,6 @@ class ParamCallBack {
   std::vector<struct SentenceParamStruct> sentenceParam;
 };
 
-// 统计参数
-struct ParamStatistics {
-  ParamStatistics() {
-    running = false;
-    success_flag = false;
-    failed_flag = false;
-    audio_ms = 0;
-    start_ms = 0;
-    end_ms = 0;
-    ave_ms = 0;
-    s_cnt = 0;
-  };
-
-  bool running;
-  bool success_flag;
-  bool failed_flag;
-
-  uint64_t audio_ms;
-  uint64_t start_ms;
-  uint64_t end_ms;
-  uint64_t ave_ms;
-
-  uint32_t s_cnt;
-};
-
 /**
  * 全局维护一个服务鉴权token和其对应的有效期时间戳，
  * 每次调用服务之前，首先判断token是否已经过期，
@@ -220,14 +199,12 @@ int g_break_time_each_round_s = 0;
 
 long g_expireTime = -1;
 volatile static bool global_run = false;
-static pthread_mutex_t params_mtx; /*全局统计参数g_statistics的操作锁*/
-static std::map<unsigned long, struct ParamStatistics*> g_statistics;
 static int sample_rate = SAMPLE_RATE_16K;
 static int frame_size = FRAME_16K_20MS; /*每次推送音频字节数.*/
 static int encoder_type = ENCODER_OPUS;
 static int logLevel = AlibabaNls::LogDebug; /* 0:为关闭log */
 static int max_sentence_silence = 0; /*最大静音断句时间, 单位ms. 默认不设置.*/
-static int run_cnt = 0;
+static int run_cnt = 0;              /* 调用start()总次数 */
 static int run_start_failed = 0;
 static int run_cancel = 0;
 static int run_success = 0;
@@ -245,6 +222,9 @@ static bool longConnection = false;
 static bool sysAddrinfo = false;
 static bool noSleepFlag = false;
 static bool enableIntermediateResult = false;
+static bool preconnectedPool = false;
+uint64_t g_tokenExpirationS = 0;
+uint32_t g_requestTimeoutMs = 7500;
 static bool simplifyLog = false;
 
 void signal_handler_int(int signo) {
@@ -254,220 +234,6 @@ void signal_handler_int(int signo) {
 void signal_handler_quit(int signo) {
   std::cout << "\nget quit mesg\n" << std::endl;
   global_run = false;
-}
-
-std::string timestamp_str() {
-  char buf[64];
-  struct timeval tv;
-  struct tm ltm;
-
-  gettimeofday(&tv, NULL);
-  localtime_r(&tv.tv_sec, &ltm);
-  snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
-           ltm.tm_year + 1900, ltm.tm_mon + 1, ltm.tm_mday, ltm.tm_hour,
-           ltm.tm_min, ltm.tm_sec, tv.tv_usec);
-  buf[63] = '\0';
-  std::string tmp = buf;
-  return tmp;
-}
-
-std::string findConnectType(const char* input) {
-  const char* key = "\"connect_type\":\"";
-  const char* start = strstr(input, key);
-  if (start != NULL) {
-    start += strlen(key);
-    const char* end = strchr(start, '\"');
-    if (end != NULL) {
-      size_t length = end - start;
-      char* value = new char[length + 1];
-      strncpy(value, start, length);
-      value[length] = '\0';
-      std::string result(value);
-      delete[] value;
-      return result;
-    }
-  }
-  return "";
-}
-
-void findWavFiles(const std::string& directory,
-                  std::vector<std::string>& wavFiles) {
-  DIR* dir;
-  struct dirent* ent;
-
-  // 打开目录
-  if ((dir = opendir(directory.c_str())) != NULL) {
-    // 读取目录中的每个文件
-    while ((ent = readdir(dir)) != NULL) {
-      std::string fileName = ent->d_name;
-      // 检查文件名是否以 .wav 结尾
-      if (fileName.size() >= 4 &&
-          fileName.substr(fileName.size() - 4) == ".wav") {
-        wavFiles.push_back(directory + "/" + fileName);
-      }
-    }
-    closedir(dir);
-  } else {
-    std::cerr << "无法打开目录: " << directory << std::endl;
-  }
-}
-
-std::string getWavFile(std::vector<std::string>& wavFiles) {
-  if (!wavFiles.empty()) {
-    std::srand(std::time(0));
-    int randomIndex = std::rand() % wavFiles.size();  // 随机索引
-    return wavFiles[randomIndex];
-  }
-  return "";
-}
-
-static void vectorStartStore(unsigned long pid) {
-  pthread_mutex_lock(&params_mtx);
-
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  if (iter != g_statistics.end()) {
-    // 已经存在
-    struct timeval start_tv;
-    gettimeofday(&start_tv, NULL);
-    iter->second->start_ms = start_tv.tv_sec * 1000 + start_tv.tv_usec / 1000;
-    std::cout << "vectorStartStore start:" << iter->second->start_ms
-              << std::endl;
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return;
-}
-
-static void vectorSetParams(unsigned long pid, bool add,
-                            struct ParamStatistics params) {
-  pthread_mutex_lock(&params_mtx);
-
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  if (iter != g_statistics.end()) {
-    // 已经存在
-    iter->second->running = params.running;
-    iter->second->success_flag = params.success_flag;
-    iter->second->failed_flag = false;
-    if (params.audio_ms > 0) {
-      iter->second->audio_ms = params.audio_ms;
-    }
-  } else {
-    // 不存在, 新的pid
-    if (add) {
-      //      std::cout << "vectorSetParams create pid:" << pid << std::endl;
-      struct ParamStatistics* p_tmp = new (struct ParamStatistics);
-      if (!p_tmp) return;
-      memset(p_tmp, 0, sizeof(struct ParamStatistics));
-      p_tmp->running = params.running;
-      p_tmp->success_flag = params.success_flag;
-      p_tmp->failed_flag = false;
-      if (params.audio_ms > 0) {
-        p_tmp->audio_ms = params.audio_ms;
-      }
-      g_statistics.insert(std::make_pair(pid, p_tmp));
-    } else {
-    }
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return;
-}
-
-static void vectorSetRunning(unsigned long pid, bool run) {
-  pthread_mutex_lock(&params_mtx);
-
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  //  std::cout << "vectorSetRunning pid:"<< pid
-  //    << "; run:" << run << std::endl;
-  if (iter != g_statistics.end()) {
-    // 已经存在
-    iter->second->running = run;
-  } else {
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return;
-}
-
-static void vectorSetResult(unsigned long pid, bool ret) {
-  pthread_mutex_lock(&params_mtx);
-
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  if (iter != g_statistics.end()) {
-    // 已经存在
-    iter->second->success_flag = ret;
-
-    if (ret) {
-      struct timeval end_tv;
-      gettimeofday(&end_tv, NULL);
-      iter->second->end_ms = end_tv.tv_sec * 1000 + end_tv.tv_usec / 1000;
-      uint64_t d_ms = iter->second->end_ms - iter->second->start_ms;
-
-      if (iter->second->ave_ms == 0) {
-        iter->second->ave_ms = d_ms;
-      } else {
-        iter->second->ave_ms = (d_ms + iter->second->ave_ms) / 2;
-      }
-      iter->second->s_cnt++;
-    }
-  } else {
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return;
-}
-
-static void vectorSetFailed(unsigned long pid, bool ret) {
-  pthread_mutex_lock(&params_mtx);
-
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  if (iter != g_statistics.end()) {
-    // 已经存在
-    iter->second->failed_flag = ret;
-  } else {
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return;
-}
-
-static bool vectorGetRunning(unsigned long pid) {
-  pthread_mutex_lock(&params_mtx);
-
-  bool result = false;
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  if (iter != g_statistics.end()) {
-    // 存在
-    result = iter->second->running;
-  } else {
-    // 不存在, 新的pid
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return result;
-}
-
-static bool vectorGetFailed(unsigned long pid) {
-  pthread_mutex_lock(&params_mtx);
-
-  bool result = false;
-  std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-  iter = g_statistics.find(pid);
-  if (iter != g_statistics.end()) {
-    // 存在
-    result = iter->second->failed_flag;
-  } else {
-    // 不存在, 新的pid
-  }
-
-  pthread_mutex_unlock(&params_mtx);
-  return result;
 }
 
 /**
@@ -498,45 +264,6 @@ int generateToken(std::string akId, std::string akSecret, std::string* token,
   *expireTime = nlsTokenRequest.getExpireTime();
 
   return 0;
-}
-
-unsigned int getAudioFileTimeMs(const int dataSize, const int sampleRate,
-                                const int compressRate) {
-  // 仅支持16位采样
-  const int sampleBytes = 16;
-  // 仅支持单通道
-  const int soundChannel = 1;
-
-  // 当前采样率，采样位数下每秒采样数据的大小
-  int bytes = (sampleRate * sampleBytes * soundChannel) / 8;
-
-  // 当前采样率，采样位数下每毫秒采样数据的大小
-  int bytesMs = bytes / 1000;
-
-  // 待发送数据大小除以每毫秒采样数据大小，以获取sleep时间
-  int fileMs = (dataSize * compressRate) / bytesMs;
-
-  return fileMs;
-}
-
-/**
- * @brief 获取sendAudio发送延时时间
- * @param dataSize 待发送数据大小
- * @param sampleRate 采样率 16k/8K
- * @param compressRate 数据压缩率，例如压缩比为10:1的16k opus编码，此时为10；
- *                     非压缩数据则为1
- * @return 返回sendAudio之后需要sleep的时间
- * @note 对于8k pcm 编码数据, 16位采样，建议每发送1600字节 sleep 100 ms.
-         对于16k pcm 编码数据, 16位采样，建议每发送3200字节 sleep 100 ms.
-         对于其它编码格式(OPUS)的数据, 由于传递给SDK的仍然是PCM编码数据,
-         按照SDK OPUS/OPU 数据长度限制, 需要每次发送640字节 sleep 20ms.
- */
-unsigned int getSendAudioSleepTime(const int dataSize, const int sampleRate,
-                                   const int compressRate) {
-  int sleepMs = getAudioFileTimeMs(dataSize, sampleRate, compressRate);
-  // std::cout << "data size: " << dataSize << "bytes, sleep: " << sleepMs <<
-  // "ms." << std::endl;
-  return sleepMs;
 }
 
 /**
@@ -614,13 +341,6 @@ void onTranscriptionStarted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
     // first package flag init
     tmpParam->tParam->firstFlag = false;
-
-    // pid, add, run, success
-    struct ParamStatistics params;
-    params.running = true;
-    params.success_flag = false;
-    params.audio_ms = 0;
-    vectorSetParams(tmpParam->userId, true, params);
 
     // 通知发送线程start()成功, 可以继续发送数据
     pthread_mutex_lock(&(tmpParam->mtxWord));
@@ -848,8 +568,6 @@ void onTranscriptionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
       tmpParam->tParam->endAveValue =
           tmpParam->tParam->endTotalValue / tmpParam->tParam->completedConsumed;
     }
-
-    vectorSetResult(tmpParam->userId, true);
   }
 }
 
@@ -867,7 +585,7 @@ void onTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
   FILE* failed_stream = fopen("transcriptionTaskFailed.log", "a+");
   if (failed_stream) {
-    std::string ts = timestamp_str();
+    std::string ts = timestampStr(NULL, NULL);
     char outbuf[1024] = {0};
     snprintf(outbuf, sizeof(outbuf),
              "%s status code:%d task id:%s error mesg:%s\n", ts.c_str(),
@@ -893,9 +611,6 @@ void onTaskFailed(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
 
     std::cout << "  onTaskFailed userId " << tmpParam->userId << ", "
               << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
-
-    vectorSetResult(tmpParam->userId, false);
-    vectorSetFailed(tmpParam->userId, true);
   }
 }
 
@@ -1212,12 +927,6 @@ void* pthreadFunction(void* arg) {
     fs.seekg(0, std::ios::end);
     int len = fs.tellg();
     tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
-
-    struct ParamStatistics params;
-    params.running = false;
-    params.success_flag = false;
-    params.audio_ms = len / 640 * 20;
-    vectorSetParams(pthread_self(), true, params);
   }
 
   // 退出线程前释放
@@ -1285,6 +994,12 @@ void* pthreadFunction(void* arg) {
     }
 
     struct timeval now;
+    if (g_tokenExpirationS > 0) {
+      gettimeofday(&now, NULL);
+      uint64_t expirationMs =
+          now.tv_sec * 1000 + now.tv_usec / 1000 + g_tokenExpirationS * 1000;
+      request->setTokenExpirationTime(expirationMs);
+    }
 
     // 私有化支持vipserver, 公有云客户无需关注此处
     if (strnlen(tst->vipServerDomain, 512) > 0 &&
@@ -1376,8 +1091,10 @@ void* pthreadFunction(void* arg) {
       std::cout << "start ->" << std::endl;
     }
     struct timespec outtime;
-    gettimeofday(&(cbParam->startTv), NULL);
+    uint64_t startApiBeginUs = getTimestampUs(&(cbParam->startTv));
     int ret = request->start();
+    cbParam->tParam->startApiTimeDiffUs +=
+        (getTimestampUs(NULL) - startApiBeginUs);
     run_cnt++;
     testCount++;
     if (ret < 0) {
@@ -1569,7 +1286,11 @@ void* pthreadFunction(void* arg) {
       std::cout << "stop ->" << std::endl;
     }
     // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
+    uint64_t stopApiBeginUs = getTimestampUs(NULL);
     ret = request->stop();
+    cbParam->tParam->stopApiTimeDiffUs +=
+        (getTimestampUs(NULL) - stopApiBeginUs);
+    cbParam->tParam->stopApiConsumed++;
     if (!simplifyLog) {
       std::cout << "stop done. ret " << ret << "\n" << std::endl;
     }
@@ -1699,7 +1420,6 @@ void* pthreadLongConnectionFunction(void* arg) {
   int sleepMs = 0;  // 根据发送音频数据帧长度计算sleep时间，用于模拟真实录音情景
   int testCount = 0;  // 运行次数计数，用于超过设置的loop次数后退出
   ParamCallBack* cbParam = NULL;
-  struct ParamStatistics params;
   bool timedwait_flag = false;
 
   // 从自定义线程参数中获取token, 配置文件等参数.
@@ -1854,21 +1574,9 @@ void* pthreadLongConnectionFunction(void* arg) {
       int len = fs.tellg();
       tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
       fs.seekg(0, std::ios::beg);
-
-      params.running = false;
-      params.success_flag = false;
-      params.audio_ms = len / 640 * 20;
-      vectorSetParams(pthread_self(), true, params);
     }
 
     cbParam->tParam->requestConsumed++;
-
-    if (!simplifyLog) {
-      std::cout << "start ->" << std::endl;
-    }
-    struct timespec outtime;
-    struct timeval now;
-    gettimeofday(&(cbParam->startTv), NULL);
 
     /*
      * 4.1.
@@ -1880,7 +1588,15 @@ void* pthreadLongConnectionFunction(void* arg) {
      *              直到内部得到成功(同时也会触发started事件回调)或失败(同时也会触发TaskFailed事件回调)后返回。
      *              此方法方便旧版本SDK
      */
+    if (!simplifyLog) {
+      std::cout << "start ->" << std::endl;
+    }
+    struct timespec outtime;
+    struct timeval now;
+    uint64_t startApiBeginUs = getTimestampUs(&(cbParam->startTv));
     int ret = request->start();
+    cbParam->tParam->startApiTimeDiffUs +=
+        (getTimestampUs(NULL) - startApiBeginUs);
     run_cnt++;
     testCount++;
     if (ret < 0) {
@@ -2038,12 +1754,14 @@ void* pthreadLongConnectionFunction(void* arg) {
      *              此方法方便旧版本SDK。
      */
     if (!simplifyLog) {
-      std::cout
-          << "stop ->"
-          << std::
-                 endl;  // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
+      std::cout << "stop ->" << std::endl;
     }
+    // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
+    uint64_t stopApiBeginUs = getTimestampUs(NULL);
     ret = request->stop();
+    cbParam->tParam->stopApiTimeDiffUs +=
+        (getTimestampUs(NULL) - stopApiBeginUs);
+    cbParam->tParam->stopApiConsumed++;
     if (!simplifyLog) {
       std::cout << "stop done. ret " << ret << "\n" << std::endl;
     }
@@ -2236,6 +1954,11 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     pa[i].closeMinValue = 0;
     pa[i].sendTotalValue = 0;
 
+    pa[i].startApiTimeDiffUs = 0;
+    pa[i].stopApiTimeDiffUs = 0;
+    pa[i].stopApiConsumed = 0;
+    pa[i].sendTotalValue = 0;
+
     pa[i].audioFileTimeLen = 0;
 
     pa[i].s50Value = 0;
@@ -2316,6 +2039,10 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
   unsigned long long sendTotalTime = 0;
   unsigned long long sendAveTime = 0;
 
+  unsigned long long startApiTotalTime = 0;
+  unsigned long long stopApiTotalTime = 0;
+  unsigned long long stopApiTotalCount = 0;
+
   unsigned long long audioFileAveTimeLen = 0;
 
   uint32_t connectWithSSL = 0;
@@ -2334,6 +2061,9 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
     rTotalCount += pa[i].requestConsumed;
     sendTotalCount += pa[i].sendConsumed;
     sendTotalTime += pa[i].sendTotalValue;  // us, 所有线程sendAudio耗时总和
+    startApiTotalTime += pa[i].startApiTimeDiffUs;
+    stopApiTotalTime += pa[i].stopApiTimeDiffUs;
+    stopApiTotalCount += pa[i].stopApiConsumed;
     audioFileAveTimeLen += pa[i].audioFileTimeLen;
 
     // std::cout << "Closed:" << pa[i].closeConsumed << std::endl;
@@ -2477,12 +2207,12 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Final Total. " << std::endl;
-  std::cout << "Final Request: " << rTotalCount << std::endl;
-  std::cout << "Final Started: " << sTotalCount << std::endl;
-  std::cout << "Final Completed: " << eTotalCount << std::endl;
-  std::cout << "Final Failed: " << fTotalCount << std::endl;
-  std::cout << "Final Closed: " << cTotalCount << std::endl;
+  std::cout << "Final Total: " << std::endl;
+  std::cout << "      Request: " << rTotalCount << std::endl;
+  std::cout << "      Started: " << sTotalCount << std::endl;
+  std::cout << "      Completed: " << eTotalCount << std::endl;
+  std::cout << "      Failed: " << fTotalCount << std::endl;
+  std::cout << "      Closed: " << cTotalCount << std::endl;
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -2513,7 +2243,15 @@ int speechTranscriberMultFile(const char* appkey, int threads) {
 
   std::cout << "\n ------------------- \n" << std::endl;
 
-  std::cout << "Ave sendAudio time: " << sendAveTime << " us" << std::endl;
+  std::cout << "Ave sendAudio() time: " << sendAveTime << " us" << std::endl;
+  if (run_cnt > 0) {
+    std::cout << "Ave start() time: " << startApiTotalTime / run_cnt << " us"
+              << std::endl;
+  }
+  if (stopApiTotalCount > 0) {
+    std::cout << "Ave stop() time: " << stopApiTotalTime / stopApiTotalCount
+              << " us" << std::endl;
+  }
 
   std::cout << "\n ------------------- \n" << std::endl;
 
@@ -2749,6 +2487,22 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_break_time_each_round_s = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--preconnectedPool")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        preconnectedPool = true;
+      } else {
+        preconnectedPool = false;
+      }
+    } else if (!strcmp(argv[index], "--tokenExpiration")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_tokenExpirationS = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--requestTimeout")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_requestTimeoutMs = atoi(argv[index]);
     }
     index++;
   }
@@ -2832,6 +2586,8 @@ int main(int argc, char* argv[]) {
         << "  --sync_timeout <Use sync invoke, set timeout_ms, default 0, "
            "invoke is async.>\n"
         << "  --setrlimit <Set the limits of the file descriptor>\n"
+        << "  --preconnectedPool <Whether to enable the pre-connected pooling "
+           "feature. Default is 0.>\n"
         << "  --startGradually <Start multithreading step by step, set the "
            "value to the maximum random value of the start thread delay, in "
            "milliseconds. Default is 0.>\n"
@@ -2869,8 +2625,6 @@ int main(int argc, char* argv[]) {
   std::cout << " loop timeout: " << loop_timeout << std::endl;
   std::cout << " loop count: " << loop_count << std::endl;
   std::cout << "\n" << std::endl;
-
-  pthread_mutex_init(&params_mtx, NULL);
 
   if (profile_scan > 0) {
     g_sys_info = new PROFILE_INFO[profile_scan + 1];
@@ -2931,6 +2685,11 @@ int main(int argc, char* argv[]) {
       AlibabaNls::NlsClient::getInstance()->setSyncCallTimeout(g_sync_timeout);
     }
 
+    if (preconnectedPool) {
+      AlibabaNls::NlsClient::getInstance()->setPreconnectedPool(
+          g_threads, 15000, g_requestTimeoutMs);
+    }
+
     if (g_setrlimit) {
       struct rlimit lim;
       // 设置软限制
@@ -2969,33 +2728,16 @@ int main(int argc, char* argv[]) {
     // 请注意, releaseInstance()非线程安全.
     AlibabaNls::NlsClient::releaseInstance();
 
-    int size = g_statistics.size();
-    if (size > 0) {
-      std::cout << "\n" << std::endl;
+    std::cout << "\n" << std::endl;
+    std::cout << "Threads count:" << g_threads << ", Requests count:" << run_cnt
+              << std::endl;
+    std::cout << " time:" << loop_timeout << " count:" << loop_count
+              << std::endl;
+    std::cout << "    success:" << run_success << " cancel:" << run_cancel
+              << " fail:" << run_fail << " start failed:" << run_start_failed
+              << std::endl;
 
-      std::cout << "Threads count:" << g_threads
-                << ", Requests count:" << run_cnt << std::endl;
-      std::cout << " time:" << loop_timeout << " count:" << loop_count
-                << std::endl;
-      std::cout << "    success:" << run_success << " cancel:" << run_cancel
-                << " fail:" << run_fail << " start failed:" << run_start_failed
-                << std::endl;
-
-      sleep(3);
-
-      pthread_mutex_lock(&params_mtx);
-      std::map<unsigned long, struct ParamStatistics*>::iterator iter;
-      for (iter = g_statistics.begin(); iter != g_statistics.end();) {
-        struct ParamStatistics* second = iter->second;
-        if (second) {
-          delete second;
-          second = NULL;
-        }
-        g_statistics.erase(iter++);
-      }
-      g_statistics.clear();
-      pthread_mutex_unlock(&params_mtx);
-    }
+    sleep(1);
 
     run_cnt = 0;
     run_start_failed = 0;
@@ -3048,8 +2790,6 @@ int main(int argc, char* argv[]) {
               << std::endl;
     std::cout << "===============================" << std::endl;
   }
-
-  pthread_mutex_destroy(&params_mtx);
 
   return 0;
 }

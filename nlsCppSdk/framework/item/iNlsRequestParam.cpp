@@ -15,6 +15,7 @@
  */
 
 #include "iNlsRequestParam.h"
+
 #include "Config.h"
 #include "connectNode.h"
 #include "nlog.h"
@@ -41,7 +42,8 @@ const char g_csharp_sdk_language[] = "Csharp";
 const char g_sdk_language[] = "C++";
 const char g_sdk_version[] = NLS_SDK_VERSION_STR;
 
-INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
+INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName,
+                                   int version)
     : _enableWakeWord(false),
       _enableRecvTimeout(false),
       _enableOnMessage(false),
@@ -55,6 +57,7 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
       _requestType(SpeechNormal),
       _url(D_DEFAULT_URL),
       _outputFormat(D_DEFAULT_VALUE_ENCODE_UTF8),
+      _appKey(""),
       _token(""),
       _format(D_DEFAULT_VALUE_AUDIO_ENCODE),
       _task_id(""),
@@ -67,7 +70,8 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
       _payload(Json::objectValue),
       _context(Json::objectValue),
       _httpHeader(Json::objectValue),
-      _httpHeaderString("") {
+      _httpHeaderString(""),
+      _version(version) {
 #if defined(_MSC_VER)
   _outputFormat = D_DEFAULT_VALUE_ENCODE_GBK;
 #endif
@@ -77,6 +81,55 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName)
 }
 
 INlsRequestParam::~INlsRequestParam() {}
+
+INlsRequestParam& INlsRequestParam::operator=(const INlsRequestParam& other) {
+  if (this != &other) {
+    _enableWakeWord = other._enableWakeWord;
+    _enableRecvTimeout = other._enableRecvTimeout;
+    _enableOnMessage = other._enableOnMessage;
+#ifdef ENABLE_CONTINUED
+    _enableReconnect = other._enableReconnect;
+#endif
+    _timeout = other._timeout;
+    _recv_timeout = other._recv_timeout;
+    _send_timeout = other._send_timeout;
+    _sampleRate = other._sampleRate;
+    _requestType = other._requestType;
+    _url = other._url;
+    _outputFormat = other._outputFormat;
+    _appKey = other._appKey;
+    _token = other._token;
+    _format = other._format;
+    _task_id = other._task_id;
+    _mode = other._mode;
+    _sdk_name = other._sdk_name;
+    _startCommand = other._startCommand;
+    _controlCommand = other._controlCommand;
+    _stopCommand = other._stopCommand;
+    _header = other._header;
+    _payload = other._payload;
+    _context = other._context;
+    _httpHeader = other._httpHeader;
+    _httpHeaderString = other._httpHeaderString;
+  }
+  return *this;
+}
+
+bool INlsRequestParam::operator==(const INlsRequestParam& other) const {
+  return _enableWakeWord == other._enableWakeWord &&
+         _enableRecvTimeout == other._enableRecvTimeout &&
+         _enableOnMessage == other._enableOnMessage &&
+#ifdef ENABLE_CONTINUED
+         _enableReconnect == other._enableReconnect &&
+#endif
+         _timeout == other._timeout && _recv_timeout == other._recv_timeout &&
+         _send_timeout == other._send_timeout &&
+         _sampleRate == other._sampleRate &&
+         _requestType == other._requestType && _url == other._url &&
+         _outputFormat == other._outputFormat && _appKey == other._appKey &&
+         _format == other._format && _mode == other._mode &&
+         _sdk_name == other._sdk_name;
+}
 
 Json::Value INlsRequestParam::getSdkInfo() {
   Json::Value sdkInfo;
@@ -286,6 +339,7 @@ int INlsRequestParam::setContextParam(const char* value) {
 }
 
 void INlsRequestParam::setAppKey(const char* appKey) {
+  _appKey = appKey;
   _header[D_APP_KEY] = appKey;
 };
 
@@ -407,5 +461,9 @@ std::string INlsRequestParam::getOutputFormat() { return _outputFormat; }
 std::string INlsRequestParam::getTaskId() { return _task_id; }
 
 NlsRequestType INlsRequestParam::getNlsRequestType() { return _requestType; }
+
+std::string INlsRequestParam::getSdkName() { return _sdk_name; }
+
+int INlsRequestParam::getVersion() { return _version; }
 
 }  // namespace AlibabaNls

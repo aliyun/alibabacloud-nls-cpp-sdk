@@ -28,7 +28,7 @@ class FlowingSynthesizerListener : public INlsRequestListener {
   explicit FlowingSynthesizerListener(FlowingSynthesizerCallback* cb);
   ~FlowingSynthesizerListener();
 
-  virtual void handlerFrame(NlsEvent);
+  virtual void handlerFrame(NlsEvent&);
 
  private:
   FlowingSynthesizerCallback* _callback;
