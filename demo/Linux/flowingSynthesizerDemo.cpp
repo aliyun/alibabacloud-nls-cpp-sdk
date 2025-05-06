@@ -1556,8 +1556,7 @@ void* pthreadSingleRoundFunc(void* arg) {
     }
 
     if (text_file.is_open()) {
-      bool getlineResult = std::getline(text_file, text_line);
-      if (!getlineResult) {
+      if (!std::getline(text_file, text_line)) {
         text_file.close();
         text_file.open(g_text_file.c_str());
         if (text_file.is_open()) {
