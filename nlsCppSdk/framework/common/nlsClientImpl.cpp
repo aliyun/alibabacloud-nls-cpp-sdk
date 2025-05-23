@@ -54,7 +54,7 @@ NlsClientImpl::NlsClientImpl(bool sslInitial)
       _aiFamily(),
       _directHostIp(),
       _enableSysGetAddr(false),
-#ifdef ENABLE_PRECONNECTED_POO
+#ifdef ENABLE_PRECONNECTED_POOL
       _maxPreconnectedNumber(0),
       _preconnectedTimeoutMs(15000),
       _prerequestedTimeoutMs(75000),
@@ -160,6 +160,12 @@ void NlsClientImpl::setPreconnectedPool(unsigned int maxNumber,
   _maxPreconnectedNumber = maxNumber;
   _preconnectedTimeoutMs = timeoutMs >= 23000 ? 23000 : timeoutMs;
   _prerequestedTimeoutMs = requestTimeoutMs >= 8000 ? 8000 : requestTimeoutMs;
+
+  LOG_INFO(
+      "Set Preconnected pool parameters -> max_num(%d/%d), "
+      "preconnected_timeout(%d/%dms), prerequested_timeout(%d/%dms)",
+      _maxPreconnectedNumber, maxNumber, _preconnectedTimeoutMs, timeoutMs,
+      _prerequestedTimeoutMs, requestTimeoutMs);
 }
 #endif
 
