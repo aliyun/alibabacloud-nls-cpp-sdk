@@ -23,7 +23,7 @@
 #endif
 
 #ifndef NLS_SDK_VERSION_STR
-#define NLS_SDK_VERSION_STR "3.3.0b"
+#define NLS_SDK_VERSION_STR "3.3.0c"
 #endif
 
 #endif  // NLS_SDK_CONFIG_H
