@@ -26,7 +26,6 @@
 #include "nlsClientImpl.h"
 #include "nlsEventNetWork.h"
 #include "nodeManager.h"
-
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"

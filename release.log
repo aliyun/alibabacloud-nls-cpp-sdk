@@ -191,6 +191,18 @@
 -----2025/02/25 Version:3.2.1c-----
 1: 修复听悟功能下task_id在OnChannelClose回调中与服务端不一致问题
 
+-----2025/09/17 Version:3.2.1d-----
+1: 修复因为音频缓存eventBuffer存满而引发的内存泄露. 同时扩大缓存，且在音频缓存满的时候再启动libevent的_writeEvent以防其未启用导致不发送音频。
+
+-----2025/10/28 Version:3.2.1e-----
+1: 修复setEnableOnMessage设置true后，日志未记录ERROR信息的问题。
+
 -----2025/02/25 Version:3.2.2b-----
 1: 修复听悟功能下task_id在OnChannelClose回调中与服务端不一致问题
 2: 修复V3.2.2a引入的接收WS帧卡顿的问题
+
+-----2025/09/17 Version:3.2.2c-----
+1: 修复因为音频缓存eventBuffer存满而引发的内存泄露. 同时扩大缓存，且在音频缓存满的时候再启动libevent的_writeEvent以防其未启用导致不发送音频。
+
+-----2025/10/29 Version:3.2.2d-----
+1: 修复setEnableOnMessage设置true后，日志未记录ERROR信息的问题。

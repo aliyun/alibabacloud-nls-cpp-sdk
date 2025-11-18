@@ -916,8 +916,43 @@ void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     std::cout << "onMessage: parseJsonMsg failed:" << result << std::endl;
   } else {
     ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
+    FILE* failed_stream = NULL;
     switch (cbEvent->getMsgType()) {
       case AlibabaNls::NlsEvent::TaskFailed:
+        run_fail++;
+
+        failed_stream = fopen("transcriptionTaskFailed.log", "a+");
+        if (failed_stream) {
+          std::string ts = timestamp_str();
+          char outbuf[1024] = {0};
+          snprintf(outbuf, sizeof(outbuf),
+                   "%s status code:%d task id:%s error mesg:%s\n", ts.c_str(),
+                   cbEvent->getStatusCode(), cbEvent->getTaskId(),
+                   cbEvent->getErrorMessage());
+          fwrite(outbuf, strlen(outbuf), 1, failed_stream);
+          fclose(failed_stream);
+        }
+
+        std::cout
+            << "onTaskFailed: "
+            << "status code: " << cbEvent->getStatusCode() << ", task id: "
+            << cbEvent
+                   ->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
+            << ", error message: " << cbEvent->getErrorMessage() << std::endl;
+        std::cout << "onTaskFailed: All response:" << cbEvent->getAllResponse()
+                  << std::endl;  // 获取服务端返回的全部信息
+
+        if (tmpParam) {
+          if (!tmpParam->tParam) return;
+
+          tmpParam->tParam->failedConsumed++;
+
+          std::cout << "  onTaskFailed userId " << tmpParam->userId << ", "
+                    << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+
+          vectorSetResult(tmpParam->userId, false);
+          vectorSetFailed(tmpParam->userId, true);
+        }
         break;
       case AlibabaNls::NlsEvent::TranscriptionStarted:
         // 通知发送线程start()成功, 可以继续发送数据
@@ -926,6 +961,9 @@ void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         pthread_mutex_unlock(&(tmpParam->mtxWord));
         break;
       case AlibabaNls::NlsEvent::Close:
+        std::cout << "  OnChannelCloseed: userId " << tmpParam->userId << ", "
+                  << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+
         //通知发送线程, 最终识别结果已经返回, 可以调用stop()
         pthread_mutex_lock(&(tmpParam->mtxWord));
         pthread_cond_signal(&(tmpParam->cvWord));
@@ -1543,6 +1581,10 @@ void* pthreadFunction(void* arg) {
       if (g_loop_file_flag && fs.eof()) {
         fs.clear();
         fs.seekg(0, std::ios::beg);
+      }
+
+      if (!global_run) {
+        break;
       }
     }  // while - sendAudio
 

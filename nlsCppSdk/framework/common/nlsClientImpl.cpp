@@ -20,11 +20,10 @@
 #include "SSLconnect.h"
 #include "connectNode.h"
 #include "da/dialogAssistantRequest.h"
+#include "fss/flowingSynthesizerRequest.h"
 #include "nlog.h"
 #include "nlsClientImpl.h"
 #include "nlsEventNetWork.h"
-
-#include "fss/flowingSynthesizerRequest.h"
 #include "sr/speechRecognizerRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
@@ -297,7 +296,8 @@ void NlsClientImpl::releaseSynthesizerRequestImpl(
     /* check this request belong to this NlsClientImpl */
     ret = _nodeManager->checkRequestWithInstance((void *)request, (void *)this);
     if (ret != Success) {
-      LOG_ERROR("Request(%p) is invalid.", request);
+      LOG_ERROR("Request(%p) Node(%p) is invalid.", request,
+                request->getConnectNode());
       return;
     }
 

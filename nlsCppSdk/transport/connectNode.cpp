@@ -136,15 +136,15 @@ ConnectNode::ConnectNode(INlsRequest *request,
   evbuffer_enable_locking(_cmdEvBuffer, NULL);
   evbuffer_enable_locking(_wwvEvBuffer, NULL);
 
-  _sslHandle = new SSLconnect();
+  _sslHandle = new SSLconnect(this);
   if (_sslHandle == NULL) {
     LOG_ERROR("Node(%p) _sslHandle is nullptr.", this);
   } else {
-    LOG_DEBUG("Node(%p) new SSLconnect:%p.", this, _sslHandle);
+    LOG_INFO("Node(%p) new SSLconnect:%p.", this, _sslHandle);
   }
 
-  LOG_INFO("Node(%p) create ConnectNode include webSocketTcp:%p.", this,
-           &_webSocket);
+  LOG_INFO("Node(%p) create ConnectNode include webSocketTcp:%p and SSL:%p",
+           this, &_webSocket, _sslHandle);
 
   // will update parameters in updateParameters()
   _enableRecvTv = request->getRequestParam()->getEnableRecvTimeout();
@@ -761,6 +761,8 @@ void ConnectNode::closeStatusConnectNode() {
   _maxFrameSize = 0;
   _isFirstAudioFrame = true;
 
+  _connectTimerFlag = false;
+
   LOG_DEBUG(
       "Node(%p) closeStatusConnectNode done, current node status:%s exit "
       "status:%s.",
@@ -1129,7 +1131,8 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t *frame, size_t length) {
 int ConnectNode::addAudioDataBuffer(const uint8_t *frame, size_t frameSize) {
   REQUEST_CHECK(_request, this);
   int ret = 0;
-  uint8_t *tmp = NULL;
+  uint8_t *tmp =
+      NULL; /* alloc mem in binaryFrame, pls free in this function. */
   size_t tmpSize = 0;
   size_t length = 0;
   struct evbuffer *buff = NULL;
@@ -1174,8 +1177,21 @@ int ConnectNode::addAudioDataBuffer(const uint8_t *frame, size_t frameSize) {
   evbuffer_lock(buff);
   length = evbuffer_get_length(buff);
   if (length >= _limitSize) {
-    LOG_WARN("Too many audio data in evbuffer.");
+    LOG_WARN("Node(%p) too many audio data in evbuffer(%zu/%zu).", this, length,
+             _limitSize);
+
+    if (tmp) free(tmp);
+    tmp = NULL;
+
     evbuffer_unlock(buff);
+
+    /* 再启动_writeEvent以防_writeEvent本身出了异常 */
+    if (_writeEvent) {
+      event_del(_writeEvent);
+      utility::TextUtils::GetTimevalFromMs(
+          &_sendTv, _request->getRequestParam()->getSendTimeout());
+      event_add(_writeEvent, &_sendTv);
+    }
     return -(EvbufferTooMuch);
   }
 
@@ -1254,8 +1270,9 @@ int ConnectNode::sendControlDirective() {
 void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
   char *cmd = NULL;
 
-  LOG_DEBUG("Node(%p) get command type: %s.", this,
-            getCmdTypeString(type).c_str());
+  LOG_DEBUG("Node(%p) get command type: %s with %s", this,
+            getCmdTypeString(type).c_str(),
+            getConnectNodeStatusString().c_str());
 
   if (_request == NULL) {
     LOG_ERROR("The rquest of node(%p) is nullptr.", this);
@@ -1449,7 +1466,8 @@ int ConnectNode::nlsSend(const uint8_t *frame, size_t length) {
           evutil_socket_error_to_string(evutil_socket_geterror(_socketFd));
     }
 
-    LOG_ERROR("Node(%p) send failed: %s.", this, _nodeErrMsg.c_str());
+    LOG_ERROR("Node(%p) with sslHandle(%p) send failed: %s.", this, _sslHandle,
+              _nodeErrMsg.c_str());
   }
 
   return sLen;
@@ -1457,6 +1475,7 @@ int ConnectNode::nlsSend(const uint8_t *frame, size_t length) {
 
 /**
  * @brief: 发送一帧数据
+ * @param audio_frame 是否为音频数据帧, 默认为true
  * @return: 成功发送的字节数, 失败则返回负值.
  */
 int ConnectNode::nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame) {
@@ -1741,8 +1760,13 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
     } else if (wsFrame->length == 0) {
       LOG_ERROR("Node(%p) ws frame len is zero!", this);
     } else {
-      LOG_DEBUG("Node(%p) response(ws frame len:%d): %s", this, wsFrame->length,
-                result.c_str());
+      if (_enableOnMessage && result.find("TaskFailed") != std::string::npos) {
+        LOG_ERROR("Node(%p) response(ws frame len:%d): %s", this,
+                  wsFrame->length, result.c_str());
+      } else {
+        LOG_DEBUG("Node(%p) response(ws frame len:%d): %s", this,
+                  wsFrame->length, result.c_str());
+      }
     }
 
     if ("GBK" == _request->getRequestParam()->_outputFormat) {
@@ -2555,7 +2579,8 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   } else {
     events = EV_READ | EV_PERSIST | EV_FINALIZE;
   }
-  // LOG_DEBUG("Node(%p) set events(%d) for readEventCallback", this, events);
+  // LOG_DEBUG("Node(%p) set events(%d) for readEventCallback with sockFd(%d)",
+  //           this, events, sockFd);
   if (NULL == _readEvent) {
     _readEvent = event_new(_eventThread->_workBase, sockFd, events,
                            WorkThread::readEventCallBack, this);
@@ -2570,7 +2595,8 @@ int ConnectNode::connectProcess(const char *ip, int aiFamily) {
   }
 
   events = EV_WRITE | EV_TIMEOUT | EV_FINALIZE;
-  // LOG_DEBUG("Node(%p) set events(%d) for writeEventCallback", this, events);
+  // LOG_DEBUG("Node(%p) set events(%d) for writeEventCallback with sockFd(%d)",
+  //           this, events, sockFd);
   if (NULL == _writeEvent) {
     _writeEvent = event_new(_eventThread->_workBase, sockFd, events,
                             WorkThread::writeEventCallBack, this);
@@ -2820,8 +2846,10 @@ void ConnectNode::updateParameters() {
 
   if (_request->getRequestParam()->_sampleRate == SampleRate16K) {
     _limitSize = Buffer16kMaxLimit;
-  } else {
+  } else if (_request->getRequestParam()->_sampleRate == SampleRate8K) {
     _limitSize = Buffer8kMaxLimit;
+  } else {
+    _limitSize = Buffer16kMaxLimit;
   }
 
   time_t timeout_ms = _request->getRequestParam()->getTimeout();
@@ -3552,8 +3580,11 @@ bool ConnectNode::nodeReconnecting() {
     return true;
   } else if (_reconnection.state == NodeReconnection::TriggerReconnection ||
              _reconnection.state == NodeReconnection::NewReconnectionStarting) {
-    LOG_INFO("Node(%p) reconnection has launched(%d)", this,
-             _reconnection.state);
+    LOG_INFO(
+        "Node(%p) reconnection has launched[(%d)"
+        "0:NoReconnection,1:WillReconnect,2:TriggerReconnection,3:"
+        "NewReconnectionStarting]",
+        this, _reconnection.state);
   }
   return false;
 }

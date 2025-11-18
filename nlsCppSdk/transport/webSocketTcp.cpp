@@ -300,12 +300,13 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
       // LOG_DEBUG("WS(%p) Parse decodeFrameBodyWebSocketFrame wsType->opCode:%d
       // with retCode:%d.", this, wsType->opCode, retCode);
       if (retCode < 0) {
-        LOG_ERROR(
+        LOG_WARN(
             "WS(%p) Parse WsContentBody Failed, retCode:%d, "
             "wsType->headerSize:%d, frameSize:%d, wsType->fin:0x%x, "
-            "wsType->opCode:%d, wsType->mask:0x%x, wsType->N0:%d",
+            "wsType->opCode:%d, wsType->mask:0x%x, wsType->N0:%d, "
+            "wsType->N:%d",
             this, retCode, wsType->headerSize, frameSize, wsType->fin,
-            wsType->opCode, wsType->mask, wsType->N0);
+            wsType->opCode, wsType->mask, wsType->N0, wsType->N);
         return retCode;
       }
       _rStatus = WsHeadSize;
@@ -330,7 +331,7 @@ int WebSocketTcp::decodeHeaderSizeWebSocketFrame(uint8_t* buffer, size_t length,
   }
 
   const uint8_t* data = buffer;  // peek, but don't consume
-  /* FIN: 0bit */
+  /* FIN: 0bit 表示是否为最后帧 */
   wsType->fin = (data[0] & 0x80) == 0x80;
   /* Opcode: 4-7bit */
   wsType->opCode = (WebSocketHeaderType::OpCodeType)(data[0] & 0x0f);

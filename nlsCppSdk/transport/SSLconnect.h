@@ -27,7 +27,7 @@ namespace AlibabaNls {
 
 class SSLconnect {
  public:
-  SSLconnect();
+  explicit SSLconnect(void* node);
   ~SSLconnect();
 
   static int init();
@@ -55,6 +55,7 @@ class SSLconnect {
 #else
   pthread_mutex_t _mtxSSL;
 #endif
+  void* _node;
 };
 
 }  // namespace AlibabaNls

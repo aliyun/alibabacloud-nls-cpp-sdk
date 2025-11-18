@@ -68,8 +68,9 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /**
    * @brief 创建一句话识别对象
-   * @param onResultReceivedEvent  事件回调接口
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
    * @return 成功返回speechRecognizerRequest对象，否则返回NULL
    */
   SpeechRecognizerRequest* createRecognizerRequest(
@@ -84,8 +85,9 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /**
    * @brief 创建实时音频流识别对象
-   * @param onResultReceivedEvent  事件回调接口
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
    * @return 成功返回SpeechTranscriberRequest对象，否则返回NULL
    */
   SpeechTranscriberRequest* createTranscriberRequest(
@@ -100,8 +102,10 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /**
    * @brief 创建语音合成对象
-   * @param type tts类型
+   * @param version tts类型
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
    * @return 成功则SpeechSynthesizerRequest对象，否则返回NULL
    */
   SpeechSynthesizerRequest* createSynthesizerRequest(
@@ -119,6 +123,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @brief 创建语音助手对象
    * @param version  dialogAssistant类型
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
    * @return 成功则DialogAssistantRequest对象，否则返回NULL
    */
   DialogAssistantRequest* createDialogAssistantRequest(
@@ -134,8 +140,9 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /**
    * @brief 创建流式文本输入语音合成对象
-   * @param type tts类型
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
    * @return 成功则FlowingSynthesizerRequest对象，否则返回NULL
    */
   FlowingSynthesizerRequest* createFlowingSynthesizerRequest(
@@ -167,7 +174,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   /**
    * @brief
    * 跳过dns域名解析直接设置服务器ipv4地址，若调用则需要在startWorkThread之前
-   * @param ipv4的ip地址 比如106.15.83.44
+   * @param ip ipv4的ip地址 比如106.15.83.44
    * @return
    */
   void setDirectHost(const char* ip);
@@ -177,7 +184,7 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    *        若调用则需要在startWorkThread之前.
    *        存在部分设备在设置了dns后仍然无法通过SDK的dns获取可用的IP,
    *        可调用此接口启用系统的getaddrinfo来解决这个问题.
-   * @param
+   * @param enable 建议使用更加高效的libevent域名解析, 即默认false
    * @return
    */
   void setUseSysGetAddrInfo(bool enable);
@@ -186,10 +193,11 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @brief 设置同步调用模式的超时时间, 0则为关闭同步模式, 默认0,
    *        此模式start()后收到服务端结果再return出去,
    *        stop()后收到close()回调再return出去.
-   * @param
+   * @param timeoutMs 大于0即使用同步模式, 但是同步模式会阻塞并发,
+   * 请尽量不要使用
    * @return
    */
-  void setSyncCallTimeout(unsigned int timeout_ms);
+  void setSyncCallTimeout(unsigned int timeoutMs);
 
   /**
    * @brief 待合成音频文本内容字符数
@@ -205,7 +213,8 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
 
   /**
    * @brief 启动工作线程数量
-   * @param threadsNumber 启动工作线程数量，默认设置值为1
+   * @param threadsNumber 启动工作线程数量，默认设置值为1. 工作线程数越大,
+   * 每个请求的处理延迟更低, 但CPU占用更高. 如何选择详见readme.md
    * @return
    */
   void startWorkThread(int threadsNumber = 1);

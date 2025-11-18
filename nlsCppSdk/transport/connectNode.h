@@ -27,6 +27,7 @@
 #endif
 
 #include <stdint.h>
+
 #include <queue>
 #include <string>
 
@@ -294,7 +295,7 @@ class ConnectNode {
   inline struct evbuffer *getBinaryEvBuffer() { return _binaryEvBuffer; };
   inline struct evbuffer *getCmdEvBuffer() { return _cmdEvBuffer; };
   inline struct evbuffer *getWwvEvBuffer() { return _wwvEvBuffer; };
-
+  
   /* 3. send command and audio data */
   /* 3.1. send audio data */
   int addAudioDataBuffer(const uint8_t *frame, size_t length);
@@ -316,7 +317,7 @@ class ConnectNode {
   int connectProcess(const char *ip, int aiFamily);
   int sslProcess();
   void disconnectProcess();
-
+  
   /* 6. exit operation */
   void closeConnectNode();
   /*    about status of node in destroy */
@@ -377,7 +378,7 @@ class ConnectNode {
   /* 12. design for recording process */
   void updateNodeProcess(std::string api, int status, bool enter, size_t size);
   const char *dumpAllInfo();
-#endif
+  #endif
 
 #ifdef ENABLE_CONTINUED
   /* 13. design for reconnection automatically */
@@ -392,9 +393,10 @@ class ConnectNode {
   enum ConnectNodeConstValue {
     RetryConnectCount = 4,
     ConnectTimerIntervalMs = 30,
+    SampleRate8K = 8000,
     SampleRate16K = 16000,
-    Buffer8kMaxLimit = 16000,
-    Buffer16kMaxLimit = 32000,
+    Buffer8kMaxLimit = 96000,   /* 16000bytes = 1s, 6s */
+    Buffer16kMaxLimit = 192000, /* 32000bytes = 1s, 6s */
     NodeFrameSize = 2048,
   };
 

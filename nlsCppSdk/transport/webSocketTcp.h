@@ -48,18 +48,18 @@ enum WebSocketReceiveStatus {
 
 struct WebSocketHeaderType {
   unsigned headerSize;
-  bool fin;
+  bool fin; /* 0bit */
   bool mask;
   enum OpCodeType {
     CONTINUATION = 0x0,
     TEXT_FRAME = 0x1,
     BINARY_FRAME = 0x2,
-    CLOSE = 8,
-    PING = 9,
+    CLOSE = 0x8,
+    PING = 0x9,
     PONG = 0xa,
-  } opCode;
-  int N0;
-  uint64_t N;
+  } opCode;   /* 4-7bit */
+  int N0;     /* store payload len */
+  uint64_t N; /* payload len bytes */
   uint8_t masKingKey[4];
 };
 

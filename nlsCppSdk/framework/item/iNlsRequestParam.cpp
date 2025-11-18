@@ -15,6 +15,7 @@
  */
 
 #include "iNlsRequestParam.h"
+
 #include "Config.h"
 #include "connectNode.h"
 #include "nlog.h"
@@ -99,7 +100,8 @@ Json::Value INlsRequestParam::getSdkInfo() {
 
 const char* INlsRequestParam::getStartCommand() {
   Json::Value root;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writerBuilder;
+  writerBuilder["indentation"] = "";
 
   try {
     _task_id = utility::TextUtils::getRandomUuid();
@@ -111,7 +113,7 @@ const char* INlsRequestParam::getStartCommand() {
     root[D_PAYLOAD] = _payload;
     root[D_CONTEXT] = _context;
 
-    _startCommand = writer.write(root);
+    _startCommand = Json::writeString(writerBuilder, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -122,8 +124,9 @@ const char* INlsRequestParam::getStartCommand() {
 const char* INlsRequestParam::getControlCommand(const char* message) {
   Json::Value root;
   Json::Value inputRoot;
-  Json::FastWriter writer;
   Json::Reader reader;
+  Json::StreamWriterBuilder writerBuilder;
+  writerBuilder["indentation"] = "";
 
   try {
     if (!reader.parse(message, inputRoot)) {
@@ -148,7 +151,7 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
       root[D_CONTEXT] = inputRoot[D_CONTEXT];
     }
 
-    _controlCommand = writer.write(root);
+    _controlCommand = Json::writeString(writerBuilder, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -158,7 +161,8 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
 
 const char* INlsRequestParam::getStopCommand() {
   Json::Value root;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writerBuilder;
+  writerBuilder["indentation"] = "";
 
   try {
     _header[D_TASK_ID] = _task_id;
@@ -167,7 +171,7 @@ const char* INlsRequestParam::getStopCommand() {
     root[D_HEADER] = _header;
     root[D_CONTEXT] = _context;
 
-    _stopCommand = writer.write(root);
+    _stopCommand = Json::writeString(writerBuilder, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -287,24 +291,24 @@ int INlsRequestParam::setContextParam(const char* value) {
 
 void INlsRequestParam::setAppKey(const char* appKey) {
   _header[D_APP_KEY] = appKey;
-};
+}
 
 void INlsRequestParam::setFormat(const char* format) {
   _format = format;
   _payload[D_FORMAT] = format;
-};
+}
 
 void INlsRequestParam::setIntermediateResult(bool value) {
   _payload[D_SR_INTERMEDIATE_RESULT] = value;
-};
+}
 
 void INlsRequestParam::setPunctuationPrediction(bool value) {
   _payload[D_SR_PUNCTUATION_PREDICTION] = value;
-};
+}
 
 void INlsRequestParam::setTextNormalization(bool value) {
   _payload[D_SR_TEXT_NORMALIZATION] = value;
-};
+}
 
 int INlsRequestParam::setCustomizationId(const char* value) {
   if (value == NULL) {
@@ -328,12 +332,12 @@ int INlsRequestParam::setVocabularyId(const char* value) {
 
 void INlsRequestParam::setSentenceDetection(bool value) {
   _payload[D_ST_SENTENCE_DETECTION] = value;
-};
+}
 
 void INlsRequestParam::setSampleRate(int sampleRate) {
   _sampleRate = sampleRate;
   _payload[D_SAMPLE_RATE] = sampleRate;
-};
+}
 
 int INlsRequestParam::setEnableWakeWordVerification(bool value) {
   _payload[D_DA_WAKE_WORD_VERIFICATION] = value;

@@ -1294,6 +1294,7 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
       break;
 
     default:
+      LOG_WARN("Node(%p) current workStatus is %d.", node, workStatus);
       ret = -(InvalidWorkStatus);
       break;
   }

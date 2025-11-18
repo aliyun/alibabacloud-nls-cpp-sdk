@@ -128,7 +128,7 @@ class INlsRequestParam {
   virtual bool getEnableOnMessage();
   virtual std::string getTaskId();
   virtual NlsRequestType getNlsRequestType();
-
+  
  public:
   int AppendHttpHeader(const char* key, const char* value);
   std::string GetHttpHeader();
@@ -156,7 +156,7 @@ class INlsRequestParam {
   std::string _task_id;
 
   NlsType _mode;
-  std::string _sdk_name;
+  std::string _sdk_name;  // e.g. nls-cpp-sdk3.x-linux
 
   std::string _startCommand;
   std::string _controlCommand;
