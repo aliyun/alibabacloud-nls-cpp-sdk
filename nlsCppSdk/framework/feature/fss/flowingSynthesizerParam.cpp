@@ -100,7 +100,8 @@ const char* FlowingSynthesizerParam::getStopCommand() {
 const char* FlowingSynthesizerParam::getRunFlowingSynthesisCommand(
     const char* text) {
   Json::Value root;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
   _header[D_NAME] = D_CMD_RUN_SYNTHESIS;
 
   try {
@@ -111,7 +112,7 @@ const char* FlowingSynthesizerParam::getRunFlowingSynthesisCommand(
     root[D_HEADER] = _header;
     root[D_PAYLOAD] = _payload;
 
-    _runFlowingSynthesisCommand = writer.write(root);
+    _runFlowingSynthesisCommand = Json::writeString(writer, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -121,9 +122,10 @@ const char* FlowingSynthesizerParam::getRunFlowingSynthesisCommand(
 
 const char* FlowingSynthesizerParam::getFlushFlowingTextCommand(
     const char* parameters) {
-  Json::Reader reader;
+  Json::CharReaderBuilder reader;
   Json::Value root, payload;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
   _header[D_NAME] = D_CMD_FLUSH_TEXT;
 
   try {
@@ -131,13 +133,15 @@ const char* FlowingSynthesizerParam::getFlushFlowingTextCommand(
     _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
     root[D_HEADER] = _header;
 
-    if (parameters != NULL && reader.parse(parameters, payload)) {
+    std::istringstream iss(parameters);
+    if (parameters != NULL &&
+        Json::parseFromStream(reader, iss, &payload, NULL)) {
       root[D_PAYLOAD] = payload;
     }
 
     root[D_HEADER] = _header;
 
-    _flushFlowingTextCommand = writer.write(root);
+    _flushFlowingTextCommand = Json::writeString(writer, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;

@@ -61,6 +61,7 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName,
       _token(""),
       _format(D_DEFAULT_VALUE_AUDIO_ENCODE),
       _task_id(""),
+      _old_task_id(""),
       _mode(mode),
       _sdk_name(sdkName),
       _startCommand(""),
@@ -101,6 +102,7 @@ INlsRequestParam& INlsRequestParam::operator=(const INlsRequestParam& other) {
     _token = other._token;
     _format = other._format;
     _task_id = other._task_id;
+    _old_task_id = other._old_task_id;
     _mode = other._mode;
     _sdk_name = other._sdk_name;
     _startCommand = other._startCommand;
@@ -152,19 +154,26 @@ Json::Value INlsRequestParam::getSdkInfo() {
 
 const char* INlsRequestParam::getStartCommand() {
   Json::Value root;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
 
   try {
-    _task_id = utility::TextUtils::getRandomUuid();
+    if (_task_id == _old_task_id) {
+      _task_id = utility::TextUtils::getRandomUuid();
+    }
+    if (_task_id.empty()) {
+      _task_id = utility::TextUtils::getRandomUuid();
+    }
     _header[D_TASK_ID] = _task_id;
     // LOG_DEBUG("TaskId:%s", _task_id.c_str());
+    _old_task_id = _task_id;
     _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
 
     root[D_HEADER] = _header;
     root[D_PAYLOAD] = _payload;
     root[D_CONTEXT] = _context;
 
-    _startCommand = writer.write(root);
+    _startCommand = Json::writeString(writer, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -175,11 +184,13 @@ const char* INlsRequestParam::getStartCommand() {
 const char* INlsRequestParam::getControlCommand(const char* message) {
   Json::Value root;
   Json::Value inputRoot;
-  Json::FastWriter writer;
-  Json::Reader reader;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
+  Json::CharReaderBuilder reader;
+  std::istringstream iss(message);
 
   try {
-    if (!reader.parse(message, inputRoot)) {
+    if (!Json::parseFromStream(reader, iss, &inputRoot, NULL)) {
       LOG_ERROR("Parse json(%s) failed!", message);
       return NULL;
     }
@@ -201,7 +212,7 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
       root[D_CONTEXT] = inputRoot[D_CONTEXT];
     }
 
-    _controlCommand = writer.write(root);
+    _controlCommand = Json::writeString(writer, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -211,7 +222,8 @@ const char* INlsRequestParam::getControlCommand(const char* message) {
 
 const char* INlsRequestParam::getStopCommand() {
   Json::Value root;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
 
   try {
     _header[D_TASK_ID] = _task_id;
@@ -220,7 +232,7 @@ const char* INlsRequestParam::getStopCommand() {
     root[D_HEADER] = _header;
     root[D_CONTEXT] = _context;
 
-    _stopCommand = writer.write(root);
+    _stopCommand = Json::writeString(writer, root);
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -243,7 +255,7 @@ const char* INlsRequestParam::getFlushFlowingTextCommand(
 
 int INlsRequestParam::setPayloadParam(const char* value) {
   Json::Value root;
-  Json::Reader reader;
+  Json::CharReaderBuilder reader;
   Json::Value::iterator iter;
   Json::Value::Members members;
 
@@ -254,7 +266,8 @@ int INlsRequestParam::setPayloadParam(const char* value) {
 
   try {
     std::string tmpValue = value;
-    if (!reader.parse(tmpValue, root)) {
+    std::istringstream iss(tmpValue);
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
       return -(JsonParseFailed);
     }
@@ -304,13 +317,14 @@ int INlsRequestParam::removePayloadParam(const char* key) {
 
 int INlsRequestParam::setContextParam(const char* value) {
   Json::Value root;
-  Json::Reader reader;
+  Json::CharReaderBuilder reader;
   Json::Value::iterator iter;
   Json::Value::Members members;
   std::string tmpValue = value;
+  std::istringstream iss(tmpValue);
 
   try {
-    if (!reader.parse(tmpValue, root)) {
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       LOG_ERROR("Parse json(%s) failed!", tmpValue.c_str());
       return -(JsonParseFailed);
     }
@@ -341,24 +355,24 @@ int INlsRequestParam::setContextParam(const char* value) {
 void INlsRequestParam::setAppKey(const char* appKey) {
   _appKey = appKey;
   _header[D_APP_KEY] = appKey;
-};
+}
 
 void INlsRequestParam::setFormat(const char* format) {
   _format = format;
   _payload[D_FORMAT] = format;
-};
+}
 
 void INlsRequestParam::setIntermediateResult(bool value) {
   _payload[D_SR_INTERMEDIATE_RESULT] = value;
-};
+}
 
 void INlsRequestParam::setPunctuationPrediction(bool value) {
   _payload[D_SR_PUNCTUATION_PREDICTION] = value;
-};
+}
 
 void INlsRequestParam::setTextNormalization(bool value) {
   _payload[D_SR_TEXT_NORMALIZATION] = value;
-};
+}
 
 int INlsRequestParam::setCustomizationId(const char* value) {
   if (value == NULL) {
@@ -382,12 +396,12 @@ int INlsRequestParam::setVocabularyId(const char* value) {
 
 void INlsRequestParam::setSentenceDetection(bool value) {
   _payload[D_ST_SENTENCE_DETECTION] = value;
-};
+}
 
 void INlsRequestParam::setSampleRate(int sampleRate) {
   _sampleRate = sampleRate;
   _payload[D_SAMPLE_RATE] = sampleRate;
-};
+}
 
 int INlsRequestParam::setEnableWakeWordVerification(bool value) {
   _payload[D_DA_WAKE_WORD_VERIFICATION] = value;

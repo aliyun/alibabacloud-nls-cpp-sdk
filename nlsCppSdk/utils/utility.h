@@ -30,15 +30,17 @@ namespace utility {
   if (x == NULL) {                  \
     return -(InvalidInputParam);    \
   };
-#define INPUT_PARAM_JSON_STRING_CHECK(x)                  \
-  do {                                                    \
-    if (x != NULL) {                                      \
-      Json::Reader json_check_reader;                     \
-      Json::Value json_check_root(Json::objectValue);     \
-      if (!json_check_reader.parse(x, json_check_root)) { \
-        return -(JsonParseFailed);                        \
-      }                                                   \
-    }                                                     \
+#define INPUT_PARAM_JSON_STRING_CHECK(x)                                   \
+  do {                                                                     \
+    if (x != NULL) {                                                       \
+      Json::CharReaderBuilder json_check_reader;                           \
+      std::istringstream iss(x);                                           \
+      Json::Value json_check_root(Json::objectValue);                      \
+      if (!Json::parseFromStream(json_check_reader, iss, &json_check_root, \
+                                 NULL)) {                                  \
+        return -(JsonParseFailed);                                         \
+      }                                                                    \
+    }                                                                      \
   } while (0)
 #define INPUT_REQUEST_CHECK(x)              \
   do {                                      \

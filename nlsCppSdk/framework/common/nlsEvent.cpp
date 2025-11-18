@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+
 #include <sstream>
 
 #include "json/json.h"
@@ -196,13 +197,14 @@ int NlsEvent::parseJsonMsg(bool ignore) {
   }
 
   try {
-    Json::Reader reader;
+    Json::CharReaderBuilder reader;
     Json::Value head(Json::objectValue);
     Json::Value payload(Json::objectValue);
     Json::Value root(Json::objectValue);
     Json::Value stashResult(Json::objectValue);
+    std::istringstream iss(_msg);
 
-    if (!reader.parse(_msg, root)) {
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       LOG_ERROR("_msg:%s", _msg.c_str());
       return -(JsonParseFailed);
     }

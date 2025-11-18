@@ -203,6 +203,10 @@ const char* DialogAssistantRequest::dumpAllInfo() {
   return INlsRequest::dumpAllInfo(this);
 }
 
+NlsRequestStatus DialogAssistantRequest::getRequestStatus() {
+  return INlsRequest::getRequestStatus(this);
+}
+
 int DialogAssistantRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
@@ -283,6 +287,12 @@ int DialogAssistantRequest::setOutputFormat(const char* value) {
 int DialogAssistantRequest::setSessionId(const char* sessionId) {
   INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
   return _dialogAssistantParam->setSessionId(sessionId);
+}
+
+int DialogAssistantRequest::setTaskId(const char* taskId) {
+  INPUT_REQUEST_PARAM_CHECK(_dialogAssistantParam);
+  _dialogAssistantParam->setTaskId(taskId);
+  return Success;
 }
 
 int DialogAssistantRequest::setQueryContext(const char* value) {

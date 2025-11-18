@@ -211,6 +211,10 @@ const char* FlowingSynthesizerRequest::dumpAllInfo() {
   return INlsRequest::dumpAllInfo(this);
 }
 
+NlsRequestStatus FlowingSynthesizerRequest::getRequestStatus() {
+  return INlsRequest::getRequestStatus(this);
+}
+
 int FlowingSynthesizerRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
@@ -343,6 +347,12 @@ const char* FlowingSynthesizerRequest::getOutputFormat() {
     return NULL;
   }
   return _flowingSynthesizerParam->getOutputFormat().c_str();
+}
+
+int FlowingSynthesizerRequest::setTaskId(const char* taskId) {
+  INPUT_REQUEST_PARAM_CHECK(_flowingSynthesizerParam);
+  _flowingSynthesizerParam->setTaskId(taskId);
+  return Success;
 }
 
 const char* FlowingSynthesizerRequest::getTaskId() {

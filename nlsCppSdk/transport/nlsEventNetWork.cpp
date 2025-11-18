@@ -150,6 +150,10 @@ void NlsEventNetWork::initEventNetWork(NlsClientImpl *instance, int count,
 
   _workThreadArray = new WorkThread[_workThreadsNumber];
 
+  for (size_t i = 0; i < _workThreadsNumber; i++) {
+    LOG_INFO("New NO:%zu work thread %p.", i, &_workThreadArray[i]);
+  }
+
   evdns_set_log_fn(DnsLogCb);
   event_set_log_callback(EventLogCb);
 
@@ -277,10 +281,10 @@ int NlsEventNetWork::start(INlsRequest *request) {
       request->setThreadNumber(num);
     }
 
-    LOG_DEBUG("Request(%p) Node(%p) select NO:%d Total:%d thread.", request,
-              node, num, _workThreadsNumber);
-
     WorkThread *work_thread = &_workThreadArray[num];
+
+    LOG_INFO("Request(%p) node(%p) select NO:%d thread(%p).", request, node, num, work_thread);
+
     node->setEventThread(work_thread);
     node->getEventThread()->setInstance(_instance);
     node->setInstance(_instance);

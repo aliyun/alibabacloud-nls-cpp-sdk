@@ -209,6 +209,10 @@ const char* SpeechTranscriberRequest::dumpAllInfo() {
   return INlsRequest::dumpAllInfo(this);
 }
 
+NlsRequestStatus SpeechTranscriberRequest::getRequestStatus() {
+  return INlsRequest::getRequestStatus(this);
+}
+
 int SpeechTranscriberRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
@@ -361,6 +365,12 @@ const char* SpeechTranscriberRequest::getOutputFormat() {
     return NULL;
   }
   return _transcriberParam->getOutputFormat().c_str();
+}
+
+int SpeechTranscriberRequest::setTaskId(const char* taskId) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
+  _transcriberParam->setTaskId(taskId);
+  return Success;
 }
 
 const char* SpeechTranscriberRequest::getTaskId() {

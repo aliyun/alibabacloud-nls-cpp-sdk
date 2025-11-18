@@ -303,8 +303,9 @@ class ConnectNode {
   void updateParameters();
   /*      design to long connection */
   inline bool isLongConnection() { return _isLongConnection; }
-  inline bool useLongConnection(bool enable) { _isLongConnection = enable; }
+  inline void useLongConnection(bool enable) { _isLongConnection = enable; }
   inline void setConnected(bool isConnected) { _isConnected = isConnected; }
+  inline bool isConnected() { return _isConnected; }
   /*      design to preconnection */
   inline bool isUsingPreconnection() { return _usePreconnection; }
   inline void usePreconnection(bool usePreconnection) {
@@ -456,9 +457,10 @@ class ConnectNode {
   enum ConnectNodeConstValue {
     RetryConnectCount = 4,
     ConnectTimerIntervalMs = 30,
+    SampleRate8K = 8000,
     SampleRate16K = 16000,
-    Buffer8kMaxLimit = 16000,
-    Buffer16kMaxLimit = 32000,
+    Buffer8kMaxLimit = 96000,   /* 16000bytes = 1s, 6s */
+    Buffer16kMaxLimit = 192000, /* 32000bytes = 1s, 6s */
     NodeFrameSize = 2048,
   };
 
@@ -608,6 +610,8 @@ class ConnectNode {
   struct event *_reconnectEvent;
 #endif
   bool ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType, int code);
+  bool ignoreCallbackWhenNodeClosedWhenLongConnection(
+      NlsEvent::EventType eventType);
 
   /* 14. others */
   const char *genSynthesisStartedMsg();

@@ -147,11 +147,12 @@ ConnectNode::ConnectNode(INlsRequest *request,
   evbuffer_enable_locking(_cmdEvBuffer, NULL);
   evbuffer_enable_locking(_wwvEvBuffer, NULL);
 
-  _sslHandle = new SSLconnect();
+  _sslHandle = new SSLconnect(this);
   if (_sslHandle == NULL) {
     LOG_ERROR("Node(%p) _sslHandle is nullptr.", this);
   } else {
     _nativeSslHandle = _sslHandle;
+    LOG_INFO("Node(%p) new SSLconnect:%p.", this, _sslHandle);
   }
 
   LOG_INFO(
@@ -1358,7 +1359,8 @@ int ConnectNode::addSlicedAudioDataBuffer(const uint8_t *frame, size_t length) {
 int ConnectNode::addAudioDataBuffer(const uint8_t *frame, size_t frameSize) {
   REQUEST_CHECK(_request, this);
   int ret = 0;
-  uint8_t *tmp = NULL;
+  uint8_t *tmp =
+      NULL; /* alloc mem in binaryFrame, pls free in this function. */
   size_t tmpSize = 0;
   size_t length = 0;
   struct evbuffer *buff = NULL;
@@ -1403,8 +1405,21 @@ int ConnectNode::addAudioDataBuffer(const uint8_t *frame, size_t frameSize) {
   evbuffer_lock(buff);
   length = evbuffer_get_length(buff);
   if (length >= _limitSize) {
-    LOG_WARN("Too many audio data in evbuffer.");
+    LOG_WARN("Node(%p) too many audio data in evbuffer(%zu/%zu).", this, length,
+             _limitSize);
+
+    if (tmp) free(tmp);
+    tmp = NULL;
+
     evbuffer_unlock(buff);
+
+    /* 再启动_writeEvent以防_writeEvent本身出了异常 */
+    if (_writeEvent) {
+      event_del(_writeEvent);
+      utility::TextUtils::GetTimevalFromMs(
+          &_sendTv, _request->getRequestParam()->getSendTimeout());
+      event_add(_writeEvent, &_sendTv);
+    }
     return -(EvbufferTooMuch);
   }
 
@@ -1502,12 +1517,13 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
       if (_reconnection.state == NodeReconnection::TriggerReconnection) {
         // setting tw_time_offset and tw_index_offset
         Json::Value root;
-        Json::FastWriter writer;
+        Json::StreamWriterBuilder writer;
+        writer["indentation"] = "";
         root["tw_time_offset"] =
             Json::UInt64(_reconnection.interruption_timestamp_ms -
                          _reconnection.first_audio_timestamp_ms);
         root["tw_index_offset"] = (Json::UInt64)_reconnection.tw_index_offset;
-        std::string buf = writer.write(root);
+        std::string buf = Json::writeString(writer, root);
         _request->getRequestParam()->setPayloadParam(buf.c_str());
       }
       cmd = (char *)_request->getRequestParam()->getStartCommand();
@@ -1711,6 +1727,7 @@ int ConnectNode::nlsSend(const uint8_t *frame, size_t length) {
 
 /**
  * @brief: 发送一帧数据
+ * @param audio_frame 是否为音频数据帧, 默认为true
  * @return: 成功发送的字节数, 失败则返回负值.
  */
 int ConnectNode::nlsSendFrame(struct evbuffer *eventBuffer, bool audio_frame) {
@@ -2062,11 +2079,19 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
     } else if (wsFrame->length == 0) {
       LOG_ERROR("Node(%p) ws frame len is zero!", this);
     } else {
-      LOG_DEBUG(
-          "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws frame "
-          "len:%d): %s",
-          _request, this, _sslHandle, _socketFd, wsFrame->length,
-          result.c_str());
+      if (_enableOnMessage && result.find("TaskFailed") != std::string::npos) {
+        LOG_ERROR(
+            "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws frame "
+            "len:%d): %s",
+            _request, this, _sslHandle, _socketFd, wsFrame->length,
+            result.c_str());
+      } else {
+        LOG_DEBUG(
+            "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws frame "
+            "len:%d): %s",
+            _request, this, _sslHandle, _socketFd, wsFrame->length,
+            result.c_str());
+      }
     }
 
     if ("GBK" == _request->getRequestParam()->_outputFormat) {
@@ -2229,7 +2254,7 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
     return -(InvalidExitStatus);
   }
 
-  int msg_type = frameEvent->getMsgType();
+  NlsEvent::EventType msg_type = frameEvent->getMsgType();
   switch (msg_type) {
     case NlsEvent::RecognitionStarted:
     case NlsEvent::TranscriptionStarted:
@@ -2266,6 +2291,7 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
 
   // after callback
   bool closeFlag = false;
+  bool ignoreFlag = false;
   switch (msg_type) {
     case NlsEvent::RecognitionStarted:
     case NlsEvent::TranscriptionStarted:
@@ -2300,7 +2326,10 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
       }
       break;
     case NlsEvent::TaskFailed:
-      _workStatus = NodeFailed;
+      ignoreFlag = ignoreCallbackWhenNodeClosedWhenLongConnection(msg_type);
+      if (!ignoreFlag) {
+        _workStatus = NodeFailed;
+      }
       closeFlag = true;
       break;
     case NlsEvent::TranscriptionCompleted:
@@ -2349,7 +2378,13 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
         closeConnectNode();
       }
     } else {
-      closeStatusConnectNode();
+      if (ignoreFlag) {
+        LOG_WARN("Node(%p) ignore CLOSED callback and disconnecting ...", this);
+        closeConnectNode();
+        return Success;
+      } else {
+        closeStatusConnectNode();
+      }
     }
 
 #ifdef ENABLE_PRECONNECTED_POOL
@@ -2495,6 +2530,10 @@ int ConnectNode::handlerFrame(NlsEvent *frameEvent) {
     ignore_flag = ignoreCallbackWhenReconnecting(frameEvent->getMsgType(),
                                                  frameEvent->getStatusCode());
 #endif
+    if (!ignore_flag) {
+      ignore_flag = ignoreCallbackWhenNodeClosedWhenLongConnection(
+          frameEvent->getMsgType());
+    }
 
 #ifdef ENABLE_NLS_DEBUG_2
     timewait_c = utility::TextUtils::GetTimestampMs();
@@ -2685,11 +2724,12 @@ int ConnectNode::getErrorCodeFromMsg(const char *msg) {
   int code = DefaultErrorCode;
 
   try {
-    Json::Reader reader;
+    Json::CharReaderBuilder reader;
     Json::Value root(Json::objectValue);
+    std::istringstream iss(msg);
 
     // parse json if existent
-    if (reader.parse(msg, root)) {
+    if (Json::parseFromStream(reader, iss, &root, NULL)) {
       if (!root["header"].isNull() && root["header"].isObject()) {
         Json::Value head = root["header"];
         if (!head["status"].isNull() && head["status"].isInt()) {
@@ -3684,8 +3724,10 @@ void ConnectNode::updateParameters() {
 
   if (_request->getRequestParam()->_sampleRate == SampleRate16K) {
     _limitSize = Buffer16kMaxLimit;
-  } else {
+  } else if (_request->getRequestParam()->_sampleRate == SampleRate8K) {
     _limitSize = Buffer8kMaxLimit;
+  } else {
+    _limitSize = Buffer16kMaxLimit;
   }
 
   time_t timeout_ms = _request->getRequestParam()->getTimeout();
@@ -3912,7 +3954,8 @@ const char *ConnectNode::genCloseMsg(std::string *buf_str) {
   }
 
   Json::Value root;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
   std::string task_id = _request->getRequestParam()->_task_id;
 
   try {
@@ -3921,7 +3964,7 @@ const char *ConnectNode::genCloseMsg(std::string *buf_str) {
       root["task_id"] = task_id;
     }
 
-    *buf_str = writer.write(root);
+    *buf_str = Json::writeString(writer, root);
     if (buf_str->empty()) {
       return CLOSE_JSON_STRING;
     } else {
@@ -3956,7 +3999,8 @@ const char *ConnectNode::genSynthesisStartedMsg() {
    */
   std::string fake_cmd = "";
   Json::Value root, header;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
   std::string task_id = _request->getRequestParam()->getTaskId();
   try {
     header["namespace"] = "SpeechSynthesizer";
@@ -3965,7 +4009,7 @@ const char *ConnectNode::genSynthesisStartedMsg() {
     header["task_id"] = task_id;
     header["status_text"] = "Gateway:SUCCESS:Success.";
     root["header"] = header;
-    fake_cmd = writer.write(root);
+    fake_cmd = Json::writeString(writer, root);
   } catch (const std::exception &e) {
     LOG_ERROR("Json failed: %s", e.what());
     return NULL;
@@ -4197,9 +4241,11 @@ std::string ConnectNode::replenishNodeProcess(const char *error) {
   }
 
   try {
-    Json::Reader reader;
+    Json::CharReaderBuilder reader;
     Json::Value root(Json::objectValue);
-    if (!reader.parse(error, root)) {
+    std::istringstream iss(error);
+
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       return "";
     } else {
       Json::Value request_process(Json::objectValue);
@@ -4615,6 +4661,20 @@ bool ConnectNode::ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType,
     }
   }
 #endif
+  return false;
+}
+
+bool ConnectNode::ignoreCallbackWhenNodeClosedWhenLongConnection(
+    NlsEvent::EventType eventType) {
+  if (_request) {
+    if (_isLongConnection && _workStatus == NodeClosed &&
+        eventType == NlsEvent::TaskFailed) {
+      LOG_WARN(
+          "Node(%p) state NodeClosed get TaskFailed, should ignore callback.",
+          this);
+      return true;
+    }
+  }
   return false;
 }
 

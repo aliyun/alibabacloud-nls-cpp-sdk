@@ -17,6 +17,7 @@
 #include "nlsToken.h"
 
 #include <iostream>
+#include <sstream>
 
 #include "CommonClient.h"
 #include "json/json.h"
@@ -109,10 +110,11 @@ int NlsToken::applyNlsToken() {
 
   try {
     Json::Value root;
-    Json::Reader reader;
+    Json::CharReaderBuilder reader;
     std::string result = outcome.result().payload();
+    std::istringstream iss(result);
 
-    if (!reader.parse(result, root)) {
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       std::string tt = "json any failed.";
       errorMsg_ = tt;
       return -(JsonParseFailed);

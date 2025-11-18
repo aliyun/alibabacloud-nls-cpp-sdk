@@ -1526,7 +1526,7 @@ void* pthreadLongConnectionFunc(void* arg) {
    * 1. 创建流式文本语音合成FlowingSynthesizerRequest对象.
    *
    * 流式文本语音合成文档详见:
-   * https://help.aliyun.com/zh/isi/developer-reference/streaming-text-to-speech-synthesis/?spm=a2c4g.11186623.0.0.638b1f016dQylG
+   * https://help.aliyun.com/zh/isi/developer-reference/streaming-text-to-speech-synthesis/
    */
   AlibabaNls::FlowingSynthesizerRequest* request =
       AlibabaNls::NlsClient::getInstance()->createFlowingSynthesizerRequest(

@@ -17,18 +17,19 @@
 #include "dialogAssistantParam.h"
 
 #include <string>
+#include <sstream>
 
 #include "nlog.h"
 #include "nlsRequestParamInfo.h"
 
 namespace AlibabaNls {
 
-#define D_CMD_START_RECOGNITION          "StartRecognition"
-#define D_CMD_STOP_RECOGNITION           "StopRecognition"
-#define D_CMD_EXECUTE_RECOGNITION        "ExecuteDialog"
+#define D_CMD_START_RECOGNITION "StartRecognition"
+#define D_CMD_STOP_RECOGNITION "StopRecognition"
+#define D_CMD_EXECUTE_RECOGNITION "ExecuteDialog"
 #define D_CMD_STOP_WAKEWORD_VERIFICATION "StopWakeWordVerification"
-#define D_NAMESPACE_RECOGNITION          "DialogAssistant"
-#define D_NAMESPACE_RECOGNITION_V2       "DialogAssistant.v2"
+#define D_NAMESPACE_RECOGNITION "DialogAssistant"
+#define D_NAMESPACE_RECOGNITION_V2 "DialogAssistant.v2"
 
 DialogAssistantParam::DialogAssistantParam(int version, const char* sdkName)
     : INlsRequestParam(TypeDialog, sdkName) {
@@ -71,9 +72,10 @@ int DialogAssistantParam::setQueryParams(const char* value) {
   tmpValue += "}";
 
   try {
-    Json::Reader reader;
+    Json::CharReaderBuilder reader;
     Json::Value root;
-    if (!reader.parse(tmpValue, root)) {
+    std::istringstream iss(tmpValue);
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       LOG_ERROR("parse json fail: %s", value);
       return -(JsonParseFailed);
     }

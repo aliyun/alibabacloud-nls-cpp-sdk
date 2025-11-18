@@ -521,4 +521,25 @@ enum NlsErrorCode {
 
 };
 
+enum NlsRequestStatus {
+  RequestStatusInvalid = 0, /* 处于不可用或者释放状态 */
+  RequestStatusCreated,     /* 新建request */
+  RequestStatusInvoking,    /* 正在调用start的过程 */
+  RequestStatusInvoked,     /* 调用start完成, 还未建连成功 */
+  RequestStatusConnecting,  /* 正在dns解析 */
+  RequestStatusConnected,   /* socket链接成功 */
+  RequestStatusHandshaking, /* ssl握手中 */
+  RequestStatusHandshaked,  /* 握手成功 */
+  RequestStatusStarting,    /* 握手后开始发送请求 */
+  RequestStatusRunning,     /* 正常运行中 */
+  RequestStatusFailed = 11,
+  RequestStatusCompleted,
+  RequestStatusClosed = 13, /* 已经调用完closed回调 */
+  RequestStatusReleased,    /* 已销毁request */
+  RequestStatusStop,
+  RequestStatusCancel,
+  RequestStatusDisconnected =
+      21, /* 长链接模式下的request已经被断链, 此状态需要主动释放此request */
+};
+
 #endif  // NLS_SDK_GLOBAL_H

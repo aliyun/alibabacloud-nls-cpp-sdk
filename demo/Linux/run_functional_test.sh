@@ -114,6 +114,8 @@ run_speech_test() {
   cur_audio_file=$7
   cur_log_file=$8
   cur_log_file_count=$9
+  cur_preconnected=${10}
+  cur_token_expiration=${11}
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -122,8 +124,11 @@ run_speech_test() {
   run_cmd="$cur_demo_path --url $NLS_PRE_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --type $cur_type
    --audioFile $audio_source_dir/$cur_audio_file --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $cur_log_file_count --preconnectedPool 1 >
-   $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
+   --logFileCount $cur_log_file_count --preconnectedPool $cur_preconnected "
+  if [ "$cur_preconnected" -eq 1 ]; then
+    run_cmd=$run_cmd" --tokenExpiration $cur_token_expiration"
+  fi
+  run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
   echo "  run:" $run_cmd
   eval $run_cmd
   tail -n 16 $cur_workspace_path/$cur_class_name$cur_class_num.txt
@@ -191,6 +196,8 @@ run_tts_test() {
   cur_voice=$7
   cur_log_file=$8
   cur_log_file_count=$9
+  cur_preconnected=${10}
+  cur_token_expiration=${11}
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -199,8 +206,11 @@ run_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_PRE_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format $cur_type
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $cur_log_file_count --preconnectedPool 1 >
-   $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
+   --logFileCount $cur_log_file_count --preconnectedPool $cur_preconnected"
+  if [ "$cur_preconnected" -eq 1 ]; then
+    run_cmd=$run_cmd" --tokenExpiration $cur_token_expiration"
+  fi
+  run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
   echo "  run:" $run_cmd
   eval $run_cmd
   tail -n 16 $cur_workspace_path/$cur_class_name$cur_class_num.txt
@@ -217,6 +227,8 @@ run_streaminput_tts_test() {
   cur_log_file=$7
   cur_log_file_count=$8
   cur_text_file=$9
+  cur_preconnected=${10}
+  cur_token_expiration=${11}
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -225,8 +237,11 @@ run_streaminput_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_PRE_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format pcm
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $cur_log_file_count --textFile $cur_text_file --preconnectedPool 1 >
-   $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
+   --logFileCount $cur_log_file_count --textFile $cur_text_file --preconnectedPool $cur_preconnected"
+  if [ "$cur_preconnected" -eq 1 ]; then
+    run_cmd=$run_cmd" --tokenExpiration $cur_token_expiration"
+  fi
+  run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1 || exit 1"
   echo "  run:" $run_cmd
   eval $run_cmd
   tail -n 16 $cur_workspace_path/$cur_class_name$cur_class_num.txt
@@ -244,37 +259,43 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
   run_time_s=30
   run_log=log-Transcriber
   run_log_count=5
+  run_token_expiration=600
 
   echo "  >>> 1. 开始测试实时语音识别 16k开头停顿10s wav音频"
-  run_speech_test st 1 $st_demo_path $run_threads $run_time_s pcm 16k/开头停顿10s今天天气怎么样.wav $run_log $run_log_count
+  run_speech_test st 1 $st_demo_path $run_threads $run_time_s pcm 16k/开头停顿10s今天天气怎么样.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 2. 开始测试实时语音识别 16k中间停顿10s wav音频"
-  run_speech_test st 2 $st_demo_path $run_threads $run_time_s pcm 16k/说话中间存在10s停顿音频.wav $run_log $run_log_count
+  run_speech_test st 2 $st_demo_path $run_threads $run_time_s pcm 16k/说话中间存在10s停顿音频.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 3. 开始测试实时语音识别 16k opus音频"
-  run_speech_test st 3 $st_demo_path $run_threads $run_time_s opus 16k/wav/13.wav $run_log $run_log_count
+  run_speech_test st 3 $st_demo_path $run_threads $run_time_s opus 16k/wav/13.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 4. 开始测试实时语音识别 8k opus音频"
-  run_speech_test st 4 $st_demo_path $run_threads $run_time_s opus 8k/1channel_8K_12.wav $run_log $run_log_count
+  run_speech_test st 4 $st_demo_path $run_threads $run_time_s opus 8k/1channel_8K_12.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 5. 开始测试实时语音识别 16k静音 wav音频"
-  run_speech_test st 5 $st_demo_path $run_threads $run_time_s pcm 16k/jingyin.wav $run_log $run_log_count
+  run_speech_test st 5 $st_demo_path $run_threads $run_time_s pcm 16k/jingyin.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 6. 开始测试实时语音识别 16k无静音 wav音频"
-  run_speech_test st 6 $st_demo_path $run_threads $run_time_s pcm 16k/jifeinosilence16k.wav $run_log $run_log_count
+  run_speech_test st 6 $st_demo_path $run_threads $run_time_s pcm 16k/jifeinosilence16k.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 7. 开始测试实时语音识别 16k噪音音频"
-  run_speech_test st 7 $st_demo_path $run_threads $run_time_s pcm 16k/zaoyin_16K.wav $run_log $run_log_count
+  run_speech_test st 7 $st_demo_path $run_threads $run_time_s pcm 16k/zaoyin_16K.wav $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 8. 开始测试实时语音识别 16k多人长时间对话音频"
-  run_speech_test st 8 $st_demo_path $run_threads $run_time_s pcm 16k/五人对话_普通话_706.wav $run_log $run_log_count
+  run_speech_test st 8 $st_demo_path $run_threads $run_time_s pcm 16k/五人对话_普通话_706.wav $run_log $run_log_count 0 $run_token_expiration
+  echo " "
+
+  echo "  >>> 9. 开始测试实时语音识别 开预连接池功能, token超时时间为10分钟, 16k多人长时间对话音频"
+  run_time_s=3600
+  run_speech_test st 9 $st_demo_path $run_threads $run_time_s opus 16k/五人对话_普通话_706.wav $run_log $run_log_count 1 $run_token_expiration
   echo " "
 fi
 
@@ -288,9 +309,15 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
   run_log=log-FlowingSynthesizer
   run_log_count=5
   run_voice=longxiaoxia
+  run_token_expiration=600
 
   echo "  >>> 1. 开始测试流式语音合成 功能测试"
-  run_streaminput_tts_test fs 1 $fs_demo_path $run_threads $run_time_s $run_voice $run_log $run_log_count $txt_test_path
+  run_streaminput_tts_test fs 1 $fs_demo_path $run_threads $run_time_s $run_voice $run_log $run_log_count $txt_test_path 0 $run_token_expiration
+  echo " "
+
+  echo "  >>> 2. 开始测试流式语音合成 功能测试 开预连接池功能，token超时时间为10分钟"
+  run_time_s=3600
+  run_streaminput_tts_test fs 2 $fs_demo_path $run_threads $run_time_s $run_voice $run_log $run_log_count $txt_test_path 1 $run_token_expiration
   echo " "
 fi
 
@@ -306,11 +333,11 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sr" ];then
   run_log_count=5
 
   echo "  >>> 1. 开始测试一句话识别 16k 开头停顿10s wav音频"
-  run_speech_test sr 1 $sr_demo_path $run_threads $run_time_s pcm 16k/开头停顿10s今天天气怎么样.wav $run_log $run_log_count
+  run_speech_test sr 1 $sr_demo_path $run_threads $run_time_s pcm 16k/开头停顿10s今天天气怎么样.wav $run_log $run_log_count 0 0
   echo " "
 
   echo "  >>> 2. 开始测试一句话识别 16k opus音频"
-  run_speech_test sr 2 $sr_demo_path $run_threads $run_time_s opus 16k/wav/13.wav $run_log $run_log_count
+  run_speech_test sr 2 $sr_demo_path $run_threads $run_time_s opus 16k/wav/13.wav $run_log $run_log_count 0 0
   echo " "
 fi
 
@@ -323,17 +350,23 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
   run_time_s=30
   run_log=log-Synthesizer
   run_log_count=5
+  run_token_expiration=600
 
   echo "  >>> 1. 开始测试语音合成 16k wav音频"
-  run_tts_test sy 1 $sy_demo_path $run_threads $run_time_s wav aixia $run_log $run_log_count
+  run_tts_test sy 1 $sy_demo_path $run_threads $run_time_s wav aixia $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 2. 开始测试语音合成 16k pcm音频"
-  run_tts_test sy 2 $sy_demo_path $run_threads $run_time_s pcm aixia $run_log $run_log_count
+  run_tts_test sy 2 $sy_demo_path $run_threads $run_time_s pcm aixia $run_log $run_log_count 0 $run_token_expiration
   echo " "
 
   echo "  >>> 3. 开始测试语音合成 16k mp3音频"
-  run_tts_test sy 3 $sy_demo_path $run_threads $run_time_s mp3 aixia $run_log $run_log_count
+  run_tts_test sy 3 $sy_demo_path $run_threads $run_time_s mp3 aixia $run_log $run_log_count 0 $run_token_expiration
+  echo " "
+
+  echo "  >>> 4. 开始测试语音合成 16k pcm音频 开预连接池功能，token超时时间为10分钟"
+  run_time_s=3600
+  run_tts_test sy 4 $sy_demo_path $run_threads $run_time_s pcm aixia $run_log $run_log_count 1 $run_token_expiration
   echo " "
 fi
 
