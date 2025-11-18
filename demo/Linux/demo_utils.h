@@ -29,3 +29,7 @@ unsigned int getAudioFileTimeMs(const int dataSize, const int sampleRate,
  */
 unsigned int getSendAudioSleepTime(const int dataSize, const int sampleRate,
                                    const int compressRate);
+
+std::string createTranscriptionPathFromAudioPath(const std::string& audioPath);
+
+void deleteFileIfExists(const std::string& filename);

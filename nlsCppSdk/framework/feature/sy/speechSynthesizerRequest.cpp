@@ -172,6 +172,10 @@ const char* SpeechSynthesizerRequest::dumpAllInfo() {
   return INlsRequest::dumpAllInfo(this);
 }
 
+NlsRequestStatus SpeechSynthesizerRequest::getRequestStatus() {
+  return INlsRequest::getRequestStatus(this);
+}
+
 int SpeechSynthesizerRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
@@ -306,6 +310,12 @@ int SpeechSynthesizerRequest::setEnableContinued(bool enable) {
 
 const char* SpeechSynthesizerRequest::getOutputFormat() {
   return _synthesizerParam->getOutputFormat().c_str();
+}
+
+int SpeechSynthesizerRequest::setTaskId(const char* taskId) {
+  INPUT_REQUEST_PARAM_CHECK(_synthesizerParam);
+  _synthesizerParam->setTaskId(taskId);
+  return Success;
 }
 
 const char* SpeechSynthesizerRequest::getTaskId() {

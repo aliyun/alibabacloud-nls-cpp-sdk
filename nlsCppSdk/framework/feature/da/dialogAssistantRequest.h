@@ -140,6 +140,14 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
   int setSessionId(const char* sessionId);
 
   /**
+   * @brief 对话服务的32位任务ID, 不填的话由内部生成.
+   * @note 必填参数
+   * @param taskId 任务ID
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setTaskId(const char* taskId);
+
+  /**
    * @brief 对话参数.
    * @note 可选参数
    * @param value 待定
@@ -296,6 +304,13 @@ class NLS_SDK_CLIENT_EXPORT DialogAssistantRequest : public INlsRequest {
    * @return
    */
   const char* dumpAllInfo();
+
+  /**
+   * @brief 获得当前请求的运行状态。
+   * @note 异步操作。失败返回TaskFailed。
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  NlsRequestStatus getRequestStatus();
 
   /**
    * @brief 设置错误回调函数

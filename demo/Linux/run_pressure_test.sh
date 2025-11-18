@@ -131,6 +131,10 @@ run_speech_test() {
   cur_type=$6
   cur_log_file=$7
   cur_background=$8
+  cur_start_gradually=$9
+  cur_preconnected=${10}
+  cur_token_expiration=${11}
+  cur_break_time_each_round=${12}
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -139,9 +143,18 @@ run_speech_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --type $cur_type
    --audioDir $audio_source_dir/16k/wav --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --preconnectedPool 1"
+   --logFileCount $RUN_LOG_COUNT --preconnectedPool $cur_preconnected"
   if [ "$cur_background" -eq 2 ]; then
     run_cmd=$run_cmd" --setrlimit $cur_threads"
+  fi
+  if [ "$cur_start_gradually" -gt 0 ]; then
+    run_cmd=$run_cmd" --startGradually $cur_start_gradually"
+  fi
+  if [ "$cur_break_time_each_round" -gt 0 ]; then
+    run_cmd=$run_cmd" --breakTimeEachRound $cur_break_time_each_round"
+  fi
+  if [ "$cur_preconnected" -eq 1 ]; then
+    run_cmd=$run_cmd" --tokenExpiration $cur_token_expiration"
   fi
   run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
   if [ "$cur_background" -eq 1 ] || [ "$cur_background" -eq 2 ]; then
@@ -171,7 +184,7 @@ run_st_monkey_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --type $cur_type
    --audioDir $audio_source_dir/16k/wav --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --special $cur_special_type --preconnectedPool 1 >
+   --logFileCount $RUN_LOG_COUNT --special $cur_special_type --preconnectedPool 0 >
    $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
   if [ "$cur_background" -eq 1 ]; then
     run_cmd=$run_cmd" &"
@@ -192,6 +205,10 @@ run_streaminput_tts_test() {
   cur_log_file=$7
   cur_background=$8
   cur_special_type=$9
+  cur_preconnected=${10}
+  cur_token_expiration=${11}
+  cur_start_gradually=${12}
+  cur_break_time_each_round=${13}
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -200,8 +217,17 @@ run_streaminput_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format pcm
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --textFile $txt_test_path --special $cur_special_type --preconnectedPool 1 >
-   $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
+   --logFileCount $RUN_LOG_COUNT --textFile $txt_test_path --special $cur_special_type --preconnectedPool $cur_preconnected"
+  if [ "$cur_start_gradually" -gt 0 ]; then
+    run_cmd=$run_cmd" --startGradually $cur_start_gradually"
+  fi
+  if [ "$cur_break_time_each_round" -gt 0 ]; then
+    run_cmd=$run_cmd" --breakTimeEachRound $cur_break_time_each_round"
+  fi
+  if [ "$cur_preconnected" -eq 1 ]; then
+    run_cmd=$run_cmd" --tokenExpiration $cur_token_expiration"
+  fi
+  run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
   if [ "$cur_background" -eq 1 ]; then
     run_cmd=$run_cmd" &"
   fi
@@ -221,6 +247,10 @@ run_tts_test() {
   cur_voice=$7
   cur_log_file=$8
   cur_background=$9
+  cur_preconnected=${10}
+  cur_token_expiration=${11}
+  cur_start_gradually=${12}
+  cur_break_time_each_round=${13}
 
   cur_workspace_path=$workspace_result_path/$cur_class_name/$cur_class_name$cur_class_num
   rm -rf $cur_workspace_path
@@ -229,9 +259,18 @@ run_tts_test() {
   run_cmd="$cur_demo_path --url $NLS_URL --appkey $NLS_APPKEY_ENV_VALUE --token $NLS_TOKEN_ENV_VALUE
    --threads $cur_threads --time $cur_time --format $cur_type
    --voice $cur_voice --logFile $cur_workspace_path/$cur_log_file
-   --logFileCount $RUN_LOG_COUNT --preconnectedPool 1"
+   --logFileCount $RUN_LOG_COUNT --preconnectedPool $cur_preconnected"
   if [ "$cur_background" -eq 2 ]; then
     run_cmd=$run_cmd" --setrlimit $cur_threads"
+  fi
+  if [ "$cur_start_gradually" -gt 0 ]; then
+    run_cmd=$run_cmd" --startGradually $cur_start_gradually"
+  fi
+  if [ "$cur_break_time_each_round" -gt 0 ]; then
+    run_cmd=$run_cmd" --breakTimeEachRound $cur_break_time_each_round"
+  fi
+  if [ "$cur_preconnected" -eq 1 ]; then
+    run_cmd=$run_cmd" --tokenExpiration $cur_token_expiration"
   fi
   run_cmd=$run_cmd" > $cur_workspace_path/$cur_class_name$cur_class_num.txt 2>&1"
   if [ "$cur_background" -eq 1 ] || [ "$cur_background" -eq 2 ]; then
@@ -289,16 +328,31 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
   run_1h=3600
   run_12h=43200
   run_24h=86400
+  run_5d=432000
   run_7d=604800
   run_time_s=$run_12h
+  run_token_expiration=$run_1h
+  run_break_time_each_round=25
 
+  # 1. class_name
+  # 2. class_num
+  # 3. demo_path
+  # 4. threads
+  # 5. time
+  # 6. type
+  # 7. log_file
+  # 8. background
+  # 9. start_gradually
+  # 10.preconnected
+  # 11.token_expiration
+  # 12.break_time_each_round
   if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 1 ] && [ "$END_STEP" -ge 1 ]; }; then
     echo "  >>> 1. 开始压测实时语音识别 正常wav音频12h稳定性压测 pcm 预发环境"
     run_time_s=$run_12h
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_speech_test stS 1 $st_demo_path 50 $run_time_s pcm $run_log 1
+    run_speech_test stS 1 $st_demo_path 50 $run_time_s pcm $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 1. 开始压测实时语音识别 正常wav音频12h稳定性压测 pcm 预发环境"
   fi
 
@@ -308,7 +362,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_speech_test stS 2 $st_demo_path 50 $run_time_s opus $run_log 1
+    run_speech_test stS 2 $st_demo_path 50 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 2. 开始压测实时语音识别 正常wav音频12h稳定性压测 opus 预发环境"
   fi
 
@@ -318,7 +372,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_SH_INTERNAL_URL
-    run_speech_test stS 3 $st_demo_path 2 $run_time_s opus $run_log 1
+    run_speech_test stS 3 $st_demo_path 2 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 3. 开始压测实时语音识别 正常wav音频12h稳定性压测 opus 上海内外环境"
   fi
 
@@ -328,7 +382,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_BJ_INTERNAL_URL
-    run_speech_test stS 4 $st_demo_path 2 $run_time_s opus $run_log 1
+    run_speech_test stS 4 $st_demo_path 2 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 4. 开始测试实时语音识别 正常wav音频12h稳定性压测 opus 北京内网环境"
   fi
 
@@ -338,7 +392,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_SZ_INTERNAL_URL
-    run_speech_test stS 5 $st_demo_path 2 $run_time_s opus $run_log 1
+    run_speech_test stS 5 $st_demo_path 2 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 5. 开始测试实时语音识别 正常wav音频12h稳定性压测 opus 深圳内网环境"
   fi
 
@@ -348,7 +402,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_SH_URL
-    run_speech_test stS 6 $st_demo_path 2 $run_time_s opus $run_log 1
+    run_speech_test stS 6 $st_demo_path 2 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 6. 开始测试实时语音识别 正常wav音频24h*7稳定性压测 opus 上海生产环境"
   fi
 
@@ -358,7 +412,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_BJ_URL
-    run_speech_test stS 7 $st_demo_path 2 $run_time_s opus $run_log 1
+    run_speech_test stS 7 $st_demo_path 2 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 7. 开始测试实时语音识别 正常wav音频24h*7稳定性压测 opus 北京生产环境"
   fi
 
@@ -368,7 +422,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_speech_test stS 8 $st_demo_path 200 $run_time_s pcm $run_log 1
+    run_speech_test stS 8 $st_demo_path 200 $run_time_s pcm $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 8. 开始测试实时语音识别 200并发模拟高并发弱网场景1h压测 pcm 预发环境"
   fi
 
@@ -378,7 +432,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_speech_test stS 9 $st_demo_path 200 $run_time_s opus $run_log 1
+    run_speech_test stS 9 $st_demo_path 200 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 9. 开始测试实时语音识别 200并发模拟高并发弱网场景1h压测 opus 预发环境"
   fi
 
@@ -388,7 +442,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_speech_test stS 10 $st_demo_path 50 $run_time_s opus $run_log 1
+    run_speech_test stS 10 $st_demo_path 50 $run_time_s opus $run_log 1 0 0 $run_token_expiration 0
     echo "  <<< 10. 开始测试实时语音识别 client端限制上下行带宽模拟弱网场景24h压测 opus 预发环境"
   fi
 
@@ -398,7 +452,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_speech_test stS 11 $st_demo_path 50 $run_time_s opus $run_log 2
+    run_speech_test stS 11 $st_demo_path 50 $run_time_s opus $run_log 2 0 0 $run_token_expiration 0
     echo "  >>> 11. 开始测试实时语音识别 client端限制socket数模拟弱网场景24h压测 opus 预发环境"
   fi
 
@@ -445,6 +499,26 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"st" ];then
     run_st_monkey_test stM 15 $st_monkey_path 5 $run_time_s opus $run_log 1 1
     echo "  <<< 15. 开始测试实时语音识别 5并发24h*7 链接时随机释放专项测试start后0-2000ms随机释放 opus 北京生产环境"
   fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 16 ] && [ "$END_STEP" -ge 16 ]; }; then
+    echo "  >>> 16. 开始测试实时语音识别 20并发24h*5 链接随机运行间隔started延迟稳定性测试 opus 上海生产环境"
+    run_time_s=$run_5d
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
+    NLS_URL=$NLS_SH_URL
+    run_speech_test stS 16 $st_demo_path 20 $run_time_s opus $run_log 1 200 1 $run_token_expiration $run_break_time_each_round
+    echo "  <<< 16. 开始测试实时语音识别 20并发24h*5 链接随机运行间隔started延迟稳定性测试 opus 上海生产环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 17 ] && [ "$END_STEP" -ge 17 ]; }; then
+    echo "  >>> 17. 开始测试实时语音识别 20并发24h*5 链接随机运行间隔started延迟稳定性测试 opus 北京生产环境"
+    run_time_s=$run_5d
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
+    NLS_URL=$NLS_BJ_URL
+    run_speech_test stS 17 $st_demo_path 20 $run_time_s opus $run_log 1 200 1 $run_token_expiration $run_break_time_each_round
+    echo "  <<< 17. 开始测试实时语音识别 20并发24h*5 链接随机运行间隔started延迟稳定性测试 opus 北京生产环境"
+  fi
 fi
 
 if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
@@ -456,10 +530,25 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
   run_1h=3600
   run_168h=604800
   run_24h=86400
+  run_5d=432000
   run_time_s=$run_1h
   run_log=log-FlowingSynthesizer
   run_voice=zhixiaomei
+  run_token_expiration=600
 
+  # 1. cur_class_name
+  # 2. class_num
+  # 3. demo_path
+  # 4. threads
+  # 5. time
+  # 6. voice
+  # 7. log_file
+  # 8. background
+  # 9. special_type
+  # 10.preconnected
+  # 11.token_expiration
+  # 12.start_gradually
+  # 13.break_time_each_round
   if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 1 ] && [ "$END_STEP" -ge 1 ]; }; then
     echo "  >>> 1. 开始压测流式语音合成 1h性能压测 预发环境"
     run_time_s=$run_1h
@@ -467,7 +556,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
     run_log=log-FlowingSynthesizer
-    run_streaminput_tts_test fsS 1 $fs_demo_path 5 $run_time_s $run_voice $run_log 1 0
+    run_streaminput_tts_test fsS 1 $fs_demo_path 5 $run_time_s $run_voice $run_log 1 0 0 $run_token_expiration 0 0
     echo "  <<< 1. 开始压测流式语音合成 1h性能压测 预发环境"
   fi
 
@@ -478,7 +567,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_SH_URL
     run_log=log-FlowingSynthesizerMonkey
-    run_streaminput_tts_test fsM 2 $fs_monkey_path 2 $run_time_s $run_voice $run_log 1 0
+    run_streaminput_tts_test fsM 2 $fs_monkey_path 2 $run_time_s $run_voice $run_log 1 0 0 $run_token_expiration 0 0
     echo "  <<< 2. 开始压测流式语音合成 3并发24h*7 MONKEY测试 上海生产环境"
   fi
 
@@ -489,8 +578,19 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"fs" ];then
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_SH_URL
     run_log=log-FlowingSynthesizerMonkey
-    run_streaminput_tts_test fsM 3 $fs_monkey_path 3 $run_time_s $run_voice $run_log 1 1
+    run_streaminput_tts_test fsM 3 $fs_monkey_path 3 $run_time_s $run_voice $run_log 1 1 0 $run_token_expiration 0 0
     echo "  <<< 3. 开始压测流式语音合成 3并发24h*1 链接时随机释放专项测试 start后0-2000ms随机释放 上海生产环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 7 ] && [ "$END_STEP" -ge 7 ]; }; then
+    echo "  >>> 7. 开始压测流式语音合成 5并发24h*5 链接随机运行间隔单句首包延迟稳定性测试 上海生产环境"
+    run_time_s=$run_5d
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
+    NLS_URL=$NLS_SH_URL
+    run_log=log-FlowingSynthesizer
+    run_streaminput_tts_test fsS 7 $fs_monkey_path 3 $run_time_s $run_voice $run_log 1 1 1 $run_token_expiration 200 25
+    echo "  <<< 7. 开始压测流式语音合成 5并发24h*5 链接随机运行间隔单句首包延迟稳定性测试 上海生产环境"
   fi
 fi
 
@@ -503,17 +603,32 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
   run_log=log-Synthesizer
   run_1h=3600
   run_24h=86400
+  run_5d=432000
   run_7d=604800
   run_time_s=$run_12h
   run_voice=aixia
+  run_token_expiration=600
 
+  # 1. class_name
+  # 2. class_num
+  # 3. demo_path
+  # 4. threads
+  # 5. time
+  # 6. type
+  # 7. voice
+  # 8. log_file
+  # 9. background
+  # 10.preconnected
+  # 11.token_expiration
+  # 12.start_gradually
+  # 13.break_time_each_round
   if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 1 ] && [ "$END_STEP" -ge 1 ]; }; then
     echo "  >>> 1. 开始压测语音合成 200并发模拟高并发弱网场景1h压测 预发环境"
     run_time_s=$run_1h
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_tts_test syS 1 $sy_demo_path 200 $run_time_s pcm $run_voice $run_log 1
+    run_tts_test syS 1 $sy_demo_path 200 $run_time_s pcm $run_voice $run_log 1 0 $run_token_expiration 0 0
     echo "  <<< 1. 开始压测语音合成 200并发模拟高并发弱网场景1h压测 预发环境"
   fi
 
@@ -523,7 +638,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_tts_test syS 2 $sy_demo_path 50 $run_time_s pcm $run_voice $run_log 1
+    run_tts_test syS 2 $sy_demo_path 50 $run_time_s pcm $run_voice $run_log 1 0 $run_token_expiration 0 0
     echo "  <<< 2. 开始压测语音合成 client端限制上下行带宽模拟弱网场景24h压测 预发环境"
   fi
 
@@ -533,7 +648,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_PRE_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_PRE_ENV"
     NLS_URL=$NLS_PRE_URL
-    run_tts_test syS 3 $sy_demo_path 50 $run_time_s pcm $run_voice $run_log 2
+    run_tts_test syS 3 $sy_demo_path 50 $run_time_s pcm $run_voice $run_log 2 0 $run_token_expiration 0 0
     echo "  <<< 3. 开始压测语音合成 client端限制socket数模拟弱网场景24h压测 预发环境"
   fi
 
@@ -543,7 +658,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_SH_URL
-    run_tts_test syS 4 $sy_demo_path 2 $run_time_s pcm $run_voice $run_log 1
+    run_tts_test syS 4 $sy_demo_path 2 $run_time_s pcm $run_voice $run_log 1 0 $run_token_expiration 0 0
     echo "  <<< 4. 开始压测语音合成 24h*7稳定性压测 上海生产环境"
   fi
 
@@ -553,7 +668,7 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
     NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
     NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
     NLS_URL=$NLS_BJ_URL
-    run_tts_test syS 5 $sy_demo_path 2 $run_time_s pcm $run_voice $run_log 1
+    run_tts_test syS 5 $sy_demo_path 2 $run_time_s pcm $run_voice $run_log 1 0 $run_token_expiration 0 0
     echo "  <<< 5. 开始压测语音合成 24h*7稳定性压测 北京生产环境"
   fi
 
@@ -595,5 +710,15 @@ if [ x${STEP_FLAG} == x"all" ] || [ x${STEP_FLAG} == x"sy" ];then
     NLS_URL=$NLS_BJ_URL
     run_tts_monkey syM 9 $sy_monkey_path 5 $run_time_s pcm $run_voice $run_log 3
     echo "  <<< 9. 开始压测语音合成 24h*7 链接时随机释放专项测试start后0-2000ms随机释放 北京生产环境"
+  fi
+
+  if { [ "$START_STEP" -eq 0 ] && [ "$END_STEP" -eq 0 ]; } || { [ "$START_STEP" -le 10 ] && [ "$END_STEP" -ge 10 ]; }; then
+    echo "  >>> 10. 开始压测语音合成 20并发24h*5 链接随机运行间隔单句首包延迟稳定性测试 上海生产环境"
+    run_time_s=$run_5d
+    NLS_APPKEY_ENV_VALUE="$NLS_APPKEY_ENV"
+    NLS_TOKEN_ENV_VALUE="$NLS_TOKEN_ENV"
+    NLS_URL=$NLS_BJ_URL
+    run_tts_test syS 10 $sy_demo_path 20 $run_time_s pcm $run_voice $run_log 1 1 $run_token_expiration 200 25
+    echo "  <<< 10. 开始压测语音合成 20并发24h*5 链接随机运行间隔单句首包延迟稳定性测试 上海生产环境"
   fi
 fi

@@ -233,6 +233,14 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
   const char* getOutputFormat();
 
   /**
+   * @brief 对话服务的32位任务ID, 不填的话由内部生成.
+   * @note 必填参数
+   * @param taskId 任务ID
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setTaskId(const char* taskId);
+
+  /**
    * @brief 获得当前请求的task_id
    * @return 返回当前请求的task_id
    */
@@ -392,6 +400,13 @@ class NLS_SDK_CLIENT_EXPORT SpeechTranscriberRequest : public INlsRequest {
    * @return
    */
   const char* dumpAllInfo();
+
+  /**
+   * @brief 获得当前请求的运行状态。
+   * @note 异步操作。失败返回TaskFailed。
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  NlsRequestStatus getRequestStatus();
 
   /**
    * @brief 设置错误回调函数

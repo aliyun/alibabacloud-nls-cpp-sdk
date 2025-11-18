@@ -52,6 +52,8 @@ class INlsRequest {
   ConnectNode* getConnectNode();
   INlsRequestParam* getRequestParam();
 
+  NlsRequestStatus getRequestStatus(INlsRequest*);
+
   void setThreadNumber(int num);
   int getThreadNumber();
 

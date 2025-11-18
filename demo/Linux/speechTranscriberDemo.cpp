@@ -45,7 +45,7 @@
 #define FRAME_16K_20MS 640
 #define SAMPLE_RATE_16K 16000
 
-#define OPERATION_TIMEOUT_S 2
+#define OPERATION_TIMEOUT_S 6
 #define LOOP_TIMEOUT 60
 #define DEFAULT_STRING_LEN 512
 
@@ -94,7 +94,9 @@ struct ParamStruct {
   uint64_t stopApiConsumed;    /* 调用stop()次数 */
   uint64_t sendTotalValue;     /*单线程调用sendAudio总耗时*/
 
-  uint64_t audioFileTimeLen; /*灌入音频文件的音频时长*/
+  uint64_t audioFileTimeLen;       /*灌入音频文件的音频时长*/
+  uint64_t audioFileDataBytes;     /*灌入音频文件的音频字节数*/
+  uint64_t audioFileDataUsedBytes; /*灌入音频文件的已经消耗的字节数*/
 
   uint64_t s50Value;  /*start()到started用时50ms以内*/
   uint64_t s100Value; /*start()到started用时100ms以内*/
@@ -179,6 +181,9 @@ std::string g_directIp = "";
 std::string g_vipServerDomain = "";
 std::string g_vipServerTargetDomain = "";
 std::string g_audio_path = "";
+std::string g_audio_basename = "";
+std::string g_transcription_path = "";
+std::string g_transcription_tmp_path = "";
 std::string g_audio_dir = "";
 std::vector<std::string> g_wav_files;
 std::string g_log_file = "log-transcriber";
@@ -202,6 +207,7 @@ volatile static bool global_run = false;
 static int sample_rate = SAMPLE_RATE_16K;
 static int frame_size = FRAME_16K_20MS; /*每次推送音频字节数.*/
 static int encoder_type = ENCODER_OPUS;
+static std::string audio_format = "pcm";
 static int logLevel = AlibabaNls::LogDebug; /* 0:为关闭log */
 static int max_sentence_silence = 0; /*最大静音断句时间, 单位ms. 默认不设置.*/
 static int run_cnt = 0;              /* 调用start()总次数 */
@@ -221,8 +227,10 @@ static PROFILE_INFO* g_sys_info = NULL;
 static bool longConnection = false;
 static bool sysAddrinfo = false;
 static bool noSleepFlag = false;
+static int sleepMultiple = 0;
 static bool enableIntermediateResult = false;
 static bool preconnectedPool = false;
+static bool enableTranscription = false;
 uint64_t g_tokenExpirationS = 0;
 uint32_t g_requestTimeoutMs = 7500;
 static bool simplifyLog = false;
@@ -424,6 +432,25 @@ void onSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
               << std::endl;  // 获取服务端返回的全部信息
   }
 
+  if (!g_transcription_tmp_path.empty()) {
+    FILE* transcription_stream = NULL;
+    transcription_stream = fopen(g_transcription_tmp_path.c_str(), "a+");
+    if (transcription_stream) {
+      if (cbEvent->getResult() != NULL && strlen(cbEvent->getResult()) > 0) {
+        fwrite(cbEvent->getResult(), strlen(cbEvent->getResult()), 1,
+               transcription_stream);
+      }
+      fclose(transcription_stream);
+    }
+  }
+
+  if (tmpParam->tParam->audioFileDataBytes > 0) {
+    float used_percents = tmpParam->tParam->audioFileDataUsedBytes * 100 /
+                          tmpParam->tParam->audioFileDataBytes;
+    std::string ts0 = timestampStr(NULL, NULL);
+    std::cout << ts0 << " Send " << used_percents << "\% data." << std::endl;
+  }
+
   struct SentenceParamStruct param;
   param.sentenceId = cbEvent->getSentenceIndex();
   param.text.assign(cbEvent->getResult());
@@ -569,6 +596,30 @@ void onTranscriptionCompleted(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
           tmpParam->tParam->endTotalValue / tmpParam->tParam->completedConsumed;
     }
   }
+
+  if (!g_transcription_tmp_path.empty()) {
+    std::ifstream tmp_in(g_transcription_tmp_path.c_str());
+    if (tmp_in.is_open()) {
+      std::string content((std::istreambuf_iterator<char>(tmp_in)),
+                          std::istreambuf_iterator<char>());
+      tmp_in.close();
+
+      if (!g_transcription_path.empty()) {
+        FILE* transcription_stream = fopen(g_transcription_path.c_str(), "a+");
+        if (transcription_stream) {
+          if (content.length() > 0) {
+            fwrite(g_audio_basename.c_str(), strlen(g_audio_basename.c_str()),
+                   1, transcription_stream);
+            fwrite(" ", 1, 1, transcription_stream);
+            fwrite(content.c_str(), strlen(content.c_str()), 1,
+                   transcription_stream);
+            fwrite("\n", 1, 1, transcription_stream);
+          }
+          fclose(transcription_stream);
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -631,8 +682,40 @@ void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
     std::cout << "onMessage: parseJsonMsg failed:" << result << std::endl;
   } else {
     ParamCallBack* tmpParam = static_cast<ParamCallBack*>(cbParam);
+    FILE* failed_stream = NULL;
     switch (cbEvent->getMsgType()) {
       case AlibabaNls::NlsEvent::TaskFailed:
+        run_fail++;
+
+        failed_stream = fopen("transcriptionTaskFailed.log", "a+");
+        if (failed_stream) {
+          std::string ts = timestampStr(NULL, NULL);
+          char outbuf[1024] = {0};
+          snprintf(outbuf, sizeof(outbuf),
+                   "%s status code:%d task id:%s error mesg:%s\n", ts.c_str(),
+                   cbEvent->getStatusCode(), cbEvent->getTaskId(),
+                   cbEvent->getErrorMessage());
+          fwrite(outbuf, strlen(outbuf), 1, failed_stream);
+          fclose(failed_stream);
+        }
+
+        std::cout
+            << "onTaskFailed: "
+            << "status code: " << cbEvent->getStatusCode() << ", task id: "
+            << cbEvent
+                   ->getTaskId()  // 当前任务的task id，方便定位问题，建议输出
+            << ", error message: " << cbEvent->getErrorMessage() << std::endl;
+        std::cout << "onTaskFailed: All response:" << cbEvent->getAllResponse()
+                  << std::endl;  // 获取服务端返回的全部信息
+
+        if (tmpParam) {
+          if (!tmpParam->tParam) return;
+
+          tmpParam->tParam->failedConsumed++;
+
+          std::cout << "  onTaskFailed userId " << tmpParam->userId << ", "
+                    << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+        }
         break;
       case AlibabaNls::NlsEvent::TranscriptionStarted:
         // 通知发送线程start()成功, 可以继续发送数据
@@ -641,6 +724,9 @@ void onMessage(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
         pthread_mutex_unlock(&(tmpParam->mtxWord));
         break;
       case AlibabaNls::NlsEvent::Close:
+        std::cout << "  OnChannelCloseed: userId " << tmpParam->userId << ", "
+                  << tmpParam->userInfo << std::endl;  // 仅表示自定义参数示例
+
         //通知发送线程, 最终识别结果已经返回, 可以调用stop()
         pthread_mutex_lock(&(tmpParam->mtxWord));
         pthread_cond_signal(&(tmpParam->cvWord));
@@ -926,6 +1012,7 @@ void* pthreadFunction(void* arg) {
   } else {
     fs.seekg(0, std::ios::end);
     int len = fs.tellg();
+    tst->audioFileDataBytes = len;
     tst->audioFileTimeLen = getAudioFileTimeMs(len, sample_rate, 1);
   }
 
@@ -1040,7 +1127,11 @@ void* pthreadFunction(void* arg) {
     } else if (encoder_type == ENCODER_OPU) {
       request->setFormat("opu");
     } else {
-      request->setFormat("pcm");
+      if (strcmp(audio_format.c_str(), "wav") == 0) {
+        request->setFormat("wav");
+      } else {
+        request->setFormat("pcm");
+      }
     }
     // 设置音频数据采样率, 可选参数，目前支持16000, 8000. 默认是16000
     request->setSampleRate(sample_rate);
@@ -1076,6 +1167,8 @@ void* pthreadFunction(void* arg) {
 
     fs.clear();
     fs.seekg(0, std::ios::beg);
+
+    tst->audioFileDataUsedBytes = 0;
 
     /*
      * 4.
@@ -1221,6 +1314,7 @@ void* pthreadFunction(void* arg) {
       } else {
         // std::cout << "send data " << nlen << "bytes, return " << ret << "
         // bytes." << std::endl;
+        tst->audioFileDataUsedBytes += nlen;
       }
 
       /*
@@ -1253,13 +1347,21 @@ void* pthreadFunction(void* arg) {
          * 语音数据发送延时控制, 实际使用中无需sleep.
          */
         if (sleepMs * 1000 > tmp_us) {
-          usleep(sleepMs * 1000 - tmp_us);
+          if (sleepMultiple > 1) {
+            usleep((sleepMs * 1000 - tmp_us) / sleepMultiple);
+          } else {
+            usleep(sleepMs * 1000 - tmp_us);
+          }
         }
       }
 
       if (g_loop_file_flag && fs.eof()) {
         fs.clear();
         fs.seekg(0, std::ios::beg);
+        tst->audioFileDataUsedBytes = 0;
+      }
+      if (!global_run) {
+        break;
       }
     }  // while - sendAudio
 
@@ -1287,6 +1389,7 @@ void* pthreadFunction(void* arg) {
     }
     // stop()后会收到所有回调，若想立即停止则调用cancel()取消所有回调
     uint64_t stopApiBeginUs = getTimestampUs(NULL);
+    std::string ts = timestampStr(NULL, NULL);
     ret = request->stop();
     cbParam->tParam->stopApiTimeDiffUs +=
         (getTimestampUs(NULL) - stopApiBeginUs);
@@ -1313,20 +1416,29 @@ void* pthreadFunction(void* arg) {
         if (!simplifyLog) {
           std::cout << "wait closed callback." << std::endl;
         }
+
         /*
          * 语音服务器存在来不及处理当前请求, 10s内不返回任何回调的问题,
          * 然后在10s后返回一个TaskFailed回调, 错误信息为:
          * "Gateway:IDLE_TIMEOUT:Websocket session is idle for too long time,
          * the last directive is 'StopRecognition'!" 所以需要设置一个超时机制.
          */
+        std::string ts0 = timestampStr(NULL, NULL);
         gettimeofday(&now, NULL);
-        outtime.tv_sec = now.tv_sec + OPERATION_TIMEOUT_S;
+        if (sleepMultiple > 1) {
+          outtime.tv_sec =
+              now.tv_sec + OPERATION_TIMEOUT_S * sleepMultiple * 10;
+        } else {
+          outtime.tv_sec = now.tv_sec + OPERATION_TIMEOUT_S;
+        }
         outtime.tv_nsec = now.tv_usec * 1000;
         pthread_mutex_lock(&(cbParam->mtxWord));
         if (ETIMEDOUT == pthread_cond_timedwait(&(cbParam->cvWord),
                                                 &(cbParam->mtxWord),
                                                 &outtime)) {
-          std::cout << "stop timeout" << std::endl;
+          std::string ts1 = timestampStr(NULL, NULL);
+          std::cout << "stop timeout " << ts << "->" << ts0 << "->" << ts1
+                    << std::endl;
           timedwait_flag = true;
           pthread_mutex_unlock(&(cbParam->mtxWord));
           const char* request_info = request->dumpAllInfo();
@@ -1362,6 +1474,7 @@ void* pthreadFunction(void* arg) {
     }
     AlibabaNls::NlsClient::getInstance()->releaseTranscriberRequest(request);
 
+    std::cout << "run " << testCount << "/" << loop_count << std::endl;
     if (loop_count > 0 && testCount >= loop_count) {
       global_run = false;
     } else {
@@ -1528,7 +1641,11 @@ void* pthreadLongConnectionFunction(void* arg) {
   } else if (encoder_type == ENCODER_OPU) {
     request->setFormat("opu");
   } else {
-    request->setFormat("pcm");
+    if (strcmp(audio_format.c_str(), "wav") == 0) {
+      request->setFormat("wav");
+    } else {
+      request->setFormat("pcm");
+    }
   }
   // 设置音频数据采样率, 可选参数，目前支持16000, 8000. 默认是16000
   request->setSampleRate(sample_rate);
@@ -1720,7 +1837,11 @@ void* pthreadLongConnectionFunction(void* arg) {
          * 语音数据发送延时控制, 实际使用中无需sleep.
          */
         if (sleepMs * 1000 > tmp_us) {
-          usleep(sleepMs * 1000 - tmp_us);
+          if (sleepMultiple > 1) {
+            usleep((sleepMs * 1000 - tmp_us) / sleepMultiple);
+          } else {
+            usleep(sleepMs * 1000 - tmp_us);
+          }
         }
       }
 
@@ -2357,10 +2478,16 @@ int parse_argv(int argc, char* argv[]) {
       if (invalid_argv(index, argc)) return 1;
       if (strcmp(argv[index], "pcm") == 0) {
         encoder_type = ENCODER_NONE;
+        audio_format = "pcm";
+      } else if (strcmp(argv[index], "wav") == 0) {
+        encoder_type = ENCODER_NONE;
+        audio_format = "wav";
       } else if (strcmp(argv[index], "opu") == 0) {
         encoder_type = ENCODER_OPU;
+        audio_format = "opu";
       } else if (strcmp(argv[index], "opus") == 0) {
         encoder_type = ENCODER_OPUS;
+        audio_format = "opus";
       } else {
         return 1;
       }
@@ -2427,6 +2554,10 @@ int parse_argv(int argc, char* argv[]) {
       } else {
         noSleepFlag = false;
       }
+    } else if (!strcmp(argv[index], "--sleepMultiple")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      sleepMultiple = atoi(argv[index]);
     } else if (!strcmp(argv[index], "--audioFile")) {
       index++;
       if (invalid_argv(index, argc)) return 1;
@@ -2435,6 +2566,18 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       g_audio_dir = argv[index];
+    } else if (!strcmp(argv[index], "--dumpTranscription")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      if (atoi(argv[index])) {
+        enableTranscription = true;
+      } else {
+        enableTranscription = false;
+      }
+    } else if (!strcmp(argv[index], "--dumpTranscriptionFile")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      g_transcription_path = argv[index];
     } else if (!strcmp(argv[index], "--loopAudioFile")) {
       index++;
       if (invalid_argv(index, argc)) return 1;
@@ -2621,9 +2764,40 @@ int main(int argc, char* argv[]) {
   std::cout << " threads: " << g_threads << std::endl;
   if (!g_audio_path.empty()) {
     std::cout << " audio files path: " << g_audio_path << std::endl;
+    size_t last_slash = g_audio_path.find_last_of("/\\");
+    size_t last_dot = g_audio_path.find_last_of('.');
+    g_audio_basename =
+        g_audio_path.substr(last_slash + 1, last_dot - last_slash - 1);
+
+    std::cout << " audio file basename: " << g_audio_basename << std::endl;
   }
   std::cout << " loop timeout: " << loop_timeout << std::endl;
   std::cout << " loop count: " << loop_count << std::endl;
+
+  if (enableTranscription && !g_transcription_path.empty()) {
+    size_t last_slash = g_transcription_path.find_last_of("/\\");
+    size_t last_dot = g_transcription_path.find_last_of('.');
+    std::string dir = (last_slash == std::string::npos)
+                          ? "."
+                          : g_transcription_path.substr(0, last_slash + 1);
+    std::string filename = (last_slash == std::string::npos)
+                               ? g_transcription_path
+                               : g_transcription_path.substr(last_slash + 1);
+    // Replace .text with _tmp.text
+    if (filename.length() >= 5 &&
+        filename.substr(filename.length() - 5) == ".text") {
+      g_transcription_tmp_path =
+          dir + filename.substr(0, filename.length() - 5) + "_tmp.text";
+    } else {
+      g_transcription_tmp_path = g_transcription_path + "_tmp.text";
+    }
+
+    std::remove(g_transcription_tmp_path.c_str());
+    std::cout << " transcription path: " << g_transcription_path << std::endl;
+    std::cout << " transcription tmp path: " << g_transcription_tmp_path
+              << std::endl;
+  }
+
   std::cout << "\n" << std::endl;
 
   if (profile_scan > 0) {

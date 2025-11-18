@@ -160,6 +160,10 @@ const char* SpeechRecognizerRequest::dumpAllInfo() {
   return INlsRequest::dumpAllInfo(this);
 }
 
+NlsRequestStatus SpeechRecognizerRequest::getRequestStatus() {
+  return INlsRequest::getRequestStatus(this);
+}
+
 int SpeechRecognizerRequest::setPayloadParam(const char* value) {
   INPUT_PARAM_STRING_CHECK(value);
   INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
@@ -319,6 +323,12 @@ const char* SpeechRecognizerRequest::getOutputFormat() {
     return NULL;
   }
   return _recognizerParam->getOutputFormat().c_str();
+}
+
+int SpeechRecognizerRequest::setTaskId(const char* taskId) {
+  INPUT_REQUEST_PARAM_CHECK(_recognizerParam);
+  _recognizerParam->setTaskId(taskId);
+  return Success;
 }
 
 const char* SpeechRecognizerRequest::getTaskId() {

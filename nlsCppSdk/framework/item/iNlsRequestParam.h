@@ -165,6 +165,7 @@ class INlsRequestParam {
   std::string _format;
 
   std::string _task_id;
+  std::string _old_task_id;
 
   NlsType _mode;
   std::string _sdk_name;  // e.g. nls-cpp-sdk3.x-linux

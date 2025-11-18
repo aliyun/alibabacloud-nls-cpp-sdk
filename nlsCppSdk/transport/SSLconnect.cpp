@@ -29,13 +29,14 @@ namespace AlibabaNls {
 
 SSL_CTX *SSLconnect::_sslCtx = NULL;
 
-SSLconnect::SSLconnect() : _ssl(NULL), _sslTryAgain(0), _errorMsg() {
+SSLconnect::SSLconnect(void *node)
+    : _ssl(NULL), _sslTryAgain(0), _errorMsg(), _node(node) {
 #if defined(_MSC_VER)
   _mtxSSL = CreateMutex(NULL, FALSE, NULL);
 #else
   pthread_mutex_init(&_mtxSSL, NULL);
 #endif
-  LOG_DEBUG("Create SSLconnect:%p.", this);
+  LOG_INFO("Node(%p) Create SSLconnect:%p.", _node, this);
 }
 
 SSLconnect::~SSLconnect() {
@@ -46,7 +47,7 @@ SSLconnect::~SSLconnect() {
 #else
   pthread_mutex_destroy(&_mtxSSL);
 #endif
-  LOG_DEBUG("SSL(%p) Destroy SSLconnect done.", this);
+  LOG_INFO("Node(%p) SSL(%p) Destroy SSLconnect done.", _node, this);
 }
 
 int SSLconnect::init() {
@@ -81,7 +82,7 @@ void SSLconnect::destroy() {
 int SSLconnect::sslHandshake(int socketFd, const char *hostname) {
   // LOG_DEBUG("Begin sslHandshake.");
   if (_sslCtx == NULL) {
-    LOG_ERROR("SSL(%p) _sslCtx has been released.", this);
+    LOG_ERROR("Node(%p) SSL(%p) _sslCtx has been released.", _node, this);
     return -(SslCtxEmpty);
   }
 
@@ -97,15 +98,18 @@ int SSLconnect::sslHandshake(int socketFd, const char *hostname) {
       memcpy(_errorMsg, SSL_new_ret, SSL_new_str_size);
       ERR_error_string_n(ERR_get_error(), _errorMsg + SSL_new_str_size,
                          MaxSslErrorLength - SSL_new_str_size - 1);
-      LOG_ERROR("SSL(%p) Invoke SSL_new failed:%s.", this, _errorMsg);
+      LOG_ERROR("Node(%p) SSL(%p) Invoke SSL_new failed:%s.", _node, this,
+                _errorMsg);
       MUTEX_UNLOCK(_mtxSSL);
       return -(SslNewFailed);
     } else {
       if (hostname) {
         if (!SSL_set_tlsext_host_name(_ssl, hostname)) {
-          LOG_ERROR("Error setting SNI host name");
+          LOG_ERROR("Node(%p) SSL(%p) Error setting SNI host name", _node,
+                    this);
         } else {
-          LOG_INFO("Set SNI %s success", hostname);
+          LOG_INFO("Node(%p) SSL(%p) Set SNI %s success", _node, this,
+                   hostname);
         }
       }
     }
@@ -118,7 +122,8 @@ int SSLconnect::sslHandshake(int socketFd, const char *hostname) {
       memcpy(_errorMsg, SSL_set_fd_ret, SSL_set_fd_str_size);
       ERR_error_string_n(ERR_get_error(), _errorMsg + SSL_set_fd_str_size,
                          MaxSslErrorLength - SSL_set_fd_str_size - 1);
-      LOG_ERROR("SSL(%p) Invoke SSL_set_fd failed:%s.", this, _errorMsg);
+      LOG_ERROR("Node(%p) SSL(%p) Invoke SSL_set_fd failed:%s.", _node, this,
+                _errorMsg);
       MUTEX_UNLOCK(_mtxSSL);
       return -(SslSetFailed);
     }
@@ -146,15 +151,15 @@ int SSLconnect::sslHandshake(int socketFd, const char *hostname) {
       return sslError;
     } else if (sslError == SSL_ERROR_SYSCALL) {
       int errno_code = utility::getLastErrorCode();
-      LOG_INFO("SSL(%p) SSL connect error_syscall failed, errno:%d.", this,
-               errno_code);
+      LOG_INFO("Node(%p) SSL(%p) SSL connect error_syscall failed, errno:%d.",
+               _node, this, errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
         MUTEX_UNLOCK(_mtxSSL);
         return SSL_ERROR_WANT_READ;
       } else if (errno_code == 0) {
-        LOG_DEBUG("SSL(%p) SSL connect syscall success.", this);
+        LOG_DEBUG("Node(%p) SSL(%p) SSL connect syscall success.", _node, this);
         MUTEX_UNLOCK(_mtxSSL);
         return Success;
       } else {
@@ -168,7 +173,8 @@ int SSLconnect::sslHandshake(int socketFd, const char *hostname) {
       memcpy(_errorMsg, SSL_connect_ret, SSL_connect_str_size);
       ERR_error_string_n(ERR_get_error(), _errorMsg + SSL_connect_str_size,
                          MaxSslErrorLength - SSL_connect_str_size - 1);
-      LOG_ERROR("SSL(%p) SSL connect failed:%s.", this, _errorMsg);
+      LOG_ERROR("Node(%p) SSL(%p) SSL connect failed:%s.", _node, this,
+                _errorMsg);
       MUTEX_UNLOCK(_mtxSSL);
       this->sslClose();
       return -(SslConnectFailed);
@@ -187,7 +193,7 @@ int SSLconnect::sslWrite(const uint8_t *buffer, size_t len) {
   MUTEX_LOCK(_mtxSSL);
 
   if (_ssl == NULL) {
-    LOG_ERROR("SSL(%p) ssl has been closed.", this);
+    LOG_ERROR("Node(%p) SSL(%p) ssl has been closed.", _node, this);
     MUTEX_UNLOCK(_mtxSSL);
     return -(SslWriteFailed);
   }
@@ -200,20 +206,21 @@ int SSLconnect::sslWrite(const uint8_t *buffer, size_t len) {
     const char *SSL_write_ret = "return of SSL_write: ";
     const int SSL_write_str_size = strnlen(SSL_write_ret, 64);
     if (sslError == SSL_ERROR_WANT_READ || sslError == SSL_ERROR_WANT_WRITE) {
-      LOG_DEBUG("SSL(%p) Write could not complete. Will be invoked later.",
-                this);
+      LOG_DEBUG(
+          "Node(%p) SSL(%p) Write could not complete. Will be invoked later.",
+          _node, this);
       MUTEX_UNLOCK(_mtxSSL);
       return 0;
     } else if (sslError == SSL_ERROR_SYSCALL) {
-      LOG_INFO("SSL(%p) SSL_write error_syscall failed, errno:%d.", this,
-               errno_code);
+      LOG_INFO("Node(%p) SSL(%p) SSL_write error_syscall failed, errno:%d.",
+               _node, this, errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
         MUTEX_UNLOCK(_mtxSSL);
         return 0;
       } else if (errno_code == 0) {
-        LOG_DEBUG("SSL(%p) SSL_write syscall success.", this);
+        LOG_DEBUG("Node(%p) SSL(%p) SSL_write syscall success.", _node, this);
         MUTEX_UNLOCK(_mtxSSL);
         return 0;
 #ifdef _MSC_VER
@@ -229,8 +236,8 @@ int SSLconnect::sslWrite(const uint8_t *buffer, size_t len) {
                  "%s. It's mean the remote end was "
                  "closed because of bad network. errno_code:%d, ssl_eCode:%d.",
                  sslErrMsg, errno_code, sslError);
-        LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Write failed, %s.", this,
-                  _errorMsg);
+        LOG_ERROR("Node(%p) SSL(%p) SSL_ERROR_SYSCALL Write failed, %s.", _node,
+                  this, _errorMsg);
         MUTEX_UNLOCK(_mtxSSL);
         return -(SslWriteFailed);
       } else {
@@ -241,8 +248,8 @@ int SSLconnect::sslWrite(const uint8_t *buffer, size_t len) {
         snprintf(_errorMsg, MaxSslErrorLength,
                  "%s. errno_code:%d ssl_eCode:%d.", sslErrMsg, errno_code,
                  sslError);
-        LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Write failed: %s.", this,
-                  _errorMsg);
+        LOG_ERROR("Node(%p) SSL(%p) SSL_ERROR_SYSCALL Write failed: %s.", _node,
+                  this, _errorMsg);
         MUTEX_UNLOCK(_mtxSSL);
         return -(SslWriteFailed);
       }
@@ -262,7 +269,8 @@ int SSLconnect::sslWrite(const uint8_t *buffer, size_t len) {
                  "%s. errno_code:%d ssl_eCode:%d.", sslErrMsg, errno_code,
                  sslError);
       }
-      LOG_ERROR("SSL(%p) SSL_write failed: %s.", this, _errorMsg);
+      LOG_ERROR("Node(%p) SSL(%p) SSL_write failed: %s.", _node, this,
+                _errorMsg);
       MUTEX_UNLOCK(_mtxSSL);
       return -(SslWriteFailed);
     }
@@ -276,7 +284,7 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
   MUTEX_LOCK(_mtxSSL);
 
   if (_ssl == NULL) {
-    LOG_ERROR("SSL(%p) ssl has been closed.", this);
+    LOG_ERROR("Node(%p) SSL(%p) ssl has been closed.", _node, this);
     MUTEX_UNLOCK(_mtxSSL);
     return -(SslReadFailed);
   }
@@ -296,16 +304,16 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
       MUTEX_UNLOCK(_mtxSSL);
       return 0;
     } else if (sslError == SSL_ERROR_SYSCALL) {
-      LOG_INFO("SSL(%p) SSL_read error_syscall failed, errno:%d.", this,
-               errno_code);
+      LOG_INFO("Node(%p) SSL(%p) SSL_read error_syscall failed, errno:%d.",
+               _node, this, errno_code);
 
       if (NLS_ERR_CONNECT_RETRIABLE(errno_code) ||
           NLS_ERR_RW_RETRIABLE(errno_code)) {
-        LOG_WARN("SSL(%p) Retry read...", this);
+        LOG_WARN("Node(%p) SSL(%p) Retry read...", _node, this);
         MUTEX_UNLOCK(_mtxSSL);
         return 0;
       } else if (errno_code == 0) {
-        LOG_DEBUG("SSL(%p) SSL_read syscall success.", this);
+        LOG_DEBUG("Node(%p) SSL(%p) SSL_read syscall success.", _node, this);
         MUTEX_UNLOCK(_mtxSSL);
         return 0;
 #ifdef _MSC_VER
@@ -321,8 +329,8 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
                  "%s. It's mean the remote end was "
                  "closed because of bad network. errno_code:%d, ssl_eCode:%d.",
                  sslErrMsg, errno_code, sslError);
-        LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Read failed, %s.", this,
-                  _errorMsg);
+        LOG_ERROR("Node(%p) SSL(%p) SSL_ERROR_SYSCALL Read failed, %s.", _node,
+                  this, _errorMsg);
         MUTEX_UNLOCK(_mtxSSL);
         return -(SslReadSysError);
       } else {
@@ -333,8 +341,8 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
         snprintf(_errorMsg, MaxSslErrorLength,
                  "%s. errno_code:%d, ssl_eCode:%d.", sslErrMsg, errno_code,
                  sslError);
-        LOG_ERROR("SSL(%p) SSL_ERROR_SYSCALL Read failed, %s.", this,
-                  _errorMsg);
+        LOG_ERROR("Node(%p) SSL(%p) SSL_ERROR_SYSCALL Read failed, %s.", _node,
+                  this, _errorMsg);
         MUTEX_UNLOCK(_mtxSSL);
         return -(SslReadSysError);
       }
@@ -350,7 +358,8 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
             "%s. errno_code:%d ssl_eCode:%d. It's mean this connection was "
             "closed or shutdown because of bad network, Try again ...",
             sslErrMsg, errno_code, sslError);
-        LOG_WARN("SSL(%p) SSL_read failed: %s.", this, _errorMsg);
+        LOG_WARN("Node(%p) SSL(%p) SSL_read failed: %s.", _node, this,
+                 _errorMsg);
         MUTEX_UNLOCK(_mtxSSL);
         return 0;
       } else {
@@ -358,7 +367,8 @@ int SSLconnect::sslRead(uint8_t *buffer, size_t len) {
                  "%s. errno_code:%d ssl_eCode:%d.", sslErrMsg, errno_code,
                  sslError);
       }
-      LOG_ERROR("SSL(%p) SSL_read failed: %s.", this, _errorMsg);
+      LOG_ERROR("Node(%p) SSL(%p) SSL_read failed: %s.", _node, this,
+                _errorMsg);
       MUTEX_UNLOCK(_mtxSSL);
       return -(SslReadFailed);
     }
@@ -378,13 +388,13 @@ void SSLconnect::sslClose() {
   MUTEX_LOCK(_mtxSSL);
 
   if (_ssl) {
-    LOG_INFO("SSL(%p) ssl connect close.", this);
+    LOG_INFO("Node(%p) SSL(%p) ssl connect close.", _node, this);
 
     SSL_shutdown(_ssl);
     SSL_free(_ssl);
     _ssl = NULL;
   } else {
-    LOG_DEBUG("SSL(%p) connect has closed.", this);
+    LOG_DEBUG("Node(%p) SSL connect has closed.", _node);
   }
 
   MUTEX_UNLOCK(_mtxSSL);

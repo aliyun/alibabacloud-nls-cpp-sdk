@@ -154,6 +154,72 @@ INlsRequestParam* INlsRequest::getRequestParam() {
   return _requestParam;
 }
 
+NlsRequestStatus INlsRequest::getRequestStatus(INlsRequest* request) {
+  ConnectStatus node_status = request->getConnectNode()->getConnectNodeStatus();
+  NlsRequestStatus status = RequestStatusInvalid;
+  switch (node_status) {
+    case NodeInvalid:
+      status = RequestStatusInvalid;
+      break;
+    case NodeCreated:
+      status = RequestStatusCreated;
+      break;
+    case NodeInvoking:
+      status = RequestStatusInvoking;
+      break;
+    case NodeInvoked:
+      status = RequestStatusInvoked;
+      break;
+    case NodeConnecting:
+      status = RequestStatusConnecting;
+      break;
+    case NodeConnected:
+      status = RequestStatusConnected;
+      break;
+    case NodeHandshaking:
+      status = RequestStatusHandshaking;
+      break;
+    case NodeHandshaked:
+      status = RequestStatusHandshaked;
+      break;
+    case NodeStarting:
+      status = RequestStatusStarting;
+      break;
+    case NodeStarted:
+      status = RequestStatusRunning;
+      break;
+    case NodeFailed:
+      status = RequestStatusFailed;
+      break;
+    case NodeCompleted:
+      status = RequestStatusCompleted;
+      break;
+    case NodeClosed:
+      if (request->getConnectNode()->isLongConnection() &&
+          !request->getConnectNode()->isConnected()) {
+        status = RequestStatusDisconnected;
+      } else {
+        status = RequestStatusClosed;
+      }
+      break;
+    case NodeReleased:
+      status = RequestStatusReleased;
+      break;
+    case NodeStop:
+      status = RequestStatusStop;
+      break;
+    case NodeCancel:
+      status = RequestStatusCancel;
+      break;
+    default:
+      LOG_ERROR("request(%p) node status is invalid %d.", request, node_status);
+      break;
+  }
+  LOG_DEBUG("request(%p) status is %d and node status is %d", request, status,
+            node_status);
+  return status;
+}
+
 void INlsRequest::setThreadNumber(int num) { _threadNumber = num; }
 
 int INlsRequest::getThreadNumber() { return _threadNumber; }

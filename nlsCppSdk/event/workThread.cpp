@@ -1482,8 +1482,24 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
       ret = -(InvalidRequest);
       break;
 
+    case NodeClosed:
+      if (node->isLongConnection()) {
+        /*
+         * 在长链接模式下, 在已经NodeClosed情况下可能会收到TaskFailed事件,
+         * 需要继续处理
+         */
+        LOG_WARN("Node(%p) NodeClosed getting some event ...", node);
+        ret = node->webSocketResponse();
+      } else {
+        LOG_WARN("Node(%p) current workStatus is %d/%s.", node, workStatus,
+                 node->getConnectNodeStatusString().c_str());
+        ret = -(InvalidWorkStatus);
+      }
+      break;
+
     default:
-      LOG_WARN("Node(%p) current workStatus is %d.", node, NodeInvalid);
+      LOG_WARN("Node(%p) current workStatus is %d/%s.", node, workStatus,
+               node->getConnectNodeStatusString().c_str());
       ret = -(InvalidWorkStatus);
       break;
   }
@@ -1501,8 +1517,8 @@ int WorkThread::nodeResponseProcess(ConnectNode *node) {
     if (NodeClosed == node->getConnectNodeStatus()) {
       LOG_WARN(
           "Node(%p) current node status is NodeClosed, please ignore this "
-          "warn.",
-          node);
+          "warn with ret:%d.",
+          node, ret);
       return Success;
     }
     LOG_ERROR("Node(%p) response failed, ret:%d.", node, ret);

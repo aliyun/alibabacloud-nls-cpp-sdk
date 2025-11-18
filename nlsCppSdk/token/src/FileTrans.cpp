@@ -151,7 +151,7 @@ int FileTrans::applyResultRequest(struct resultRequest param) {
 
   Json::Value::UInt statusCode;
   Json::Value resultJson;
-  Json::Reader resultReader;
+  Json::CharReaderBuilder resultReader;
   std::string resultString;
 
   CommonClient::CommonResponseOutcome resultOutcome;
@@ -169,8 +169,9 @@ int FileTrans::applyResultRequest(struct resultRequest param) {
     resultJson.clear();
     resultString.clear();
     resultString = resultOutcome.result().payload();
+    std::istringstream iss(resultString);
 
-    if (!resultReader.parse(resultString, resultJson)) {
+    if (!Json::parseFromStream(resultReader, iss, &resultJson, NULL)) {
       tmpErrorMsg = "Json any failed: ";
       tmpErrorMsg += resultString;
       resultResponse_.errorMsg = tmpErrorMsg;
@@ -224,10 +225,11 @@ int FileTrans::applyFileTrans(bool sync) {
   std::string tmpErrorMsg;
   Json::Value::UInt statusCode;
   Json::Value root;
-  Json::Reader reader;
+  Json::CharReaderBuilder reader;
   Json::Value::iterator iter;
   Json::Value::Members members;
-  Json::FastWriter writer;
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
 
   LOG_INFO("NLS(FT) Initialize with version %s",
            utility::TextUtils::GetVersion().c_str());
@@ -239,7 +241,8 @@ int FileTrans::applyFileTrans(bool sync) {
   }
 
   if (!customParam_.empty()) {
-    if (!reader.parse(customParam_.c_str(), root)) {
+    std::istringstream iss(customParam_);
+    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
       return -(JsonParseFailed);
     }
 
@@ -265,7 +268,7 @@ int FileTrans::applyFileTrans(bool sync) {
   taskRequest.setHttpMethod(HttpRequest::Post);
   taskRequest.setAction("SubmitTask");
 
-  std::string taskContent = writer.write(root);
+  std::string taskContent = Json::writeString(writer, root);
   LOG_DEBUG("taskContent: %s", taskContent.c_str());
 
   taskRequest.setTask(taskContent);
@@ -281,13 +284,14 @@ int FileTrans::applyFileTrans(bool sync) {
   }
 
   Json::Value requestJson;
-  Json::Reader requestReader;
+  Json::CharReaderBuilder requestReader;
   std::string requestString = outcome.result().payload();
+  std::istringstream iss(requestString);
 
   // 这里已经有taskId了
   LOG_DEBUG("Request: %s", requestString.c_str());
 
-  if (!requestReader.parse(requestString, requestJson)) {
+  if (!Json::parseFromStream(requestReader, iss, &requestJson, NULL)) {
     tmpErrorMsg = "Json any failed: ";
     tmpErrorMsg += requestString;
     resultResponse_.errorMsg = tmpErrorMsg;

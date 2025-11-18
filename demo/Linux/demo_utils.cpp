@@ -17,7 +17,9 @@
 #include "demo_utils.h"
 
 #include <dirent.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -207,4 +209,44 @@ unsigned int getSendAudioSleepTime(const int dataSize, const int sampleRate,
   // std::cout << "data size: " << dataSize << "bytes, sleep: " << sleepMs <<
   // "ms." << std::endl;
   return sleepMs;
+}
+
+std::string createTranscriptionPathFromAudioPath(const std::string& audioPath) {
+  // 查找最后一个 '/' 的位置（目录分隔符）
+  size_t lastSlash = audioPath.find_last_of('/');
+  // 查找最后一个 '.' 的位置（扩展名开始）
+  size_t lastDot = audioPath.find_last_of('.');
+
+  // 验证路径是否合法：必须有 '/' 和 '.'，且 '.' 在 '/' 之后
+  if (lastSlash == std::string::npos || lastDot == std::string::npos ||
+      lastDot < lastSlash) {
+    // 如果不符合，直接返回原路径或抛出错误
+    return audioPath;  // 或 throw std::invalid_argument("Invalid path");
+  }
+
+  // 提取目录部分: "test_audio/.../audio/"
+  std::string dir = audioPath.substr(0, lastSlash + 1);
+  // 提取文件名（不含扩展名）: "101301-金融01-大会议室"
+  std::string basename =
+      audioPath.substr(lastSlash + 1, lastDot - lastSlash - 1);
+
+  // 拼接新文件名: basename + "_transcription.txt"
+  return dir + basename + "_transcription.txt";
+}
+
+bool fileExists(const std::string& filename) {
+  struct stat buffer;
+  return (stat(filename.c_str(), &buffer) == 0);
+}
+
+void deleteFileIfExists(const std::string& filename) {
+  if (fileExists(filename)) {
+    if (std::remove(filename.c_str()) == 0) {
+      std::cout << "Deleted: " << filename << std::endl;
+    } else {
+      std::cerr << "Failed to delete: " << filename << std::endl;
+    }
+  } else {
+    std::cout << "File does not exist: " << filename << std::endl;
+  }
 }
