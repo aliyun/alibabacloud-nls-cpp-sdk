@@ -172,11 +172,15 @@ cp $git_root_path/nlsCppSdk/framework/feature/st/speechTranscriberRequest.h $sdk
 cp $git_root_path/nlsCppSdk/framework/feature/sy/speechSynthesizerRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/feature/da/dialogAssistantRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/feature/fss/flowingSynthesizerRequest.h $sdk_install_folder/include/
+cp $git_root_path/nlsCppSdk/framework/feature/fss/dashCosyVoiceSynthesizerRequest.h $sdk_install_folder/include/
+cp $git_root_path/nlsCppSdk/framework/feature/st/dashFunAsrTranscriberRequest.h $sdk_install_folder/include/
+cp $git_root_path/nlsCppSdk/framework/feature/st/dashParaformerTranscriberRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/item/iNlsRequest.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/common/nlsClient.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/common/nlsGlobal.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/framework/common/nlsEvent.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/token/include/nlsToken.h $sdk_install_folder/include/
+cp $git_root_path/nlsCppSdk/token/include/dashToken.h $sdk_install_folder/include/
 cp $git_root_path/nlsCppSdk/token/include/FileTrans.h $sdk_install_folder/include/
 
 mkdir -p $sdk_install_folder/lib
@@ -198,12 +202,16 @@ mkdir -p $sdk_install_folder/demo
 mkdir -p $sdk_install_folder/bin
 cp $git_root_path/demo/Linux/profile_scan.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/generateTokenDemo.cpp $sdk_install_folder/demo
+cp $git_root_path/demo/Linux/generateAPIKeyDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/fileTransferDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/dialogAssistantDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/speechRecognizerDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/speechSynthesizerDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/speechTranscriberDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/flowingSynthesizerDemo.cpp $sdk_install_folder/demo
+cp $git_root_path/demo/Linux/funAsrTranscriberDemo.cpp $sdk_install_folder/demo
+cp $git_root_path/demo/Linux/paraformerTranscriberDemo.cpp $sdk_install_folder/demo
+cp $git_root_path/demo/Linux/cosyvoiceSynthesizerDemo.cpp $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/*.h $sdk_install_folder/demo
 cp $git_root_path/demo/Linux/build_linux_demo.sh $sdk_install_folder/demo
 cp $git_root_path/version $sdk_install_folder/

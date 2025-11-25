@@ -31,6 +31,7 @@ typedef struct {
   int endTime;
 } WordInfomation;
 
+class NlsEventImpl;
 class NLS_SDK_CLIENT_EXPORT NlsEvent {
  public:
   enum EventType {
@@ -53,9 +54,19 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
     Close = 16, /*语音功能通道连接关闭*/
     Message,
     SentenceSynthesis,
+
+    /* DashScope -> */
+    TaskStarted = 30,
+    ResultGenerated,
+    TaskFinished,
   };
 
+  friend class NlsEventInner;
+
   NlsEvent();
+
+  explicit NlsEvent(NlsType nlsType,
+                    NlsServiceProtocol serviceProtocol = WsServiceProtocolNls);
 
   /**
    * @brief NlsEvent构造函数
@@ -70,13 +81,16 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @param type   Event类型
    * @param taskId 任务的task id
    */
-  NlsEvent(const char* msg, int code, EventType type, std::string& taskId);
+  NlsEvent(const char* msg, int code, EventType type, const std::string& taskId,
+           NlsType nlsType,
+           NlsServiceProtocol serviceProtocol = WsServiceProtocolNls);
 
   /**
    * @brief NlsEvent构造函数
    * @param msg    Event消息字符串
    */
-  explicit NlsEvent(std::string& msg);
+  explicit NlsEvent(const std::string& msg, NlsType nlsType,
+                    NlsServiceProtocol serviceProtocol = WsServiceProtocolNls);
 
   /**
    * @brief NlsEvent构造函数
@@ -86,8 +100,9 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @param taskId 任务的task id
    * @return
    */
-  NlsEvent(std::vector<unsigned char>& data, int code, EventType type,
-           std::string& taskId);
+  NlsEvent(const std::vector<unsigned char>& data, int code, EventType type,
+           const std::string& taskId, NlsType nlsType,
+           NlsServiceProtocol serviceProtocol = WsServiceProtocolNls);
 
   /**
    * @brief NlsEvent构造函数
@@ -99,7 +114,8 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    * @return
    */
   NlsEvent(unsigned char* data, int dataBytes, int code, EventType type,
-           std::string& taskId);
+           const std::string& taskId, NlsType nlsType,
+           NlsServiceProtocol serviceProtocol = WsServiceProtocolNls);
 
   /**
    * @brief NlsEvent析构函数
@@ -265,9 +281,9 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
    */
   const char* getStashResultText();
 
- private:
-  int parseMsgType(std::string name);
+  int getUsage();
 
+ private:
   int _statusCode;
   std::string _msg;
   EventType _msgType;
@@ -294,6 +310,11 @@ class NLS_SDK_CLIENT_EXPORT NlsEvent {
   int _stashResultBeginTime;
   std::string _stashResultText;
   int _stashResultCurrentTime;
+
+  int _usage;
+
+  NlsType _nlsType;
+  NlsServiceProtocol _serviceProtocol;
 };
 
 typedef void (*NlsCallbackMethod)(NlsEvent*, void*);

@@ -17,6 +17,8 @@
 #ifndef ALIBABANLS_COMMON_COMMONCLIENT_H_
 #define ALIBABANLS_COMMON_COMMONCLIENT_H_
 
+#include <stdint.h>
+
 #include "AsyncCallerContext.h"
 #include "ClientConfiguration.h"
 #include "CommonRequest.h"
@@ -34,7 +36,9 @@ class CommonClient : public CoreClient {
 
   CommonClient(const std::string &accessKeyId,
                const std::string &accessKeySecret, const std::string &stsToken,
-               const ClientConfiguration &configuration);
+               const ClientConfiguration &configuration,
+               const std::string &apiKey = "",
+               const uint32_t &expireInSeconds = 0);
   ~CommonClient();
 
   CommonResponseOutcome commonResponse(const CommonRequest &request) const;
@@ -59,6 +63,10 @@ class CommonClient : public CoreClient {
   HttpRequest buildFileTransHttpRequest(const std::string &endpoint,
                                         const CommonRequest &msg,
                                         HttpRequest::Method method) const;
+
+  HttpRequest buildDashHttpRequest(const std::string &endpoint,
+                                   const CommonRequest &msg,
+                                   HttpRequest::Method method) const;
 
   JsonOutcome makeRequest(const std::string &endpoint, const CommonRequest &msg,
                           HttpRequest::Method method = HttpRequest::Get) const;

@@ -17,10 +17,10 @@
 #ifndef NLS_SDK_TEXT_UTILS_H
 #define NLS_SDK_TEXT_UTILS_H
 
-#include <stdlib.h>
 #include <stdint.h>
-#include <sstream>
+#include <stdlib.h>
 #include <string.h>
+#include <sstream>
 #include <vector>
 
 namespace AlibabaNls {
@@ -30,6 +30,9 @@ class TextUtils {
  public:
   static const char *GetGitCommitInfo();
   static std::string GetVersion();
+  static std::string GetSdkInfo();
+  static std::string GetOSName();
+  static std::string GetArchName();
 
   static std::string GetTime();
   static std::string GetTimestamp();

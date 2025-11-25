@@ -15,6 +15,7 @@
  */
 
 #include "nlsEvent.h"
+#include "nlsEventInner.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,7 +49,37 @@ NlsEvent::NlsEvent()
       _stashResultSentenceId(0),
       _stashResultBeginTime(0),
       _stashResultText(""),
-      _stashResultCurrentTime(0) {}
+      _stashResultCurrentTime(0),
+      _usage(0),
+      _nlsType(TypeNone),
+      _serviceProtocol(WsServiceProtocolNls) {}
+
+NlsEvent::NlsEvent(NlsType nlsType, NlsServiceProtocol serviceProtocol)
+    : _statusCode(0),
+      _msg(""),
+      _msgType(TaskFailed),
+      _taskId(""),
+      _result(""),
+      _displayText(""),
+      _spokenText(""),
+      _sentenceTimeOutStatus(0),
+      _sentenceIndex(0),
+      _sentenceTime(0),
+      _sentenceBeginTime(0),
+      _sentenceConfidence(0.0),
+      _wakeWordAccepted(false),
+      _wakeWordKnown(false),
+      _wakeWordUserId(""),
+      _wakeWordGender(0),
+      _binaryDataInChar(NULL),
+      _binaryDataSize(0),
+      _stashResultSentenceId(0),
+      _stashResultBeginTime(0),
+      _stashResultText(""),
+      _stashResultCurrentTime(0),
+      _usage(0),
+      _nlsType(nlsType),
+      _serviceProtocol(serviceProtocol) {}
 
 NlsEvent::NlsEvent(const NlsEvent& ne) {
   this->_statusCode = ne._statusCode;
@@ -78,10 +109,16 @@ NlsEvent::NlsEvent(const NlsEvent& ne) {
   this->_wakeWordAccepted = false;
   this->_wakeWordKnown = false;
   this->_wakeWordGender = 0;
+
+  this->_usage = ne._usage;
+
+  this->_nlsType = ne._nlsType;
+  this->_serviceProtocol = ne._serviceProtocol;
 }
 
 NlsEvent::NlsEvent(const char* msg, int code, EventType type,
-                   std::string& taskId)
+                   const std::string& taskId, NlsType nlsType,
+                   NlsServiceProtocol serviceProtocol)
     : _statusCode(code),
       _msg(msg),
       _msgType(type),
@@ -103,9 +140,13 @@ NlsEvent::NlsEvent(const char* msg, int code, EventType type,
       _stashResultSentenceId(0),
       _stashResultBeginTime(0),
       _stashResultText(""),
-      _stashResultCurrentTime(0) {}
+      _stashResultCurrentTime(0),
+      _usage(0),
+      _nlsType(nlsType),
+      _serviceProtocol(serviceProtocol) {}
 
-NlsEvent::NlsEvent(std::string& msg)
+NlsEvent::NlsEvent(const std::string& msg, NlsType nlsType,
+                   NlsServiceProtocol serviceProtocol)
     : _msg(msg),
       _statusCode(Success),
       _msgType(Message),
@@ -127,10 +168,14 @@ NlsEvent::NlsEvent(std::string& msg)
       _stashResultSentenceId(0),
       _stashResultBeginTime(0),
       _stashResultText(""),
-      _stashResultCurrentTime(0) {}
+      _stashResultCurrentTime(0),
+      _usage(0),
+      _nlsType(nlsType),
+      _serviceProtocol(serviceProtocol) {}
 
-NlsEvent::NlsEvent(std::vector<unsigned char>& data, int code, EventType type,
-                   std::string& taskId)
+NlsEvent::NlsEvent(const std::vector<unsigned char>& data, int code,
+                   EventType type, const std::string& taskId, NlsType nlsType,
+                   NlsServiceProtocol serviceProtocol)
     : _statusCode(code),
       _msgType(type),
       _taskId(taskId),
@@ -153,12 +198,16 @@ NlsEvent::NlsEvent(std::vector<unsigned char>& data, int code, EventType type,
       _stashResultSentenceId(0),
       _stashResultBeginTime(0),
       _stashResultText(""),
-      _stashResultCurrentTime(0) {
+      _stashResultCurrentTime(0),
+      _usage(0),
+      _nlsType(nlsType),
+      _serviceProtocol(serviceProtocol) {
   // LOG_DEBUG("Binary data event:%d.", data.size());
 }
 
 NlsEvent::NlsEvent(unsigned char* data, int dataBytes, int code, EventType type,
-                   std::string& taskId)
+                   const std::string& taskId, NlsType nlsType,
+                   NlsServiceProtocol serviceProtocol)
     : _statusCode(code),
       _msgType(type),
       _taskId(taskId),
@@ -181,7 +230,10 @@ NlsEvent::NlsEvent(unsigned char* data, int dataBytes, int code, EventType type,
       _stashResultSentenceId(0),
       _stashResultBeginTime(0),
       _stashResultText(""),
-      _stashResultCurrentTime(0) {}
+      _stashResultCurrentTime(0),
+      _usage(0),
+      _nlsType(nlsType),
+      _serviceProtocol(serviceProtocol) {}
 
 NlsEvent::~NlsEvent() {
   if (_binaryDataInChar) {
@@ -196,221 +248,12 @@ int NlsEvent::parseJsonMsg(bool ignore) {
     return -(NlsEventMsgEmpty);
   }
 
-  try {
-    Json::CharReaderBuilder reader;
-    Json::Value head(Json::objectValue);
-    Json::Value payload(Json::objectValue);
-    Json::Value root(Json::objectValue);
-    Json::Value stashResult(Json::objectValue);
-    std::istringstream iss(_msg);
-
-    if (!Json::parseFromStream(reader, iss, &root, NULL)) {
-      LOG_ERROR("_msg:%s", _msg.c_str());
-      return -(JsonParseFailed);
-    }
-
-    // parse head
-    if (!root["header"].isNull() && root["header"].isObject()) {
-      head = root["header"];
-      // name
-      if (!head["name"].isNull() && head["name"].isString()) {
-        std::string name = head["name"].asCString();
-        int retCode = parseMsgType(name);
-        if (retCode < 0) {
-          if (ignore == false) {
-            if (retCode == -(InvalidNlsEventMsgType)) {
-              LOG_ERROR("Event Msg Type is invalid: %s", _msg.c_str());
-              return retCode;
-            }
-          }
-        }
-      }
-
-      // status
-      if (!head["status"].isNull() && head["status"].isInt()) {
-        _statusCode = head["status"].asInt();
-      } else {
-        if (ignore == false) {
-          return -(InvalidNlsEventMsgStatusCode);
-        }
-      }
-
-      // task_id
-      if (!head["task_id"].isNull() && head["task_id"].isString()) {
-        _taskId = head["task_id"].asCString();
-      }
-    } else {
-      if (!root["channelClosed"].isNull()) {
-        _msgType = Close;
-      } else if (!root["TaskFailed"].isNull()) {
-        _msgType = TaskFailed;
-      } else {
-        if (ignore == false) {
-          return -(InvalidNlsEventMsgHeader);
-        }
-      }
-    }
-
-    // parse payload
-    if (_msgType != SynthesisCompleted && _msgType != MetaInfo) {
-      if (!root["payload"].isNull() && root["payload"].isObject()) {
-        payload = root["payload"];
-        // result
-        if (!payload["result"].isNull() && payload["result"].isString()) {
-          _result = payload["result"].asCString();
-        }
-
-        // index
-        if (!payload["index"].isNull() && payload["index"].isInt()) {
-          _sentenceIndex = payload["index"].asInt();
-        }
-
-        // time
-        if (!payload["time"].isNull() && payload["time"].isInt()) {
-          _sentenceTime = payload["time"].asInt();
-        }
-
-        // begin_time
-        if (!payload["begin_time"].isNull() && payload["begin_time"].isInt()) {
-          _sentenceBeginTime = payload["begin_time"].asInt();
-        }
-
-        // confidence
-        if (!payload["confidence"].isNull() &&
-            payload["confidence"].isDouble()) {
-          _sentenceConfidence = payload["confidence"].asDouble();
-        }
-
-        // display_text
-        if (!payload["display_text"].isNull() &&
-            payload["display_text"].isString()) {
-          _displayText = payload["display_text"].asCString();
-        }
-
-        // spoken_text
-        if (!payload["spoken_text"].isNull() &&
-            payload["spoken_text"].isString()) {
-          _spokenText = payload["spoken_text"].asCString();
-        }
-
-        // sentence timeOut status
-        if (!payload["status"].isNull() && payload["status"].isInt()) {
-          _sentenceTimeOutStatus = payload["status"].asInt();
-        }
-
-        // example: "words":[{"text":"一二三四","startTime":810,"endTime":2460}]
-        if (!payload["words"].isNull() && payload["words"].isArray()) {
-          Json::Value wordArray = payload["words"];
-          int iSize = wordArray.size();
-          WordInfomation wordInfo;
-
-          for (int nIndex = 0; nIndex < iSize; nIndex++) {
-            if (wordArray[nIndex].isMember("text") &&
-                wordArray[nIndex]["text"].isString()) {
-              wordInfo.text = wordArray[nIndex]["text"].asCString();
-            }
-            if (wordArray[nIndex].isMember("startTime") &&
-                wordArray[nIndex]["startTime"].isInt()) {
-              wordInfo.startTime = wordArray[nIndex]["startTime"].asInt();
-            }
-            if (wordArray[nIndex].isMember("endTime") &&
-                wordArray[nIndex]["endTime"].isInt()) {
-              wordInfo.endTime = wordArray[nIndex]["endTime"].asInt();
-            }
-            // LOG_DEBUG("List Push: %s %d %d",
-            //     wordInfo.text.c_str(), wordInfo.startTime, wordInfo.endTime);
-
-            _sentenceWordsList.push_back(wordInfo);
-          }  // for
-        }
-
-        // WakeWordVerificationCompleted
-        if (_msgType == NlsEvent::WakeWordVerificationCompleted) {
-          if (!payload["accepted"].isNull() && payload["accepted"].isBool()) {
-            _wakeWordAccepted = payload["accepted"].asBool();
-          }
-          if (!payload["known"].isNull() && payload["known"].isBool()) {
-            _wakeWordKnown = payload["known"].asBool();
-          }
-          if (!payload["user_id"].isNull() && payload["user_id"].isString()) {
-            _wakeWordUserId = payload["user_id"].asCString();
-          }
-          if (!payload["gender"].isNull() && payload["gender"].isInt()) {
-            _wakeWordGender = payload["gender"].asInt();
-          }
-        }
-
-        // stashResult
-        if (_msgType == NlsEvent::SentenceEnd) {
-          if (!payload["stash_result"].isNull() &&
-              payload["stash_result"].isObject()) {
-            stashResult = payload["stash_result"];
-            if (!stashResult["sentenceId"].isNull() &&
-                stashResult["sentenceId"].isInt()) {
-              _stashResultSentenceId = stashResult["sentenceId"].asInt();
-            }
-            if (!stashResult["beginTime"].isNull() &&
-                stashResult["beginTime"].isInt()) {
-              _stashResultBeginTime = stashResult["beginTime"].asInt();
-            }
-            if (!stashResult["currentTime"].isNull() &&
-                stashResult["currentTime"].isInt()) {
-              _stashResultCurrentTime = stashResult["currentTime"].asInt();
-            }
-            if (!stashResult["text"].isNull() &&
-                stashResult["text"].isString()) {
-              _stashResultText = stashResult["text"].asCString();
-            }
-          }
-        }
-      }
-    }
-  } catch (const std::exception& e) {
-    LOG_ERROR("Json failed: %s", e.what());
-    return -(JsonParseFailed);
+  NlsEventInner eventInner;
+  int ret = eventInner.parseJsonMsg(ignore);
+  if (ret == Success) {
+    ret = eventInner.transferEvent(this);
   }
-  return Success;
-}
-
-int NlsEvent::parseMsgType(std::string name) {
-  if (name == "TaskFailed") {
-    _msgType = NlsEvent::TaskFailed;
-  } else if (name == "RecognitionStarted") {
-    _msgType = NlsEvent::RecognitionStarted;
-  } else if (name == "RecognitionCompleted") {
-    _msgType = NlsEvent::RecognitionCompleted;
-  } else if (name == "RecognitionResultChanged") {
-    _msgType = NlsEvent::RecognitionResultChanged;
-  } else if (name == "TranscriptionStarted") {
-    _msgType = NlsEvent::TranscriptionStarted;
-  } else if (name == "SentenceBegin") {
-    _msgType = NlsEvent::SentenceBegin;
-  } else if (name == "TranscriptionResultChanged") {
-    _msgType = NlsEvent::TranscriptionResultChanged;
-  } else if (name == "SentenceEnd") {
-    _msgType = NlsEvent::SentenceEnd;
-  } else if (name == "TranscriptionCompleted") {
-    _msgType = NlsEvent::TranscriptionCompleted;
-  } else if (name == "SynthesisStarted") {
-    _msgType = NlsEvent::SynthesisStarted;
-  } else if (name == "SynthesisCompleted") {
-    _msgType = NlsEvent::SynthesisCompleted;
-  } else if (name == "DialogResultGenerated") {
-    _msgType = NlsEvent::DialogResultGenerated;
-  } else if (name == "WakeWordVerificationCompleted") {
-    _msgType = NlsEvent::WakeWordVerificationCompleted;
-  } else if (name == "SentenceSemantics") {
-    _msgType = NlsEvent::SentenceSemantics;
-  } else if (name == "MetaInfo") {
-    _msgType = NlsEvent::MetaInfo;
-  } else if (name == "SentenceSynthesis") {
-    _msgType = NlsEvent::SentenceSynthesis;
-  } else {
-    //    LOG_ERROR("EVENT: type is invalid. [%s].", _msg.c_str());
-    return -(InvalidNlsEventMsgType);
-  }
-
-  return Success;
+  return ret;
 }
 
 int NlsEvent::getStatusCode() { return _statusCode; }
@@ -626,5 +469,7 @@ const char* NlsEvent::getStashResultText() {
   }
   return _stashResultText.c_str();
 }
+
+int NlsEvent::getUsage() { return _usage; }
 
 }  // namespace AlibabaNls

@@ -731,6 +731,8 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
   const char *address = _request->getRequestParam()->_url.c_str();
   const char *token = _request->getRequestParam()->_token.c_str();
   size_t tokenSize = _request->getRequestParam()->_token.size();
+  const char *apikey = _request->getRequestParam()->_apikey.c_str();
+  size_t apikeySize = _request->getRequestParam()->_apikey.size();
 
   memset(&_url, 0x0, sizeof(struct urlAddress));
 
@@ -756,9 +758,12 @@ bool ConnectNode::parseUrlInformation(char *directIp) {
   }
 
   memcpy(_url._token, token, tokenSize);
+  memcpy(_url._apikey, apikey, apikeySize);
 
-  LOG_INFO("Node(%p) type:%s, host:%s, port:%d, path:%s.", this, _url._type,
-           _url._host, _url._port, _url._path);
+  LOG_INFO("Node(%p) type:%s, host:%s, port:%d, path:%s, protocol:%s.", this,
+           _url._type, _url._host, _url._port, _url._path,
+           _url._serviceProtocol == WsServiceProtocolDashScope ? "DashScope"
+                                                               : "NLS");
 
   return true;
 }
@@ -842,7 +847,9 @@ void ConnectNode::closeStatusConnectNode() {
       getExitStatusString().c_str());
 
   if (_nlsEncoder) {
-    _nlsEncoder->nlsEncoderSoftRestart();
+    _nlsEncoder->destroyNlsEncoder();
+    delete _nlsEncoder;
+    _nlsEncoder = NULL;
   }
 
   if (_audioFrame) {
@@ -911,7 +918,9 @@ void ConnectNode::closeStatusConnectNodeForConnectedPool() {
       getExitStatusString().c_str());
 
   if (_nlsEncoder) {
-    _nlsEncoder->nlsEncoderSoftRestart();
+    _nlsEncoder->destroyNlsEncoder();
+    delete _nlsEncoder;
+    _nlsEncoder = NULL;
   }
 
   _isConnected = false;
@@ -1159,12 +1168,18 @@ int ConnectNode::gatewayRequest() {
   }
 
   char tmp[NodeFrameSize] = {0};
-  int tmpLen = _webSocket.requestPackage(
-      &_url, tmp, _request->getRequestParam()->GetHttpHeader());
+  int tmpLen = 0;
+  if (_url._serviceProtocol == WsServiceProtocolDashScope) {
+    tmpLen = _webSocket.requestDashScopePackage(
+        &_url, tmp, _request->getRequestParam()->GetHttpHeader());
+  } else {
+    tmpLen = _webSocket.requestPackage(
+        &_url, tmp, _request->getRequestParam()->GetHttpHeader());
+  }
   if (tmpLen < 0) {
     LOG_DEBUG("Node(%p) WebSocket request string failed.", this);
     return -(GetHttpHeaderFailed);
-  };
+  }
 
   evbuffer_add(_cmdEvBuffer, (void *)tmp, tmpLen);
 
@@ -1498,7 +1513,7 @@ int ConnectNode::sendControlDirective() {
 void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
   char *cmd = NULL;
 
-  LOG_DEBUG("Request(%p) Node(%p) get command type: %s with %s", _request, this,
+  LOG_DEBUG("Request(%p) Node(%p) get command type:%s with %s", _request, this,
             getCmdTypeString(type).c_str(),
             getConnectNodeStatusStringLocked().c_str());
 
@@ -1567,9 +1582,13 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
 
   if (cmd) {
     std::string buf_str;
-    LOG_INFO("Node(%p) get command: %s, and add into evbuffer.", this,
-             utility::TextUtils::securityDisposalForLog(cmd, &buf_str,
-                                                        "appkey\":\"", 4, 'Z'));
+    if (_url._serviceProtocol == WsServiceProtocolDashScope) {
+      LOG_INFO("Node(%p) get command:%s, and add into evbuffer.", this, cmd);
+    } else {
+      LOG_INFO("Node(%p) get command: %s, and add into evbuffer.", this,
+               utility::TextUtils::securityDisposalForLog(
+                   cmd, &buf_str, "appkey\":\"", 4, 'Z'));
+    }
 
     uint8_t *frame = NULL;
     size_t frameSize = 0;
@@ -2029,7 +2048,7 @@ int ConnectNode::webSocketResponse() {
 }
 
 NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
-  NlsEvent *wsEvent = NULL;
+  NlsEventInner *wsEventInner = NULL;
 
   if (_request == NULL) {
     LOG_ERROR("Node(%p) this request is nullptr.", this);
@@ -2048,10 +2067,12 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
     gettimeofday(&timewait_a, NULL);
 #endif
     if (wsFrame->length > 0) {
-      wsEvent =
-          new NlsEvent(wsFrame->data, wsFrame->length, Success,
-                       NlsEvent::Binary, _request->getRequestParam()->_task_id);
-      if (wsEvent == NULL) {
+      wsEventInner = new NlsEventInner(
+          wsFrame->data, wsFrame->length, Success, NlsEvent::Binary,
+          _request->getRequestParam()->_taskId,
+          _request->getRequestParam()->_mode,
+          (NlsServiceProtocol)_url._serviceProtocol);
+      if (wsEventInner == NULL) {
         LOG_ERROR("Node(%p) new NlsEvent failed!", this);
         handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED, MemNotEnough,
                      NlsEvent::TaskFailed, _enableOnMessage);
@@ -2079,16 +2100,17 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
     } else if (wsFrame->length == 0) {
       LOG_ERROR("Node(%p) ws frame len is zero!", this);
     } else {
-      if (_enableOnMessage && result.find("TaskFailed") != std::string::npos) {
+      if ((result.find("TaskFailed") != std::string::npos ||
+           result.find("task-failed") != std::string::npos)) {
         LOG_ERROR(
-            "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws frame "
-            "len:%d): %s",
+            "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws "
+            "frame len:%d): %s",
             _request, this, _sslHandle, _socketFd, wsFrame->length,
             result.c_str());
       } else {
         LOG_DEBUG(
-            "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws frame "
-            "len:%d): %s",
+            "Request(%p) Node(%p) _sslHandle(%p) socketFd(%d) response(ws "
+            "frame len:%d): %s",
             _request, this, _sslHandle, _socketFd, wsFrame->length,
             result.c_str());
       }
@@ -2109,23 +2131,28 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
     gettimeofday(&timewait_d, NULL);
 #endif
 
-    wsEvent = new NlsEvent(result);
-    if (wsEvent == NULL) {
+    wsEventInner = new NlsEventInner(result, _request->getRequestParam()->_mode,
+                                     (NlsServiceProtocol)_url._serviceProtocol);
+    if (wsEventInner == NULL) {
       LOG_ERROR("Node(%p) new NlsEvent failed!", this);
       handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED, MemNotEnough,
                    NlsEvent::TaskFailed, _enableOnMessage);
       *ret = -(NewNlsEventFailed);
     } else {
-      *ret = wsEvent->parseJsonMsg(_enableOnMessage);
-      if (*ret < 0) {
+      *ret = wsEventInner->parseJsonMsg(_enableOnMessage);
+      if (*ret == -(IgnoredNlsEventMsg)) {
+        delete wsEventInner;
+        wsEventInner = NULL;
+      } else if (*ret < 0) {
         LOG_ERROR("Node(%p) parseJsonMsg(%s) failed! ret:%d.", this,
-                  wsEvent->getAllResponse(), ret);
-        delete wsEvent;
-        wsEvent = NULL;
+                  wsEventInner->getAllResponse(), *ret);
+        delete wsEventInner;
+        wsEventInner = NULL;
         handlerEvent(TASKFAILED_PARSE_JSON_STRING, JsonStringParseFailed,
                      NlsEvent::TaskFailed, _enableOnMessage);
       } else {
-        // LOG_DEBUG("Node(%p) parseJsonMsg success.", this);
+        // LOG_DEBUG("Node(%p) parseJsonMsg success, type:%d.", this,
+        //           wsEventInner->getMsgType());
       }
     }
   } else {
@@ -2158,7 +2185,15 @@ NlsEvent *ConnectNode::convertResult(WebSocketFrame *wsFrame, int *ret) {
         time_consuming_TEXT_FRAME, time_consuming_parseJsonMsg);
   }
 #endif
-  return wsEvent;
+
+  if (wsEventInner) {
+    NlsEvent *wsEvent = new NlsEvent();
+    wsEventInner->transferEvent(wsEvent);
+    delete wsEventInner;
+    wsEventInner = NULL;
+    return wsEvent;
+  }
+  return NULL;
 }
 
 /**
@@ -2192,7 +2227,9 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
 
       frameEvent = new NlsEvent(failedMsg.c_str(), wsFrame->closeCode,
                                 NlsEvent::TaskFailed,
-                                _request->getRequestParam()->_task_id);
+                                _request->getRequestParam()->_taskId,
+                                _request->getRequestParam()->_mode,
+                                (NlsServiceProtocol)_url._serviceProtocol);
       if (frameEvent == NULL) {
         LOG_ERROR("Node(%p) new NlsEvent failed!", this);
         handlerEvent(TASKFAILED_NEW_NLSEVENT_FAILED, MemNotEnough,
@@ -2228,6 +2265,9 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
           "Node(%p) convert result failed, result:%d. Maybe recv dirty data, "
           "skip here ...",
           this, result);
+      return Success;
+    } else if (result == -(IgnoredNlsEventMsg)) {
+      // LOG_DEBUG("Node(%p) ignore this event.", this);
       return Success;
     } else {
       LOG_ERROR("Node(%p) convert result failed, result:%d.", this, result);
@@ -2300,14 +2340,26 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
         _workStatus = NodeWakeWording;
       } else {
         _workStatus = NodeStarted;
-        if (_request->getRequestParam()->_mode == TypeStreamInputTts) {
-          FlowingSynthesizerParam *param =
-              (FlowingSynthesizerParam *)_request->getRequestParam();
-          if (param->getSingleRoundText().size() > 0) {
-            _isSendSingleRoundText = true;
-            if (event_add(getSingleRoundTextEvent(), NULL) == Success) {
-              event_active(getSingleRoundTextEvent(), EV_READ, 0);
-            }
+
+        INlsRequestParam *baseParam =
+            static_cast<INlsRequestParam *>(_request->getRequestParam());
+        NlsType requestMode = baseParam->_mode;
+        size_t singleRoundTextSize = 0;
+        if (requestMode == TypeStreamInputTts) {
+          singleRoundTextSize =
+              static_cast<FlowingSynthesizerParam *>(baseParam)
+                  ->getSingleRoundText()
+                  .size();
+        } else if (requestMode == TypeDashSceopCosyVoiceStreamInputTts) {
+          singleRoundTextSize =
+              static_cast<DashCosyVoiceSynthesizerParam *>(baseParam)
+                  ->getSingleRoundText()
+                  .size();
+        }
+        if (singleRoundTextSize > 0) {
+          _isSendSingleRoundText = true;
+          if (event_add(getSingleRoundTextEvent(), NULL) == Success) {
+            event_active(getSingleRoundTextEvent(), EV_READ, 0);
           }
         }
       }
@@ -2660,7 +2712,9 @@ void ConnectNode::handlerEvent(const char *errorMsg, int errorCode,
 #endif
   NlsEvent *useEvent = NULL;
   useEvent = new NlsEvent(error_str.c_str(), errorCode, eventType,
-                          _request->getRequestParam()->_task_id);
+                          _request->getRequestParam()->_taskId,
+                          _request->getRequestParam()->_mode,
+                          (NlsServiceProtocol)_url._serviceProtocol);
   if (useEvent == NULL) {
     LOG_ERROR("Node(%p) new NlsEvent failed.", this);
     return;
@@ -2698,7 +2752,9 @@ void ConnectNode::handlerMessage(const char *response,
                                  NlsEvent::EventType eventType) {
   NlsEvent *useEvent = NULL;
   useEvent = new NlsEvent(response, Success, eventType,
-                          _request->getRequestParam()->_task_id);
+                          _request->getRequestParam()->_taskId,
+                          _request->getRequestParam()->_mode,
+                          (NlsServiceProtocol)_url._serviceProtocol);
   if (useEvent == NULL) {
     LOG_ERROR("Node(%p) new NlsEvent failed.", this);
     return;
@@ -3678,6 +3734,12 @@ bool ConnectNode::directLinkIpFromCache() {
 void ConnectNode::initNlsEncoder() {
   MUTEX_LOCK(_mtxNode);
 
+  if (_nlsEncoder != NULL) {
+    _nlsEncoder->destroyNlsEncoder();
+    delete _nlsEncoder;
+    _nlsEncoder = NULL;
+  }
+
   if (NULL == _nlsEncoder) {
     if (NULL == _request) {
       LOG_ERROR("The request of node(%p) is nullptr.", this);
@@ -3956,7 +4018,7 @@ const char *ConnectNode::genCloseMsg(std::string *buf_str) {
   Json::Value root;
   Json::StreamWriterBuilder writer;
   writer["indentation"] = "";
-  std::string task_id = _request->getRequestParam()->_task_id;
+  std::string task_id = _request->getRequestParam()->_taskId;
 
   try {
     root["channelClosed"] = "nls request finished.";
@@ -4407,7 +4469,8 @@ Json::Value ConnectNode::updateNodeProcess4Timestamp() {
 Json::Value ConnectNode::updateNodeProcess4Callback() {
   Json::Value callback(Json::objectValue);
   try {
-    NlsEvent event;
+    NlsEvent event(_request->getRequestParam()->_mode,
+                   (NlsServiceProtocol)_url._serviceProtocol);
     std::string cb_name = event.getMsgTypeString(_nodeProcess.last_callback);
     if (!cb_name.empty() && cb_name != "Unknown") {
       callback["name"] = cb_name;
@@ -4567,9 +4630,11 @@ struct event *ConnectNode::getReconnectEvent() {
 void ConnectNode::sendFakeSynthesisStarted() {
   // send SynthesisStarted if speechSynthesizer
   if (_request->getRequestParam()->getNlsRequestType() == SpeechSynthesizer) {
-    NlsEvent *useEvent = new NlsEvent(genSynthesisStartedMsg(), Success,
-                                      NlsEvent::SynthesisStarted,
-                                      _request->getRequestParam()->_task_id);
+    NlsEvent *useEvent = new NlsEvent(
+        genSynthesisStartedMsg(), Success, NlsEvent::SynthesisStarted,
+        _request->getRequestParam()->_taskId,
+        _request->getRequestParam()->_mode,
+        (NlsServiceProtocol)_url._serviceProtocol);
     if (useEvent) {
       handlerFrame(useEvent);
       delete useEvent;
@@ -4641,7 +4706,8 @@ bool ConnectNode::ignoreCallbackWhenReconnecting(NlsEvent::EventType eventType,
         if (eventType == NlsEvent::TaskFailed || eventType == NlsEvent::Close) {
           if (_reconnection.reconnected_count <=
               NodeReconnection::max_try_count) {
-            NlsEvent tmp;
+            NlsEvent tmp(_request->getRequestParam()->_mode,
+                         (NlsServiceProtocol)_url._serviceProtocol);
             LOG_INFO(
                 "Node(%p) state(%d) get status code is %d with %s, try %d "
                 "times, should reconnecting "

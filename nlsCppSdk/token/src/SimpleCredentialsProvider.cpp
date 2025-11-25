@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <stdint.h>
+
 #include "SimpleCredentialsProvider.h"
 
 namespace AlibabaNlsCommon {
@@ -24,9 +26,11 @@ SimpleCredentialsProvider::SimpleCredentialsProvider(
 
 SimpleCredentialsProvider::SimpleCredentialsProvider(
     const std::string &accessKeyId, const std::string &accessKeySecret,
-    const std::string &stsToken)
+    const std::string &stsToken, const std::string &apiKey,
+    const uint32_t &expireInSeconds)
     : CredentialsProvider(),
-      credentials_(accessKeyId, accessKeySecret, stsToken) {}
+      credentials_(accessKeyId, accessKeySecret, stsToken, apiKey,
+                   expireInSeconds) {}
 
 SimpleCredentialsProvider::~SimpleCredentialsProvider() {}
 

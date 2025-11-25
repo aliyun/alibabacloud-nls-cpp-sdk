@@ -58,6 +58,14 @@ class NlsClientImpl {
   SpeechTranscriberRequest* createTranscriberRequestImpl(
       const char* sdkName = "cpp", bool isLongConnection = false);
   void releaseTranscriberRequestImpl(SpeechTranscriberRequest* request);
+  DashFunAsrTranscriberRequest* createDashFunAsrTranscriberRequestImpl(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+  void releaseDashFunAsrTranscriberRequestImpl(
+      DashFunAsrTranscriberRequest* request);
+  DashParaformerTranscriberRequest* createDashParaformerTranscriberRequestImpl(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+  void releaseDashParaformerTranscriberRequestImpl(
+      DashParaformerTranscriberRequest* request);
   SpeechSynthesizerRequest* createSynthesizerRequestImpl(
       TtsVersion version = ShortTts, const char* sdkName = "cpp",
       bool isLongConnection = false);
@@ -69,6 +77,10 @@ class NlsClientImpl {
   FlowingSynthesizerRequest* createFlowingSynthesizerRequestImpl(
       const char* sdkName = "cpp", bool isLongConnection = false);
   void releaseFlowingSynthesizerRequestImpl(FlowingSynthesizerRequest* request);
+  DashCosyVoiceSynthesizerRequest* createDashCosyVoiceSynthesizerRequestImpl(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+  void releaseDashCosyVoiceSynthesizerRequestImpl(
+      DashCosyVoiceSynthesizerRequest* request);
 
 #if defined(__linux__)
   int vipServerListGetUrlImpl(const std::string& vipServerDomainList,

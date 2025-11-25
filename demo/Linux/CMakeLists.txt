@@ -58,6 +58,14 @@ add_executable(stMT demo_utils.cpp speechTranscriberMonkeyTest.cpp)
 target_link_libraries(stMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
+add_executable(funAsrTranscriberDemo ${NLS_UTILS_CPP_FILE} funAsrTranscriberDemo.cpp)
+target_link_libraries(funAsrTranscriberDemo
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
+
+add_executable(paraformerTranscriberDemo ${NLS_UTILS_CPP_FILE} paraformerTranscriberDemo.cpp)
+target_link_libraries(paraformerTranscriberDemo
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
+
 # 转写
 add_executable(syDemo ${NLS_UTILS_CPP_FILE} speechSynthesizerDemo.cpp)
 target_link_libraries(syDemo
@@ -76,6 +84,10 @@ add_executable(fsMT demo_utils.cpp flowingSynthesizerMonkeyTest.cpp)
 target_link_libraries(fsMT
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
+add_executable(cosyvoiceSynthesizerDemo ${NLS_UTILS_CPP_FILE} cosyvoiceSynthesizerDemo.cpp)
+target_link_libraries(cosyvoiceSynthesizerDemo
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
+
 # 对话助手
 add_executable(daDemo demo_utils.cpp dialogAssistantDemo.cpp)
 target_link_libraries(daDemo
@@ -89,6 +101,10 @@ target_link_libraries(ftDemo
 # Token生成
 add_executable(gtDemo generateTokenDemo.cpp)
 target_link_libraries(gtDemo
+    alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
+
+add_executable(gaDemo generateAPIKeyDemo.cpp)
+target_link_libraries(gaDemo
     alibabacloud-idst-speech ${NLS_DEMO_EXT_FLAG})
 
 # log4cpp单元测试

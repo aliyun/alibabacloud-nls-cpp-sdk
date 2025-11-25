@@ -22,7 +22,7 @@
 #include <iostream>
 
 #if defined(_WIN32) && defined(_MSC_VER)
-#define strcasecmp  _stricmp
+#define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #else
 #include <strings.h>
@@ -42,7 +42,8 @@ std::string KnownHeaderMapper[] = {"Accept",
                                    "Date",
                                    "Host",
                                    "Server",
-                                   "User-Agent"};
+                                   "User-Agent",
+                                   "Authorization"};
 
 HttpMessage::HttpMessage() : body_(NULL), bodySize_(0), headers_() {}
 

@@ -20,8 +20,12 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include "nlog.h"
 
 namespace AlibabaNlsCommon {
+
+using namespace AlibabaNls;
+using namespace utility;
 
 size_t recvBody(char *ptr, size_t size, size_t nmemb, void *userdata) {
   HttpResponse *response = static_cast<HttpResponse *>(userdata);
@@ -95,6 +99,8 @@ HttpClient::HttpResponseOutcome CurlHttpClient::makeRequest(
   HttpResponse response(request);
   std::string url = request.url().toString();
 
+  LOG_DEBUG("url: %s", url.c_str());
+
   switch (request.method()) {
     case HttpRequest::Get:
       break;
@@ -112,8 +118,8 @@ HttpClient::HttpResponseOutcome CurlHttpClient::makeRequest(
       curl_easy_setopt(curlHandle_, CURLOPT_POSTFIELDS, request.body());
       curl_easy_setopt(curlHandle_, CURLOPT_POSTFIELDSIZE, request.bodySize());
 
-      //            std::cout << "Body: " << request.bodySize() << " | " <<
-      //            request.body() << std::endl;
+      // std::cout << "Body: " << request.bodySize() << " | " <<
+      // request.body() << std::endl;
     } else {
       curl_easy_setopt(curlHandle_, CURLOPT_POSTFIELDS, "");
     }

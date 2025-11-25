@@ -20,11 +20,14 @@ namespace AlibabaNlsCommon {
 
 Credentials::Credentials(const std::string &accessKeyId,
                          const std::string &accessKeySecret,
-                         const std::string &stsToken,
+                         const std::string &stsToken, const std::string &apiKey,
+                         const uint32_t &expireInSeconds,
                          const std::string &sessionToken)
     : accessKeyId_(accessKeyId),
       accessKeySecret_(accessKeySecret),
       stsToken_(stsToken),
+      apiKey_(apiKey),
+      expireInSeconds_(expireInSeconds),
       sessionToken_(sessionToken) {}
 
 Credentials::~Credentials() {}
@@ -34,6 +37,10 @@ std::string Credentials::accessKeyId() const { return accessKeyId_; }
 std::string Credentials::accessKeySecret() const { return accessKeySecret_; }
 
 std::string Credentials::stsToken() const { return stsToken_; }
+
+std::string Credentials::apiKey() const { return apiKey_; }
+
+uint32_t Credentials::expireInSeconds() const { return expireInSeconds_; }
 
 void Credentials::setAccessKeyId(const std::string &accessKeyId) {
   accessKeyId_ = accessKeyId;
@@ -45,6 +52,12 @@ void Credentials::setAccessKeySecret(const std::string &accessKeySecret) {
 
 void Credentials::setStsToken(const std::string &stsToken) {
   stsToken_ = stsToken;
+}
+
+void Credentials::setApiKey(const std::string &apiKey) { apiKey_ = apiKey; }
+
+void Credentials::setExpireInSeconds(const uint32_t &expireInSeconds) {
+  expireInSeconds_ = expireInSeconds;
 }
 
 void Credentials::setSessionToken(const std::string &sessionToken) {

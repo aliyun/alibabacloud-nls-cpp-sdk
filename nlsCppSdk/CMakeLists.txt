@@ -158,6 +158,7 @@ set(UTILS_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsClient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsClientImpl.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsEvent.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/common/nlsEventInner.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequestParam.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/item/iNlsRequestListener.cpp
@@ -176,6 +177,15 @@ set(UTILS_SOURCE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/flowingSynthesizerRequest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/flowingSynthesizerParam.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/flowingSynthesizerListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/dashFunAsrTranscriberRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/dashFunAsrTranscriberParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/dashFunAsrTranscriberListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/dashParaformerTranscriberRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/dashParaformerTranscriberParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/st/dashParaformerTranscriberListener.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/dashCosyVoiceSynthesizerRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/dashCosyVoiceSynthesizerParam.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/framework/feature/fss/dashCosyVoiceSynthesizerListener.cpp
     )
 
 #源文件-token
@@ -187,6 +197,7 @@ set(UTILS_INCLUDE_DIR
 set(UTILS_SOURCE_DIR
     ${UTILS_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/nlsToken.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/token/src/dashToken.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CommonClient.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CommonResponse.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/token/src/CommonRequest.cpp

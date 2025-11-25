@@ -228,3 +228,9 @@
 -----2025/09/17 Version:3.3.1b-----
 1: 修复因为音频缓存eventBuffer存满而引发的内存泄露. 同时扩大缓存，且在音频缓存满的时候再启动libevent的_writeEvent以防其未启用导致不发送音频。
 2: 修复setEnableOnMessage设置true后，日志未记录ERROR信息的问题。
+
+-----2025/1/06 Version:3.4.0a-----
+1: 新增百炼Fun-ASR实时识别功能
+2: 新增百炼Paraformer实时识别功能
+3: 新增百炼CosyVoice流式合成功能
+4: 修复实时识别长链接模式下偶现opus首包错误的问题

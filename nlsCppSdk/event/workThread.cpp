@@ -1047,11 +1047,31 @@ void WorkThread::singleRoundTextEventCallback(evutil_socket_t fd, short which,
   node->_inEventCallbackNode = true;
 
   INlsRequest *request = node->getRequest();
-  FlowingSynthesizerParam *param =
-      (FlowingSynthesizerParam *)request->getRequestParam();
-  node->cmdNotify(CmdSendText, param->getSingleRoundText().c_str());
-  node->cmdNotify(CmdStop, NULL);
-  param->clearSingleRoundText();
+  NlsType requestMode = request->getRequestParam()->_mode;
+  void *rawParam = request->getRequestParam();
+  std::string singleRoundText = "";
+
+  if (requestMode == TypeStreamInputTts) {
+    FlowingSynthesizerParam *param =
+        static_cast<FlowingSynthesizerParam *>(rawParam);
+    singleRoundText = param->getSingleRoundText();
+  } else if (requestMode == TypeDashSceopCosyVoiceStreamInputTts) {
+    DashCosyVoiceSynthesizerParam *param =
+        static_cast<DashCosyVoiceSynthesizerParam *>(rawParam);
+    singleRoundText = param->getSingleRoundText();
+  }
+
+  if (!singleRoundText.empty()) {
+    node->cmdNotify(CmdSendText, singleRoundText.c_str());
+    node->cmdNotify(CmdStop, NULL);
+
+    if (requestMode == TypeStreamInputTts) {
+      static_cast<FlowingSynthesizerParam *>(rawParam)->clearSingleRoundText();
+    } else if (requestMode == TypeDashSceopCosyVoiceStreamInputTts) {
+      static_cast<DashCosyVoiceSynthesizerParam *>(rawParam)
+          ->clearSingleRoundText();
+    }
+  }
 
 #ifdef _MSC_VER
   SET_EVENT(node->_inEventCallbackNode, node->_mtxEventCallbackNode);

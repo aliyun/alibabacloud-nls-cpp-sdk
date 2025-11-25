@@ -39,6 +39,7 @@
 #include "event2/util.h"
 #include "nlsClientImpl.h"
 #include "nlsEncoder.h"
+#include "nlsEventInner.h"
 #include "nlsGlobal.h"
 #include "webSocketFrameHandleBase.h"
 #include "webSocketTcp.h"
@@ -615,6 +616,7 @@ class ConnectNode {
 
   /* 14. others */
   const char *genSynthesisStartedMsg();
+  NlsEventInner _oldNlsEventInner;
 };
 
 }  // namespace AlibabaNls

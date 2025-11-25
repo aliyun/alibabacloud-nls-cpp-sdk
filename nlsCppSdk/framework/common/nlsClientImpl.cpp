@@ -20,11 +20,14 @@
 #include "SSLconnect.h"
 #include "connectNode.h"
 #include "da/dialogAssistantRequest.h"
+#include "fss/dashCosyVoiceSynthesizerRequest.h"
 #include "fss/flowingSynthesizerRequest.h"
 #include "nlog.h"
 #include "nlsClientImpl.h"
 #include "nlsEventNetWork.h"
 #include "sr/speechRecognizerRequest.h"
+#include "st/dashFunAsrTranscriberRequest.h"
+#include "st/dashParaformerTranscriberRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
 #include "text_utils.h"
@@ -302,6 +305,98 @@ void NlsClientImpl::releaseTranscriberRequestImpl(
   }
 }
 
+DashFunAsrTranscriberRequest *
+NlsClientImpl::createDashFunAsrTranscriberRequestImpl(const char *sdkName,
+                                                      bool isLongConnection) {
+  DashFunAsrTranscriberRequest *request =
+      new DashFunAsrTranscriberRequest(sdkName, isLongConnection);
+  if (request) {
+    int ret = _nodeManager->addRequestIntoInfoWithInstance((void *)request,
+                                                           (void *)this);
+    if (ret != Success) {
+      LOG_ERROR(
+          "Request(%p) checkRequestWithInstance failed(%d), this request has "
+          "released.",
+          request, ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
+}
+
+void NlsClientImpl::releaseDashFunAsrTranscriberRequestImpl(
+    DashFunAsrTranscriberRequest *request) {
+  if (request) {
+    int ret = Success;
+    /* check this request belong to this NlsClientImpl */
+    ret = _nodeManager->checkRequestWithInstance((void *)request, (void *)this);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) checkRequestWithInstance failed.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid &&
+        node->getConnectNodeStatus() != NodeClosed) {
+      LOG_DEBUG(
+          "Request(%p) Node(%p) invoke cancel by "
+          "releaseDashFunAsrTranscriberRequest.",
+          request, node);
+      request->cancel();
+    }
+
+    releaseRequest(request);
+  }
+}
+
+DashParaformerTranscriberRequest *
+NlsClientImpl::createDashParaformerTranscriberRequestImpl(
+    const char *sdkName, bool isLongConnection) {
+  DashParaformerTranscriberRequest *request =
+      new DashParaformerTranscriberRequest(sdkName, isLongConnection);
+  if (request) {
+    int ret = _nodeManager->addRequestIntoInfoWithInstance((void *)request,
+                                                           (void *)this);
+    if (ret != Success) {
+      LOG_ERROR(
+          "Request(%p) checkRequestWithInstance failed(%d), this request has "
+          "released.",
+          request, ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
+}
+
+void NlsClientImpl::releaseDashParaformerTranscriberRequestImpl(
+    DashParaformerTranscriberRequest *request) {
+  if (request) {
+    int ret = Success;
+    /* check this request belong to this NlsClientImpl */
+    ret = _nodeManager->checkRequestWithInstance((void *)request, (void *)this);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) checkRequestWithInstance failed.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid &&
+        node->getConnectNodeStatus() != NodeClosed) {
+      LOG_DEBUG(
+          "Request(%p) Node(%p) invoke cancel by "
+          "releaseDashParaformerTranscriberRequest.",
+          request, node);
+      request->cancel();
+    }
+
+    releaseRequest(request);
+  }
+}
+
 SpeechSynthesizerRequest *NlsClientImpl::createSynthesizerRequestImpl(
     TtsVersion version, const char *sdkName, bool isLongConnection) {
   SpeechSynthesizerRequest *request =
@@ -432,6 +527,52 @@ void NlsClientImpl::releaseFlowingSynthesizerRequestImpl(
   }
 }
 
+DashCosyVoiceSynthesizerRequest *
+NlsClientImpl::createDashCosyVoiceSynthesizerRequestImpl(
+    const char *sdkName, bool isLongConnection) {
+  DashCosyVoiceSynthesizerRequest *request =
+      new DashCosyVoiceSynthesizerRequest(sdkName, isLongConnection);
+  if (request) {
+    int ret = _nodeManager->addRequestIntoInfoWithInstance((void *)request,
+                                                           (void *)this);
+    if (ret != Success) {
+      LOG_ERROR(
+          "Request(%p) checkRequestWithInstance failed(%d), this request has "
+          "released.",
+          request, ret);
+      delete request;
+      request = NULL;
+    }
+  }
+
+  return request;
+}
+
+void NlsClientImpl::releaseDashCosyVoiceSynthesizerRequestImpl(
+    DashCosyVoiceSynthesizerRequest *request) {
+  if (request) {
+    int ret = Success;
+    /* check this request belong to this NlsClientImpl */
+    ret = _nodeManager->checkRequestWithInstance((void *)request, (void *)this);
+    if (ret != Success) {
+      LOG_ERROR("Request(%p) is invalid.", request);
+      return;
+    }
+
+    ConnectNode *node = request->getConnectNode();
+    if (node && node->getExitStatus() == ExitInvalid &&
+        node->getConnectNodeStatus() != NodeClosed) {
+      LOG_DEBUG(
+          "Request(%p) Node(%p) invoke cancel by "
+          "releaseDashCosyVoiceSynthesizerRequest.",
+          request, node);
+      request->cancel();
+    }
+
+    releaseRequest(request);
+  }
+}
+
 void NlsClientImpl::releaseRequest(INlsRequest *request) {
   uint64_t timewait_start, timewait_end;
   timewait_start = utility::TextUtils::GetTimestampMs();
@@ -508,7 +649,8 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
       if (oriRequestIsAbnormal) {
         LOG_WARN(
             "Request(%p) node(%p) has stored in ConnectedPool, with %s "
-            "usePreconnection and SSL(%p), native SSL(%p). But current request "
+            "usePreconnection and SSL(%p), native SSL(%p). But current "
+            "request "
             "is abnormal.",
             request, request->getConnectNode(),
             request->getConnectNode()->isUsingPreconnection() ? "enable"
@@ -552,9 +694,9 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
     // if (sslInConnectedPool) {
     //   if (oriRequestIsAbnormal) {
     //     LOG_INFO(
-    //         "Request(%p) Node(%p) with SSL handle(%p) socketFd(%d) has stored
-    //         " "in ConnectedPool, and orignal request is abnormal, should
-    //         delete " "itself.", request, request->getConnectNode(),
+    //         "Request(%p) Node(%p) with SSL handle(%p) socketFd(%d) has
+    //         stored " "in ConnectedPool, and orignal request is abnormal,
+    //         should delete " "itself.", request, request->getConnectNode(),
     //         curSslHandle, curSocketFd);
     //     delete request;
     //   }
@@ -591,7 +733,8 @@ void NlsClientImpl::releaseRequest(INlsRequest *request) {
     if (oriRequestIsAbnormal) {
       LOG_INFO(
           "Request(%p) SSL(%p) and socketFd(%d) index(%d) has stored in "
-          "ConnectedPool, and orignal request is abnormal, should delete this "
+          "ConnectedPool, and orignal request is abnormal, should delete "
+          "this "
           "orignal request in ConnectedPool.",
           curRequest, curSslHandle, curSocketFd, index);
 #ifdef ENABLE_PRECONNECTED_POOL

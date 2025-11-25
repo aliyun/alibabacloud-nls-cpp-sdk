@@ -30,8 +30,6 @@ class INlsRequestListener : public HandleBaseOneParamWithReturnVoid<NlsEvent> {
   ~INlsRequestListener();
 
   virtual void handlerFrame(NlsEvent&) = 0;
-  virtual void handlerFrame(std::string errorInfo, int errorCode,
-                            NlsEvent::EventType type, std::string taskId);
 };
 
 }  // namespace AlibabaNls

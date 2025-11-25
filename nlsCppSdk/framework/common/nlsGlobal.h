@@ -102,6 +102,7 @@ enum NlsRetCode {
   InvalidNlsEventMsgType,       /* 无效的NLS事件中消息类型 */
   InvalidNlsEventMsgStatusCode, /* 无效的NLS事件中消息状态码 */
   InvalidNlsEventMsgHeader,     /* 无效的NLS事件中消息头 */
+  IgnoredNlsEventMsg,           /* 可忽略的NLS事件 */
 
   /* work thread */
   CancelledExitStatus = 250, /* 已调用cancel */
@@ -170,6 +171,7 @@ enum NlsRetCode {
   InvalidServerVersion,  /* ServerVersion无效 */
   InvalidServerResource, /* ServerResource无效 */
   InvalidRegionId,       /* RegionId无效 */
+  InvalidApiKey,         /* 阿里云账号API Key无效 */
 
   /* file transfer */
   InvalidFileLink = 500, /* 无效的录音文件链接 */
@@ -540,6 +542,28 @@ enum NlsRequestStatus {
   RequestStatusCancel,
   RequestStatusDisconnected =
       21, /* 长链接模式下的request已经被断链, 此状态需要主动释放此request */
+};
+
+enum NlsServiceProtocol {
+  WsServiceProtocolNls = 0,   /* 默认使用 智能语音交互(NLS) */
+  WsServiceProtocolDashScope, /* 百炼大模型语音交互(DashScope) */
+};
+
+enum NlsType {
+  TypeAsr = 0,        /* 一句话识别 */
+  TypeRealTime,       /* 实时语音识别 */
+  TypeTts,            /* 语音合成 */
+  TypeStreamInputTts, /* 流式文本语音合成 */
+  TypeDialog,
+
+  // DashScope
+  TypeDashScopeBegin = 30,
+  TypeDashScopeParaformerRealTime,
+  TypeDashScopeFunAsrRealTime,
+  TypeDashSceopCosyVoiceStreamInputTts,
+  TypeDashScopeEnd,
+
+  TypeNone
 };
 
 #endif  // NLS_SDK_GLOBAL_H

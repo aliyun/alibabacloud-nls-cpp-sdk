@@ -31,9 +31,12 @@ namespace AlibabaNls {
 class NlsClientImpl;
 class SpeechRecognizerRequest;
 class SpeechTranscriberRequest;
+class DashFunAsrTranscriberRequest;
+class DashParaformerTranscriberRequest;
 class SpeechSynthesizerRequest;
 class DialogAssistantRequest;
 class FlowingSynthesizerRequest;
+class DashCosyVoiceSynthesizerRequest;
 
 enum LogLevel { LogError = 1, LogWarning, LogInfo, LogDebug };
 
@@ -101,6 +104,42 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
   void releaseTranscriberRequest(SpeechTranscriberRequest* request);
 
   /**
+   * @brief 创建百炼Fun-ASR实时音频流识别对象
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
+   * @return 成功返回SpeechTranscriberRequest对象，否则返回NULL
+   */
+  DashFunAsrTranscriberRequest* createDashFunAsrTranscriberRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+
+  /**
+   * @brief 销毁百炼Fun-ASR实时音频流识别对象
+   * @param request  createDashFunAsrTranscriberRequest所建立的request对象
+   * @return
+   */
+  void releaseDashFunAsrTranscriberRequest(
+      DashFunAsrTranscriberRequest* request);
+
+  /**
+   * @brief 创建百炼Paraformer实时音频流识别对象
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
+   * @return 成功返回SpeechTranscriberRequest对象，否则返回NULL
+   */
+  DashParaformerTranscriberRequest* createDashParaformerTranscriberRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+
+  /**
+   * @brief 销毁百炼Paraformer实时音频流识别对象
+   * @param request  createDashParaformerTranscriberRequest所建立的request对象
+   * @return
+   */
+  void releaseDashParaformerTranscriberRequest(
+      DashParaformerTranscriberRequest* request);
+
+  /**
    * @brief 创建语音合成对象
    * @param version tts类型
    * @param sdkName SDK的命名, 涉及到运行平台和代码语言
@@ -154,6 +193,24 @@ class NLS_SDK_CLIENT_EXPORT NlsClient {
    * @return
    */
   void releaseFlowingSynthesizerRequest(FlowingSynthesizerRequest* request);
+
+  /**
+   * @brief 创建流式文本输入语音合成对象
+   * @param sdkName SDK的命名, 涉及到运行平台和代码语言
+   * @param isLongConnection 是否启用长链接, 即stop后可继续start.
+   * 但是此模式容易因为长时间未操作被服务端超时断链, 请谨慎使用或尽量不使用.
+   * @return 成功则FlowingSynthesizerRequest对象，否则返回NULL
+   */
+  DashCosyVoiceSynthesizerRequest* createDashCosyVoiceSynthesizerRequest(
+      const char* sdkName = "cpp", bool isLongConnection = false);
+
+  /**
+   * @brief 销毁流式文本输入语音合成对象
+   * @param request  createDashCosyVoiceSynthesizerRequest所建立的request对象
+   * @return
+   */
+  void releaseDashCosyVoiceSynthesizerRequest(
+      DashCosyVoiceSynthesizerRequest* request);
 
   /**
    * @brief 当前版本信息

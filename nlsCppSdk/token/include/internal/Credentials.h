@@ -17,6 +17,7 @@
 #ifndef ALIBABANLS_COMMON_CREDENTIAL_H_
 #define ALIBABANLS_COMMON_CREDENTIAL_H_
 
+#include <stdint.h>
 #include <string>
 
 namespace AlibabaNlsCommon {
@@ -25,16 +26,22 @@ class Credentials {
  public:
   Credentials(const std::string &accessKeyId,
               const std::string &accessKeySecret,
-              const std::string &stsToken = "",
+              const std::string &stsToken = "", const std::string &apiKey = "",
+              const uint32_t &expireInSeconds = 0,
               const std::string &sessionToken = "");
   ~Credentials();
 
   std::string accessKeyId() const;
   std::string accessKeySecret() const;
   std::string stsToken() const;
+  std::string apiKey() const;
+  uint32_t expireInSeconds() const;
+
   void setAccessKeyId(const std::string &accessKeyId);
   void setAccessKeySecret(const std::string &accessKeySecret);
   void setStsToken(const std::string &stsToken);
+  void setApiKey(const std::string &apiKey);
+  void setExpireInSeconds(const uint32_t &expireInSeconds);
   void setSessionToken(const std::string &sessionToken);
   std::string sessionToken() const;
 
@@ -43,6 +50,8 @@ class Credentials {
   std::string accessKeySecret_;
   std::string stsToken_;
   std::string sessionToken_;
+  std::string apiKey_;
+  uint32_t expireInSeconds_;
 };
 
 }  // namespace AlibabaNlsCommon

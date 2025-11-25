@@ -27,6 +27,8 @@
 #include "nlsEventNetWork.h"
 #include "nodeManager.h"
 #include "sr/speechRecognizerRequest.h"
+#include "st/dashFunAsrTranscriberRequest.h"
+#include "st/dashParaformerTranscriberRequest.h"
 #include "st/speechTranscriberRequest.h"
 #include "sy/speechSynthesizerRequest.h"
 #include "text_utils.h"
@@ -212,6 +214,57 @@ void NlsClient::releaseTranscriberRequest(SpeechTranscriberRequest *request) {
   MUTEX_UNLOCK(_mtxNlsClient);
 }
 
+DashFunAsrTranscriberRequest *NlsClient::createDashFunAsrTranscriberRequest(
+    const char *sdkName, bool isLongConnection) {
+  MUTEX_LOCK(_mtxNlsClient);
+  DashFunAsrTranscriberRequest *request = NULL;
+  if (_instance) {
+    request = _instance->_impl->createDashFunAsrTranscriberRequestImpl(
+        sdkName, isLongConnection);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+  return request;
+}
+
+void NlsClient::releaseDashFunAsrTranscriberRequest(
+    DashFunAsrTranscriberRequest *request) {
+  MUTEX_LOCK(_mtxNlsClient);
+  if (_instance) {
+    _instance->_impl->releaseDashFunAsrTranscriberRequestImpl(request);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+}
+
+DashParaformerTranscriberRequest *
+NlsClient::createDashParaformerTranscriberRequest(const char *sdkName,
+                                                  bool isLongConnection) {
+  MUTEX_LOCK(_mtxNlsClient);
+  DashParaformerTranscriberRequest *request = NULL;
+  if (_instance) {
+    request = _instance->_impl->createDashParaformerTranscriberRequestImpl(
+        sdkName, isLongConnection);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+  return request;
+}
+
+void NlsClient::releaseDashParaformerTranscriberRequest(
+    DashParaformerTranscriberRequest *request) {
+  MUTEX_LOCK(_mtxNlsClient);
+  if (_instance) {
+    _instance->_impl->releaseDashParaformerTranscriberRequestImpl(request);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+}
+
 SpeechSynthesizerRequest *NlsClient::createSynthesizerRequest(
     TtsVersion version, const char *sdkName, bool isLongConnection) {
   MUTEX_LOCK(_mtxNlsClient);
@@ -279,6 +332,32 @@ void NlsClient::releaseFlowingSynthesizerRequest(
   MUTEX_LOCK(_mtxNlsClient);
   if (_instance) {
     _instance->_impl->releaseFlowingSynthesizerRequestImpl(request);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+}
+
+DashCosyVoiceSynthesizerRequest *
+NlsClient::createDashCosyVoiceSynthesizerRequest(const char *sdkName,
+                                                 bool isLongConnection) {
+  MUTEX_LOCK(_mtxNlsClient);
+  DashCosyVoiceSynthesizerRequest *request = NULL;
+  if (_instance) {
+    request = _instance->_impl->createDashCosyVoiceSynthesizerRequestImpl(
+        sdkName, isLongConnection);
+  } else {
+    LOG_WARN("Current instance has released.");
+  }
+  MUTEX_UNLOCK(_mtxNlsClient);
+  return request;
+}
+
+void NlsClient::releaseDashCosyVoiceSynthesizerRequest(
+    DashCosyVoiceSynthesizerRequest *request) {
+  MUTEX_LOCK(_mtxNlsClient);
+  if (_instance) {
+    _instance->_impl->releaseDashCosyVoiceSynthesizerRequestImpl(request);
   } else {
     LOG_WARN("Current instance has released.");
   }

@@ -4,10 +4,25 @@
 
 C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可应用于客服、法院智能问答等多个场景。  
 
+此SDK包含以下能力：  
+[大模型服务平台百炼语音交互 - 实时语音识别(Fun-ASR)](https://help.aliyun.com/zh/model-studio/fun-asr-real-time-speech-recognition-api-reference)  
+[大模型服务平台百炼语音交互 - 实时语音识别(Paraformer)](https://help.aliyun.com/zh/model-studio/paraformer-real-time-speech-recognition-api-reference)  
+[大模型服务平台百炼语音交互 - 实时语音合成(CosyVoice)](https://help.aliyun.com/zh/model-studio/cosyvoice-large-model-for-speech-synthesis)  
+[智能语音交互 - 一句话识别](https://help.aliyun.com/zh/isi/developer-reference/sdk-for-c-4)  
+[智能语音交互 - 实时语音识别](https://help.aliyun.com/zh/isi/developer-reference/sdk-for-c-5)  
+[智能语音交互 - 录音文件识别闲时版](https://help.aliyun.com/zh/isi/developer-reference/sdk-reference)  
+[智能语音交互 - 语音合成](https://help.aliyun.com/zh/isi/developer-reference/sdk-for-c-6)  
+[智能语音交互 - 实时长文本语音合成](https://help.aliyun.com/zh/isi/developer-reference/sdk-for-c)  
+[智能语音交互 - 流式文本语音合成](https://help.aliyun.com/zh/isi/developer-reference/c-sdk)  
+[智能语音交互 - CosyVoice大模型长文本语音合成](https://help.aliyun.com/zh/isi/developer-reference/long-text-to-speech-synthesis-for-cosyvoice-c-sdk)  
+[智能语音交互 - CosyVoice大模型流式文本语音合成](https://help.aliyun.com/zh/isi/developer-reference/c-sdk-3)  
+[通义听悟 - 实时转写](https://help.aliyun.com/zh/model-studio/fun-asr-real-time-speech-recognition-api-reference)  
 
 ## 前提条件
 
 在使用 C++ SDK 前，确保您已经：
+
+### 智能语音交互接入
 
 * 注册了阿里云账号并获取您的Access Key ID 和 Secret。
 
@@ -21,12 +36,21 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 
 详细说明请参考:[智能语音交互接入](https://help.aliyun.com/document_detail/72138.html)  
 
+### 大模型服务平台百炼语音交互接入
+
+* 注册了阿里云账号并开通阿里云百炼，获取您的API Key作为鉴权凭证。
+
+* 配置API Key到环境变量
+
+* Linux下请安装CMake 3.8及以上, GCC 4.8.5 或以上版本。目前验证且顺利编译运行的GCC版本有: 4.8.5、5.5.0、8.4.0
+
+详细说明请参考:[大模型服务平台百炼语音交互接入](https://help.aliyun.com/zh/model-studio/get-api-key)  
 
 ## 如何使用 C++ SDK
 
-接入前请仔细阅读C++ SDK3.1.x文档：https://help.aliyun.com/product/30413.html
+接入前请仔细阅读C++ SDK3.x.x文档：[智能语音交互](https://help.aliyun.com/product/30413.html)
 
-特殊说明：当前版本C++SDK3.1.x，相较于3.0，接口sendAudio和各接口返回值有改动，具体请看接口头文件中接口说明。  
+特殊说明：版本C++SDK3.1.x及后续版本，相较于3.0，接口sendAudio和各接口返回值有改动，具体请看接口头文件中接口说明。  
 
 ### 接口调用流程演示
  ![image](docs/images/processDemo.png)  
@@ -44,31 +68,37 @@ C++ SDK 提供一句话识别、实时语音识别、语音合成等服务。可
 > ./scripts/build_linux.sh all debug 1 1    全量编译，生成Debug版本，支持C++11，支持私有云VipClient
 
 生成物NlsSdk3.X_LINUX 目录说明:  
-NlsSdk3.X_LINUX  
-│── bin  
-│   │── daDemo         对话Demo binary文件  
-│   │── gtDemo         token生成Demo binary文件  
-│   │── ftDemo         录音文件识别Demo binary文件  
-│   │── srDemo         一句话识别Demo binary文件  
-│   │── stDemo         实时识别Demo binary文件  
-│   │── fsDemo         流式输入语音合成Demo binary文件  
-│   └── syDemo         语音合成Demo binary文件  
-│── demo  
-│   │── build_linux_demo.sh           一键编译当前Demo  
-│   │── generateTokenDemo.cpp         token生成Demo源码  
-│   │── dialogAssistantDemo.cpp       对话Demo源码  
-│   │── speechRecognizerDemo.cpp      一句话识别Demo源码  
-│   │── speechSynthesizerDemo.cpp     语音合成Demo源码  
-│   │── flowingSynthesizerDemo.cpp    流式输入语音合成Demo源码  
-│   │── speechTranscriberDemo.cpp     实时识别Demo源码  
-│   └── fileTransferDemo.cpp          录音文件转写Demo源码  
-│   │── resource            测试资源（测试音频文件）  
-│   │   └── audio  
+```dir tree
+NlsSdk3.X_LINUX/  
+│── bin/  
+│   │── daDemo                        # 对话Demo binary文件  
+│   │── gtDemo                        # token生成Demo binary文件  
+│   │── ftDemo                        # 录音文件识别Demo binary文件  
+│   │── srDemo                        # 一句话识别Demo binary文件  
+│   │── stDemo                        # 实时识别Demo binary文件  
+│   │── fsDemo                        # 流式输入语音合成Demo binary文件  
+│   │── syDemo                        # 语音合成Demo binary文件  
+│   └── funAsrTranscriberDemo         # 百炼Fun-ASR实时识别Demo binary文件  
+│── demo/  
+│   │── build_linux_demo.sh           # 一键编译当前Demo  
+│   │── generateTokenDemo.cpp         # token生成Demo源码  
+│   │── dialogAssistantDemo.cpp       # 对话Demo源码  
+│   │── speechRecognizerDemo.cpp      # 一句话识别Demo源码  
+│   │── speechSynthesizerDemo.cpp     # 语音合成Demo源码  
+│   │── flowingSynthesizerDemo.cpp    # 流式输入语音合成Demo源码  
+│   │── speechTranscriberDemo.cpp     # 实时识别Demo源码  
+│   │── fileTransferDemo.cpp          # 录音文件转写Demo源码  
+│   │── generateAPIKeyDemo.cpp        # 百炼生成临时API Key(token)Demo源码  
+│   │── cosyvoiceSynthesizerDemo.cpp  # 百炼CosyVoice流式输入语音合成Demo源码  
+│   │── paraformerTranscriberDemo.cpp # 百炼Paraformer实时识别Demo源码  
+│   └── funAsrTranscriberDemo.cpp     # 百炼Fun-ASR实时识别Demo源码  
+│   │── resource/                     # 测试资源（测试音频文件）  
+│   │   └── audio/  
 │   │       ├── test0.wav  
 │   │       ├── test1.wav  
 │   │       ├── test2.wav  
 │   │       └── test3.wav  
-│── include                 接口头文件  
+│── include/                          # 接口头文件  
 │   │── iNlsRequest.h  
 │   │── nlsClient.h  
 │   │── nlsEvent.h  
@@ -78,12 +108,16 @@ NlsSdk3.X_LINUX
 │   │── speechRecognizerRequest.h  
 │   │── speechSynthesizerRequest.h  
 │   │── flowingSynthesizerRequest.h  
-│   └── speechTranscriberRequest.h  
-│── lib                     库（原libalibabacloud-idst-common.so已合并入libalibabacloud-idst-speech.so）  
+│   │── speechTranscriberRequest.h  
+│   │── dashCosyVoiceSynthesizerRequest.h  
+│   │── dashParaformerTranscriberRequest.h  
+│   └── dashFunAsrTranscriberRequest.h  
+│── lib/                              # 库（原libalibabacloud-idst-common.so已合并入libalibabacloud-idst-speech.so）  
 │   │── libalibabacloud-idst-speech.a  
 │   └── libalibabacloud-idst-speech.so  
 │── README.md  
-└── version                 版本说明  
+└── version                           # 版本说明  
+```
 
 注意：
 1. linux环境下，运行环境最低要求：CMake 3.8及以上，Glibc 2.5及以上，GCC4.8.5及以上。   
@@ -121,6 +155,7 @@ add_definitions(-DGIT_SHA1="\\"no\\"")
 > ./scripts/build_android.sh incr release arm64-v8a  增量编译，生成arm64-v8a架构Release版本   
 
 ### Windows C++ 平台编译及说明：  
+由于Windows兼容问题，本SDK暂不支持Windows平台。
 #### 一、简单使用（推荐）
 NlsCppSdk_Windows_<版本号>_<github commit id>.zip 为已经（使用MSVC 142）编译完成的库文件，建议直接拿库文件进行试用和集成。
 
@@ -193,7 +228,7 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 测试环境：十六核 Intel(R) Xeon(R) Platinum 8163 CPU @ 2.50GHz  
 以下测试数据仅做参考，在LogLevelInfo情况下测试，实际运行会根据设置参数、运行环境不同等因素有较大差异。
 
-### 语音合成测试数据及说明
+### 智能语音交互(NLS)语音合成测试数据及说明
 合成文本：“今日天气真不错，我想去操场踢足球。”  
 发音人：xiaoyun。  
 合成音频后103278字节，约3.2秒。  
@@ -237,7 +272,7 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 &emsp;目前单机并发极限测试记录为800，只要机器的网络性能和CPU占用率可承受，完成一轮的耗时可接收，可继续提高并发数。
 
 
-### 流式文本语音合成测试数据及说明
+### 智能语音交互(NLS)流式文本语音合成测试数据及说明
 合成文本：“现在是2025-02-13 10:47:05 839202。今日天气真不错，我想去操场踢足球。”  
 发音人：longxiaoxia_v2。  
 合成音频后约324800字节，约10.15秒。  
@@ -261,7 +296,7 @@ NlsCsharpSdk_Windows_<版本号>_<github commit id>.zip 为已经编译完成的
 | 3.3.0a | 预链接  |   5   |    12h  |   11803  |   249ms |      0       |        0       |        0       |11802(999.915‰)|      8(0.678‰) |        0        |        0        |        0       |   Debug / LogLevelInfo  |    longxiaoxia_v2    |
 
 
-### 语音识别测试数据及说明
+### 智能语音交互(NLS)语音识别测试数据及说明
 识别音频：为提供的4个wav循环进行识别  
 #### 测试数据
 |  版本  | 链接模式 | 并发数 | 启用事件池数 | 音频格式 | 音频时长 | 单轮时长 | start耗时 | sendAudio耗时 |   CPU占用率   |

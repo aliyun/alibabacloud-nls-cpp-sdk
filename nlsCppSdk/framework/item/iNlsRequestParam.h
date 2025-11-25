@@ -21,6 +21,7 @@
 #include <string>
 
 #include "json/json.h"
+#include "nlsGlobal.h"
 
 namespace AlibabaNls {
 
@@ -33,18 +34,7 @@ enum NlsRequestType {
   FlowingSynthesizer
 };
 
-//语音类型
-enum NlsType {
-  TypeAsr = 0,        /* 一句话识别 */
-  TypeRealTime,       /* 实时语音识别 */
-  TypeTts,            /* 语音合成 */
-  TypeStreamInputTts, /* 流式文本语音合成 */
-  TypeDialog,
-  TypeNone
-};
-
 class ConnectNode;
-
 class INlsRequestParam {
  public:
   INlsRequestParam(NlsType mode, const char* sdkName, int version = 0);
@@ -79,6 +69,7 @@ class INlsRequestParam {
   inline void setTokenExpirationTime(uint64_t expiration) {
     this->_tokenExpirationTime = expiration;
   };
+  inline void setAPIKey(const char* apikey) { this->_apikey = apikey; };
   inline void setUrl(const char* url) { this->_url = url; };
   inline void setNlsRequestType(NlsRequestType requestType) {
     _requestType = requestType;
@@ -92,8 +83,8 @@ class INlsRequestParam {
   inline void setEnableRecvTimeout(bool enable) {
     _enableRecvTimeout = enable;
   };
-  inline void setRecvTimeout(int timeout) { _recv_timeout = timeout; };
-  inline void setSendTimeout(int timeout) { _send_timeout = timeout; };
+  inline void setRecvTimeout(int timeout) { _recvTimeout = timeout; };
+  inline void setSendTimeout(int timeout) { _sendTimeout = timeout; };
 
   inline void setOutputFormat(const char* outputFormat) {
     _outputFormat = outputFormat;
@@ -104,13 +95,25 @@ class INlsRequestParam {
   inline void setEnableContinued(bool enable) { _enableReconnect = enable; };
 #endif
 
-  inline void setTaskId(std::string taskId) { _task_id = taskId; };
+  inline void setTaskId(std::string taskId) { _taskId = taskId; };
 
+  void setModel(const char* model);
+  void setHeartbeat(bool enable);
+  void setSemanticPunctuationEnabled(bool enable);
+  void setMultiThresholdModeEnabled(bool enable);
+  void setMaxSentenceSilence(int value);
   void setIntermediateResult(bool value);
   void setPunctuationPrediction(bool value);
   void setTextNormalization(bool value);
   void setSentenceDetection(bool value);
   int setEnableWakeWordVerification(bool value);
+
+  int setVoice(const char* value);
+  void setSsmlEnabled(bool enable);
+  void setWordTimestampEnabled(bool enable);
+  int setBitRate(int rate);
+  void setAigcTagEnabled(bool enable);
+
   int setContextParam(const char* value);
   int setPayloadParam(const char* value);
   int removePayloadParam(const char* key);
@@ -150,29 +153,47 @@ class INlsRequestParam {
   bool _enableReconnect;
 #endif
 
+  // about speech transcriber and recognizer
+  bool _punctuationPredictionEnabled;
+  bool _inverseTextNormalizationEnabled;
+  bool _semanticPunctuationEnabled;
+  bool _multiThresholdModeEnabled;
+  int _maxSentenceSilence;
+  bool _heartbeat;
+  std::string _vocabularyId;
+
+  // about speech synthesizer
+  std::string _voice;
+  bool _enableSsml;
+  bool _wordTimestampEnabled;
+  int _bitRate;
+  bool _enableAigcTag;
+
   time_t _timeout;
-  time_t _recv_timeout;
-  time_t _send_timeout;
+  time_t _recvTimeout;
+  time_t _sendTimeout;
 
-  int _sampleRate;
   NlsRequestType _requestType;
-
+  std::string _model;
   std::string _url;
   std::string _outputFormat;
   std::string _appKey;
   std::string _token;
   uint64_t _tokenExpirationTime;
+  std::string _apikey;
   std::string _format;
+  int _sampleRate;
 
-  std::string _task_id;
-  std::string _old_task_id;
+  std::string _taskId;
+  std::string _oldTaskId;
 
   NlsType _mode;
-  std::string _sdk_name;  // e.g. nls-cpp-sdk3.x-linux
+  std::string _sdkName;  // e.g. nls-cpp-sdk3.x-linux
 
   std::string _startCommand;
   std::string _controlCommand;
   std::string _stopCommand;
+  std::string _continueCommand;
 
   Json::Value _header;
   Json::Value _payload;
@@ -180,6 +201,11 @@ class INlsRequestParam {
 
   Json::Value _httpHeader;
   std::string _httpHeaderString;
+
+  std::string _streaming;
+  std::string _taskGroup;
+  std::string _task;
+  std::string _function;
 
  private:
   int _version;

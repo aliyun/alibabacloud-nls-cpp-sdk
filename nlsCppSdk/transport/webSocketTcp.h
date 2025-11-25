@@ -76,10 +76,12 @@ struct urlAddress {
   char _type[TypeSize];
   char _path[PathSize];
   char _token[TokenSize];
+  char _apikey[TokenSize];
   bool _isSsl;
   char _address[HostSize];
   bool _directIp;
   bool _enableSysGetAddr;
+  int _serviceProtocol;
 };
 
 class WebSocketTcp {
@@ -91,6 +93,8 @@ class WebSocketTcp {
   void* getConnectNode() { return _nodeHandle; }
 
   int requestPackage(urlAddress* url, char* buffer, std::string httpHeader);
+  int requestDashScopePackage(urlAddress* url, char* buffer,
+                              std::string httpHeader);
   int responsePackage(const char* content, size_t length);
 
   int framePackage(WebSocketHeaderType::OpCodeType type, const uint8_t* buffer,

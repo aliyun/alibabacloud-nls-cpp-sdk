@@ -609,8 +609,7 @@ void OnSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
   ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
   if (!simplifyLog) {
     std::cout
-        << "OnSentenceEnd "
-        << "Response: "
+        << "OnSentenceEnd Response: "
         << cbEvent
                ->getAllResponse()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
         << std::endl;
@@ -624,11 +623,15 @@ void OnSentenceEnd(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
  * @return
  */
 void OnSentenceSynthesis(AlibabaNls::NlsEvent* cbEvent, void* cbParam) {
-#if 0
-  ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
-  std::cout << "OnSentenceSynthesis "
-    << "Response: " << cbEvent->getAllResponse()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
-    << std::endl;
+#if 1
+  if (!simplifyLog) {
+    ParamCallBack* tmpParam = (ParamCallBack*)cbParam;
+    std::cout
+        << "OnSentenceSynthesis Response: "
+        << cbEvent
+               ->getAllResponse()  // 获取消息的状态码，成功为0或者20000000，失败时对应失败的错误码
+        << std::endl;
+  }
 #endif
 }
 

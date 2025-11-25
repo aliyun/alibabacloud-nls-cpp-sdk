@@ -135,6 +135,19 @@ const char* INlsRequest::dumpAllInfo(INlsRequest* request) {
     return NULL;
   }
 
+  NlsClientImpl* instance = NlsEventNetWork::_eventClient->getInstance();
+  if (instance == NULL) {
+    LOG_ERROR("Request(%p) instance is nullptr.", request);
+    return "";
+  }
+  NlsNodeManager* node_manager = instance->getNodeManger();
+  int status = NodeStatusInvalid;
+  int ret = node_manager->checkRequestExist(request, &status);
+  if (ret != Success) {
+    LOG_ERROR("Request(%p) checkRequestExist failed, ret:%d.", request, ret);
+    return "";
+  }
+
   return NlsEventNetWork::_eventClient->dumpAllInfo(request);
 }
 
