@@ -29,7 +29,6 @@ class SpeechSynthesizerParam : public INlsRequestParam {
   ~SpeechSynthesizerParam();
 
   int setText(const char* value);
-  int setVoice(const char* value);
   int setVolume(int value);
   int setSpeechRate(int value);
   int setPitchRate(int value);

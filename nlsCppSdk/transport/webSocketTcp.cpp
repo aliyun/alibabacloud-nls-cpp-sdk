@@ -54,6 +54,11 @@ WebSocketTcp::~WebSocketTcp() {
 }
 
 int WebSocketTcp::parseUrlAddress(struct urlAddress& url, const char* address) {
+  if (std::string(address).find("dashscope") != std::string::npos) {
+    url._serviceProtocol = WsServiceProtocolDashScope;
+  } else {
+    url._serviceProtocol = WsServiceProtocolNls;
+  }
   if (sscanf(address, "%10[^:/]://%256[^:/]:%d/%255s", url._type, url._host,
              &url._port, url._path) == 4) {
     if (strcmp(url._type, "wss") == 0 || strcmp(url._type, "https") == 0) {
@@ -147,6 +152,81 @@ int WebSocketTcp::requestPackage(urlAddress* url, char* buffer,
         (char*)key_buf_str.c_str(), &token_buf_str, "X-NLS-Token:", token_step,
         'Y');
     LOG_DEBUG("WsTcp(%p) Http Request:\n%s", this, token_buf_str.c_str());
+  }
+  return contentSize;
+}
+
+int WebSocketTcp::requestDashScopePackage(urlAddress* url, char* buffer,
+                                          std::string httpHeader) {
+  char hostBuff[256] = {0};
+
+  if (url->_port == HttpPort) {
+    _ssnprintf(hostBuff, 256, "Host: %s\r\n", url->_host);
+  } else {
+    _ssnprintf(hostBuff, 256, "Host: %s:%d\r\n", url->_host, url->_port);
+  }
+
+  int contentSize = 0;
+  const int apikey_bytes = strnlen(url->_apikey, TokenSize);
+  const int ws_key_bytes = strnlen(getSecWsKey(), 128) - 18;
+  if (httpHeader.empty()) {
+    contentSize = _ssnprintf(
+        buffer, BufferSize,
+        "GET /%s "
+        "HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\r\n%s",
+        url->_path, hostBuff, "Upgrade: websocket", HTTP_CONTENT_LENGTH_END,
+        "Connection: Upgrade", HTTP_CONTENT_LENGTH_END, getSecWsKey(),
+        HTTP_CONTENT_LENGTH_END, "Sec-WebSocket-Version: ", SEC_WS_VER,
+        HTTP_CONTENT_LENGTH_END, "user-agent: dashscope/",
+        utility::TextUtils::GetSdkInfo().c_str(), ";version/",
+        utility::TextUtils::GetVersion().c_str(), ";platform/",
+        utility::TextUtils::GetOSName().c_str(), ";arch/",
+        utility::TextUtils::GetArchName().c_str(), HTTP_CONTENT_LENGTH_END,
+        "X-DashScope-DataInspection: enable", HTTP_CONTENT_LENGTH_END,
+        "Authorization: bearer ", url->_apikey, HTTP_CONTENT_LENGTH_END);
+  } else {
+    contentSize = _ssnprintf(
+        buffer, BufferSize,
+        "GET /%s "
+        "HTTP/1.1\r\n%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\r\n%s",
+        url->_path, hostBuff, "Upgrade: websocket", HTTP_CONTENT_LENGTH_END,
+        "Connection: Upgrade", HTTP_CONTENT_LENGTH_END, getSecWsKey(),
+        HTTP_CONTENT_LENGTH_END, "Sec-WebSocket-Version: ", SEC_WS_VER,
+        HTTP_CONTENT_LENGTH_END, "user-agent: dashscope/",
+        utility::TextUtils::GetSdkInfo().c_str(), ";version/",
+        utility::TextUtils::GetVersion().c_str(), ";platform/",
+        utility::TextUtils::GetOSName().c_str(), ";arch/",
+        utility::TextUtils::GetArchName().c_str(), HTTP_CONTENT_LENGTH_END,
+        "X-DashScope-DataInspection: enable", HTTP_CONTENT_LENGTH_END,
+        "Authorization: bearer ", url->_apikey, HTTP_CONTENT_LENGTH_END,
+        httpHeader.c_str(), HTTP_CONTENT_LENGTH_END);
+  }
+
+  if (contentSize <= 0) {
+    LOG_ERROR("WsTcp(%p) send http head to server failed.", this);
+    return -(WsRequestPackageEmpty);
+  }
+
+  const int default_step = 4;
+  const int apikey_step =
+      apikey_bytes < default_step ? apikey_bytes : default_step;
+  const int ws_key_step =
+      ws_key_bytes < default_step ? ws_key_step : default_step;
+  if (apikey_step > 0 && ws_key_step > 0) {
+    std::string key_buf_str;
+    std::string apikey_buf_str;
+    key_buf_str = utility::TextUtils::securityDisposalForLog(
+        buffer, &key_buf_str, "Sec-WebSocket-Key:", ws_key_step, 'X');
+
+    size_t pos = key_buf_str.find("Authorization: bearer sk-");
+    if (pos != std::string::npos) {
+      apikey_buf_str = utility::TextUtils::securityDisposalForLog(
+          (char*)key_buf_str.c_str(), &apikey_buf_str, "Authorization: bearer ",
+          apikey_step, 'Y');
+      LOG_DEBUG("WsTcp(%p) Http Request:\n%s", this, apikey_buf_str.c_str());
+    } else {
+      LOG_DEBUG("WsTcp(%p) Http Request:\n%s", this, key_buf_str.c_str());
+    }
   }
   return contentSize;
 }

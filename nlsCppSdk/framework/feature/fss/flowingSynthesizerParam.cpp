@@ -42,14 +42,6 @@ FlowingSynthesizerParam::FlowingSynthesizerParam(const char* sdkName)
 
 FlowingSynthesizerParam::~FlowingSynthesizerParam() {}
 
-int FlowingSynthesizerParam::setVoice(const char* value) {
-  if (value == NULL) {
-    return -(InvalidInputParam);
-  }
-  _payload[D_SY_VOICE] = value;
-  return Success;
-}
-
 int FlowingSynthesizerParam::setSingleRoundText(const char* value) {
   if (value == NULL) {
     return -(InvalidInputParam);
@@ -105,7 +97,7 @@ const char* FlowingSynthesizerParam::getRunFlowingSynthesisCommand(
   _header[D_NAME] = D_CMD_RUN_SYNTHESIS;
 
   try {
-    _header[D_TASK_ID] = _task_id;
+    _header[D_TASK_ID] = _taskId;
     _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
     _payload[D_SY_TEXT] = text;
 
@@ -129,7 +121,7 @@ const char* FlowingSynthesizerParam::getFlushFlowingTextCommand(
   _header[D_NAME] = D_CMD_FLUSH_TEXT;
 
   try {
-    _header[D_TASK_ID] = _task_id;
+    _header[D_TASK_ID] = _taskId;
     _header[D_MESSAGE_ID] = utility::TextUtils::getRandomUuid();
     root[D_HEADER] = _header;
 

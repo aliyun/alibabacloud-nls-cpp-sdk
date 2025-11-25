@@ -26,7 +26,9 @@ class SimpleCredentialsProvider : public CredentialsProvider {
   explicit SimpleCredentialsProvider(const Credentials &credentials);
   SimpleCredentialsProvider(const std::string &accessKeyId,
                             const std::string &accessKeySecret,
-                            const std::string &stsToken = "");
+                            const std::string &stsToken = "",
+                            const std::string &apiKey = "",
+                            const uint32_t &expireInSeconds = 0);
   ~SimpleCredentialsProvider();
 
   virtual Credentials getCredentials();  // override;

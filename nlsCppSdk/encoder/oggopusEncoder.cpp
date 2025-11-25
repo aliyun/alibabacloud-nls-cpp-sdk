@@ -568,6 +568,7 @@ int OggOpusDataEncoder::OggopusFinish() {
 
 int OggOpusDataEncoder::OggopusSoftRestart() {
   is_first_frame_processed_ = false;
+  ogg_stream_reset(&ogg_opus_para_->os);
   return Success;
 }
 

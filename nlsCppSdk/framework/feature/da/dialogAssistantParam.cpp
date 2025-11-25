@@ -40,7 +40,7 @@ DialogAssistantParam::DialogAssistantParam(int version, const char* sdkName)
     _header[D_DA_ENABLE_MUTI_GROUP] = true;
   }
 
-  _payload[D_DA_SESSION_ID] = _task_id.c_str();
+  _payload[D_DA_SESSION_ID] = _taskId.c_str();
 }
 
 DialogAssistantParam::~DialogAssistantParam() {}

@@ -26,7 +26,7 @@ namespace AlibabaNlsCommon {
 
 class CommonRequest : public ServiceRequest {
  public:
-  enum RequestPattern { TokenPattern, FileTransPattern };
+  enum RequestPattern { TokenPattern, FileTransPattern, DashPattern };
 
   explicit CommonRequest(RequestPattern pattern = TokenPattern);
   ~CommonRequest();

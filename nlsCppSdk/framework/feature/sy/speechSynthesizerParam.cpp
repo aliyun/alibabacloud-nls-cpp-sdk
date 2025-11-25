@@ -48,14 +48,6 @@ int SpeechSynthesizerParam::setText(const char* value) {
   return Success;
 }
 
-int SpeechSynthesizerParam::setVoice(const char* value) {
-  if (value == NULL) {
-    return -(InvalidInputParam);
-  }
-  _payload[D_SY_VOICE] = value;
-  return Success;
-}
-
 int SpeechSynthesizerParam::setVolume(int value) {
   _payload[D_SY_VOLUME] = value;
   return Success;

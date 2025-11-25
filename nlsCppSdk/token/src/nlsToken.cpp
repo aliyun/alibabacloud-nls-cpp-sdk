@@ -21,8 +21,12 @@
 
 #include "CommonClient.h"
 #include "json/json.h"
+#include "nlog.h"
 
 namespace AlibabaNlsCommon {
+
+using namespace AlibabaNls;
+using namespace utility;
 
 NlsToken::NlsToken() {
   domain_ = "nls-meta.cn-shanghai.aliyuncs.com";
@@ -118,6 +122,8 @@ int NlsToken::applyNlsToken() {
       std::string tt = "json any failed.";
       errorMsg_ = tt;
       return -(JsonParseFailed);
+    } else {
+      LOG_DEBUG("NLS token result: %s", result.c_str());
     }
 
     if (!root["Token"].isNull()) {

@@ -15,9 +15,9 @@
  */
 
 #ifdef _MSC_VER
+#include <Rpc.h>
 #include <Windows.h>
 #include <ws2tcpip.h>
-#include <Rpc.h>
 #else
 #include <sys/time.h>
 #include <unistd.h>
@@ -201,6 +201,51 @@ __attribute__((visibility("default"))) std::string TextUtils::GetVersion() {
 }  // namespace utility
 
 const char *TextUtils::GetGitCommitInfo() { return GIT_SHA1; }
+
+std::string TextUtils::GetSdkInfo() { return "nls-cpp-sdk"; }
+
+std::string TextUtils::GetOSName() {
+#if defined(_WIN32) || defined(_WIN64)
+  return "Windows";
+#elif defined(__APPLE__)
+#include "TargetConditionals.h"
+#if TARGET_IPHONE_SIMULATOR
+  return "iOS Simulator";
+#elif TARGET_OS_IPHONE
+  return "iOS";
+#elif TARGET_OS_MAC
+  return "macOS";
+#else
+  return "Apple (unknown)";
+#endif
+#elif defined(__linux__)
+  return "Linux";
+#elif defined(__FreeBSD__)
+  return "FreeBSD";
+#elif defined(__unix__)
+  return "Unix";
+#else
+  return "Unknown OS";
+#endif
+}
+
+std::string TextUtils::GetArchName() {
+#if defined(__x86_64__) || defined(_M_X64)
+  return "x86_64";
+#elif defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
+  return "x86";
+#elif defined(__aarch64__) || defined(_M_ARM64)
+  return "arm64";
+#elif defined(__arm__) || defined(_M_ARM)
+  return "arm";
+#elif defined(__riscv)
+  return "riscv";
+#elif defined(__powerpc__) || defined(_M_PPC)
+  return "ppc";
+#else
+  return "unknown";
+#endif
+}
 
 #ifdef _MSC_VER
 bool TextUtils::IsEmpty(const char *str) {

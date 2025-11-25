@@ -137,6 +137,10 @@ int main(int argc, char* argv[]) {
               << std::endl; /*获取失败原因*/
     return -1;
   } else {
+    /*
+     * 示例:
+     * {"ErrMsg":"","Token":{"UserId":"161XXXXX286","Id":"f6b8e0XXXXXXXe06a0780a3f","ExpireTime":1763490738}}
+     */
     std::string token = request.getToken();
     unsigned int expireTime = request.getExpireTime();
 

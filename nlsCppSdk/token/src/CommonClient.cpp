@@ -26,29 +26,35 @@
 #include "HmacSha1Signer.h"
 #include "SimpleCredentialsProvider.h"
 #include "Utils.h"
+#include "nlog.h"
 
 #define BuffSize 32
 #if defined(__linux__)
-#define strcpy  strcpy
+#define strcpy strcpy
 #define sprintf sprintf
 #define WindowsSize
 #else
-#define strcpy      strcpy_s
-#define sprintf     sprintf_s
+#define strcpy strcpy_s
+#define sprintf sprintf_s
 #define WindowsSize BuffSize,
 #endif
 
 namespace AlibabaNlsCommon {
+
+using namespace AlibabaNls;
+using namespace utility;
 
 const std::string SERVICE_NAME = "Common";
 
 CommonClient::CommonClient(const std::string &accessKeyId,
                            const std::string &accessKeySecret,
                            const std::string &stsToken,
-                           const ClientConfiguration &configuration)
+                           const ClientConfiguration &configuration,
+                           const std::string &apiKey,
+                           const uint32_t &expireInSeconds)
     : CoreClient(SERVICE_NAME, configuration) {
-  credentialsProvider_ =
-      new SimpleCredentialsProvider(accessKeyId, accessKeySecret, stsToken);
+  credentialsProvider_ = new SimpleCredentialsProvider(
+      accessKeyId, accessKeySecret, stsToken, apiKey, expireInSeconds);
 
   signer_ = signer_ = new HmacSha1Signer();
 }
@@ -100,6 +106,8 @@ HttpRequest CommonClient::buildHttpRequest(const std::string &endpoint,
                                            HttpRequest::Method method) const {
   if (msg.requestPattern() == CommonRequest::FileTransPattern) {
     return buildFileTransHttpRequest(endpoint, msg, method);
+  } else if (msg.requestPattern() == CommonRequest::DashPattern) {
+    return buildDashHttpRequest(endpoint, msg, method);
   } else {
     return buildTokenHttpRpcRequest(endpoint, msg, method);
   }
@@ -547,6 +555,39 @@ HttpRequest CommonClient::buildFileTransHttpRequest(
   request.setHeader("Connection", "keep-alive");
 
   //    std::cout<< "End. " << std::endl;
+
+  return request;
+}
+
+HttpRequest CommonClient::buildDashHttpRequest(
+    const std::string &endpoint, const CommonRequest &msg,
+    HttpRequest::Method method) const {
+  const Credentials credentials = credentialsProvider_->getCredentials();
+
+  Url url;
+  url.setScheme("https");
+  url.setHost(endpoint);
+  url.setPath(msg.resourcePath());
+
+  std::map<std::string, std::string> queryParams;
+  std::stringstream queryExpireString;
+  queryExpireString << credentials.expireInSeconds();
+  queryParams["expire_in_seconds"] = queryExpireString.str();
+
+  std::stringstream queryString;
+  std::map<std::string, std::string>::iterator p1;
+  for (p1 = queryParams.begin(); p1 != queryParams.end(); ++p1) {
+    std::string key = p1->first;
+    if (strncmp(key.c_str(), "Task", key.size()) != 0) {
+      queryString << "&" << p1->first << "=" << UrlEncode(p1->second);
+    }
+  }
+  url.setQuery(queryString.str().substr(1));
+
+  HttpRequest request(url);
+  request.setMethod(method);
+  request.setHeader("Authorization",
+                    std::string("Bearer ").append(credentials.apiKey()));
 
   return request;
 }

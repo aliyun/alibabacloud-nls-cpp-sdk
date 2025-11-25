@@ -28,7 +28,6 @@ class FlowingSynthesizerParam : public INlsRequestParam {
   explicit FlowingSynthesizerParam(const char* sdkName);
   ~FlowingSynthesizerParam();
 
-  int setVoice(const char* value);
   int setSingleRoundText(const char* value);
   int setVolume(int value);
   int setSpeechRate(int value);

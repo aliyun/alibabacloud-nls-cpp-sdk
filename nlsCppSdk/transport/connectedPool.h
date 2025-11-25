@@ -29,6 +29,7 @@
 #include "connectNode.h"
 #include "event2/util.h"
 #include "flowingSynthesizerParam.h"
+#include "dashCosyVoiceSynthesizerParam.h"
 #include "iNlsRequest.h"
 #include "nlog.h"
 #include "speechRecognizerParam.h"
