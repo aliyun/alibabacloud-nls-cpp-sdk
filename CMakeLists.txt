@@ -116,11 +116,17 @@ sdkConfigFunc("config/nlsSdkConfig.conf")
 #设置Git信息
 find_package(Git QUIET)
 if(GIT_FOUND)
-  exec_program(
-    "git"
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ARGS "log --format='[sha1]:%h [author]:%cn [time]:%ci [commit]:%s [branch]:%d' -1"
-    OUTPUT_VARIABLE VERSION_SHA1 )
+  execute_process(
+    COMMAND git log --format=%h -1
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE VERSION_SHA1
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  # 判断是否获取成功
+  if(VERSION_SHA1 STREQUAL "")
+    set(VERSION_SHA1 "unknown")
+  endif()
   add_definitions(-DGIT_SHA1="\\"${VERSION_SHA1}\\"")
 else()
   add_definitions(-DGIT_SHA1="\\"${SDK_MAIN_VERSION}${SDK_PATCH_VERSION}\\"")
