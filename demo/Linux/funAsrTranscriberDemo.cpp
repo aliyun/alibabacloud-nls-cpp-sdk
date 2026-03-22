@@ -192,7 +192,8 @@ static int encoder_type = ENCODER_OPUS;
 static std::string audio_format = "pcm";
 static int logLevel = AlibabaNls::LogDebug; /* 0:为关闭log */
 static int max_sentence_silence = 0; /*最大静音断句时间, 单位ms. 默认不设置.*/
-static int run_cnt = 0;              /* 调用start()总次数 */
+static float speech_noise_threshold = -9999; /* 取值范围：[-1.0, 1.0]。 */
+static int run_cnt = 0;                      /* 调用start()总次数 */
 static int run_start_failed = 0;
 static int run_cancel = 0;
 static int run_success = 0;
@@ -1125,6 +1126,14 @@ void* pthreadFunction(void* arg) {
     // request->setSendTimeout(5000);
     // 设置是否开启接收超时
     // request->setEnableRecvTimeout(false);
+    // 设置待识别语言代码
+    // request->setLanguageHints("[\"zh\", \"en\"]");
+    // 控制语音与噪音的判定阈值, 取值范围：[-1.0, 1.0]
+    if (speech_noise_threshold >= -1.0) {
+      request->setSpeechNoiseThreshold(speech_noise_threshold);
+    }
+    // 万能参数，参数将会在payload下新增或覆盖参数
+    // request->setPayloadParam("{\"parameters\":{\"custom\":\"0.1\"}}");
 
     fs.clear();
     fs.seekg(0, std::ios::beg);
@@ -1597,6 +1606,15 @@ void* pthreadLongConnectionFunction(void* arg) {
         now.tv_sec * 1000 + now.tv_usec / 1000 + g_tokenExpirationS * 1000;
     request->setTokenExpirationTime(expirationMs);
   }
+
+  // 设置待识别语言代码
+  // request->setLanguageHints("[\"zh\", \"en\"]");
+  // 控制语音与噪音的判定阈值, 取值范围：[-1.0, 1.0]
+  if (speech_noise_threshold >= -1.0) {
+    request->setSpeechNoiseThreshold(speech_noise_threshold);
+  }
+  // 万能参数，参数将会在payload下新增或覆盖参数
+  // request->setPayloadParam("{\"parameters\":{\"custom\":\"0.1\"}}");
 
   /*
    * 4. 循环读音频文件，将音频数据送给request，以模拟真实录音场景。
@@ -2462,6 +2480,10 @@ int parse_argv(int argc, char* argv[]) {
       index++;
       if (invalid_argv(index, argc)) return 1;
       max_sentence_silence = atoi(argv[index]);
+    } else if (!strcmp(argv[index], "--speechNoiseThreshold")) {
+      index++;
+      if (invalid_argv(index, argc)) return 1;
+      speech_noise_threshold = (float)atof(argv[index]);
     } else if (!strcmp(argv[index], "--sync_timeout")) {
       index++;
       if (invalid_argv(index, argc)) return 1;

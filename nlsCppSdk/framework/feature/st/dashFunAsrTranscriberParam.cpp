@@ -79,25 +79,48 @@ const char* DashFunAsrTranscriberParam::getStartCommand() {
   }
 
   // payload.parameters ->
+  // payload.parameters.format
   if (!this->_format.empty()) {
     parameters[D_FORMAT] = this->_format;
   }
+  // payload.parameters.sample_rate
   if (this->_sampleRate > 0) {
     parameters[D_SAMPLE_RATE] = this->_sampleRate;
   }
+  // payload.parameters.vocabulary_id
   if (!this->_vocabularyId.empty()) {
     parameters[D_SR_VOCABULARY_ID] = this->_vocabularyId;
   }
+  // payload.parameters.semantic_punctuation_enabled
   parameters[D_ST_SEMANTIC_PUNCTUATION_ENABLED] =
       this->_semanticPunctuationEnabled;
+  // payload.parameters.max_sentence_silence
   if (this->_maxSentenceSilence > 0) {
     parameters[D_ST_MAX_SENTENCE_SILENCE] = this->_maxSentenceSilence;
   }
+  // payload.parameters.multi_threshold_mode_enabled
   parameters[D_ST_MULTI_THRESHOLD_MODE_ENABLED] =
       this->_multiThresholdModeEnabled;
+  // payload.parameters.heartbeat
   parameters[D_ST_HEARTBEAT] = this->_heartbeat;
+  // payload.parameters.language_hints
+  if (!this->_languageHintsJsonArray.empty()) {
+    Json::Value tmp;
+    if (reader.parse(this->_languageHintsJsonArray, tmp)) {
+      if (tmp.isArray()) {
+        parameters[D_ST_LANGUAGE_HINTS] = tmp;
+      }
+    }
+  }
+  // payload.parameters.speech_noise_threshold
+  if (this->_speechNoiseThreshold >= -1.0) {
+    parameters[D_ST_SPEECH_NOISE_THRESHOLD] = this->_speechNoiseThreshold;
+  }
 
   payload["parameters"] = parameters;
+
+  utility::TextUtils::JsonMerge(payload, _payload);
+
   root["header"] = header;
   root["payload"] = payload;
   _startCommand = Json::writeString(writerBuilder, root);
@@ -120,6 +143,11 @@ const char* DashFunAsrTranscriberParam::getStopCommand() {
   root["payload"] = payload;
   _stopCommand = Json::writeString(writerBuilder, root);
   return _stopCommand.c_str();
+}
+
+int DashFunAsrTranscriberParam::setSpeechNoiseThreshold(float value) {
+  this->_speechNoiseThreshold = value;
+  return Success;
 }
 
 }  // namespace AlibabaNls

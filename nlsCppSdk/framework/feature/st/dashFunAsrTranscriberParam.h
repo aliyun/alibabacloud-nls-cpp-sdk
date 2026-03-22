@@ -31,6 +31,8 @@ class DashFunAsrTranscriberParam : public INlsRequestParam {
   const char* getStartCommand();
   const char* getStopCommand();
 
+  int setSpeechNoiseThreshold(float value);
+
  private:
   std::string _inputJsonObj;
 };

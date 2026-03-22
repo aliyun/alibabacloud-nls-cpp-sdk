@@ -102,6 +102,7 @@ class INlsRequestParam {
   void setSemanticPunctuationEnabled(bool enable);
   void setMultiThresholdModeEnabled(bool enable);
   void setMaxSentenceSilence(int value);
+  int setLanguageHints(const char* jsonArrayStr);
   void setIntermediateResult(bool value);
   void setPunctuationPrediction(bool value);
   void setTextNormalization(bool value);
@@ -160,7 +161,11 @@ class INlsRequestParam {
   bool _multiThresholdModeEnabled;
   int _maxSentenceSilence;
   bool _heartbeat;
+  float _speechNoiseThreshold;
   std::string _vocabularyId;
+
+  // about speech transcriber and synthesizer
+  std::string _languageHintsJsonArray;
 
   // about speech synthesizer
   std::string _voice;

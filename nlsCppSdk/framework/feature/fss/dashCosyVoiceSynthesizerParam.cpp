@@ -36,7 +36,6 @@ DashCosyVoiceSynthesizerParam::DashCosyVoiceSynthesizerParam(
       _pitch(1.0),
       _seed(0),
       _singeRoundText(""),
-      _languageHintsJsonArray(""),
       _instruction(""),
       _inputJsonObj("{}") {
   this->_task = "tts";
@@ -70,11 +69,6 @@ int DashCosyVoiceSynthesizerParam::setSpeechRate(float rate) {
 
 int DashCosyVoiceSynthesizerParam::setPitchRate(float pitch) {
   _pitch = pitch;
-  return Success;
-}
-
-int DashCosyVoiceSynthesizerParam::setLanguageHints(const char* jsonArrayStr) {
-  this->_languageHintsJsonArray = jsonArrayStr;
   return Success;
 }
 

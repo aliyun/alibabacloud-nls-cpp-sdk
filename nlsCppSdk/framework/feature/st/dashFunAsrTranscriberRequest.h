@@ -162,6 +162,38 @@ class NLS_SDK_CLIENT_EXPORT DashFunAsrTranscriberRequest : public INlsRequest {
   int setHeartbeat(bool enable);
 
   /**
+   * @brief
+   * 设置待识别语言代码。如果无法提前确定语种，可不设置，模型会自动识别语种。
+   * @note 系统仅读取数组中的首个值。多余值将被忽略。
+   *       不同模型支持的语言代码如下：
+   *       fun-asr-realtime、fun-asr-realtime-2025-11-07：
+   *         zh: 中文
+   *         en: 英文
+   *         ja: 日语
+   *       fun-asr-realtime-2025-09-15：
+   *         zh: 中文
+   *         en: 英文
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setLanguageHints(const char* jsonArrayStr);
+
+  /**
+   * @brief
+   * 控制语音与噪音的判定阈值，用于调整语音活动检测（VAD）的灵敏度。取值范围:[-1,1]
+   *
+   * @param value 取值越趋于-1,
+   *              降低噪音判定阈值，噪音被识别为语音的概率增大，可能导致更多噪音被转写
+   *              取值越趋于+1,
+   *              提高噪音判定阈值，语音被误判为噪音的概率增大，可能导致部分语音被过滤
+   *
+   *              此参数为高级配置参数，调整可能显著影响识别效果，建议：
+   *              调整前充分测试验证效果
+   *              根据实际音频环境小幅度调整（建议步长 0.1）
+   * @return 成功则返回0，否则返回负值错误码
+   */
+  int setSpeechNoiseThreshold(float value);
+
+  /**
    * @brief 设置链接超时时间
    * @param value 超时时间(ms), 默认500ms. 内部会以value(ms)尝试4次链接.
    * @return 成功则返回0，否则返回负值错误码

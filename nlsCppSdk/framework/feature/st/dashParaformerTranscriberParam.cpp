@@ -28,7 +28,6 @@ DashParaformerTranscriberParam::DashParaformerTranscriberParam(
     const char* sdkName)
     : INlsRequestParam(TypeDashScopeParaformerRealTime, sdkName),
       _disfluencyRemovalEnabled(false),
-      _languageHintsJsonArray(""),
       _resourcesJsonArray(""),
       _inputJsonObj("{}") {
   this->_task = "asr";
@@ -152,11 +151,6 @@ const char* DashParaformerTranscriberParam::getStopCommand() {
 
 int DashParaformerTranscriberParam::setDisfluencyRemovalEnabled(bool enable) {
   this->_disfluencyRemovalEnabled = enable;
-  return Success;
-}
-
-int DashParaformerTranscriberParam::setLanguageHints(const char* jsonArrayStr) {
-  this->_languageHintsJsonArray = jsonArrayStr;
   return Success;
 }
 

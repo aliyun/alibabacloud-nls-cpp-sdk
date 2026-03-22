@@ -32,12 +32,10 @@ class DashParaformerTranscriberParam : public INlsRequestParam {
   const char* getStopCommand();
 
   int setDisfluencyRemovalEnabled(bool enable);
-  int setLanguageHints(const char* jsonArrayStr);
   int setResources(const char* jsonArrayStr);
 
  private:
   bool _disfluencyRemovalEnabled;
-  std::string _languageHintsJsonArray;
   std::string _resourcesJsonArray;
   std::string _inputJsonObj;
 };

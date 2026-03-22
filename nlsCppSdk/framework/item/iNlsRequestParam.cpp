@@ -85,7 +85,10 @@ INlsRequestParam::INlsRequestParam(NlsType mode, const char* sdkName,
       _multiThresholdModeEnabled(false),
       _maxSentenceSilence(0),
       _heartbeat(false),
+      _speechNoiseThreshold(-999),
       _vocabularyId(""),
+      // about speech transcriber and synthesizer
+      _languageHintsJsonArray(""),
       // about speech synthesizer
       _voice(""),
       _enableSsml(false),
@@ -147,7 +150,10 @@ INlsRequestParam& INlsRequestParam::operator=(const INlsRequestParam& other) {
     _multiThresholdModeEnabled = other._multiThresholdModeEnabled;
     _maxSentenceSilence = other._maxSentenceSilence;
     _heartbeat = other._heartbeat;
+    _speechNoiseThreshold = other._speechNoiseThreshold;
     _vocabularyId = other._vocabularyId;
+    // about speech transcriber and synthesizer
+    _languageHintsJsonArray = other._languageHintsJsonArray;
     // about speech synthesizer
     _voice = other._voice;
     _enableSsml = other._enableSsml;
@@ -329,6 +335,11 @@ int INlsRequestParam::setPayloadParam(const char* value) {
       }
       _payload[jsonKey.c_str()] = root[jsonKey.c_str()];
     }
+
+    Json::StreamWriterBuilder writerBuilder;
+    writerBuilder["indentation"] = "";
+    LOG_DEBUG("New added payload: %s",
+              Json::writeString(writerBuilder, _payload).c_str());
   } catch (const std::exception& e) {
     LOG_ERROR("Json failed: %s", e.what());
     return -(JsonParseFailed);
@@ -417,6 +428,11 @@ void INlsRequestParam::setMaxSentenceSilence(int value) {
 
 void INlsRequestParam::setMultiThresholdModeEnabled(bool enable) {
   this->_multiThresholdModeEnabled = enable;
+}
+
+int INlsRequestParam::setLanguageHints(const char* jsonArrayStr) {
+  this->_languageHintsJsonArray = jsonArrayStr;
+  return Success;
 }
 
 void INlsRequestParam::setIntermediateResult(bool value) {

@@ -32,7 +32,6 @@ class DashCosyVoiceSynthesizerParam : public INlsRequestParam {
   int setVolume(int value);
   int setSpeechRate(float rate);
   int setPitchRate(float pitch);
-  int setLanguageHints(const char* jsonArrayStr);
   int setInstruction(const char* value);
   int setSeed(int seed);
 
@@ -52,7 +51,6 @@ class DashCosyVoiceSynthesizerParam : public INlsRequestParam {
   int _seed; /* 生成时使用的随机数种子，使合成的效果产生变化。默认值0。取值范围：0~65535
               */
   std::string _singeRoundText;
-  std::string _languageHintsJsonArray;
   std::string _instruction;
   std::string _inputJsonObj;
 };

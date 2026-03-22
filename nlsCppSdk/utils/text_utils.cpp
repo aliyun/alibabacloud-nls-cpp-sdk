@@ -458,6 +458,29 @@ std::string TextUtils::getRandomUuid() {
   return uuidBuff;
 }
 
+void TextUtils::JsonMerge(Json::Value &target, const Json::Value &source) {
+  if (!source.isObject()) {
+    target = source;
+    return;
+  }
+  if (!target.isObject()) {
+    target = Json::Value(Json::objectValue);
+  }
+
+  std::vector<std::string> members = source.getMemberNames();
+
+  for (size_t i = 0; i < members.size(); ++i) {
+    const std::string &key = members[i];
+    const Json::Value &srcValue = source[key];
+
+    if (target.isMember(key.c_str())) {
+      JsonMerge(target[key], srcValue);
+    } else {
+      target[key] = srcValue;
+    }
+  }
+}
+
 int TextUtils::Utf8Size(char head) {
   int len = 0;
   int one_mask = (head >> 7) & 0x1;

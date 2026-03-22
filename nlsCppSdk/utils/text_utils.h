@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sstream>
 #include <vector>
+#include "json/json.h"
 
 namespace AlibabaNls {
 namespace utility {
@@ -91,6 +92,8 @@ class TextUtils {
     stm << n;
     return stm.str();
   }
+
+  static void JsonMerge(Json::Value &target, const Json::Value &source);
 
  private:
   static int Utf8Size(char head);

@@ -283,6 +283,16 @@ int DashFunAsrTranscriberRequest::setHeartbeat(bool value) {
   return Success;
 }
 
+int DashFunAsrTranscriberRequest::setLanguageHints(const char* jsonArrayStr) {
+  INPUT_PARAM_STRING_CHECK(jsonArrayStr);
+  return _transcriberParam->setLanguageHints(jsonArrayStr);
+}
+
+int DashFunAsrTranscriberRequest::setSpeechNoiseThreshold(float value) {
+  INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
+  return _transcriberParam->setSpeechNoiseThreshold(value);
+}
+
 int DashFunAsrTranscriberRequest::setTimeout(int value) {
   INPUT_REQUEST_PARAM_CHECK(_transcriberParam);
   _transcriberParam->setTimeout(value);
