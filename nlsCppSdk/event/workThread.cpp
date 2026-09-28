@@ -49,6 +49,11 @@ namespace AlibabaNls {
 
 NlsClientImpl *WorkThread::_instance = NULL;
 
+/* heartbeat period in seconds */
+static const long kWorkerHeartbeatIntervalSec = 1;
+/* a worker is treated as stalled if it misses heartbeats for this long (ms) */
+static const uint64_t kWorkerStallTimeoutMs = 5000;
+
 #if defined(_MSC_VER)
 HANDLE WorkThread::_mtxCpu = NULL;
 #else
@@ -58,6 +63,8 @@ pthread_mutex_t WorkThread::_mtxCpu = PTHREAD_MUTEX_INITIALIZER;
 WorkThread::WorkThread()
     : _workBase(NULL),
       _dnsBase(NULL),
+      _heartbeatEvent(NULL),
+      _lastHeartbeatMs(0),
       _workThreadId(0),
       _addrInFamily(AF_INET),
       _directIp(),
@@ -100,6 +107,24 @@ WorkThread::WorkThread()
 
     // add search domain for nls-gateway.cn-shanghai-internal.aliyuncs.com
     evdns_base_search_add(_dnsBase, "gds.alibabadns.com");
+  }
+
+  /*
+   * Persistent heartbeat timer on _workBase: fires every
+   * kWorkerHeartbeatIntervalSec and refreshes _lastHeartbeatMs. If the loop
+   * stalls in a callback the timestamp stops advancing and isWorkable()
+   * reports the worker unusable so dispatch skips it.
+   */
+  _lastHeartbeatMs = utility::TextUtils::GetTimestampMs();
+  _heartbeatEvent = event_new(_workBase, -1, EV_PERSIST,
+                              WorkThread::heartbeatEventCallback, this);
+  if (_heartbeatEvent == NULL) {
+    LOG_WARN("WorkThread(%p) create heartbeat event failed.", this);
+  } else {
+    struct timeval tv;
+    tv.tv_sec = kWorkerHeartbeatIntervalSec;
+    tv.tv_usec = 0;
+    event_add(_heartbeatEvent, &tv);
   }
 
 #if defined(_MSC_VER)
@@ -352,6 +377,10 @@ void *WorkThread::loopEventCallback(void *arg) {
     LOG_DEBUG("workThread(%p) event_base_dispatch ...", arg);
     event_base_dispatch(eventParam->_workBase);
   }
+  if (eventParam->_heartbeatEvent) {
+    event_free(eventParam->_heartbeatEvent);
+    eventParam->_heartbeatEvent = NULL;
+  }
   if (eventParam->_dnsBase) {
     evdns_base_free(eventParam->_dnsBase, 0);
     eventParam->_dnsBase = NULL;
@@ -370,6 +399,24 @@ void *WorkThread::loopEventCallback(void *arg) {
 #else
   return NULL;
 #endif
+}
+
+void WorkThread::heartbeatEventCallback(evutil_socket_t fd, short which,
+                                        void *arg) {
+  WorkThread *eventParam = static_cast<WorkThread *>(arg);
+  if (eventParam) {
+    eventParam->_lastHeartbeatMs = utility::TextUtils::GetTimestampMs();
+  }
+}
+
+bool WorkThread::isWorkable() {
+  uint64_t now_ms = utility::TextUtils::GetTimestampMs();
+  uint64_t last_ms = _lastHeartbeatMs;
+  /* clock moved backwards: treat as healthy, next heartbeat will correct it */
+  if (now_ms < last_ms) {
+    return true;
+  }
+  return (now_ms - last_ms) <= kWorkerStallTimeoutMs;
 }
 
 #ifdef ENABLE_HIGH_EFFICIENCY

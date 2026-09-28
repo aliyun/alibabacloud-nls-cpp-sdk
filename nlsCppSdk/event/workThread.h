@@ -17,6 +17,8 @@
 #ifndef NLS_SDK_WORK_THREAD_H
 #define NLS_SDK_WORK_THREAD_H
 
+#include <stdint.h>
+
 #include <list>
 #include <map>
 #include <queue>
@@ -76,6 +78,12 @@ class WorkThread {
 #ifdef ENABLE_PRECONNECTED_POOL
   static bool syncDirectConnect(void *arg, char *ip);
 #endif
+
+  /* heartbeat timer callback; refreshes _lastHeartbeatMs */
+  static void heartbeatEventCallback(evutil_socket_t fd, short which,
+                                     void *arg);
+  /* false once the event loop has stalled (heartbeat timed out) */
+  bool isWorkable();
 #ifdef _MSC_VER
   static unsigned __stdcall loopEventCallback(LPVOID arg);
 #else
@@ -118,6 +126,8 @@ class WorkThread {
 
   struct event_base *_workBase;
   struct evdns_base *_dnsBase;
+  struct event *_heartbeatEvent;      /* heartbeat timer on _workBase */
+  volatile uint64_t _lastHeartbeatMs; /* last heartbeat timestamp (ms) */
 
   std::list<INlsRequest *> _nodeList;
 

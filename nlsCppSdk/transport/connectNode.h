@@ -392,9 +392,10 @@ class ConnectNode {
   char *_nodename;
   char *_servname;
 
-  pthread_t _dnsThread; /*异步dns方案启动线程*/
-  bool _dnsThreadExit;
-  bool _dnsThreadRunning;   /*异步dns方案线程已经启动*/
+  pthread_t _dnsThread; /* detached; never pthread_join */
+  /* shared with the DNS thread; volatile to avoid caching */
+  volatile bool _dnsThreadExit;
+  volatile bool _dnsThreadRunning;
   struct timespec _outtime; /*异步dns方案超时设置*/
 
   struct gaicb *_gaicbRequest[1];

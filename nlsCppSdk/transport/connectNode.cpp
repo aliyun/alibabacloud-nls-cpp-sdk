@@ -218,19 +218,29 @@ ConnectNode::~ConnectNode() {
 
 #ifdef __LINUX__
   if (_url._enableSysGetAddr) {
-    if (_dnsThread) {
-      LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this,
-               _dnsThread);
+    /* _dnsThread is detached; never pthread_join. Signal exit and wait on
+     * the running flag with a bounded timeout instead. */
+    if (_dnsThreadRunning) {
+      LOG_WARN("Node(%p) dnsThread still running, waiting exiting", this);
       _dnsThreadExit = true;
-      pthread_join(_dnsThread, NULL);
-      LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
-      _dnsThread = 0;
-      if (_gaicbRequest[0]) {
-        free(_gaicbRequest[0]);
-        _gaicbRequest[0] = NULL;
+      int try_count = 5000;  // ~5s max
+      while (_dnsThreadRunning && try_count-- > 0) {
+        usleep(1000);
+      }
+      if (_dnsThreadRunning) {
+        LOG_ERROR("Node(%p) waiting dnsThread exit failed.", this);
+      } else {
+        LOG_WARN("Node(%p) dnsThread exited.", this);
       }
     } else {
       LOG_DEBUG("Node(%p) dnsThread has exited.", this);
+    }
+    _dnsThread = 0;
+    /* The DNS thread frees _gaicbRequest[0] on exit; only free it here once
+     * it has stopped, to avoid racing a stuck thread. */
+    if (!_dnsThreadRunning && _gaicbRequest[0]) {
+      free(_gaicbRequest[0]);
+      _gaicbRequest[0] = NULL;
     }
   }
 #endif
@@ -675,16 +685,24 @@ bool ConnectNode::updateDestroyStatus() {
   if (!_isDestroy) {
 #ifdef __LINUX__
     if (_url._enableSysGetAddr) {
-      if (_dnsThread) {
-        LOG_WARN("Node(%p) dnsThread(%lu) still exist, waiting exiting", this,
-                 _dnsThread);
+      /* _dnsThread is detached; never pthread_join. Signal exit and wait on
+       * the running flag with a bounded timeout instead. */
+      if (_dnsThreadRunning) {
+        LOG_WARN("Node(%p) dnsThread still running, waiting exiting", this);
         _dnsThreadExit = true;
-        pthread_join(_dnsThread, NULL);
-        LOG_WARN("Node(%p) dnsThread(%lu) exited.", this, _dnsThread);
-        _dnsThread = 0;
+        int try_count = 5000;  // ~5s max
+        while (_dnsThreadRunning && try_count-- > 0) {
+          usleep(1000);
+        }
+        if (_dnsThreadRunning) {
+          LOG_ERROR("Node(%p) waiting dnsThread exit failed.", this);
+        } else {
+          LOG_WARN("Node(%p) dnsThread exited.", this);
+        }
       } else {
         LOG_DEBUG("Node(%p) dnsThread has exited.", this);
       }
+      _dnsThread = 0;
     }
 #endif
 
@@ -2893,10 +2911,30 @@ void *ConnectNode::async_dns_resolve_thread_fn(void *arg) {
 
       time_t timeout_ms =
           node->getRequest()->getRequestParam()->getTimeout();  // ms
-      struct timespec outtime;
-      utility::TextUtils::GetTimespecFromMs(&outtime, timeout_ms);
-      // LOG_DEBUG("Node(%p) ready to gai_suspend.", arg);
-      err = gai_suspend(node->_gaicbRequest, 1, &outtime);
+      /* Poll in short slices instead of one long gai_suspend, checking
+       * _dnsThreadExit each round, so exit latency stays within one slice
+       * regardless of the configured timeout. */
+      const time_t per_round_ms = 200;
+      time_t elapsed_ms = 0;
+      err = EAI_AGAIN;
+      while (elapsed_ms < timeout_ms) {
+        if (node->_dnsThreadExit || node->_dnsThread == 0) {
+          LOG_WARN("Node(%p) ConnectNode is exiting, skip gai.", node);
+          goto dnsExit;
+        }
+        time_t round_ms = timeout_ms - elapsed_ms;
+        if (round_ms > per_round_ms) {
+          round_ms = per_round_ms;
+        }
+        struct timespec outtime;
+        utility::TextUtils::GetTimespecFromMs(&outtime, round_ms);
+        err = gai_suspend(node->_gaicbRequest, 1, &outtime);
+        if (err != EAI_AGAIN) {
+          /* completed or non-timeout error */
+          break;
+        }
+        elapsed_ms += round_ms;
+      }
       // LOG_DEBUG("Node(%p) gai_suspend finish, err:%d(%s).", node, err,
       // gai_strerror(err));
       if (node->_dnsThreadExit) {
@@ -2990,13 +3028,29 @@ static int native_getaddrinfo(const char *nodename, const char *servname,
 
   MUTEX_LOCK(node->_mtxNode);
 
+  /* A previous DNS thread may still be running. It is detached, so joining
+   * it is undefined behavior; signal exit and wait with a bounded timeout. */
+  if (node->_dnsThreadRunning) {
+    node->_dnsThreadExit = true;
+    int try_count = 1000;  // ~1s max
+    while (node->_dnsThreadRunning && try_count-- > 0) {
+      usleep(1000);
+    }
+    if (node->_dnsThreadRunning) {
+      LOG_ERROR(
+          "Node(%p) previous dnsThread still running, skip this dns process.",
+          node);
+      MUTEX_UNLOCK(node->_mtxNode);
+      return -(GetAddrinfoFailed);
+    }
+  }
+
+  node->_dnsThread = 0;
+  node->_dnsThreadExit = false;
   node->_dnsThreadRunning = true;
   node->_nodename = (char *)nodename;
   node->_servname = (char *)servname;
 
-  if (node->_dnsThread) {
-    pthread_join(node->_dnsThread, NULL);
-  }
   int err = pthread_create(&node->_dnsThread, NULL,
                            &ConnectNode::async_dns_resolve_thread_fn, arg);
   if (err) {

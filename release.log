@@ -237,3 +237,6 @@
 
 -----2025/3/20 Version:3.4.0b-----
 1: Fun-ASR增加参数language_hints和speech_noise_threshold支持,和万能参数支持
+
+-----2026/9/18 Version:3.4.1a-----
+1: 修复libevent线程池非常低概率的卡死问题

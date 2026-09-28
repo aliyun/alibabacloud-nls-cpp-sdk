@@ -191,13 +191,31 @@ int NlsEventNetWork::selectThreadNumber() {
   int number = 0;
 
   if (_workThreadArray != NULL) {
-    number = _currentCpuNumber;
+    int total = (int)_workThreadsNumber;
+    number = -1;
 
-    if (++_currentCpuNumber == _workThreadsNumber) {
-      _currentCpuNumber = 0;
+    /* Round-robin from the current cursor, skipping stalled workers so no
+     * task is ever dispatched to a broken pool. */
+    for (int i = 0; i < total; i++) {
+      int idx = (_currentCpuNumber + i) % total;
+      if (_workThreadArray[idx].isWorkable()) {
+        number = idx;
+        _currentCpuNumber = (idx + 1) % total;
+        break;
+      } else {
+        LOG_WARN("Thread NO:%d is not workable(stalled), skip it.", idx);
+      }
     }
+
+    if (number < 0) {
+      /* all workers stalled: fail instead of dispatching to a broken pool
+       * (start() releases _mtxThread). */
+      LOG_ERROR("All work threads are not workable, select thread failed.");
+      return -1;
+    }
+
     LOG_INFO("Select Thread NO:%d, Next NO:%d, Total:%d.", number,
-             _currentCpuNumber, _workThreadsNumber);
+             _currentCpuNumber, total);
   } else {
     LOG_ERROR(
         "WorkThread isn't startup. Please invoke startWorkThread() first.");
@@ -268,6 +286,12 @@ int NlsEventNetWork::start(INlsRequest *request) {
 
     int num = request->getThreadNumber();
     if (num < 0) {
+      num = selectThreadNumber();
+    } else if (_workThreadArray != NULL &&
+               !_workThreadArray[num].isWorkable()) {
+      /* pinned worker has stalled; reselect a healthy one */
+      LOG_WARN("Pinned thread NO:%d is not workable, reselect a healthy one.",
+               num);
       num = selectThreadNumber();
     }
     if (num < 0) {
@@ -435,6 +459,12 @@ int NlsEventNetWork::startInner(INlsRequest *request) {
 
     int num = request->getThreadNumber();
     if (num < 0) {
+      num = selectThreadNumber();
+    } else if (_workThreadArray != NULL &&
+               !_workThreadArray[num].isWorkable()) {
+      /* pinned worker has stalled; reselect a healthy one */
+      LOG_WARN("Pinned thread NO:%d is not workable, reselect a healthy one.",
+               num);
       num = selectThreadNumber();
     }
     if (num < 0) {
