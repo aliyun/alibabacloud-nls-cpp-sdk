@@ -268,6 +268,7 @@ class ConnectNode {
   /*      design to record work status */
   ConnectStatus getConnectNodeStatus();
   std::string getConnectNodeStatusString();
+  std::string getConnectNodeStatusStringLocked();
   std::string getConnectNodeStatusString(ConnectStatus status);
   void setConnectNodeStatus(ConnectStatus status);
   /* 1.4. UUID of this node */

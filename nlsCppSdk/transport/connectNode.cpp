@@ -413,11 +413,13 @@ ConnectStatus ConnectNode::getConnectNodeStatus() {
  */
 std::string ConnectNode::getConnectNodeStatusString() {
   MUTEX_LOCK(_mtxNode);
-  std::string ret_str = getConnectNodeStatusString(_workStatus);
+  std::string ret_str = getConnectNodeStatusStringLocked();
   MUTEX_UNLOCK(_mtxNode);
   return ret_str;
 }
-
+std::string ConnectNode::getConnectNodeStatusStringLocked() {
+  return getConnectNodeStatusString(_workStatus);
+}
 std::string ConnectNode::getConnectNodeStatusString(ConnectStatus status) {
   std::string ret_str("Unknown");
   switch (status) {
@@ -1272,7 +1274,7 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
 
   LOG_DEBUG("Node(%p) get command type: %s with %s", this,
             getCmdTypeString(type).c_str(),
-            getConnectNodeStatusString().c_str());
+            getConnectNodeStatusStringLocked().c_str());
 
   if (_request == NULL) {
     LOG_ERROR("The rquest of node(%p) is nullptr.", this);
@@ -1366,8 +1368,9 @@ void ConnectNode::addCmdDataBuffer(CmdType type, const char *message) {
 int ConnectNode::cmdNotify(CmdType type, const char *message) {
   int ret = Success;
 
-  LOG_DEBUG("Node(%p) invoke CmdNotify: %s.", this,
-            getCmdTypeString(type).c_str());
+  LOG_DEBUG("Node(%p) invoke CmdNotify: %s with %s", this,
+            getCmdTypeString(type).c_str(),
+            getConnectNodeStatusString().c_str());
 
   if (type == CmdStop) {
 #ifdef ENABLE_REQUEST_RECORDING
@@ -1636,8 +1639,16 @@ int ConnectNode::webSocketResponse() {
 
       if (_wsType.opCode == WebSocketHeaderType::PONG) {
         LOG_DEBUG("Node(%p) receive PONG.", this);
-        // memset(&_wsType, 0x0, sizeof(struct WebSocketHeaderType));
-        wsFrame.type = _wsType.opCode;
+      }
+
+      if (wsFrame.ignore) {
+        /* 非末尾分片等已在WebSocketTcp内部缓存, 只drain不上报 */
+        evbuffer_drain(_readEvBuffer, wsFrame.frameSize);
+        cur_data_size = cur_data_size - wsFrame.frameSize;
+        ret = wsFrame.frameSize;
+        tryAgain = maxTryAgain;
+        eLoop = (cur_data_size > 0);
+        continue;
       }
 
       /*
@@ -1645,6 +1656,8 @@ int ConnectNode::webSocketResponse() {
        * If blocking in callback, will block in parseFrame
        */
       int result = parseFrame(&wsFrame);
+      /* 重组消息已使用完毕, 及时释放分片缓存 */
+      _webSocket.releaseFragBuffer();
       if (result) {
         LOG_ERROR("Node(%p) parse WS frame failed:%d.", this, result);
         ret = result;
@@ -1667,10 +1680,10 @@ int ConnectNode::webSocketResponse() {
         }
       }
 
-      evbuffer_drain(_readEvBuffer, wsFrame.length + _wsType.headerSize);
-      cur_data_size = cur_data_size - (wsFrame.length + _wsType.headerSize);
+      evbuffer_drain(_readEvBuffer, wsFrame.frameSize);
+      cur_data_size = cur_data_size - wsFrame.frameSize;
 
-      ret = wsFrame.length + _wsType.headerSize;
+      ret = wsFrame.frameSize;
       tryAgain = maxTryAgain;
     } else if (recv_ret == -(InvalidWsFrameHeaderSize) ||
                recv_ret == -(InvalidWsFrameHeaderBody)) {
@@ -1688,7 +1701,13 @@ int ConnectNode::webSocketResponse() {
           if (frame) free(frame);
           return -(NlsReceiveFailed);
         }
+        eLoop = true;
         continue;
+      } else {
+        LOG_WARN(
+            "Node(%p) the WS data is still insufficient after %d retries, "
+            "wait for next read event. Read frame size:%dbytes.",
+            this, maxTryAgain, frameSize);
       }
     } else if (recv_ret == -(InvalidWsFrameBody)) {
       LOG_DEBUG(
@@ -1822,7 +1841,11 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
     LOG_INFO("Node(%p) get CLOSE wsFrame closeCode:%d.", this,
              wsFrame->closeCode);
     if (NodeClosed != _workStatus) {
-      std::string msg((char *)wsFrame->data);
+      /* reason不以'\0'结尾, 需按length读取 */
+      std::string msg;
+      if (wsFrame->data && wsFrame->length > 0) {
+        msg.assign((char *)wsFrame->data, wsFrame->length);
+      }
       char tmp_msg[2048] = {0};
       snprintf(tmp_msg, 2048 - 1, "{\"TaskFailed\":\"%s\"}", msg.c_str());
       std::string failedMsg = tmp_msg;
@@ -1843,6 +1866,10 @@ int ConnectNode::parseFrame(WebSocketFrame *wsFrame) {
     }
   } else if (wsFrame->type == WebSocketHeaderType::PONG) {
     LOG_DEBUG("Node(%p) get PONG.", this);
+    return Success;
+  } else if (wsFrame->type == WebSocketHeaderType::PING) {
+    LOG_WARN("Node(%p) get PING(len:%d), ignore it.", this,
+             (int)wsFrame->length);
     return Success;
   } else {
     frameEvent = convertResult(wsFrame, &result);

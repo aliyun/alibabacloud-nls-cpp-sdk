@@ -21,6 +21,7 @@
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace AlibabaNls {
 
@@ -66,8 +67,10 @@ struct WebSocketHeaderType {
 struct WebSocketFrame {
   WebSocketHeaderType::OpCodeType type;
   uint8_t* data;
-  size_t length;
+  size_t length; /* 上报数据长度, 分片重组后为整条消息长度, CLOSE为reason长度 */
   int closeCode;
+  size_t frameSize; /* 本帧在接收缓存中占用的字节数(帧头+载荷), 用于drain */
+  bool ignore;      /* 本帧已在内部处理(如非末尾分片), 无需上报 */
 };
 
 struct urlAddress {
@@ -107,6 +110,8 @@ class WebSocketTcp {
   int decodeFrameBodyWebSocketFrame(uint8_t* buffer, size_t length,
                                     WebSocketHeaderType* ws,
                                     WebSocketFrame* receivedData);
+  /* 重组消息已由上层处理完毕后调用, 释放分片缓存 */
+  void releaseFragBuffer();
 
   const char* getFailedMsg();
 
@@ -121,9 +126,17 @@ class WebSocketTcp {
   std::string _errorMsg;
   std::string _secWsKey;
 
+  /* 分片消息(fin=0 + CONTINUATION)重组 */
+  bool _fragActive;
+  WebSocketHeaderType::OpCodeType _fragType;
+  std::vector<uint8_t> _fragBuffer;
+
   int getTargetLen(std::string line, const char* begin, const char* end);
   const char* getSecWsKey();
   const char* getRequestForLog(char* buf_in, std::string* buf_out);
+  void logParseInsufficient(WebSocketReceiveStatus stage, int retCode,
+                            const uint8_t* frame, size_t frameSize,
+                            const WebSocketHeaderType* wsType);
 };
 
 }  // namespace AlibabaNls

@@ -45,7 +45,11 @@ namespace AlibabaNls {
 //#define OPU_DEBUG
 
 WebSocketTcp::WebSocketTcp()
-    : _httpCode(0), _httpLength(0), _rStatus(WsHeadSize) {
+    : _httpCode(0),
+      _httpLength(0),
+      _rStatus(WsHeadSize),
+      _fragActive(false),
+      _fragType(WebSocketHeaderType::TEXT_FRAME) {
   LOG_DEBUG("Create WebSocketTcp:%p.", this);
 }
 
@@ -257,10 +261,19 @@ int WebSocketTcp::responsePackage(const char* content, size_t length) {
   return -(WsResponsePackageFailed);
 }
 
+void WebSocketTcp::releaseFragBuffer() {
+  /* 分片接收中的缓存不能释放 */
+  if (!_fragActive && _fragBuffer.capacity() > 0) {
+    std::vector<uint8_t>().swap(_fragBuffer);
+  }
+}
+
 int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
                                             WebSocketHeaderType* wsType,
                                             WebSocketFrame* resultDate) {
   int retCode = Success;
+  /* 兜底: 上次上报的重组消息已由上层处理完毕, 释放缓存 */
+  releaseFragBuffer();
   // LOG_DEBUG("begin receiveFullWebSocketFrame.");
   switch (_rStatus) {
     case WsHeadSize:
@@ -269,7 +282,7 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
       // LOG_DEBUG("WS(%p) Parse decodeHeaderSizeWebSocketFrame
       // wsType->opCode:%d.", this, wsType->opCode);
       if (retCode < 0) {
-        LOG_ERROR("WS(%p) Parse WsHeadSize Failed, retCode:%d.", this, retCode);
+        logParseInsufficient(WsHeadSize, retCode, frame, frameSize, wsType);
         return retCode;
       }
       _rStatus = WsHeadBody;
@@ -279,18 +292,8 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
       // LOG_DEBUG("WS(%p) Parse decodeHeaderBodyWebSocketFrame
       // wsType->opCode:%d.", this, wsType->opCode);
       if (retCode < 0) {
-        if (wsType->opCode == WebSocketHeaderType::PONG) {
-          LOG_DEBUG("This WS(%p) is PONG, please ignore this warn.", this);
-          retCode = Success;
-        } else {
-          LOG_ERROR(
-              "WS(%p) Parse WsHeadBody Failed, retCode:%d, "
-              "wsType->headerSize:%d, frameSize:%d, wsType->fin:0x%x, "
-              "wsType->opCode:%d, wsType->mask:0x%x, wsType->N0:%d",
-              this, retCode, wsType->headerSize, frameSize, wsType->fin,
-              wsType->opCode, wsType->mask, wsType->N0);
-          return retCode;
-        }
+        logParseInsufficient(WsHeadBody, retCode, frame, frameSize, wsType);
+        return retCode;
       }
       _rStatus = WsContentBody;
     case WsContentBody:
@@ -300,13 +303,7 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
       // LOG_DEBUG("WS(%p) Parse decodeFrameBodyWebSocketFrame wsType->opCode:%d
       // with retCode:%d.", this, wsType->opCode, retCode);
       if (retCode < 0) {
-        LOG_WARN(
-            "WS(%p) Parse WsContentBody Failed, retCode:%d, "
-            "wsType->headerSize:%d, frameSize:%d, wsType->fin:0x%x, "
-            "wsType->opCode:%d, wsType->mask:0x%x, wsType->N0:%d, "
-            "wsType->N:%d",
-            this, retCode, wsType->headerSize, frameSize, wsType->fin,
-            wsType->opCode, wsType->mask, wsType->N0, wsType->N);
+        logParseInsufficient(WsContentBody, retCode, frame, frameSize, wsType);
         return retCode;
       }
       _rStatus = WsHeadSize;
@@ -321,8 +318,44 @@ int WebSocketTcp::receiveFullWebSocketFrame(uint8_t* frame, size_t frameSize,
 }
 
 /**
+ * @brief: 打印数据不足时的解析现场, 用于定位帧边界是否对齐及分片状态
+ */
+void WebSocketTcp::logParseInsufficient(WebSocketReceiveStatus stage,
+                                        int retCode, const uint8_t* frame,
+                                        size_t frameSize,
+                                        const WebSocketHeaderType* wsType) {
+  /* 帧头最长2+8+4=14字节, 原始字节用于判断缓存开头是否对齐帧头 */
+  const size_t maxHeadSize = 14;
+  size_t dumpSize = frameSize < maxHeadSize ? frameSize : maxHeadSize;
+  char head[maxHeadSize * 3 + 1] = {0};
+  for (size_t i = 0; i < dumpSize; ++i) {
+    snprintf(head + i * 3, 4, "%02x ", frame[i]);
+  }
+
+  if (stage == WsHeadSize) {
+    /* 此阶段wsType尚未解析, 其内容为上一帧的残留, 不打印 */
+    LOG_WARN(
+        "WS(%p) Parse WsHeadSize insufficient, retCode:%d, frameSize:%llu, "
+        "fragActive:%d, fragType:%d, fragSize:%llu, head(hex):%s",
+        this, retCode, (unsigned long long)frameSize, _fragActive, _fragType,
+        (unsigned long long)_fragBuffer.size(), head);
+  } else {
+    LOG_WARN(
+        "WS(%p) Parse %s insufficient, retCode:%d, frameSize:%llu, "
+        "headerSize:%u, fin:%d, opCode:%d, mask:%d, N0:%d, N:%llu, "
+        "fragActive:%d, fragType:%d, fragSize:%llu, head(hex):%s",
+        this, stage == WsHeadBody ? "WsHeadBody" : "WsContentBody", retCode,
+        (unsigned long long)frameSize, wsType->headerSize, wsType->fin,
+        wsType->opCode, wsType->mask, wsType->N0,
+        /* WsHeadBody阶段N尚未解析 */
+        stage == WsHeadBody ? 0ULL : (unsigned long long)wsType->N,
+        _fragActive, _fragType, (unsigned long long)_fragBuffer.size(), head);
+  }
+}
+
+/**
  * @brief: 从Websocket帧中解析出HeaderSize
- * @return: 成功则返回收到的字节数, 失败则返回负值.
+ * @return: 成功则返回Success, 数据不足2字节则返回-(InvalidWsFrameHeaderSize).
  */
 int WebSocketTcp::decodeHeaderSizeWebSocketFrame(uint8_t* buffer, size_t length,
                                                  WebSocketHeaderType* wsType) {
@@ -358,11 +391,12 @@ int WebSocketTcp::decodeHeaderSizeWebSocketFrame(uint8_t* buffer, size_t length,
 
 /**
  * @brief: 从Websocket帧中解析出HeaderBody
- * @return: 成功则返回收到的字节数, 失败则返回负值.
+ * @return: 成功则返回Success, 帧头未收全则返回-(InvalidWsFrameHeaderBody).
  */
 int WebSocketTcp::decodeHeaderBodyWebSocketFrame(uint8_t* buffer, size_t length,
                                                  WebSocketHeaderType* wsType) {
-  if (wsType->headerSize >= length) {
+  /* headerSize == length 表示帧头已完整, 可能是载荷为0的帧, 载荷是否完整由后续判断 */
+  if (wsType->headerSize > length) {
     return -(InvalidWsFrameHeaderBody);
   }
 
@@ -385,10 +419,12 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(uint8_t* buffer, size_t length,
   }
 
   if (wsType->mask) {
-    wsType->masKingKey[0] = ((uint8_t)(*(buffer + 0))) << 0;
-    wsType->masKingKey[1] = ((uint8_t)(*(buffer + 1))) << 0;
-    wsType->masKingKey[2] = ((uint8_t)(*(buffer + 2))) << 0;
-    wsType->masKingKey[3] = ((uint8_t)(*(buffer + 3))) << 0;
+    /* masking key位于帧头最后4字节 */
+    const uint8_t* key = buffer + wsType->headerSize - 4;
+    wsType->masKingKey[0] = key[0];
+    wsType->masKingKey[1] = key[1];
+    wsType->masKingKey[2] = key[2];
+    wsType->masKingKey[3] = key[3];
   } else {
     wsType->masKingKey[0] = 0;
     wsType->masKingKey[1] = 0;
@@ -402,15 +438,13 @@ int WebSocketTcp::decodeHeaderBodyWebSocketFrame(uint8_t* buffer, size_t length,
 
 /**
  * @brief: 从Websocket帧中解析出FrameBody
- * @return: 成功则返回收到的字节数, 失败则返回负值.
+ * @return: 成功则返回Success, 载荷未收全则返回-(InvalidWsFrameBody).
+ *          成功时receivedData->frameSize为本帧占用字节数,
+ *          receivedData->ignore为true表示本帧已内部缓存无需上报.
  */
 int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t* buffer, size_t length,
                                                 WebSocketHeaderType* wsType,
                                                 WebSocketFrame* receivedData) {
-  if (wsType->opCode == WebSocketHeaderType::PONG) {
-    return Success;
-  }
-
   if ((wsType->N + wsType->headerSize) > length) {
     // LOG_ERROR("Size: %d %u %zu", wsType->N, wsType->headerSize, length);
     return -(InvalidWsFrameBody);
@@ -418,44 +452,86 @@ int WebSocketTcp::decodeFrameBodyWebSocketFrame(uint8_t* buffer, size_t length,
 
   // LOG_DEBUG("Size: %d %d %d", wsType->N, wsType->headerSize, length);
 
-  if (wsType->opCode == WebSocketHeaderType::TEXT_FRAME ||
-      wsType->opCode == WebSocketHeaderType::BINARY_FRAME ||
-      wsType->opCode == WebSocketHeaderType::CONTINUATION) {
-    if (wsType->mask) {
-      for (size_t i = 0; i != wsType->N; ++i) {
-        *(buffer + i + wsType->headerSize) ^= wsType->masKingKey[i & 0x3];
-      }
-    }
+  uint8_t* payload = buffer + wsType->headerSize;
+  size_t payloadLen = (size_t)wsType->N;
+  receivedData->frameSize = wsType->headerSize + payloadLen;
 
-    if (receivedData->data == NULL) {
-      receivedData->type = wsType->opCode;
+  if (wsType->mask) {
+    for (size_t i = 0; i != payloadLen; ++i) {
+      payload[i] ^= wsType->masKingKey[i & 0x3];
     }
-
-    receivedData->data = (buffer + wsType->headerSize);
-    receivedData->length = (size_t)wsType->N;
-  } else if (wsType->opCode == WebSocketHeaderType::PING) {
-    return -(InvalidWsFrameBody);
-  } else if (wsType->opCode == WebSocketHeaderType::CLOSE) {
-    StatusCode code;
-    code.frame[0] = *(buffer + 2);
-    code.frame[1] = *(buffer + 3);
-    int recode = ntohs(code.status);
-    if (receivedData->data == NULL) {
-      receivedData->type = wsType->opCode;
-      receivedData->closeCode = recode;
-    }
-    receivedData->data = (buffer + wsType->headerSize + 2);
-    receivedData->length = (size_t)wsType->N;
   }
 
-  if (wsType->opCode == WebSocketHeaderType::TEXT_FRAME) {
-    // pass
-  } else {
-    // LOG_DEBUG("Decoder Receive Data: %zu ", receivedData->length);
-  };
+  switch (wsType->opCode) {
+    case WebSocketHeaderType::TEXT_FRAME:
+    case WebSocketHeaderType::BINARY_FRAME:
+      if (_fragActive) {
+        LOG_WARN(
+            "WS(%p) new data frame(opCode:%d) arrives before fragmented "
+            "message(opCode:%d, %dbytes) finished, discard the unfinished one.",
+            this, wsType->opCode, _fragType, (int)_fragBuffer.size());
+        _fragActive = false;
+        _fragBuffer.clear();
+      }
+      if (!wsType->fin) {
+        /* 分片消息首帧, 缓存后等待后续CONTINUATION */
+        _fragActive = true;
+        _fragType = wsType->opCode;
+        _fragBuffer.assign(payload, payload + payloadLen);
+        receivedData->ignore = true;
+      } else {
+        receivedData->type = wsType->opCode;
+        receivedData->data = payload;
+        receivedData->length = payloadLen;
+      }
+      break;
+    case WebSocketHeaderType::CONTINUATION:
+      if (!_fragActive) {
+        LOG_WARN(
+            "WS(%p) receive CONTINUATION frame(%dbytes) without first "
+            "fragment, ignore it.",
+            this, (int)payloadLen);
+        receivedData->ignore = true;
+        break;
+      }
+      _fragBuffer.insert(_fragBuffer.end(), payload, payload + payloadLen);
+      if (!wsType->fin) {
+        receivedData->ignore = true;
+      } else {
+        /* 末尾分片, 上报重组后的完整消息, _fragBuffer在下次解析时释放 */
+        _fragActive = false;
+        receivedData->type = _fragType;
+        receivedData->data = _fragBuffer.empty() ? payload : &_fragBuffer[0];
+        receivedData->length = _fragBuffer.size();
+      }
+      break;
+    case WebSocketHeaderType::CLOSE:
+      /* 载荷: 2字节状态码(网络字节序) + 可选的reason */
+      receivedData->type = wsType->opCode;
+      if (payloadLen >= 2) {
+        receivedData->closeCode = (payload[0] << 8) | payload[1];
+        receivedData->data = payload + 2;
+        receivedData->length = payloadLen - 2;
+      } else {
+        /* 无状态码的CLOSE帧, closeCode按RFC6455取1005 */
+        receivedData->closeCode = 1005;
+        receivedData->data = NULL;
+        receivedData->length = 0;
+      }
+      break;
+    default:
+      /* PING/PONG及其他opCode, 给出准确长度交由上层处理 */
+      receivedData->type = wsType->opCode;
+      receivedData->data = payload;
+      receivedData->length = payloadLen;
+      break;
+  }
 
-  LOG_DEBUG("WS(%p) Decoder received data opCode:%d dataType:%d dataLength:%d.",
-            this, wsType->opCode, receivedData->type, receivedData->length);
+  LOG_DEBUG(
+      "WS(%p) Decoder received data opCode:%d fin:%d dataType:%d "
+      "dataLength:%d ignore:%d.",
+      this, wsType->opCode, wsType->fin, receivedData->type,
+      (int)receivedData->length, receivedData->ignore);
   return Success;
 }
 

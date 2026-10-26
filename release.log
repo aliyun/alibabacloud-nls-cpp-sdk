@@ -206,3 +206,7 @@
 
 -----2025/10/29 Version:3.2.2d-----
 1: 修复setEnableOnMessage设置true后，日志未记录ERROR信息的问题。
+
+-----2026/10/26 Version:3.2.3a-----
+1: 修复WS帧解析问题(数据不足、空载荷帧、PING/PONG帧导致的卡住或错位, CLOSE帧状态码和reason解析错误), 增加WS分片消息(CONTINUATION)支持, 并优化解析日志。
+2: 修复开启日志时调用stop()发生死锁, 导致无法结束识别的问题(V3.2.2a引入)
